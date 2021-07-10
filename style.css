@@ -1,0 +1,55 @@
+h3 {
+    color: rgb(0, 175, 0);
+    text-align: center;
+    font-family: monospace;
+  }
+  .aqua {
+    color: aqua;
+    font-family: monospace;
+    font-size: 16px;
+  }
+  .monospace {
+    font-family: monospace;
+    font-size: 20px;
+  }
+  .buttonDark {
+    color: rgb(255, 255, 255);
+    font-size: 22px;
+    padding: 12px;
+    text-shadow: 0px -1px 0px rgba(30, 30, 30, 0.8);
+    -webkit-border-radius: 90px;
+    -moz-border-radius: 90px;
+    border-radius: 90px;
+    background: rgb(0, 9, 60);
+    background: -moz-linear-gradient(90deg, rgb(0, 9, 60) 100%, rgb(250, 20, 20) 100%);
+    background: -webkit-linear-gradient(90deg, rgb(0, 9, 60) 100%, rgb(250, 20, 20) 100%);
+    background: -o-linear-gradient(90deg, rgb(0, 9, 60) 100%, rgb(250, 20, 20) 100%);
+    background: -ms-linear-gradient(90deg, rgb(0, 9, 60) 100%, rgb(250, 20, 20) 100%);
+    background: linear-gradient(0deg, rgb(0, 9, 60) 100%, rgb(250, 20, 20) 100%);
+    -webkit-box-shadow: 0px 2px 20px rgba(16, 18, 106, 1);
+    -moz-box-shadow:    0px 2px 20px rgba(16, 18, 106, 1);
+    box-shadow:         0px 2px 20px rgba(16, 18, 106, 1);
+  }
+  .buttonLight {
+    color: rgb(0, 0, 0);
+    font-size: 22px;
+    padding: 12px;
+    text-shadow: 0px -1px 0px rgba(30, 30, 30, 0.8);
+    -webkit-border-radius: 90px;
+    -moz-border-radius: 90px;
+    border-radius: 90px;
+    background: rgb(214, 255, 255);
+    background: -moz-linear-gradient(90deg, rgb(214, 255, 255) 100%, rgb(250, 20, 20) 100%);
+    background: -webkit-linear-gradient(90deg, rgb(214, 255, 255) 100%, rgb(250, 20, 20) 100%);
+    background: -o-linear-gradient(90deg, rgb(214, 255, 255) 100%, rgb(250, 20, 20) 100%);
+    background: -ms-linear-gradient(90deg, rgb(214, 255, 255) 100%, rgb(250, 20, 20) 100%);
+    background: linear-gradient(0deg, rgb(214, 255, 255) 100%, rgb(250, 20, 20) 100%);
+    -webkit-box-shadow: 0px 2px 20px rgba(214, 255, 255, 1);
+    -moz-box-shadow:    0px 2px 20px rgba(214, 255, 255, 1);
+    box-shadow:         0px 2px 20px rgba(214, 255, 255, 1);
+    
+  }
+  p {
+    font-family: verdana;
+    font-size: 20px;
+  }

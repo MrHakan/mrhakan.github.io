@@ -3,41 +3,18 @@
   <head>
     <title>MrHakan's Website</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      h3 {
-        color: rgb(0, 175, 0);
-        text-align: center;
-        font-family: monospace;
-      }
-      .darkblue {
-        color: darkblue;
-        font-family: monospace;
-        font-size: 16px;
-      }
-      .aqua {
-        color: aqua;
-        font-family: monospace;
-        font-size: 16px;
-      }
-      .monospace {
-        font-family: monospace;
-        font-size: 20px;
-      }
-      p {
-        font-family: verdana;
-        font-size: 20px;
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
-    <h3 style="font-size: 60px">hoşgeldin reis</h3>
+    <h3 style="font-size: 60px">merhaba</h3>
     <a class="monospace" href="https://www.ragettiidenozlusozler.tk"
       >güzeldir bu site girin</a
     >
     <p></p>
     <a class="monospace" href="https://discord.gg/7xr8N9Ujpg"
-      >The Real Emperium</a>
+      >The Real Emperium</a
+    >
     <p>
       <iframe
         src="https://discord.com/widget?id=741224185522683914&theme=dark"
@@ -49,25 +26,15 @@
       ></iframe>
     </p>
     <p>
-      <button class="darkblue" onclick="nightMode()">Night Mode</button>
-      <button class="aqua" onclick="lightMode()">Light Mode</button>
+      <button href="buttonDark" class="buttonDark" onclick="nightMode()">
+        Night Mode
+      </button>
+      <button href="buttonLight" class="buttonLight" onclick="lightMode()">
+        Light Mode
+      </button>
     </p>
-    <script>
+    <script type="text/javascript" src="index.js">
       document.body.style.backgroundColor = white;
-      function nightMode() {
-        if (document.body.style.backgroundColor != "black") {
-          document.body.style.backgroundColor = "black";
-        } else {
-          alert("You are already on night mode!");
-        }
-      }
-      function lightMode() {
-        if (document.body.style.backgroundColor != "white") {
-          document.body.style.backgroundColor = "white";
-        } else {
-          alert("You are already on light mode!");
-        }
-      }
     </script>
   </body>
 </html>
