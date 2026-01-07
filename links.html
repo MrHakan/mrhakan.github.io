@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>cool links - digital soul</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
+    <script src="index.js"></script>
+</head>
+
+<body class="font-body overflow-hidden h-screen w-full relative bg-space text-white">
+    <div class="crt-overlay absolute inset-0 z-50 pointer-events-none h-full w-full fixed"></div>
+    <div class="w-full bg-black border-b-2 border-[#0df259] h-10 flex items-center overflow-hidden relative z-40">
+        <div class="whitespace-nowrap animate-marquee flex items-center gap-4">
+            <span class="text-[#0df259] font-header text-lg tracking-widest">* cool links and portals *</span>
+            <span class="text-pink-500 font-header text-lg">::: surf the web :::</span>
+        </div>
+    </div>
+    <div class="container mx-auto h-[calc(100vh-40px)] flex justify-center items-center p-4 relative z-30">
+        <div class="w-full max-w-2xl bg-retro-gray p-1 bevel-out">
+            <div class="bg-blue-600 px-2 py-1 flex items-center justify-between mb-2">
+                <span class="text-white font-bold text-sm font-header">netscape navigator</span>
+                <div class="flex gap-1">
+                    <button onclick="window.location.href='index.html'"
+                        class="w-4 h-4 bg-retro-gray bevel-out flex items-center justify-center text-[10px] text-black font-bold">x</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 bevel-in h-[400px] overflow-y-auto relative text-black">
+                <h1 class="text-3xl font-bold font-header mb-6 text-center underline">cool links</h1>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border-2 border-dashed border-gray-400 p-2 hover:bg-gray-100 transition-colors">
+                        <a href="https://neocities.org" target="_blank" class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-purple-600">public</span>
+                            <div>
+                                <div class="font-bold text-blue-800 underline">neocities</div>
+                                <div class="text-xs text-gray-600">keep the web weird</div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="border-2 border-dashed border-gray-400 p-2 hover:bg-gray-100 transition-colors">
+                        <a href="https://archive.org" target="_blank" class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-orange-600">history</span>
+                            <div>
+                                <div class="font-bold text-blue-800 underline">internet archive</div>
+                                <div class="text-xs text-gray-600">wayback machine</div>
+                            </div>
+                        </a>
+                    </div>
+                    <div
+                        class="border-2 border-dashed border-gray-400 p-2 hover:bg-gray-100 transition-colors opacity-50">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined">add</span>
+                            <div>
+                                <div class="font-bold">add more links...</div>
+                                <div class="text-xs">edit links.html to add</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 text-center">
+                    <button onclick="window.location.href='index.html'"
+                        class="bg-[#0df259] text-black font-bold py-2 px-6 rounded-full border-2 border-black shadow-[4px_4px_0px_#000000] active:translate-y-[2px] hover:bg-[#00ff00]">
+                        < back to home </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

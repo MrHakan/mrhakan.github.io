@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>guestbook - sign it!</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
+    <script src="index.js" defer></script>
+</head>
+
+<body class="font-body overflow-auto min-h-screen w-full relative bg-space text-white p-4">
+    <div class="crt-overlay absolute inset-0 z-50 pointer-events-none h-full w-full fixed"></div>
+    <div class="star-overlay absolute inset-0 z-0 pointer-events-none h-full w-full fixed opacity-50"></div>
+
+    <div class="max-w-2xl mx-auto relative z-10">
+        <div class="bg-retro-gray p-1 bevel-out">
+            <div class="bg-gradient-to-r from-[#000080] to-[#1084d0] px-2 py-1 flex items-center justify-between mb-1">
+                <span class="text-white font-bold text-sm font-header">guestbook.exe - sign my guestbook!</span>
+                <div class="flex gap-1">
+                    <button onclick="window.location.href='index.html'"
+                        class="w-4 h-4 bg-retro-gray bevel-out flex items-center justify-center text-[10px] text-black font-bold">x</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 bevel-in">
+                <h1 class="text-2xl font-bold text-black font-header mb-4 border-b-2 border-black pb-2">
+                    sign my guestbook!
+                </h1>
+
+                <form id="guestbook-form" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
+                    <div class="mb-2">
+                        <label class="text-black font-header text-sm block mb-1">your name:</label>
+                        <input id="gb-name" type="text"
+                            class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" required />
+                    </div>
+                    <div class="mb-2">
+                        <label class="text-black font-header text-sm block mb-1">your website:</label>
+                        <input id="gb-website" type="text"
+                            class="w-full p-1 border border-gray-400 text-black font-pixel text-sm"
+                            placeholder="http://" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-black font-header text-sm block mb-1">your message:</label>
+                        <textarea id="gb-message" rows="3"
+                            class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" required></textarea>
+                    </div>
+                    <button type="submit"
+                        class="bg-retro-gray bevel-out px-4 py-1 text-black font-header font-bold active:translate-y-[1px]">
+                        sign it!
+                    </button>
+                </form>
+
+                <div id="guestbook-entries" class="space-y-4">
+                    <div class="text-center text-gray-500 font-pixel">loading entries...</div>
+                </div>
+
+                <div class="mt-6 text-center">
+                    <a href="index.html"
+                        class="bg-[#0df259] hover:bg-[#00ff00] text-black font-bold py-2 px-6 rounded-full border-2 border-black shadow-[4px_4px_0px_#000000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000000] transition-all inline-block">
+                        back to home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const staticGuestbookEntries = [];
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGuestbook();
+
+            document.getElementById('guestbook-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = document.getElementById('gb-name').value.trim();
+                const website = document.getElementById('gb-website').value.trim();
+                const message = document.getElementById('gb-message').value.trim();
+
+                if (!name || !message) {
+                    alert('please fill in name and message!');
+                    return;
+                }
+
+                const saved = localStorage.getItem('guestbook-entries');
+                const entries = saved ? JSON.parse(saved) : [...staticGuestbookEntries];
+
+                entries.unshift({
+                    name: name.substring(0, 30),
+                    website: website.substring(0, 100),
+                    message: message.substring(0, 500),
+                    time: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                });
+
+                if (entries.length > 50) entries.length = 50;
+
+                localStorage.setItem('guestbook-entries', JSON.stringify(entries));
+                document.getElementById('guestbook-form').reset();
+                loadGuestbook();
+                alert('thanks for signing! (saved locally)');
+            });
+        });
+
+        function loadGuestbook() {
+            const container = document.getElementById('guestbook-entries');
+            const saved = localStorage.getItem('guestbook-entries');
+            const entries = saved ? JSON.parse(saved) : staticGuestbookEntries;
+
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 font-pixel">be the first to sign!</div>';
+                return;
+            }
+
+            container.innerHTML = entries.map(entry => `
+                <div class="border-2 border-black p-3 bg-[#ffffcc]">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-purple-800 font-header">${escapeHtml(entry.name)}</span>
+                        <span class="text-[10px] text-gray-500 font-pixel">${entry.time}</span>
+                    </div>
+                    ${entry.website ? `<a href="${escapeHtml(entry.website)}" target="_blank" rel="noopener" class="text-blue-600 underline text-xs font-pixel block mb-2">${escapeHtml(entry.website)}</a>` : ''}
+                    <p class="text-black font-body">${escapeHtml(entry.message)}</p>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+
+</html>

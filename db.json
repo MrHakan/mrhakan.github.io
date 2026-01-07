@@ -1,0 +1,17 @@
+{
+  "visitors": 16,
+  "shoutbox": [
+    {
+      "name": "a",
+      "message": "a",
+      "time": "just now",
+      "color": "text-blue-600"
+    },
+    {
+      "name": "yo",
+      "message": "wassup",
+      "time": "just now",
+      "color": "text-blue-600"
+    }
+  ]
+}

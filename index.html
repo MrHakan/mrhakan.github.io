@@ -1,0 +1,363 @@
+﻿<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>mrhakan's shithole</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <script src="index.js" defer></script>
+</head>
+
+<body class="font-body overflow-hidden h-screen w-full relative bg-space text-white">
+  <div class="crt-overlay absolute inset-0 z-50 pointer-events-none h-full w-full fixed"></div>
+  <div class="star-overlay absolute inset-0 z-0 pointer-events-none h-full w-full fixed opacity-50"></div>
+  <div id="effects-container" class="absolute inset-0 z-1 pointer-events-none h-full w-full fixed overflow-hidden">
+  </div>
+  <div class="w-full bg-black border-b-2 border-[#0df259] h-10 flex items-center overflow-hidden relative z-40">
+    <div class="whitespace-nowrap animate-marquee flex items-center gap-4">
+      <span class="text-[#0df259] font-header text-lg tracking-widest">* welcome to mrhakan's shithole *</span>
+      <span class="text-pink-500 font-header text-lg">::: under construction :::</span>
+      <span class="text-[#0df259] font-header text-lg">dont forget to sign the guestbook!</span>
+      <span class="text-yellow-400 font-header text-lg">((( stereo sound )))</span>
+    </div>
+  </div>
+  <div
+    class="container mx-auto h-[calc(100vh-40px)] flex flex-col md:flex-row gap-4 p-4 overflow-y-auto md:overflow-hidden relative z-30">
+
+    <div class="w-full md:w-64 flex-shrink-0 flex flex-col gap-6">
+      <div class="bg-retro-gray p-1 bevel-out">
+        <div class="bg-retro-blue px-2 py-1 flex items-center justify-between mb-2">
+          <span class="text-white font-bold text-sm font-header">main_menu.exe</span>
+          <div class="flex gap-1">
+            <div
+              class="w-3 h-3 bg-retro-gray bevel-out flex items-center justify-center text-[8px] text-black font-bold">
+              x</div>
+          </div>
+        </div>
+        <div class="flex flex-col items-center gap-4 p-2 bg-retro-gray">
+          <div
+            class="w-24 h-24 rounded-full bg-black relative overflow-hidden border-2 border-retro-gray shadow-inner flex items-center justify-center dither-effect">
+            <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" alt="avatar"
+              class="w-20 h-20 object-contain">
+          </div>
+          <nav class="flex flex-col gap-3 w-full">
+            <button onclick="showSection('home')"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-yellow-600 group-hover:text-yellow-700">cottage</span>
+              <span class="text-black font-bold font-header">home</span>
+            </button>
+            <button onclick="showSection('github')"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-purple-600 group-hover:text-purple-700">folder_open</span>
+              <span class="text-black font-bold font-header">my work</span>
+            </button>
+            <button onclick="showSection('links')"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-blue-600 group-hover:text-blue-700">link</span>
+              <span class="text-black font-bold font-header">cool links</span>
+            </button>
+            <button onclick="copyDiscord()"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-blue-500 group-hover:text-blue-600">chat</span>
+              <span class="text-black font-bold font-header">discord me</span>
+            </button>
+            <button onclick="showSection('guestbook')"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-pink-600 group-hover:text-pink-700">edit_note</span>
+              <span class="text-black font-bold font-header">guestbook</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+      <div class="bg-black border-2 border-[#404040] p-2 flex flex-col items-center gap-1">
+        <span class="text-[#0df259] text-xs font-header uppercase">visitors:</span>
+        <div class="bg-black border border-[#222] px-2 py-1">
+          <span id="visitor-count"
+            class="text-red-600 font-pixel font-bold tracking-[4px] text-xl shadow-[0_0_10px_rgba(220,38,38,0.8)]">...</span>
+        </div>
+      </div>
+
+      <button id="sound-toggle" onclick="toggleSound()"
+        class="w-full bg-retro-gray bevel-out p-1 text-black font-pixel text-[10px] mt-2">
+        [sound: on]
+      </button>
+    </div>
+
+
+    <div id="main-window" class="flex-1 flex flex-col min-h-[400px]">
+      <div class="bg-retro-gray p-1 bevel-out h-full flex flex-col shadow-[10px_10px_0px_rgba(0,0,0,0.5)]">
+
+        <div id="draggable-header"
+          class="draggable-header bg-gradient-to-r from-[#000080] to-[#1084d0] px-2 py-1 flex items-center justify-between mb-1 select-none">
+          <div class="flex items-center gap-2">
+            <img alt="ie icon" class="w-4 h-4" src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+            <span class="text-white font-bold text-sm font-header tracking-wide" id="window-title">about me.html -
+              microsoft
+              internet explorer</span>
+          </div>
+          <div class="flex gap-[2px]">
+            <button
+              class="w-[18px] h-[18px] bg-retro-gray bevel-out flex items-center justify-center text-[10px] text-black font-bold leading-none pb-[2px]">□</button>
+            <button onclick="hideSection('all')"
+              class="w-[18px] h-[18px] bg-retro-gray bevel-out flex items-center justify-center text-[10px] text-black font-bold leading-none">✕</button>
+          </div>
+        </div>
+
+
+        <div
+          class="flex gap-4 px-2 py-1 text-black text-sm font-header border-b border-gray-400 shadow-sm mb-2 select-none">
+          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('file')"><span
+              class="underline decoration-1 underline-offset-2">f</span>ile</span>
+          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('edit')"><span
+              class="underline decoration-1 underline-offset-2">e</span>dit</span>
+          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('view')"><span
+              class="underline decoration-1 underline-offset-2">v</span>iew</span>
+          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('favorites')"><span
+              class="underline decoration-1 underline-offset-2">f</span>avorites</span>
+          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('tools')"><span
+              class="underline decoration-1 underline-offset-2">t</span>ools</span>
+          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('help')"><span
+              class="underline decoration-1 underline-offset-2">h</span>elp</span>
+        </div>
+
+
+        <div class="bg-white flex-1 p-6 bevel-in overflow-y-auto relative h-full">
+          <div class="absolute inset-0 opacity-5 pointer-events-none"
+            style="background-image: linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px); background-size: 20px 20px;">
+          </div>
+
+
+          <div id="section-home" class="relative z-10 max-w-2xl mx-auto">
+            <h1
+              class="text-4xl md:text-5xl font-bold text-black mb-6 font-header tracking-tight drop-shadow-[2px_2px_0px_#0df259]">
+              hello world!
+              <span class="inline-block animate-bounce"></span>
+            </h1>
+            <div class="flex flex-col md:flex-row gap-6 items-start">
+              <div class="flex flex-col gap-2 shrink-0">
+                <div class="p-1 border-2 border-dashed border-black bg-[#f0f0f0] rotate-[-2deg] shadow-lg relative">
+                  <img src="src/emoj/Cursed Pack 1-emojigg-pack/5065-hello.gif" alt=""
+                    class="absolute -top-4 -right-4 w-8 h-8 z-10">
+                  <div class="w-40 h-40 bg-gray-200 overflow-hidden flex items-center justify-center"
+                    data-alt="pixelated avatar of a person with spiky hair">
+                    <img alt="pixel avatar" class="w-36 h-36 object-contain" src="src/emoj/dusung.png" />
+                  </div>
+                  <img src="src/emoj/trollcinaye.gif" alt="" class="absolute -bottom-3 -left-3 w-8 h-8 z-10">
+                </div>
+                <span class="text-center font-header text-xs text-gray-500 mt-2">ts me</span>
+              </div>
+              <div class="flex-1 space-y-4">
+                <p class="text-black font-body text-lg leading-relaxed">
+                  <span class="bg-[#0df259] px-1 text-black font-bold">hello bradar welcome!</span>
+                  <img src="src/emoj/thehehe.png" alt="" class="inline w-5 h-5 mx-1">
+                  I'm just a simple man trying to make my way in the universe.
+                </p>
+                <p class="text-black font-body text-lg leading-relaxed">
+                  this site is my <span class="italic text-purple-600 font-bold">shithole</span>.
+                  <img src="src/emoj/Cursed Pack 1-emojigg-pack/3666-hot.png" alt="" class="inline w-5 h-5 mx-1">
+                  enjoy this or whatever bradar.
+                </p>
+
+                <div class="flex gap-4 mt-8 justify-center md:justify-start">
+                  <button onclick="showSection('github')"
+                    class="bg-[#0df259] hover:bg-[#00ff00] text-black font-bold py-2 px-6 rounded-full border-2 border-black shadow-[4px_4px_0px_#000000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000000] transition-all">
+                    enter
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <div id="section-github" class="hidden relative z-10 mx-auto">
+            <h2 class="text-3xl font-bold text-black mb-4 font-header border-b-2 border-black pb-2">my_projects.folder
+            </h2>
+            <div id="github-repos" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="text-center w-full py-8">loading projects...</div>
+            </div>
+          </div>
+
+
+          <div id="section-links" class="hidden relative z-10 mx-auto max-w-2xl">
+            <h2 class="text-3xl font-bold text-black mb-4 font-header border-b-2 border-black pb-2">cool_links.txt</h2>
+            <div class="space-y-3">
+              <a href="https://steamcommunity.com/id/prufski/" target="_blank"
+                class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
+                <span class="text-blue-600 underline font-header">steam</span>
+                <p class="text-xs text-black font-body mt-1">my steam profile - add me bradar</p>
+              </a>
+              <a href="https://discord.gg/nrdxEAw" target="_blank"
+                class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
+                <span class="text-blue-600 underline font-header">discord server</span>
+                <p class="text-xs text-black font-body mt-1">join the server</p>
+              </a>
+              <a href="https://www.youtube.com/@MrHakanYT" target="_blank"
+                class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
+                <span class="text-blue-600 underline font-header">youtube channel</span>
+                <p class="text-xs text-black font-body mt-1">subscribe to my channel</p>
+              </a>
+              <a href="https://github.com/MrHakan" target="_blank"
+                class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
+                <span class="text-blue-600 underline font-header">github</span>
+                <p class="text-xs text-black font-body mt-1">check out my code</p>
+              </a>
+            </div>
+            <div class="mt-6">
+              <button onclick="showSection('home')"
+                class="bg-retro-gray bevel-out px-4 py-2 text-black font-header font-bold">
+                < back</button>
+            </div>
+          </div>
+
+          <div id="section-guestbook" class="hidden relative z-10 mx-auto max-w-2xl">
+            <h2 class="text-3xl font-bold text-black mb-4 font-header border-b-2 border-black pb-2">guestbook.exe</h2>
+            <form id="guestbook-form" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
+              <div class="mb-2">
+                <label class="text-black font-header text-sm block mb-1">your name:</label>
+                <input id="gb-name" type="text" class="w-full p-1 border border-gray-400 text-black font-pixel text-sm"
+                  required />
+              </div>
+              <div class="mb-2">
+                <label class="text-black font-header text-sm block mb-1">your website:</label>
+                <input id="gb-website" type="text"
+                  class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" placeholder="http://" />
+              </div>
+              <div class="mb-3">
+                <label class="text-black font-header text-sm block mb-1">your message:</label>
+                <textarea id="gb-message" rows="3"
+                  class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" required></textarea>
+              </div>
+              <button type="submit"
+                class="bg-retro-gray bevel-out px-4 py-1 text-black font-header font-bold active:translate-y-[1px]">sign
+                it!</button>
+            </form>
+            <div id="guestbook-entries" class="space-y-4 max-h-[300px] overflow-y-auto">
+              <div class="text-center text-gray-500 font-pixel">no entries yet - be the first!</div>
+            </div>
+            <div class="mt-6">
+              <button onclick="showSection('home')"
+                class="bg-retro-gray bevel-out px-4 py-2 text-black font-header font-bold">
+                < back</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="w-full md:w-72 flex-shrink-0 flex flex-col gap-6">
+
+      <div id="winamp-window"
+        class="w-72 bg-[#29293d] p-1 rounded-t-lg border-t-2 border-l-2 border-[#505060] border-r-2 border-b-2 border-[#101018] shadow-lg relative overflow-hidden">
+        <div id="winamp-header"
+          class="draggable-header bg-[#191925] h-5 flex items-center justify-between px-2 border-b border-[#000]">
+          <span class="text-[#0df259] text-[10px] font-pixel tracking-tighter">winamp 2.91</span>
+          <div class="flex gap-1">
+            <div class="w-2 h-2 bg-[#0df259] rounded-full"></div>
+            <div class="w-2 h-2 border border-[#0df259] rounded-full"></div>
+          </div>
+        </div>
+
+        <div class="bg-black m-2 p-2 border-2 border-[#505060] rounded-sm relative">
+          <div class="flex gap-2 h-16">
+            <div class="flex flex-col justify-between w-16 shrink-0">
+              <div id="winamp-time" class="text-[#0df259] font-mono text-xl leading-none">00:00</div>
+              <div class="text-[#0df259] font-mono text-[9px] leading-none opacity-70">kbps: 128</div>
+              <div class="text-[#0df259] font-mono text-[9px] leading-none opacity-70">khz: 44</div>
+            </div>
+            <div class="flex-1 bg-[#111] flex items-end gap-[1px] px-1 pb-1 border border-[#333]">
+
+              <div class="w-1 bg-[#0df259] eq-bar h-1/2"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-2/3"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/3"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-3/4"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/4"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-full"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/2"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/3"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-2/3"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/4"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/2"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-3/4"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/3"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-full"></div>
+              <div class="w-1 bg-[#0df259] eq-bar h-1/2"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mx-2 mb-2 bg-[#111] border border-[#333] h-4 overflow-hidden relative">
+          <div id="winamp-text" class="absolute whitespace-nowrap text-[#0df259] text-[10px] font-pixel w-full left-0">
+            *** select a track to play ***
+          </div>
+        </div>
+
+        <div class="px-2 pb-2 flex flex-col gap-2">
+          <div class="flex gap-2">
+            <div class="h-2 w-full bg-[#111] border border-[#555] rounded-full relative overflow-hidden">
+              <div id="winamp-progress"
+                class="absolute top-0 left-0 h-full w-0 bg-gradient-to-r from-green-900 to-[#0df259] transition-all duration-1000">
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-between items-center pt-1">
+            <button onclick="prevTrack()"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">skip_previous</button>
+            <button onclick="playTrack()"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">play_arrow</button>
+            <button onclick="pauseTrack()"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">pause</button>
+            <button onclick="stopTrack()"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">stop</button>
+            <button onclick="nextTrack()"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">skip_next</button>
+
+            <audio id="audio-player"></audio>
+          </div>
+          <div id="winamp-playlist"
+            class="mx-2 mb-2 bg-[#000] border-2 border-[#505060] h-32 overflow-y-auto p-1 font-pixel text-[10px] text-[#0df259] scrollbar-thin">
+            <!-- Playlist items will be injected here -->
+          </div>
+        </div>
+      </div>
+
+
+      <div id="shoutbox-window" class="bg-retro-gray p-1 bevel-out flex-1 flex flex-col min-h-[300px]">
+        <div id="shoutbox-header" class="draggable-header bg-purple-800 px-2 py-1 mb-1 border-b border-black">
+          <h3 class="text-white font-bold font-header text-xs text-center">.: shoutbox :.</h3>
+        </div>
+        <div id="shoutbox-messages"
+          class="flex-1 bg-white bevel-in p-2 overflow-y-auto font-pixel text-xs space-y-3 mb-2"
+          style="background-image: linear-gradient(#f0f0ff 1px, transparent 1px); background-size: 100% 18px;">
+          <div class="text-center text-gray-500">loading shouts...</div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <input id="shout-name" class="w-full text-xs font-pixel p-1 border border-gray-400 bg-white text-black"
+            placeholder="name" type="text" />
+          <input id="shout-message" class="w-full text-xs font-pixel p-1 border border-gray-400 bg-white text-black"
+            placeholder="message" type="text" />
+          <button onclick="postShout()"
+            class="w-full bg-retro-gray bevel-out active:translate-y-[1px] py-1 text-xs font-bold text-black font-header">shout
+            it!</button>
+        </div>
+      </div>
+
+
+      <div class="flex flex-wrap justify-center gap-1">
+        <img src="https://cyber.dabamos.de/88x31/notepad.gif" alt="made with notepad" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/ie4.gif" alt="best viewed in ie" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/winxp2.gif" alt="windows xp" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/best800x600.gif" alt="best at 800x600" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/anybrowser3.gif" alt="any browser" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/geocities.gif" alt="geocities" class="h-[31px] w-[88px]">
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
