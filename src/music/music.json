@@ -1,0 +1,197 @@
+[
+    {
+        "id": 1,
+        "filename": "009 Sound System _With A Spirit_ OFFICIAL HD.mp3",
+        "title": "With A Spirit",
+        "artist": "009 Sound System",
+        "theme": {
+            "primaryColor": "#0000FF",
+            "accentColor": "#FFFFFF",
+            "fontStyle": "Arial, sans-serif"
+        },
+        "effect": "notepad_typing",
+        "bg": "Windows XP default desktop bliss wallpaper style, low resolution nostalgic vibe, early 2000s youtube tutorial aesthetic, notepad window overlay"
+    },
+    {
+        "id": 2,
+        "filename": "Bring Me to Life - Evanescence.mp3",
+        "title": "Bring Me to Life",
+        "artist": "Evanescence",
+        "theme": {
+            "primaryColor": "#0d0d1a",
+            "accentColor": "#4b6cb7",
+            "fontStyle": "Gothic"
+        },
+        "effect": "falling_rain_dark",
+        "bg": "Gothic city at night, dark blue tones, view from a high skyscraper window, falling rain, dramatic moody atmosphere, cinematic lighting"
+    },
+    {
+        "id": 3,
+        "filename": "Caramella Girls - Caramelldansen HD Version (Swedish Original).mp3",
+        "title": "Caramelldansen",
+        "artist": "Caramella Girls",
+        "theme": {
+            "primaryColor": "#FF69B4",
+            "accentColor": "#FFFF00",
+            "fontStyle": "Comic Sans MS"
+        },
+        "effect": "flashing_rainbow_strobe",
+        "bg": "Anime aesthetic, super flat style, vibrant pink and yellow colors, cute cartoon rabbits dancing, disco lights, upbeat kawaii vibe"
+    },
+    {
+        "id": 4,
+        "filename": "clubbed to death - Matrix soundtrack.mp3",
+        "title": "Clubbed to Death",
+        "artist": "Rob Dougan",
+        "theme": {
+            "primaryColor": "#000000",
+            "accentColor": "#00FF00",
+            "fontStyle": "Courier New"
+        },
+        "effect": "matrix_digital_rain",
+        "bg": "The Matrix digital rain code, falling green japanese characters on black background, cyberpunk aesthetic, glitchy digital distortion"
+    },
+    {
+        "id": 5,
+        "filename": "Daft Punk - Around the World (Official Audio).mp3",
+        "title": "Around the World",
+        "artist": "Daft Punk",
+        "theme": {
+            "primaryColor": "#111111",
+            "accentColor": "#00ffff",
+            "fontStyle": "Futura"
+        },
+        "effect": "rotating_vinyl_neon",
+        "bg": "French house aesthetic, neon lights circling around a globe, retro-futuristic disco, shiny metallic textures, daft punk helmet reflections"
+    },
+    {
+        "id": 6,
+        "filename": "Daft Punk-Harder Better Faster Stronger (Lyrics).mp3",
+        "title": "Harder Better Faster Stronger",
+        "artist": "Daft Punk",
+        "theme": {
+            "primaryColor": "#FF0000",
+            "accentColor": "#C0C0C0",
+            "fontStyle": "Tech Mono"
+        },
+        "effect": "robotic_glitch_text",
+        "bg": "Daft Punk anime Interstella 5555 style, retro sci-fi factory, robotic arms assembling parts, glowing LED text, vibrant flat colors"
+    },
+    {
+        "id": 7,
+        "filename": "Deadpool Game Ending Credits & Theme Song - Copy.mp3",
+        "title": "Deadpool Theme",
+        "artist": "Teamheadkick",
+        "theme": {
+            "primaryColor": "#800000",
+            "accentColor": "#000000",
+            "fontStyle": "Impact"
+        },
+        "effect": "comic_book_dots",
+        "bg": "Comic book style halftone pattern, red and black grunge texture, breaking the fourth wall chaotic doodles, bullets and chimichangas background"
+    },
+    {
+        "id": 8,
+        "filename": "Dj Dream - Hoppesangen.mp3",
+        "title": "Hoppesangen",
+        "artist": "DJ Dream",
+        "theme": {
+            "primaryColor": "#FF8C00",
+            "accentColor": "#0000FF",
+            "fontStyle": "Verdana"
+        },
+        "effect": "bouncing_smiley_faces",
+        "bg": "Early 2000s internet flash animation style, simple bouncing smiley faces, bright orange and blue abstract background, techno rave aesthetics"
+    },
+    {
+        "id": 9,
+        "filename": "Fatboy Slim - Right Here, Right Now [Official Video].mp3",
+        "title": "Right Here, Right Now",
+        "artist": "Fatboy Slim",
+        "theme": {
+            "primaryColor": "#2E8B57",
+            "accentColor": "#FFFFFF",
+            "fontStyle": "Helvetica"
+        },
+        "effect": "evolution_morphing",
+        "bg": "Evolutionary timeline concept, morphing creatures from sea to land, pixelated 90s digital art style, big beat album cover aesthetic"
+    },
+    {
+        "id": 10,
+        "filename": "Gigi D'Agostino - Bla Bla Bla ( Official Video ).mp3",
+        "title": "Bla Bla Bla",
+        "artist": "Gigi D'Agostino",
+        "theme": {
+            "primaryColor": "#FFFFFF",
+            "accentColor": "#000000",
+            "fontStyle": "Handwritten"
+        },
+        "effect": "walking_line_man",
+        "bg": "La Linea cartoon style, simple white line drawing on infinite background, little walking man animation character, minimalist surrealism"
+    },
+    {
+        "id": 11,
+        "filename": "In The End [Official HD Music Video] - Linkin Park.mp3",
+        "title": "In The End",
+        "artist": "Linkin Park",
+        "theme": {
+            "primaryColor": "#4a4a3a",
+            "accentColor": "#d4d4c7",
+            "fontStyle": "Cinematic"
+        },
+        "effect": "dust_particles_wind",
+        "bg": "Surreal desert landscape, a giant flying whale in the sky, barren wasteland, moody storm clouds, early 2000s CGI music video aesthetic"
+    },
+    {
+        "id": 12,
+        "filename": "It's Just a Burning Memory but It's Just a Happy Normal but Extended.mp3",
+        "title": "It's Just a Burning Memory",
+        "artist": "The Caretaker",
+        "theme": {
+            "primaryColor": "#FFFFFF",
+            "accentColor": "#000000",
+            "fontStyle": "Times New Roman"
+        },
+        "effect": "troll_bouncing",
+        "bg": "Old vintage ballroom, black and white grainy photo, face blurred out, heavy film grain, eerie liminal space, decaying memory aesthetic"
+    },
+    {
+        "id": 13,
+        "filename": "Let The Bodies Hit The Floor (Lyrics).mp3",
+        "title": "Bodies",
+        "artist": "Drowning Pool",
+        "theme": {
+            "primaryColor": "#330000",
+            "accentColor": "#FF4500",
+            "fontStyle": "Distorted Grunge"
+        },
+        "effect": "screen_shake_pulse",
+        "bg": "Nu metal grunge aesthetic, dark distorted textures, aggressive red lighting, mosh pit energy, scratched metal surface texture"
+    },
+    {
+        "id": 14,
+        "filename": "Linkin Park What I've Done lyrics.mp3",
+        "title": "What I've Done",
+        "artist": "Linkin Park",
+        "theme": {
+            "primaryColor": "#1C1C1C",
+            "accentColor": "#39FF14",
+            "fontStyle": "Sci-Fi Block"
+        },
+        "effect": "lens_flare_explosions",
+        "bg": "Michael Bay Transformers movie ending aesthetic, sunset over a highway, lens flares, metallic robot parts in background, cinematic epic vibe"
+    },
+    {
+        "id": 15,
+        "filename": "Trance - 009 Sound System Dreamscape (HD).mp3",
+        "title": "Dreamscape",
+        "artist": "009 Sound System",
+        "theme": {
+            "primaryColor": "#000080",
+            "accentColor": "#FFFF00",
+            "fontStyle": "Arial"
+        },
+        "effect": "unregistered_hypercam_watermark",
+        "bg": "Windows XP blue screen of death shade, old youtube interface 2009, 'Unregistered Hypercam 2' text overlay in top corner, nostalgic tech tutorial vibe"
+    }
+]

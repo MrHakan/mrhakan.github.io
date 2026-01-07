@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchShoutbox();
     fetchGitHubRepos();
 
-    // Fetch Music Data
+
     fetch('src/music/music.json')
         .then(response => response.json())
         .then(data => {
@@ -67,30 +67,29 @@ function applyTheme(track) {
     const body = document.body;
     const effectsContainer = document.getElementById('effects-container');
 
-    // Apply Colors & Fonts
+
     if (track.theme) {
         root.style.setProperty('--primary-color', track.theme.primaryColor);
         root.style.setProperty('--accent-color', track.theme.accentColor);
         if (track.theme.fontStyle) {
-            // Map simple font names to actual font families if needed, or use directly
-            // For now assuming the JSON has valid font-family strings or we fallback
+
             root.style.setProperty('--font-main', track.theme.fontStyle);
         }
 
-        // Update specific text elements
+
         document.querySelectorAll('.font-header').forEach(el => {
             el.style.color = track.theme.primaryColor;
             el.style.fontFamily = track.theme.fontStyle || 'var(--font-main)';
         });
     }
 
-    // Apply Background & Effects
+
     body.className = "font-body overflow-hidden h-screen w-full relative transition-colors duration-1000";
     body.style.backgroundColor = track.theme ? track.theme.primaryColor : '#1a0b2e';
 
-    // Reset effects
+
     effectsContainer.className = "absolute inset-0 z-1 pointer-events-none h-full w-full fixed overflow-hidden";
-    effectsContainer.innerHTML = ''; // Clear DOM based effects
+    effectsContainer.innerHTML = '';
     document.getElementById('main-window').classList.remove('effect-pulse');
     if (typeof trollInterval !== 'undefined') clearInterval(trollInterval);
 
@@ -119,7 +118,7 @@ function applyTheme(track) {
         }
     }
 
-    // Update Marquee Text
+
     const marqueeText = document.querySelector('.animate-marquee span');
     if (marqueeText) {
         marqueeText.textContent = `::: NOW PLAYING: ${track.artist} - ${track.title} ::: ${track.bg} :::`;
@@ -133,7 +132,7 @@ function startTrollBouncing() {
     const images = ['src/troll/troll1.gif', 'src/troll/troll2.gif', 'src/troll/troll3.gif'];
     const trolls = [];
 
-    // Create Trolls
+
     for (let i = 0; i < 10; i++) {
         const img = document.createElement('img');
         img.src = images[Math.floor(Math.random() * images.length)];
@@ -345,8 +344,6 @@ function loadTrack(index) {
     const audio = document.getElementById('audio-player');
     const text = document.getElementById('winamp-text');
 
-    // Handle new JSON structure vs legacy support if needed
-    // JSON uses "filename", legacy might have used "url"
     const src = tracks[index].filename ? `src/music/${tracks[index].filename}` : tracks[index].url;
 
     audio.src = src;
@@ -356,7 +353,7 @@ function loadTrack(index) {
     const artist = tracks[index].artist || "Unknown Artist";
     text.textContent = `*** ${artist} - ${title} *** (kbps: 128) ***`;
 
-    // Update active item in playlist
+
     const list = document.getElementById('winamp-playlist');
     Array.from(list.children).forEach((child, i) => {
         if (i === index) {
@@ -373,7 +370,7 @@ function updateVisualizer() {
     if (!analyser) return;
     analyser.getByteFrequencyData(dataArray);
 
-    // Standard EQ Bars
+
     const bars = document.querySelectorAll('.eq-bar');
     bars.forEach((bar, i) => {
         const value = dataArray[i * 2 % dataArray.length] || 0;
@@ -382,8 +379,7 @@ function updateVisualizer() {
         bar.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color');
     });
 
-    // Audio Reactivity for Background
-    // Calculate average bass (low frequencies)
+
     let bass = 0;
     for (let i = 0; i < 4; i++) bass += dataArray[i];
     bass = bass / 4;
@@ -391,9 +387,9 @@ function updateVisualizer() {
     const effectsContainer = document.getElementById('effects-container');
     const mainWindow = document.getElementById('main-window');
 
-    // Beat detection / Intensity modulation
+
     if (bass > 200) {
-        // High intensity
+
         document.body.style.filter = `brightness(1.2) contrast(1.1)`;
         if (mainWindow.classList.contains('effect-pulse')) {
             mainWindow.style.transform = `scale(${1 + (bass - 200) / 500})`;
@@ -403,10 +399,10 @@ function updateVisualizer() {
         mainWindow.style.transform = 'scale(1)';
     }
 
-    // Modulate effects opacity based on volume
+
     if (effectsContainer) {
         const volume = dataArray.reduce((src, a) => src + a, 0) / dataArray.length;
-        effectsContainer.style.opacity = 0.5 + (volume / 510); // 0.5 to 1.0
+        effectsContainer.style.opacity = 0.5 + (volume / 510);
     }
 
     requestAnimationFrame(updateVisualizer);
@@ -521,7 +517,7 @@ function copyDiscord() {
     navigator.clipboard.writeText('mrhakan');
     alert('discord username "mrhakan" has been copied to your clipboard!');
 }
-const COUNTER_API = 'https://api.counterapi.dev/v2/mrhakans-team-2418/first-counter-2418';
+const COUNTER_API = 'https://api.counterapi.dev/v2/mrhakans-team-2418/global-visitor-counter';
 const COUNTER_TOKEN = '__COUNTER_API_KEY__';
 async function fetchVisitorCount() {
     try {
@@ -534,7 +530,7 @@ async function fetchVisitorCount() {
         const data = await res.json();
         document.getElementById('visitor-count').textContent = data.value.toString().padStart(6, '0');
     } catch (e) {
-        let count = parseInt(localStorage.getItem('visitor-count') || '1337');
+        let count = parseInt(localStorage.getItem('visitor-count') || '0');
         count++;
         localStorage.setItem('visitor-count', count);
         document.getElementById('visitor-count').textContent = count.toString().padStart(6, '0');
