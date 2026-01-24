@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchVisitorCount();
     fetchShoutbox();
     fetchGitHubRepos();
+    fetchManualProjects();
 
 
     fetch('src/music/music.json')
@@ -511,6 +512,32 @@ async function fetchGitHubRepos() {
         `).join('');
     } catch (e) {
         container.innerHTML = '<div class="text-red-500 font-pixel">error loading properties...</div>';
+    }
+}
+async function fetchManualProjects() {
+    const container = document.getElementById('manual-projects');
+    if (!container) return;
+    try {
+        const res = await fetch('src/projects.json');
+        const projects = await res.json();
+        container.innerHTML = projects.map(project => `
+            <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0]">
+                <a href="${project.url}" target="_blank" class="block">
+                    ${project.image ? `<div class="mb-2 border border-black overflow-hidden h-32 relative group-hover:opacity-80 transition-opacity">
+                        <img src="${project.image}" alt="${project.name}" class="w-full h-full object-cover">
+                    </div>` : ''}
+                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${project.name}</div>
+                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${project.description || 'no description available.'}</div>
+                    <div class="flex gap-2 text-[10px] font-pixel text-gray-600">
+                        <span>★ ${project.type || 'Project'}</span>
+                        <span>⑂ ${project.language || 'N/A'}</span>
+                    </div>
+                </a>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error("Failed to load manual projects", e);
+        container.innerHTML = '<div class="text-red-500 font-pixel">error loading special projects...</div>';
     }
 }
 function copyDiscord() {

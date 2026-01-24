@@ -1,0 +1,10 @@
+[
+    {
+        "name": "Alagar Pack",
+        "description": "A modpack for the Alagar server.",
+        "url": "https://modrinth.com/modpack/alagar-pack",
+        "type": "Modpack",
+        "language": "Java",
+        "image": "src/alagar.jpg"
+    }
+]
