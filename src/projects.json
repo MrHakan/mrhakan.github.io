@@ -6,5 +6,19 @@
         "type": "Modpack",
         "language": "Java",
         "image": "src/alagar.jpg"
+    },
+    {
+        "name": "MC Mapping Tree",
+        "description": "A viewer for Minecraft mappings.",
+        "url": "https://mrhakan.github.io/mc-mapping-tree/",
+        "type": "Web App",
+        "language": "HTML/JS"
+    },
+    {
+        "name": "Blueprint Cmdblock Builder",
+        "description": "Visual node-based command graph editor inspired by Unreal Engine Blueprints.",
+        "url": "https://mrhakan.github.io/blueprint-cmdblock-builder/",
+        "type": "Web App",
+        "language": "HTML/JS"
     }
 ]
