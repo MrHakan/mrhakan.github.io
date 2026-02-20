@@ -184,18 +184,7 @@ function initAudioVisualizer() {
         }
     });
 }
-function updateVisualizer() {
-    if (!analyser) return;
-    analyser.getByteFrequencyData(dataArray);
-    const bars = document.querySelectorAll('.eq-bar');
-    bars.forEach((bar, i) => {
-        const value = dataArray[i % dataArray.length] || 0;
-        const height = Math.max(10, (value / 255) * 100);
-        bar.style.height = `${height}%`;
-        bar.style.animation = 'none';
-    });
-    requestAnimationFrame(updateVisualizer);
-}
+
 
 function initDraggable() {
     const windows = [
@@ -367,43 +356,45 @@ function loadTrack(index) {
     applyTheme(tracks[index]);
 }
 
+let cachedEqBars = null;
+let cachedEffectsContainer = null;
+let cachedMainWindow = null;
+
 function updateVisualizer() {
     if (!analyser) return;
     analyser.getByteFrequencyData(dataArray);
 
+    if (!cachedEqBars) cachedEqBars = document.querySelectorAll('.eq-bar');
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color') || '#0df259';
 
-    const bars = document.querySelectorAll('.eq-bar');
-    bars.forEach((bar, i) => {
+    cachedEqBars.forEach((bar, i) => {
         const value = dataArray[i * 2 % dataArray.length] || 0;
         const height = Math.max(10, (value / 255) * 100);
         bar.style.height = `${height}%`;
-        bar.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color');
+        bar.style.backgroundColor = primaryColor;
     });
-
 
     let bass = 0;
     for (let i = 0; i < 4; i++) bass += dataArray[i];
     bass = bass / 4;
 
-    const effectsContainer = document.getElementById('effects-container');
-    const mainWindow = document.getElementById('main-window');
-
+    if (!cachedEffectsContainer) cachedEffectsContainer = document.getElementById('effects-container');
+    if (!cachedMainWindow) cachedMainWindow = document.getElementById('main-window');
 
     if (bass > 200) {
 
         document.body.style.filter = `brightness(1.2) contrast(1.1)`;
-        if (mainWindow.classList.contains('effect-pulse')) {
-            mainWindow.style.transform = `scale(${1 + (bass - 200) / 500})`;
+        if (cachedMainWindow && cachedMainWindow.classList.contains('effect-pulse')) {
+            cachedMainWindow.style.transform = `scale(${1 + (bass - 200) / 500})`;
         }
     } else {
         document.body.style.filter = `brightness(1) contrast(1)`;
-        mainWindow.style.transform = 'scale(1)';
+        if (cachedMainWindow) cachedMainWindow.style.transform = 'scale(1)';
     }
 
-
-    if (effectsContainer) {
+    if (cachedEffectsContainer) {
         const volume = dataArray.reduce((src, a) => src + a, 0) / dataArray.length;
-        effectsContainer.style.opacity = 0.5 + (volume / 510);
+        cachedEffectsContainer.style.opacity = 0.5 + (volume / 510);
     }
 
     requestAnimationFrame(updateVisualizer);
@@ -587,7 +578,6 @@ function fetchShoutbox() {
                         class="text-gray-400 font-normal text-[10px]">${msg.time}</span></p>
                 <p class="text-black">${escapeHtml(msg.message)}</p>
             </div>
-        </div>
         </div>
     `).join('');
 }
