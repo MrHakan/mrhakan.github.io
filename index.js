@@ -44,12 +44,14 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => console.error('Error loading music:', err));
 
-    audio.addEventListener('timeupdate', updateProgressBar);
-    audio.addEventListener('ended', nextTrack);
-    audio.addEventListener('play', () => {
-        initAudioVisualizer();
-        applyTheme(tracks[currentTrackIndex]);
-    });
+    if (audio) {
+        audio.addEventListener('timeupdate', updateProgressBar);
+        audio.addEventListener('ended', nextTrack);
+        audio.addEventListener('play', () => {
+            initAudioVisualizer();
+            applyTheme(tracks[currentTrackIndex]);
+        });
+    }
 
     document.addEventListener('mousemove', createSparkle);
     initDraggable();
@@ -59,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSeekAndVolume();
     initTypedTagline();
     updateSoundUI();
+    initCounterEgg();
 
     if (window.innerWidth < 768) {
         const mainWindow = document.getElementById('main-window');
@@ -114,6 +117,11 @@ function initBootScreen() {
         boot.classList.add('booted');
         document.removeEventListener('keydown', enter);
         setTimeout(() => boot.remove(), 600);
+        const desktop = document.querySelector('.container');
+        if (desktop) {
+            desktop.classList.add('crt-on');
+            setTimeout(() => desktop.classList.remove('crt-on'), 700);
+        }
     };
     boot.addEventListener('click', enter);
     document.addEventListener('keydown', enter);
@@ -251,21 +259,18 @@ function applyTheme(track) {
     if (track.theme) {
         root.style.setProperty('--primary-color', track.theme.primaryColor);
         root.style.setProperty('--accent-color', track.theme.accentColor);
-        if (track.theme.fontStyle) {
-
-            root.style.setProperty('--font-main', track.theme.fontStyle);
-        }
-
-
-        document.querySelectorAll('.font-header').forEach(el => {
-            el.style.color = track.theme.primaryColor;
-            el.style.fontFamily = track.theme.fontStyle || 'var(--font-main)';
-        });
     }
 
+    // tint the space background towards the track color instead of painting the
+    // whole page with it (raw #0000FF backgrounds made everything unreadable)
+    body.classList.add('theme-transition');
+    if (track.theme && window.CSS && CSS.supports('background-color', 'color-mix(in srgb, red 50%, black)')) {
+        body.style.backgroundColor = `color-mix(in srgb, ${track.theme.primaryColor} 30%, #0d0517)`;
+    } else if (track.theme) {
+        body.style.backgroundColor = '#1a0b2e';
+    }
 
-    body.className = "font-body overflow-hidden h-screen w-full relative transition-colors duration-1000";
-    body.style.backgroundColor = track.theme ? track.theme.primaryColor : '#1a0b2e';
+    document.title = `▶ ${track.artist} - ${track.title} | mrhakan's shithole`;
 
 
     effectsContainer.className = "absolute inset-0 z-1 pointer-events-none h-full w-full fixed overflow-hidden";
@@ -431,11 +436,16 @@ function initDraggable() {
         let isDragging = false;
         let offsetX, offsetY;
         header.addEventListener('mousedown', (e) => {
+            // clicking title-bar buttons (✕, □) must not start a drag
+            if (e.target.closest('button')) return;
+            const rect = win.getBoundingClientRect();
             isDragging = true;
-            offsetX = e.clientX - win.getBoundingClientRect().left;
-            offsetY = e.clientY - win.getBoundingClientRect().top;
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
             win.classList.add('dragging');
             win.style.position = 'fixed';
+            win.style.left = `${rect.left}px`;
+            win.style.top = `${rect.top}px`;
             highestZ++;
             win.style.zIndex = highestZ;
         });
@@ -444,10 +454,12 @@ function initDraggable() {
             win.style.left = `${e.clientX - offsetX}px`;
             win.style.top = `${e.clientY - offsetY}px`;
         });
-        document.addEventListener('mouseup', () => {
+        const endDrag = () => {
             isDragging = false;
             win.classList.remove('dragging');
-        });
+        };
+        document.addEventListener('mouseup', endDrag);
+        window.addEventListener('blur', endDrag);
         win.addEventListener('mousedown', () => {
             highestZ++;
             win.style.zIndex = highestZ;
@@ -473,17 +485,128 @@ function triggerEasterEgg() {
     const egg = document.createElement('div');
     egg.style.cssText = 'position:fixed;inset:0;background:black;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;';
     egg.innerHTML = `
-        <img src="https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif" style="max-width:300px;">
-        <h1 style="color:#0df259;font-family:'Comic Sans MS';font-size:3rem;margin-top:20px;">YOU FOUND THE SECRET!</h1>
-        <p style="color:white;font-family:monospace;">press any key to return...</p>
+        <img src="src/troll/troll1.gif" style="max-width:200px;" alt="troll">
+        <h1 class="rainbow-text" style="font-family:'Comic Sans MS',cursive;font-size:3rem;margin-top:20px;">YOU FOUND THE SECRET!</h1>
+        <p style="color:white;font-family:monospace;">30 lives granted. caramelldansen initiated.</p>
+        <p style="color:#666;font-family:monospace;font-size:12px;margin-top:8px;">press any key to return...</p>
     `;
     document.body.appendChild(egg);
+    // konami reward: blast caramelldansen + troll invasion
+    if (tracks.length > 2) {
+        currentTrackIndex = 2;
+        loadTrack(2);
+        playTrack();
+    }
+    startTrollBouncing();
     const removeEgg = () => {
         egg.remove();
         document.removeEventListener('keydown', removeEgg);
     };
     setTimeout(() => document.addEventListener('keydown', removeEgg), 500);
 }
+
+// ===== more hidden stuff =====
+function triggerBSOD() {
+    if (document.getElementById('bsod-screen')) return;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    playSound('error');
+    const bsod = document.createElement('div');
+    bsod.id = 'bsod-screen';
+    bsod.innerHTML = `
+        <div class="bsod-inner">
+            <p class="bsod-title">&nbsp;mrhakan&nbsp;</p>
+            <p><br>A fatal exception 0E has occurred at 0028:C0011E36 in VXD VIBES(01) +
+            00010E36. The current application will be terminated.</p>
+            <p><br>*&nbsp; Press any key to terminate the current vibe.</p>
+            <p>*&nbsp; Press CTRL+ALT+DEL again to restart your shithole. You will
+            lose any unsaved swag in all applications.</p>
+            <p><br><br><span class="bsod-center">Press any key to continue _</span></p>
+        </div>
+    `;
+    document.body.appendChild(bsod);
+    const dismiss = () => {
+        bsod.remove();
+        document.removeEventListener('keydown', dismiss);
+        playSound('startup');
+    };
+    setTimeout(() => {
+        bsod.addEventListener('click', dismiss);
+        document.addEventListener('keydown', dismiss);
+    }, 300);
+}
+
+let partyMode = false;
+function togglePartyMode() {
+    partyMode = !partyMode;
+    document.body.classList.toggle('party-mode', partyMode);
+    if (partyMode) {
+        showToast('party.exe', 'PARTY MODE ACTIVATED!! type "party" again to chill');
+        playSound('notify');
+    } else {
+        showToast('party.exe', 'party over. back to work bradar');
+    }
+}
+
+// secret words: type them anywhere (outside inputs) — party / troll / bsod
+const secretWords = { 'party': togglePartyMode, 'troll': () => { startTrollBouncing(); showToast('troll.exe', 'problem?'); }, 'bsod': triggerBSOD };
+let typedBuffer = '';
+document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length !== 1) return;
+    typedBuffer = (typedBuffer + e.key.toLowerCase()).slice(-10);
+    for (const word of Object.keys(secretWords)) {
+        if (typedBuffer.endsWith(word)) {
+            typedBuffer = '';
+            secretWords[word]();
+            break;
+        }
+    }
+});
+
+// clicking the visitor counter 5 times = h4x0r mode
+let counterClicks = 0;
+function initCounterEgg() {
+    const counter = document.getElementById('visitor-count');
+    if (!counter) return;
+    counter.parentElement.style.cursor = 'pointer';
+    counter.parentElement.addEventListener('click', () => {
+        counterClicks++;
+        if (counterClicks < 5) return;
+        counterClicks = 0;
+        playSound('error');
+        const original = counter.textContent;
+        let spins = 0;
+        const spin = setInterval(() => {
+            counter.textContent = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
+            if (++spins > 20) {
+                clearInterval(spin);
+                counter.textContent = '999999';
+                showToast('h4x0r.exe', 'counter overclocked!! the feds are on their way');
+                setTimeout(() => { counter.textContent = original; }, 5000);
+            }
+        }, 50);
+    });
+}
+
+// console egg for the devtools crowd
+console.log(`%c
+  ███╗   ███╗██████╗ ██╗  ██╗ █████╗ ██╗  ██╗ █████╗ ███╗   ██╗
+  ████╗ ████║██╔══██╗██║  ██║██╔══██╗██║ ██╔╝██╔══██╗████╗  ██║
+  ██╔████╔██║██████╔╝███████║███████║█████╔╝ ███████║██╔██╗ ██║
+  ██║╚██╔╝██║██╔══██╗██╔══██║██╔══██║██╔═██╗ ██╔══██║██║╚██╗██║
+  ██║ ╚═╝ ██║██║  ██║██║  ██║██║  ██║██║  ██╗██║  ██║██║ ╚████║
+  ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+`, 'color:#0df259;font-family:monospace;');
+console.log('%cyo bradar, poking around? try window.hax() — or type "party", "troll" or "bsod" on the page. konami code works too.', 'color:#ff00ff;font-size:14px;');
+window.hax = function () {
+    const container = document.getElementById('effects-container');
+    if (!container) return 'no effects container, no hax';
+    startMatrixRain(container);
+    showToast('hax.exe', 'wake up, neo...');
+    setTimeout(stopMatrixRain, 10000);
+    return 'ACCESS GRANTED';
+};
 function createSparkle(e) {
     if (Math.random() > 0.5) return;
     const sparkle = document.createElement('div');
@@ -540,6 +663,7 @@ function prevTrack() {
 }
 function initPlaylist() {
     const list = document.getElementById('winamp-playlist');
+    if (!list) return;
     list.innerHTML = '';
 
     tracks.forEach((track, index) => {
@@ -721,6 +845,7 @@ function handleTab(type) {
 }
 async function fetchGitHubRepos() {
     const container = document.getElementById('github-repos');
+    if (!container) return;
     try {
         const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=30');
         const repos = await res.json();
@@ -782,6 +907,8 @@ function copyDiscord() {
 const COUNTER_API = 'https://api.counterapi.dev/v2/mrhakans-team-2418/global-visitor-counter';
 const COUNTER_TOKEN = '__COUNTER_API_KEY__';
 async function fetchVisitorCount() {
+    const counterEl = document.getElementById('visitor-count');
+    if (!counterEl) return;
     try {
         await fetch(`${COUNTER_API}/up`, {
             headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
@@ -790,14 +917,16 @@ async function fetchVisitorCount() {
             headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
         });
         const data = await res.json();
-        document.getElementById('visitor-count').textContent = data.value.toString().padStart(6, '0');
+        counterEl.textContent = data.value.toString().padStart(6, '0');
     } catch (e) {
         let count = parseInt(localStorage.getItem('visitor-count') || '0');
         count++;
         localStorage.setItem('visitor-count', count);
-        document.getElementById('visitor-count').textContent = count.toString().padStart(6, '0');
+        counterEl.textContent = count.toString().padStart(6, '0');
     }
 }
+const GH_REPO = 'MrHakan/mrhakan.github.io';
+const GH_BRANCH = 'main';
 const shoutboxAvatars = [
     'src/emoj/Cursed Pack 1-emojigg-pack/5771-hmmm.png',
     'src/emoj/Cursed Pack 1-emojigg-pack/2825-joe-haha-funny.png',
@@ -808,46 +937,143 @@ const shoutboxAvatars = [
     'src/emoj/thehehe.png',
     'src/emoj/heh.png'
 ];
-const staticShoutboxMessages = [];
-function fetchShoutbox() {
+function nameHash(s) {
+    let h = 0;
+    for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return h;
+}
+
+// guestbook + shoutbox entries live as json files in the repo (data/guestbook, data/shouts).
+// visitors add entries by opening a pull request from their own github account.
+async function fetchEntriesFromRepo(kind) {
+    const cacheKey = `repo-${kind}-cache`;
+    try {
+        const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/data/${kind}?ref=${GH_BRANCH}`);
+        const files = await res.json();
+        if (!Array.isArray(files)) throw new Error((files && files.message) || 'unexpected response');
+        const jsonFiles = files
+            .filter(f => f.name.endsWith('.json'))
+            .sort((a, b) => b.name.localeCompare(a.name))
+            .slice(0, 30);
+        const entries = await Promise.all(jsonFiles.map(f =>
+            fetch(f.download_url).then(r => r.json()).catch(() => null)
+        ));
+        const valid = entries.filter(e => e && e.name && e.message);
+        localStorage.setItem(cacheKey, JSON.stringify(valid));
+        return valid;
+    } catch (e) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+        throw e;
+    }
+}
+
+function submitViaPullRequest(kind, entry) {
+    const slug = entry.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'anon';
+    const filename = `data/${kind}/${Date.now()}-${slug}.json`;
+    const value = JSON.stringify(entry, null, 4) + '\n';
+    const url = `https://github.com/${GH_REPO}/new/${GH_BRANCH}?filename=${encodeURIComponent(filename)}&value=${encodeURIComponent(value)}`;
+    showRetroDialog({
+        title: kind === 'shouts' ? 'shout via github' : 'sign via github',
+        lines: [
+            'your entry gets added through a github pull request:',
+            '1. github opens with your entry pre-filled',
+            '2. click "propose changes" then "create pull request"',
+            '3. once mrhakan approves it, you are on the wall!',
+            'no github account? discord me instead bradar.'
+        ],
+        okLabel: 'open github',
+        cancelLabel: 'nevermind',
+        onOk: () => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(value).catch(() => { });
+            }
+            window.open(url, '_blank', 'noopener');
+            showToast('github.exe', 'entry copied to clipboard as backup. waiting for your PR!');
+        }
+    });
+}
+
+function showRetroDialog({ title, lines, okLabel, cancelLabel, onOk }) {
+    document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'retro-dialog-overlay';
+    const dialog = document.createElement('div');
+    dialog.className = 'retro-dialog bevel-out';
+    const titleBar = document.createElement('div');
+    titleBar.className = 'retro-dialog-title';
+    titleBar.textContent = title;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'retro-dialog-close bevel-out';
+    closeBtn.textContent = '\u2715';
+    closeBtn.onclick = () => overlay.remove();
+    titleBar.appendChild(closeBtn);
+    const body = document.createElement('div');
+    body.className = 'retro-dialog-body';
+    lines.forEach(line => {
+        const p = document.createElement('p');
+        p.textContent = line;
+        body.appendChild(p);
+    });
+    const buttons = document.createElement('div');
+    buttons.className = 'retro-dialog-buttons';
+    const ok = document.createElement('button');
+    ok.className = 'bevel-out retro-dialog-btn';
+    ok.textContent = okLabel || 'ok';
+    ok.onclick = () => { overlay.remove(); if (onOk) onOk(); };
+    buttons.appendChild(ok);
+    if (cancelLabel) {
+        const cancel = document.createElement('button');
+        cancel.className = 'bevel-out retro-dialog-btn';
+        cancel.textContent = cancelLabel;
+        cancel.onclick = () => overlay.remove();
+        buttons.appendChild(cancel);
+    }
+    dialog.appendChild(titleBar);
+    dialog.appendChild(body);
+    dialog.appendChild(buttons);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    playSound('notify');
+    ok.focus();
+}
+
+async function fetchShoutbox() {
     const container = document.getElementById('shoutbox-messages');
     if (!container) return;
-    const saved = localStorage.getItem('shoutbox-messages');
-    const messages = saved ? JSON.parse(saved) : staticShoutboxMessages;
-    container.innerHTML = messages.map((msg, i) => `
-        <div class="border-b border-dashed border-gray-300 pb-1 flex gap-2">
-            <img src="${shoutboxAvatars[msg.avatar !== undefined ? msg.avatar : i % shoutboxAvatars.length]}" alt="" class="w-6 h-6 rounded-full bg-black flex-shrink-0">
-            <div>
-                <p class="font-bold ${msg.color || 'text-black'}">${escapeHtml(msg.name)} <span
-                        class="text-gray-400 font-normal text-[10px]">${msg.time}</span></p>
-                <p class="text-black">${escapeHtml(msg.message)}</p>
+    container.innerHTML = '<div class="text-center text-gray-500">loading shouts...</div>';
+    try {
+        const messages = await fetchEntriesFromRepo('shouts');
+        if (!messages.length) {
+            container.innerHTML = '<div class="text-center text-gray-500">no shouts yet - be the first!</div>';
+            return;
+        }
+        container.innerHTML = messages.map(msg => `
+            <div class="border-b border-dashed border-gray-300 pb-1 flex gap-2">
+                <img src="${shoutboxAvatars[nameHash(msg.name) % shoutboxAvatars.length]}" alt="" class="w-6 h-6 rounded-full bg-black flex-shrink-0">
+                <div>
+                    <p class="font-bold text-blue-600">${escapeHtml(msg.name)} <span
+                            class="text-gray-400 font-normal text-[10px]">${escapeHtml(msg.date || '')}</span></p>
+                    <p class="text-black">${escapeHtml(msg.message)}</p>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="text-center text-gray-500">couldnt load shouts... (github api limit? try later)</div>';
+    }
 }
 function postShout() {
     const name = document.getElementById('shout-name')?.value?.trim();
     const message = document.getElementById('shout-message')?.value?.trim();
     if (!name || !message) {
-        alert("please fill in all fields!");
+        showToast('shoutbox.exe', 'please fill in name and message!');
         return;
     }
-    const saved = localStorage.getItem('shoutbox-messages');
-    const messages = saved ? JSON.parse(saved) : [...staticShoutboxMessages];
-    const randomAvatar = Math.floor(Math.random() * shoutboxAvatars.length);
-    messages.unshift({
+    submitViaPullRequest('shouts', {
         name: name.substring(0, 20),
         message: message.substring(0, 140),
-        time: "just now",
-        color: "text-blue-600",
-        avatar: randomAvatar
+        date: new Date().toISOString().slice(0, 10)
     });
-    if (messages.length > 20) messages.length = 20;
-    localStorage.setItem('shoutbox-messages', JSON.stringify(messages));
-    document.getElementById('shout-name').value = '';
-    document.getElementById('shout-message').value = '';
-    fetchShoutbox();
-    showToast('shoutbox.exe', 'message saved locally! (github pages = no server)');
 }
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -861,28 +1087,32 @@ function safeUrl(url) {
     } catch (e) { /* invalid url */ }
     return '';
 }
-function loadGuestbook() {
+async function loadGuestbook() {
     const container = document.getElementById('guestbook-entries');
     if (!container) return;
-    const saved = localStorage.getItem('guestbook-entries');
-    const entries = saved ? JSON.parse(saved) : [];
-    if (entries.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-500 font-pixel">no entries yet - be the first!</div>';
-        return;
-    }
-    container.innerHTML = entries.map(entry => {
-        const website = entry.website ? safeUrl(entry.website) : '';
-        return `
-        <div class="p-3 bg-[#f0f0f0] border border-gray-400">
-            <div class="flex justify-between items-start mb-1">
-                <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}</span>
-                <span class="text-[10px] text-gray-500">${escapeHtml(entry.time || '')}</span>
+    container.innerHTML = '<div class="text-center text-gray-500 font-pixel">loading entries...</div>';
+    try {
+        const entries = await fetchEntriesFromRepo('guestbook');
+        if (entries.length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-500 font-pixel">no entries yet - be the first!</div>';
+            return;
+        }
+        container.innerHTML = entries.map(entry => {
+            const website = entry.website ? safeUrl(entry.website) : '';
+            return `
+            <div class="p-3 bg-[#f0f0f0] border border-gray-400">
+                <div class="flex justify-between items-start mb-1">
+                    <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}</span>
+                    <span class="text-[10px] text-gray-500">${escapeHtml(entry.date || '')}</span>
+                </div>
+                ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener nofollow" class="text-xs text-purple-600 underline">${escapeHtml(website)}</a>` : ''}
+                <p class="text-black font-pixel text-sm mt-1">${escapeHtml(entry.message)}</p>
             </div>
-            ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener nofollow" class="text-xs text-purple-600 underline">${escapeHtml(website)}</a>` : ''}
-            <p class="text-black font-pixel text-sm mt-1">${escapeHtml(entry.message)}</p>
-        </div>
-    `;
-    }).join('');
+        `;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="text-center text-gray-500 font-pixel">couldnt load entries... (github api limit? try later)</div>';
+    }
 }
 document.addEventListener('DOMContentLoaded', () => {
     const gbForm = document.getElementById('guestbook-form');
@@ -893,22 +1123,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const website = document.getElementById('gb-website')?.value?.trim();
             const message = document.getElementById('gb-message')?.value?.trim();
             if (!name || !message) return;
-            const saved = localStorage.getItem('guestbook-entries');
-            const entries = saved ? JSON.parse(saved) : [];
-            entries.unshift({
+            const entry = {
                 name: name.substring(0, 30),
-                website: website.substring(0, 100),
                 message: message.substring(0, 500),
-                time: new Date().toLocaleDateString()
-            });
-            if (entries.length > 50) entries.length = 50;
-            localStorage.setItem('guestbook-entries', JSON.stringify(entries));
-            document.getElementById('gb-name').value = '';
-            document.getElementById('gb-website').value = '';
-            document.getElementById('gb-message').value = '';
-            loadGuestbook();
+                date: new Date().toISOString().slice(0, 10)
+            };
+            const cleanSite = website ? safeUrl(website.substring(0, 100)) : '';
+            if (cleanSite) entry.website = cleanSite;
             playSound('ding');
-            showToast('guestbook.exe', 'thanks for signing! you are a real one bradar');
+            submitViaPullRequest('guestbook', entry);
         });
     }
 });

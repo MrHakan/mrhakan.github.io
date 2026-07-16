@@ -7,9 +7,6 @@
     <title>guestbook - sign it!</title>
     <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
     <link href="style.css" rel="stylesheet" />
     <script src="index.js" defer></script>
 </head>
@@ -71,68 +68,9 @@
     </div>
 
     <script>
-        const staticGuestbookEntries = [];
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadGuestbook();
-
-            document.getElementById('guestbook-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const name = document.getElementById('gb-name').value.trim();
-                const website = document.getElementById('gb-website').value.trim();
-                const message = document.getElementById('gb-message').value.trim();
-
-                if (!name || !message) {
-                    alert('please fill in name and message!');
-                    return;
-                }
-
-                const saved = localStorage.getItem('guestbook-entries');
-                const entries = saved ? JSON.parse(saved) : [...staticGuestbookEntries];
-
-                entries.unshift({
-                    name: name.substring(0, 30),
-                    website: website.substring(0, 100),
-                    message: message.substring(0, 500),
-                    time: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                });
-
-                if (entries.length > 50) entries.length = 50;
-
-                localStorage.setItem('guestbook-entries', JSON.stringify(entries));
-                document.getElementById('guestbook-form').reset();
-                loadGuestbook();
-                alert('thanks for signing! (saved locally)');
-            });
-        });
-
-        function loadGuestbook() {
-            const container = document.getElementById('guestbook-entries');
-            const saved = localStorage.getItem('guestbook-entries');
-            const entries = saved ? JSON.parse(saved) : staticGuestbookEntries;
-
-            if (entries.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-500 font-pixel">be the first to sign!</div>';
-                return;
-            }
-
-            container.innerHTML = entries.map(entry => `
-                <div class="border-2 border-black p-3 bg-[#ffffcc]">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="font-bold text-purple-800 font-header">${escapeHtml(entry.name)}</span>
-                        <span class="text-[10px] text-gray-500 font-pixel">${entry.time}</span>
-                    </div>
-                    ${entry.website ? `<a href="${escapeHtml(entry.website)}" target="_blank" rel="noopener" class="text-blue-600 underline text-xs font-pixel block mb-2">${escapeHtml(entry.website)}</a>` : ''}
-                    <p class="text-black font-body">${escapeHtml(entry.message)}</p>
-                </div>
-            `).join('');
-        }
+        // entries + signing are handled by index.js (loaded above):
+        // the guestbook lives in the repo as json files and is signed via github pull request.
+        document.addEventListener('DOMContentLoaded', () => loadGuestbook());
     </script>
 </body>
 
