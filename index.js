@@ -1,3 +1,4 @@
+if (typeof tailwind === 'undefined') window.tailwind = {};
 tailwind.config = {
     darkMode: "class",
     theme: {
@@ -53,6 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('mousemove', createSparkle);
     initDraggable();
     initKonamiCode();
+    initBootScreen();
+    initTaskbarClock();
+    initSeekAndVolume();
+    initTypedTagline();
+    updateSoundUI();
 
     if (window.innerWidth < 768) {
         const mainWindow = document.getElementById('main-window');
@@ -60,6 +66,179 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('PDA mode detected - drag disabled');
     }
 });
+
+function initBootScreen() {
+    const boot = document.getElementById('boot-screen');
+    if (!boot) return;
+    if (sessionStorage.getItem('booted')) {
+        boot.remove();
+        return;
+    }
+    const log = document.getElementById('boot-log');
+    const prompt = document.getElementById('boot-prompt');
+    const lines = [
+        'mrhakan BIOS v4.20 (c) 1998 shithole industries',
+        'CPU: Intel Pentium II 400MHz .......... OK',
+        'Memory Test: 65536K ................... OK',
+        'Detecting IDE drives .................. OK',
+        'Loading shithole.sys .................. OK',
+        'Initializing winamp.exe ............... OK',
+        'Mounting guestbook.dat ................ OK',
+        'Starting mrhakan 98 ...'
+    ];
+    let ready = false;
+    lines.forEach((line, i) => {
+        setTimeout(() => {
+            const div = document.createElement('div');
+            const okIndex = line.lastIndexOf('OK');
+            if (okIndex !== -1) {
+                div.textContent = line.slice(0, okIndex);
+                const ok = document.createElement('span');
+                ok.className = 'ok';
+                ok.textContent = 'OK';
+                div.appendChild(ok);
+            } else {
+                div.textContent = line;
+            }
+            log.appendChild(div);
+            if (i === lines.length - 1) {
+                prompt.classList.add('visible');
+                ready = true;
+            }
+        }, 200 + i * 250);
+    });
+    const enter = () => {
+        if (!ready) return;
+        sessionStorage.setItem('booted', '1');
+        playSound('startup');
+        boot.classList.add('booted');
+        document.removeEventListener('keydown', enter);
+        setTimeout(() => boot.remove(), 600);
+    };
+    boot.addEventListener('click', enter);
+    document.addEventListener('keydown', enter);
+}
+
+function initTaskbarClock() {
+    const el = document.getElementById('taskbar-clock');
+    if (!el) return;
+    const tick = () => {
+        const d = new Date();
+        let h = d.getHours();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        el.textContent = `${h}:${d.getMinutes().toString().padStart(2, '0')} ${ampm}`;
+    };
+    tick();
+    setInterval(tick, 1000);
+}
+
+function initSeekAndVolume() {
+    const audio = document.getElementById('audio-player');
+    const seek = document.getElementById('winamp-seek');
+    const volume = document.getElementById('winamp-volume');
+    if (seek && audio) {
+        seek.addEventListener('click', (e) => {
+            if (!audio.duration) return;
+            const rect = seek.getBoundingClientRect();
+            const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+            audio.currentTime = ratio * audio.duration;
+            updateProgressBar();
+        });
+    }
+    if (volume && audio) {
+        audio.volume = volume.value / 100;
+        volume.addEventListener('input', () => {
+            audio.volume = volume.value / 100;
+        });
+    }
+}
+
+function initTypedTagline() {
+    if (typeof Typed === 'undefined' || !document.getElementById('typed-tagline')) return;
+    new Typed('#typed-tagline', {
+        strings: [
+            'just a simple man trying to make his way in the universe...',
+            'dont forget to sign the guestbook!',
+            'now playing: absolute bangers only',
+            'best viewed at 800x600 with ie4',
+            'try the konami code ;)',
+            'made with notepad and pure love'
+        ],
+        typeSpeed: 40,
+        backSpeed: 20,
+        backDelay: 2200,
+        loop: true,
+        smartBackspace: false
+    });
+}
+
+let startMenuOpen = false;
+function toggleStartMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('start-menu');
+    if (!menu) return;
+    startMenuOpen = !startMenuOpen;
+    menu.classList.toggle('hidden', !startMenuOpen);
+    if (startMenuOpen) playSound('click');
+}
+
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('start-menu');
+    if (menu && startMenuOpen && !menu.contains(e.target)) {
+        startMenuOpen = false;
+        menu.classList.add('hidden');
+    }
+});
+
+function startMenuAction(action) {
+    startMenuOpen = false;
+    const menu = document.getElementById('start-menu');
+    if (menu) menu.classList.add('hidden');
+    if (action === 'discord') {
+        copyDiscord();
+    } else if (action === 'shutdown') {
+        shutDown();
+    } else {
+        showSection(action);
+    }
+}
+
+function shutDown() {
+    playSound('navigate');
+    const screen = document.createElement('div');
+    screen.id = 'shutdown-screen';
+    const msg = document.createElement('span');
+    msg.innerHTML = "It's now safe to turn off<br>your computer.<br><br><small style='font-size:1rem;'>(click anywhere to turn it back on)</small>";
+    screen.appendChild(msg);
+    document.body.appendChild(screen);
+    const wake = () => {
+        screen.remove();
+        document.removeEventListener('keydown', wake);
+        playSound('startup');
+    };
+    setTimeout(() => {
+        screen.addEventListener('click', wake);
+        document.addEventListener('keydown', wake);
+    }, 300);
+}
+
+function showToast(title, message) {
+    document.querySelectorAll('.retro-toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = 'retro-toast';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'toast-title';
+    titleEl.textContent = `💬 ${title}`;
+    const msgEl = document.createElement('div');
+    msgEl.textContent = message;
+    toast.appendChild(titleEl);
+    toast.appendChild(msgEl);
+    document.body.appendChild(toast);
+    playSound('balloon');
+    setTimeout(() => toast.classList.add('fading'), 3000);
+    setTimeout(() => toast.remove(), 3500);
+}
 
 function applyTheme(track) {
     if (!track) return;
@@ -93,10 +272,12 @@ function applyTheme(track) {
     effectsContainer.innerHTML = '';
     document.getElementById('main-window').classList.remove('effect-pulse');
     if (typeof trollInterval !== 'undefined') clearInterval(trollInterval);
+    stopMatrixRain();
 
     if (track.effect) {
         if (track.effect === 'matrix_digital_rain') {
             effectsContainer.classList.add('effect-matrix');
+            startMatrixRain(effectsContainer);
         } else if (track.effect === 'falling_rain_dark') {
             effectsContainer.classList.add('effect-rain');
         } else if (track.effect === 'flashing_rainbow_strobe') {
@@ -124,6 +305,56 @@ function applyTheme(track) {
     if (marqueeText) {
         marqueeText.textContent = `::: NOW PLAYING: ${track.artist} - ${track.title} ::: ${track.bg} :::`;
         marqueeText.style.color = track.theme ? track.theme.accentColor : '#0df259';
+    }
+}
+
+let matrixRAF = null;
+let matrixResizeHandler = null;
+function startMatrixRain(container) {
+    stopMatrixRain();
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+    container.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const fontSize = 16;
+    let drops = [];
+    const resize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const cols = Math.floor(canvas.width / fontSize);
+        drops = Array.from({ length: cols }, () => Math.floor(Math.random() * canvas.height / fontSize));
+    };
+    resize();
+    matrixResizeHandler = resize;
+    window.addEventListener('resize', resize);
+    const chars = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ01010101';
+    let last = 0;
+    const draw = (t) => {
+        matrixRAF = requestAnimationFrame(draw);
+        if (t - last < 50) return;
+        last = t;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = `${fontSize}px monospace`;
+        for (let i = 0; i < drops.length; i++) {
+            const ch = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillStyle = Math.random() > 0.975 ? '#ccffcc' : '#00FF41';
+            ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    };
+    matrixRAF = requestAnimationFrame(draw);
+}
+
+function stopMatrixRain() {
+    if (matrixRAF) {
+        cancelAnimationFrame(matrixRAF);
+        matrixRAF = null;
+    }
+    if (matrixResizeHandler) {
+        window.removeEventListener('resize', matrixResizeHandler);
+        matrixResizeHandler = null;
     }
 }
 
@@ -171,18 +402,18 @@ function startTrollBouncing() {
 
 function initAudioVisualizer() {
     const audio = document.getElementById('audio-player');
-    audio.addEventListener('play', () => {
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 32;
-            const source = audioContext.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            updateVisualizer();
-        }
-    });
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 32;
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        updateVisualizer();
+    } else if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
 }
 
 
@@ -365,7 +596,7 @@ function updateVisualizer() {
     analyser.getByteFrequencyData(dataArray);
 
     if (!cachedEqBars) cachedEqBars = document.querySelectorAll('.eq-bar');
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color') || '#0df259';
+    const primaryColor = (getComputedStyle(document.documentElement).getPropertyValue('--primary-color') || '#0df259').trim();
 
     cachedEqBars.forEach((bar, i) => {
         const value = dataArray[i * 2 % dataArray.length] || 0;
@@ -430,9 +661,14 @@ function playSound(type) {
 function toggleSound() {
     soundEnabled = !soundEnabled;
     localStorage.setItem('sound-enabled', soundEnabled);
+    updateSoundUI();
+    if (soundEnabled) playSound('ding');
+}
+function updateSoundUI() {
     const btn = document.getElementById('sound-toggle');
     if (btn) btn.textContent = soundEnabled ? '[sound: on]' : '[sound: off]';
-    if (soundEnabled) playSound('ding');
+    const tray = document.getElementById('tray-sound');
+    if (tray) tray.textContent = soundEnabled ? 'volume_up' : 'volume_off';
 }
 function showSection(sectionId) {
     if (sectionId === 'home') {
@@ -486,23 +722,24 @@ function handleTab(type) {
 async function fetchGitHubRepos() {
     const container = document.getElementById('github-repos');
     try {
-        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated');
+        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=30');
         const repos = await res.json();
+        if (!Array.isArray(repos)) throw new Error(repos && repos.message ? repos.message : 'unexpected response');
         container.innerHTML = repos.map(repo => `
             <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0]">
-                <a href="${repo.html_url}" target="_blank" class="block">
-                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${repo.name}</div>
-                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${repo.description || 'no description available.'}</div>
+                <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener" class="block">
+                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${escapeHtml(repo.name)}</div>
+                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${escapeHtml(repo.description || 'no description available.')}</div>
                     <div class="flex gap-2 text-[10px] font-pixel text-gray-600">
                         <span>★ ${repo.stargazers_count}</span>
                         <span>⑂ ${repo.forks_count}</span>
-                        <span>${repo.language || 'txt'}</span>
+                        <span>${escapeHtml(repo.language || 'txt')}</span>
                     </div>
                 </a>
             </div>
         `).join('');
     } catch (e) {
-        container.innerHTML = '<div class="text-red-500 font-pixel">error loading properties...</div>';
+        container.innerHTML = '<div class="text-red-500 font-pixel">error loading git objects... (github api rate limit? try again later)</div>';
     }
 }
 async function fetchManualProjects() {
@@ -513,15 +750,15 @@ async function fetchManualProjects() {
         const projects = await res.json();
         container.innerHTML = projects.map(project => `
             <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0]">
-                <a href="${project.url}" target="_blank" class="block">
+                <a href="${escapeHtml(project.url)}" target="_blank" rel="noopener" class="block">
                     ${project.image ? `<div class="mb-2 border border-black overflow-hidden h-32 relative group-hover:opacity-80 transition-opacity">
-                        <img src="${project.image}" alt="${project.name}" class="w-full h-full object-cover">
+                        <img src="${escapeHtml(project.image)}" alt="${escapeHtml(project.name)}" class="w-full h-full object-cover" loading="lazy">
                     </div>` : ''}
-                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${project.name}</div>
-                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${project.description || 'no description available.'}</div>
+                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${escapeHtml(project.name)}</div>
+                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${escapeHtml(project.description || 'no description available.')}</div>
                     <div class="flex gap-2 text-[10px] font-pixel text-gray-600">
-                        <span>★ ${project.type || 'Project'}</span>
-                        <span>⑂ ${project.language || 'N/A'}</span>
+                        <span>★ ${escapeHtml(project.type || 'Project')}</span>
+                        <span>⑂ ${escapeHtml(project.language || 'N/A')}</span>
                     </div>
                 </a>
             </div>
@@ -532,8 +769,15 @@ async function fetchManualProjects() {
     }
 }
 function copyDiscord() {
-    navigator.clipboard.writeText('mrhakan');
-    alert('discord username "mrhakan" has been copied to your clipboard!');
+    const username = 'mrhakan';
+    const notify = () => showToast('discord.exe', `username "${username}" copied to clipboard! add me bradar`);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(username).then(notify).catch(() => {
+            showToast('discord.exe', `clipboard blocked - my username is "${username}"`);
+        });
+    } else {
+        showToast('discord.exe', `my discord username is "${username}"`);
+    }
 }
 const COUNTER_API = 'https://api.counterapi.dev/v2/mrhakans-team-2418/global-visitor-counter';
 const COUNTER_TOKEN = '__COUNTER_API_KEY__';
@@ -603,12 +847,19 @@ function postShout() {
     document.getElementById('shout-name').value = '';
     document.getElementById('shout-message').value = '';
     fetchShoutbox();
-    alert("message saved locally! (github pages = no server)");
+    showToast('shoutbox.exe', 'message saved locally! (github pages = no server)');
 }
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+function safeUrl(url) {
+    try {
+        const u = new URL(url, window.location.href);
+        if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+    } catch (e) { /* invalid url */ }
+    return '';
 }
 function loadGuestbook() {
     const container = document.getElementById('guestbook-entries');
@@ -619,16 +870,19 @@ function loadGuestbook() {
         container.innerHTML = '<div class="text-center text-gray-500 font-pixel">no entries yet - be the first!</div>';
         return;
     }
-    container.innerHTML = entries.map(entry => `
+    container.innerHTML = entries.map(entry => {
+        const website = entry.website ? safeUrl(entry.website) : '';
+        return `
         <div class="p-3 bg-[#f0f0f0] border border-gray-400">
             <div class="flex justify-between items-start mb-1">
                 <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}</span>
-                <span class="text-[10px] text-gray-500">${entry.time}</span>
+                <span class="text-[10px] text-gray-500">${escapeHtml(entry.time || '')}</span>
             </div>
-            ${entry.website ? `<a href="${escapeHtml(entry.website)}" target="_blank" class="text-xs text-purple-600 underline">${escapeHtml(entry.website)}</a>` : ''}
+            ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener nofollow" class="text-xs text-purple-600 underline">${escapeHtml(website)}</a>` : ''}
             <p class="text-black font-pixel text-sm mt-1">${escapeHtml(entry.message)}</p>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 document.addEventListener('DOMContentLoaded', () => {
     const gbForm = document.getElementById('guestbook-form');
@@ -654,7 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('gb-message').value = '';
             loadGuestbook();
             playSound('ding');
-            alert('thanks for signing!');
+            showToast('guestbook.exe', 'thanks for signing! you are a real one bradar');
         });
     }
 });
