@@ -1,3 +1,31 @@
+/* self-hosted material symbols (subset with only the icons this site uses) —
+   no more google fonts dependency, no more raw "volume_up" text when the CDN is slow */
+@font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 100 700;
+    font-display: block;
+    src: url('src/fonts/material-symbols-subset.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
 body {
     cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><polygon points="0,0 0,12 3,9 6,14 8,13 5,8 9,8" fill="white" stroke="black"/></svg>'), auto;
 }
@@ -555,6 +583,172 @@ body {
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+/* ===== win98 dialog (used for the github PR flow) ===== */
+.retro-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.retro-dialog {
+    background: #c0c0c0;
+    width: 100%;
+    max-width: 380px;
+    padding: 2px;
+    box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.5);
+}
+
+.retro-dialog-title {
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 3px 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.retro-dialog-close {
+    width: 18px;
+    height: 18px;
+    background: #c0c0c0;
+    color: #000;
+    font-size: 10px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.retro-dialog-body {
+    padding: 12px 14px;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.retro-dialog-body p {
+    margin-bottom: 6px;
+}
+
+.retro-dialog-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 14px 14px;
+}
+
+.retro-dialog-btn {
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 4px 16px;
+    min-width: 90px;
+}
+
+.retro-dialog-btn:active {
+    transform: translateY(1px);
+}
+
+/* ===== bsod easter egg ===== */
+#bsod-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #0000aa;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 24px;
+}
+
+.bsod-inner {
+    max-width: 640px;
+    line-height: 1.5;
+}
+
+.bsod-title {
+    background: #aaaaaa;
+    color: #0000aa;
+    display: inline-block;
+    padding: 0 8px;
+    font-weight: bold;
+}
+
+.bsod-center {
+    display: block;
+    text-align: center;
+}
+
+/* ===== party mode ===== */
+@keyframes party-hue {
+    to {
+        filter: hue-rotate(360deg);
+    }
+}
+
+.party-mode {
+    animation: party-hue 1.2s linear infinite;
+}
+
+/* ===== rainbow text (konami egg) ===== */
+@keyframes rainbow-cycle {
+    0% { color: #ff0000; }
+    20% { color: #ffff00; }
+    40% { color: #00ff00; }
+    60% { color: #00ffff; }
+    80% { color: #ff00ff; }
+    100% { color: #ff0000; }
+}
+
+.rainbow-text {
+    animation: rainbow-cycle 1s linear infinite;
+}
+
+/* ===== crt power-on flicker (after boot) ===== */
+@keyframes crt-power-on {
+    0% {
+        transform: scaleY(0.005) scaleX(0.6);
+        opacity: 0.2;
+        filter: brightness(6);
+    }
+
+    45% {
+        transform: scaleY(0.005) scaleX(1);
+        opacity: 1;
+        filter: brightness(6);
+    }
+
+    65% {
+        transform: scaleY(1.1) scaleX(1);
+        filter: brightness(2);
+    }
+
+    100% {
+        transform: scaleY(1) scaleX(1);
+        filter: brightness(1);
+    }
+}
+
+.crt-on {
+    animation: crt-power-on 0.6s ease-out;
+    transform-origin: center center;
 }
 
 /* ===== shutdown screen ===== */
