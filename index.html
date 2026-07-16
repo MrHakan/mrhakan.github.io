@@ -5,15 +5,31 @@
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1.0" name="viewport" />
   <title>mrhakan's shithole</title>
+  <meta name="description" content="mrhakan's retro corner of the web — projects, music, a guestbook and pure y2k vibes. sign the guestbook bradar!" />
+  <meta name="theme-color" content="#1a0b2e" />
+  <meta property="og:title" content="mrhakan's shithole" />
+  <meta property="og:description" content="a retro y2k personal site — winamp, guestbook, trolls and all. best viewed at 800x600." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mrhakan.github.io/" />
+  <meta property="og:image" content="https://mrhakan.github.io/src/emoj/dusung.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js" defer></script>
   <script src="index.js" defer></script>
 </head>
 
 <body class="font-body overflow-hidden h-screen w-full relative bg-space text-white">
+  <div id="boot-screen">
+    <div id="boot-log"></div>
+    <div id="boot-prompt">PRESS ANY KEY OR CLICK TO CONTINUE _</div>
+  </div>
   <div class="crt-overlay absolute inset-0 z-50 pointer-events-none h-full w-full fixed"></div>
   <div class="star-overlay absolute inset-0 z-0 pointer-events-none h-full w-full fixed opacity-50"></div>
   <div id="effects-container" class="absolute inset-0 z-1 pointer-events-none h-full w-full fixed overflow-hidden">
@@ -27,7 +43,7 @@
     </div>
   </div>
   <div
-    class="container mx-auto h-[calc(100vh-40px)] flex flex-col md:flex-row gap-4 p-4 overflow-y-auto md:overflow-hidden relative z-30">
+    class="container mx-auto h-[calc(100vh-80px)] flex flex-col md:flex-row gap-4 p-4 overflow-y-auto md:overflow-hidden relative z-30">
 
     <div class="w-full md:w-64 flex-shrink-0 flex flex-col gap-6">
       <div class="bg-retro-gray p-1 bevel-out">
@@ -161,6 +177,9 @@
                   this site is my <span class="italic text-purple-600 font-bold">shithole</span>.
                   <img src="src/emoj/Cursed Pack 1-emojigg-pack/3666-hot.png" alt="" class="inline w-5 h-5 mx-1">
                   enjoy this or whatever bradar.
+                </p>
+                <p class="font-pixel text-sm min-h-[1.5rem] bg-black text-[#0df259] px-2 py-1 border border-gray-500">
+                  <span class="font-bold">C:\&gt; </span><span id="typed-tagline"></span>
                 </p>
 
                 <div class="flex gap-4 mt-8 justify-center md:justify-start">
@@ -306,11 +325,17 @@
 
         <div class="px-2 pb-2 flex flex-col gap-2">
           <div class="flex gap-2">
-            <div class="h-2 w-full bg-[#111] border border-[#555] rounded-full relative overflow-hidden">
+            <div id="winamp-seek" title="seek"
+              class="h-2 w-full bg-[#111] border border-[#555] rounded-full relative overflow-hidden cursor-pointer">
               <div id="winamp-progress"
-                class="absolute top-0 left-0 h-full w-0 bg-gradient-to-r from-green-900 to-[#0df259] transition-all duration-1000">
+                class="absolute top-0 left-0 h-full w-0 bg-gradient-to-r from-green-900 to-[#0df259] transition-all duration-300 pointer-events-none">
               </div>
             </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[#0df259] text-sm leading-none">volume_up</span>
+            <input id="winamp-volume" type="range" min="0" max="100" value="80" title="volume"
+              class="winamp-volume flex-1" />
           </div>
           <div class="flex justify-between items-center pt-1">
             <button onclick="prevTrack()"
@@ -363,6 +388,62 @@
         <img src="https://cyber.dabamos.de/88x31/anybrowser3.gif" alt="any browser" class="h-[31px] w-[88px]">
         <img src="https://cyber.dabamos.de/88x31/geocities.gif" alt="geocities" class="h-[31px] w-[88px]">
       </div>
+    </div>
+  </div>
+
+  <div id="start-menu" class="hidden fixed bottom-10 left-1 w-60 bg-retro-gray bevel-out z-[60] shadow-[4px_4px_0px_rgba(0,0,0,0.5)]">
+    <div class="flex">
+      <div class="w-8 bg-gradient-to-b from-[#000080] to-[#1084d0] flex items-end justify-center py-2">
+        <span class="text-white font-bold font-header text-sm whitespace-nowrap"
+          style="writing-mode: vertical-rl; transform: rotate(180deg);">mrhakan&nbsp;98</span>
+      </div>
+      <div class="flex-1 py-1 flex flex-col">
+        <button onclick="startMenuAction('home')" class="start-item">
+          <span class="material-symbols-outlined text-yellow-600">cottage</span>about me
+        </button>
+        <button onclick="startMenuAction('github')" class="start-item">
+          <span class="material-symbols-outlined text-purple-600">folder_open</span>my work
+        </button>
+        <button onclick="startMenuAction('links')" class="start-item">
+          <span class="material-symbols-outlined text-blue-600">link</span>cool links
+        </button>
+        <button onclick="startMenuAction('guestbook')" class="start-item">
+          <span class="material-symbols-outlined text-pink-600">edit_note</span>guestbook
+        </button>
+        <button onclick="startMenuAction('discord')" class="start-item">
+          <span class="material-symbols-outlined text-blue-500">chat</span>discord me
+        </button>
+        <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
+        <button onclick="startMenuAction('shutdown')" class="start-item">
+          <span class="material-symbols-outlined text-red-600">power_settings_new</span>shut down...
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="taskbar"
+    class="fixed bottom-0 left-0 w-full h-10 bg-retro-gray bevel-out flex items-center px-1 gap-1 z-[55] select-none">
+    <button id="start-button" onclick="toggleStartMenu(event)"
+      class="bevel-out bg-retro-gray h-8 px-2 flex items-center gap-1 font-header font-bold text-black text-sm active:translate-y-[1px]">
+      <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-5 h-5" alt="">start
+    </button>
+    <div class="w-0 h-7 border-l border-[#808080] border-r border-r-white mx-1"></div>
+    <button title="home" onclick="showSection('home')" class="taskbar-btn">
+      <span class="material-symbols-outlined text-yellow-600 text-lg leading-none">cottage</span>
+    </button>
+    <button title="my work" onclick="showSection('github')" class="taskbar-btn">
+      <span class="material-symbols-outlined text-purple-600 text-lg leading-none">folder_open</span>
+    </button>
+    <button title="cool links" onclick="showSection('links')" class="taskbar-btn">
+      <span class="material-symbols-outlined text-blue-600 text-lg leading-none">link</span>
+    </button>
+    <button title="guestbook" onclick="showSection('guestbook')" class="taskbar-btn">
+      <span class="material-symbols-outlined text-pink-600 text-lg leading-none">edit_note</span>
+    </button>
+    <div class="ml-auto bevel-in bg-retro-gray h-8 px-2 flex items-center gap-2">
+      <button onclick="toggleSound()" id="tray-sound" title="toggle sound"
+        class="material-symbols-outlined text-black text-base leading-none cursor-pointer">volume_up</button>
+      <span id="taskbar-clock" class="font-header text-black text-xs tabular-nums">--:--</span>
     </div>
   </div>
 </body>

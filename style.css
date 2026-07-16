@@ -170,33 +170,27 @@ body {
     }
 }
 
-html {
-    min-width: 1024px;
-    overflow-x: auto;
-}
-
-body {
-    min-width: 1024px;
-}
-
-@media screen and (max-width: 1280px) {
-    .container {
-        transform-origin: top left;
-        zoom: 0.9;
+/* proper responsive layout: let the page scroll on small screens instead of zoom-scaling */
+@media screen and (max-width: 767px) {
+    html {
+        height: auto;
     }
-}
 
-@media screen and (max-width: 1024px) {
-    .container {
-        transform-origin: top left;
-        zoom: 0.8;
+    body {
+        overflow: auto !important;
+        height: auto !important;
+        min-height: 100vh;
     }
-}
 
-@media screen and (max-width: 900px) {
     .container {
-        transform-origin: top left;
-        zoom: 0.7;
+        height: auto !important;
+        overflow: visible !important;
+        padding-bottom: 56px !important;
+        /* keep content clear of the fixed taskbar */
+    }
+
+    #winamp-window {
+        width: 100% !important;
     }
 }
 
@@ -391,4 +385,194 @@ body {
 /* Helper Class used by JS */
 .theme-transition {
     transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* ===== boot screen ===== */
+#boot-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #000;
+    color: #c0c0c0;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: opacity 0.5s ease;
+}
+
+#boot-screen.booted {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#boot-log {
+    white-space: pre-wrap;
+}
+
+#boot-log .ok {
+    color: #0df259;
+}
+
+#boot-prompt {
+    text-align: center;
+    color: #0df259;
+    font-size: 18px;
+    letter-spacing: 2px;
+    opacity: 0;
+    animation: blink-prompt 1s steps(2, start) infinite;
+}
+
+#boot-prompt.visible {
+    opacity: 1;
+}
+
+@keyframes blink-prompt {
+    50% {
+        opacity: 0.2;
+    }
+}
+
+/* ===== taskbar & start menu ===== */
+.taskbar-btn {
+    height: 32px;
+    width: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #c0c0c0;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+}
+
+.taskbar-btn:active {
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: translateY(1px);
+}
+
+.start-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    text-align: left;
+    color: #000;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.start-item:hover {
+    background: #000080;
+    color: #fff;
+}
+
+.start-item:hover .material-symbols-outlined {
+    color: #fff !important;
+}
+
+/* ===== winamp volume slider ===== */
+.winamp-volume {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: #111;
+    border: 1px solid #555;
+    border-radius: 2px;
+    outline: none;
+}
+
+.winamp-volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 14px;
+    background: #c0c0c0;
+    border-top: 1px solid #fff;
+    border-left: 1px solid #fff;
+    border-right: 1px solid #404040;
+    border-bottom: 1px solid #404040;
+    cursor: pointer;
+}
+
+.winamp-volume::-moz-range-thumb {
+    width: 10px;
+    height: 14px;
+    background: #c0c0c0;
+    border: 1px solid #404040;
+    border-radius: 0;
+    cursor: pointer;
+}
+
+/* ===== retro toast (win98 balloon) ===== */
+.retro-toast {
+    position: fixed;
+    right: 8px;
+    bottom: 48px;
+    z-index: 90;
+    max-width: 260px;
+    background: #ffffe1;
+    color: #000;
+    border: 1px solid #000;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    animation: toast-in 0.2s ease-out;
+}
+
+.retro-toast .toast-title {
+    font-weight: bold;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.retro-toast.fading {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+@keyframes toast-in {
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ===== shutdown screen ===== */
+#shutdown-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+#shutdown-screen span {
+    color: #ffa500;
+    font-family: 'Courier New', monospace;
+    font-size: 2rem;
+    text-align: center;
+    text-shadow: 0 0 8px rgba(255, 165, 0, 0.6);
 }
