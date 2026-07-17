@@ -166,22 +166,32 @@ function initSeekAndVolume() {
 }
 
 function initTypedTagline() {
-    if (typeof Typed === 'undefined' || !document.getElementById('typed-tagline')) return;
-    new Typed('#typed-tagline', {
-        strings: [
-            'just a simple man trying to make his way in the universe...',
-            'dont forget to sign the guestbook!',
-            'now playing: absolute bangers only',
-            'best viewed at 800x600 with ie4',
-            'try the konami code ;)',
-            'made with notepad and pure love'
-        ],
-        typeSpeed: 40,
-        backSpeed: 20,
-        backDelay: 2200,
-        loop: true,
-        smartBackspace: false
-    });
+    const el = document.getElementById('typed-tagline');
+    if (!el) return;
+    const strings = [
+        'just a simple man trying to make his way in the universe...',
+        'dont forget to sign the guestbook!',
+        'now playing: absolute bangers only',
+        'best viewed at 800x600 with ie4',
+        'try the konami code ;)',
+        'made with notepad and pure love'
+    ];
+    if (typeof Typed !== 'undefined') {
+        new Typed('#typed-tagline', {
+            strings, typeSpeed: 40, backSpeed: 20, backDelay: 2200, loop: true, smartBackspace: false
+        });
+        return;
+    }
+    // fallback typewriter (runs if the typed.js file fails to load for any reason)
+    let si = 0, ci = 0, deleting = false;
+    (function tick() {
+        const s = strings[si];
+        el.textContent = deleting ? s.slice(0, ci--) : s.slice(0, ci++);
+        let delay = deleting ? 20 : 40;
+        if (!deleting && ci > s.length) { deleting = true; delay = 2200; }
+        else if (deleting && ci < 0) { deleting = false; ci = 0; si = (si + 1) % strings.length; delay = 300; }
+        setTimeout(tick, delay);
+    })();
 }
 
 let startMenuOpen = false;
