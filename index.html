@@ -93,6 +93,20 @@
         </div>
       </div>
 
+      <div id="user-stats" class="hidden bg-retro-gray p-1 bevel-out">
+        <div class="bg-retro-blue px-2 py-1 mb-1">
+          <span class="text-white font-bold text-xs font-header">user.dat</span>
+        </div>
+        <div class="flex items-center gap-2 p-2">
+          <img id="gh-avatar" src="" alt="github avatar" class="w-12 h-12 border-2 border-black bg-white">
+          <div class="font-pixel text-[10px] text-black leading-relaxed">
+            <div>repos: <span id="gh-repos" class="font-bold">?</span></div>
+            <div>followers: <span id="gh-followers" class="font-bold">?</span></div>
+            <div>homie since <span id="gh-since" class="font-bold">?</span></div>
+          </div>
+        </div>
+      </div>
+
       <button id="sound-toggle" onclick="toggleSound()"
         class="w-full bg-retro-gray bevel-out p-1 text-black font-pixel text-[10px] mt-2">
         [sound: on]
@@ -198,6 +212,22 @@
             </div>
 
             <h3 class="text-xl font-bold text-black mb-2 font-header border-b border-dashed border-gray-400 pb-1">:: github_repos ::</h3>
+            <div class="flex flex-wrap items-center gap-3 mb-3 p-2 bg-[#f0f0f0] border border-gray-400 font-pixel text-xs text-black">
+              <label class="flex items-center gap-1">sort:
+                <select id="repo-sort" onchange="renderRepos()"
+                  class="border border-gray-500 bg-white text-black font-pixel text-xs p-0 pr-6">
+                  <option value="updated">last updated</option>
+                  <option value="stars">stars</option>
+                  <option value="name">name</option>
+                </select>
+              </label>
+              <label class="flex items-center gap-1 cursor-pointer">
+                <input id="repo-live-only" type="checkbox" onchange="renderRepos()"
+                  class="w-3 h-3 rounded-none text-black focus:ring-0">
+                <span class="blink-live">●</span> live demos only
+              </label>
+              <span id="repo-count" class="ml-auto text-gray-500"></span>
+            </div>
             <div id="github-repos" class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="text-center w-full py-8 text-xs font-pixel">loading git objects...</div>
             </div>
@@ -347,6 +377,10 @@
               class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">stop</button>
             <button onclick="nextTrack()"
               class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">skip_next</button>
+            <button id="winamp-shuffle" onclick="toggleShuffle()" title="shuffle"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">shuffle</button>
+            <button id="winamp-repeat" onclick="toggleRepeat()" title="repeat one"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">repeat</button>
 
             <audio id="audio-player"></audio>
           </div>
@@ -413,6 +447,19 @@
           <span class="material-symbols-outlined text-blue-500">chat</span>discord me
         </button>
         <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
+        <button onclick="startMenuAction('minesweeper')" class="start-item">
+          <span class="material-symbols-outlined text-red-600">flag</span>minesweeper
+        </button>
+        <button onclick="startMenuAction('paint')" class="start-item">
+          <span class="material-symbols-outlined text-orange-600">brush</span>paint
+        </button>
+        <button onclick="startMenuAction('taskmgr')" class="start-item">
+          <span class="material-symbols-outlined text-green-700">monitoring</span>task manager
+        </button>
+        <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
+        <button onclick="startMenuAction('run')" class="start-item">
+          <span class="material-symbols-outlined text-gray-700">terminal</span>run...
+        </button>
         <button onclick="startMenuAction('shutdown')" class="start-item">
           <span class="material-symbols-outlined text-red-600">power_settings_new</span>shut down...
         </button>
@@ -439,7 +486,9 @@
     <button title="guestbook" onclick="showSection('guestbook')" class="taskbar-btn">
       <span class="material-symbols-outlined text-pink-600 text-lg leading-none">edit_note</span>
     </button>
-    <div class="ml-auto bevel-in bg-retro-gray h-8 px-2 flex items-center gap-2">
+    <div class="w-0 h-7 border-l border-[#808080] border-r border-r-white mx-1"></div>
+    <div id="taskbar-windows" class="flex-1 flex items-center gap-1 overflow-hidden min-w-0"></div>
+    <div class="ml-auto bevel-in bg-retro-gray h-8 px-2 flex items-center gap-2 flex-shrink-0">
       <button onclick="toggleSound()" id="tray-sound" title="toggle sound"
         class="material-symbols-outlined text-black text-base leading-none cursor-pointer">volume_up</button>
       <span id="taskbar-clock" class="font-header text-black text-xs tabular-nums">--:--</span>

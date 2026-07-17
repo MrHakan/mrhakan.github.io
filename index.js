@@ -62,6 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initTypedTagline();
     updateSoundUI();
     initCounterEgg();
+    fetchGitHubUser();
+    initScreensaver();
+    initAssistant();
 
     if (window.innerWidth < 768) {
         const mainWindow = document.getElementById('main-window');
@@ -207,8 +210,99 @@ function startMenuAction(action) {
         copyDiscord();
     } else if (action === 'shutdown') {
         shutDown();
+    } else if (action === 'run') {
+        showRunDialog();
+    } else if (action === 'minesweeper') {
+        openMinesweeper();
+    } else if (action === 'paint') {
+        openPaint();
+    } else if (action === 'taskmgr') {
+        openTaskManager();
     } else {
         showSection(action);
+    }
+}
+
+
+// ===== start > run... =====
+function showRunDialog() {
+    document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'retro-dialog-overlay';
+    const dialog = document.createElement('div');
+    dialog.className = 'retro-dialog bevel-out';
+    dialog.innerHTML = `
+        <div class="retro-dialog-title">run<button class="retro-dialog-close bevel-out" onclick="this.closest('.retro-dialog-overlay').remove()">✕</button></div>
+        <div class="retro-dialog-body">
+            <p>type the name of a program, folder, or vibe, and windows will open it for you.</p>
+            <input id="run-input" class="bevel-in run-input" placeholder="C:\\>" autocomplete="off" spellcheck="false">
+            <p style="color:#666;font-size:10px;">try: minesweeper, paint, taskmgr, guestbook, party, troll, bsod, matrix, play, help</p>
+        </div>
+        <div class="retro-dialog-buttons">
+            <button class="bevel-out retro-dialog-btn" onclick="execRunCommand()">ok</button>
+            <button class="bevel-out retro-dialog-btn" onclick="this.closest('.retro-dialog-overlay').remove()">cancel</button>
+        </div>`;
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    playSound('notify');
+    const input = document.getElementById('run-input');
+    input.focus();
+    input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+            // prevent the browser's default Enter activation from "clicking"
+            // whatever button gets focused by the dialog we open next
+            e.preventDefault();
+            execRunCommand();
+        }
+        if (e.key === 'Escape') overlay.remove();
+    });
+}
+
+function execRunCommand() {
+    const input = document.getElementById('run-input');
+    const cmd = (input?.value || '').trim().toLowerCase().replace(/\.exe$/, '');
+    document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
+    const commands = {
+        'home': () => showSection('home'),
+        'about': () => showSection('home'),
+        'work': () => showSection('github'),
+        'projects': () => showSection('github'),
+        'links': () => showSection('links'),
+        'guestbook': () => showSection('guestbook'),
+        'discord': copyDiscord,
+        'minesweeper': openMinesweeper,
+        'mines': openMinesweeper,
+        'paint': openPaint,
+        'mspaint': openPaint,
+        'taskmgr': openTaskManager,
+        'taskmanager': openTaskManager,
+        'party': togglePartyMode,
+        'sparta': startSpartaRemix,
+        'troll': () => { startTrollBouncing(); showToast('troll.exe', 'problem?'); },
+        'bsod': triggerBSOD,
+        'matrix': () => window.hax(),
+        'hax': () => window.hax(),
+        'play': () => playTrack(),
+        'winamp': () => playTrack(),
+        'shutdown': shutDown,
+        'screensaver': () => startScreensaver(),
+        'help': () => showRetroDialog({
+            title: 'help.txt',
+            lines: ['mrhakan 98 - digital soul v2.0', 'built with notepad and pure love.', 'secrets: konami code, click the counter 5x, press the maximize button, type party/troll/bsod anywhere.'],
+            okLabel: 'nice'
+        })
+    };
+    if (!cmd) return;
+    if (commands[cmd]) {
+        commands[cmd]();
+    } else {
+        playSound('error');
+        showRetroDialog({
+            title: 'error',
+            lines: [`'${cmd}' is not recognized as an internal or external command, operable program or vibe.`],
+            okLabel: 'my bad'
+        });
     }
 }
 
@@ -651,10 +745,37 @@ function stopTrack() {
     text.classList.remove('animate-marquee');
     updateProgressBar();
 }
+let shuffleOn = false;
+let repeatOn = false;
 function nextTrack() {
-    currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+    if (!tracks.length) return;
+    // called on 'ended' too: honor repeat-one, then shuffle, then sequential
+    if (repeatOn) {
+        loadTrack(currentTrackIndex);
+        playTrack();
+        return;
+    }
+    if (shuffleOn && tracks.length > 1) {
+        let next;
+        do { next = Math.floor(Math.random() * tracks.length); } while (next === currentTrackIndex);
+        currentTrackIndex = next;
+    } else {
+        currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+    }
     loadTrack(currentTrackIndex);
     playTrack();
+}
+function toggleShuffle() {
+    shuffleOn = !shuffleOn;
+    const btn = document.getElementById('winamp-shuffle');
+    if (btn) btn.classList.toggle('winamp-toggle-on', shuffleOn);
+    showToast('winamp', shuffleOn ? 'shuffle on' : 'shuffle off');
+}
+function toggleRepeat() {
+    repeatOn = !repeatOn;
+    const btn = document.getElementById('winamp-repeat');
+    if (btn) btn.classList.toggle('winamp-toggle-on', repeatOn);
+    showToast('winamp', repeatOn ? 'repeat one on' : 'repeat off');
 }
 function prevTrack() {
     currentTrackIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
@@ -824,49 +945,244 @@ function hideSection(type) {
 function handleTab(type) {
     switch (type) {
         case 'file':
-            if (confirm("Exit application? (Go to Home)")) window.location.href = 'index.html';
+            showRetroDialog({
+                title: 'file',
+                lines: ['what do you want to do bradar?'],
+                okLabel: 'go home', cancelLabel: 'print (lol)',
+                onOk: () => showSection('home')
+            });
             break;
         case 'edit':
-            alert("Clipboard access denied by OS (Windows 98).");
+            openPaint();
             break;
         case 'view':
-            alert("Switching to 800x600 resolution (simulated).");
+            togglePartyMode();
             break;
         case 'favorites':
-            alert("Added 'mrhakan.github.io' to Favorites!");
+            showToast('favorites', "added 'mrhakan.github.io' to your favorites! good choice");
+            playSound('ding');
             break;
         case 'tools':
-            alert("Opening Internet Options...");
+            openTaskManager();
             break;
         case 'help':
-            alert("Digital Soul v1.0\nCreated by: mrhakan\nBuilt with: Notepad");
+            showRetroDialog({
+                title: 'about digital soul',
+                lines: ['mrhakan 98 - digital soul v2.0', 'created by: mrhakan', 'built with: notepad + pure love', 'secrets everywhere. go find them.'],
+                okLabel: 'cool'
+            });
             break;
     }
 }
+const langColors = {
+    'JavaScript': '#f1e05a', 'TypeScript': '#3178c6', 'Java': '#b07219', 'Python': '#3572A5',
+    'C#': '#178600', 'HTML': '#e34c26', 'CSS': '#563d7c', 'Kotlin': '#A97BFF', 'GLSL': '#5686a5',
+    'AutoHotkey': '#6594b9', 'Shell': '#89e051', 'C++': '#f34b7d', 'C': '#555555', 'Go': '#00ADD8', 'Rust': '#dea584'
+};
+let allRepos = [];
+
+function relativeTime(dateStr) {
+    if (!dateStr) return '';
+    const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+    if (days < 1) return 'updated today';
+    if (days === 1) return 'updated yesterday';
+    if (days < 30) return `updated ${days}d ago`;
+    if (days < 365) return `updated ${Math.floor(days / 30)}mo ago`;
+    return `updated ${Math.floor(days / 365)}y ago`;
+}
+
+function repoPagesUrl(repo) {
+    // project sites live under the user site's domain: mrhakan.github.io/<repo>/
+    if (!repo.has_pages || repo.name.toLowerCase() === 'mrhakan.github.io') return null;
+    return `https://mrhakan.github.io/${repo.name}/`;
+}
+
 async function fetchGitHubRepos() {
     const container = document.getElementById('github-repos');
     if (!container) return;
     try {
-        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=30');
+        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=100');
         const repos = await res.json();
-        if (!Array.isArray(repos)) throw new Error(repos && repos.message ? repos.message : 'unexpected response');
-        container.innerHTML = repos.map(repo => `
-            <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0]">
-                <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener" class="block">
-                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${escapeHtml(repo.name)}</div>
-                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${escapeHtml(repo.description || 'no description available.')}</div>
-                    <div class="flex gap-2 text-[10px] font-pixel text-gray-600">
-                        <span>★ ${repo.stargazers_count}</span>
-                        <span>⑂ ${repo.forks_count}</span>
-                        <span>${escapeHtml(repo.language || 'txt')}</span>
-                    </div>
-                </a>
-            </div>
-        `).join('');
+        if (!Array.isArray(repos)) throw new Error((repos && repos.message) || 'unexpected response');
+        allRepos = repos.filter(r => !r.fork);
+        renderRepos();
     } catch (e) {
         container.innerHTML = '<div class="text-red-500 font-pixel">error loading git objects... (github api rate limit? try again later)</div>';
     }
 }
+
+function renderRepos() {
+    const container = document.getElementById('github-repos');
+    if (!container || !allRepos.length) return;
+    const sortBy = document.getElementById('repo-sort')?.value || 'updated';
+    const liveOnly = document.getElementById('repo-live-only')?.checked || false;
+
+    let repos = [...allRepos];
+    if (liveOnly) repos = repos.filter(r => repoPagesUrl(r));
+    if (sortBy === 'stars') repos.sort((a, b) => b.stargazers_count - a.stargazers_count);
+    else if (sortBy === 'name') repos.sort((a, b) => a.name.localeCompare(b.name));
+    else repos.sort((a, b) => new Date(b.pushed_at || b.updated_at) - new Date(a.pushed_at || a.updated_at));
+
+    const countEl = document.getElementById('repo-count');
+    if (countEl) countEl.textContent = `${repos.length} object(s)`;
+
+    if (!repos.length) {
+        container.innerHTML = '<div class="text-center w-full py-8 text-xs font-pixel text-gray-500">nothing here bradar</div>';
+        return;
+    }
+
+    container.innerHTML = repos.map(repo => {
+        const live = repoPagesUrl(repo);
+        const langColor = langColors[repo.language] || '#8b949e';
+        return `
+            <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0] flex flex-col">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                    <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener"
+                       class="font-bold text-blue-800 underline font-header text-sm break-all">${escapeHtml(repo.name)}</a>
+                    ${live ? '<span class="live-badge font-pixel text-[9px] flex-shrink-0"><span class="blink-live">●</span> LIVE</span>' : ''}
+                </div>
+                <div class="text-[10px] min-h-8 overflow-hidden text-black font-body mb-2 flex-1">${escapeHtml(repo.description || 'no description available.')}</div>
+                <div class="flex flex-wrap items-center gap-2 text-[10px] font-pixel text-gray-600">
+                    <span>★ ${repo.stargazers_count}</span>
+                    <span>⑂ ${repo.forks_count}</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:${langColor}"></span>${escapeHtml(repo.language || 'txt')}</span>
+                    <span class="ml-auto text-gray-400">${relativeTime(repo.pushed_at || repo.updated_at)}</span>
+                </div>
+                ${live ? `
+                <div class="flex gap-2 mt-2 pt-2 border-t border-dashed border-gray-300">
+                    <button onclick="openIEWindow('${escapeHtml(live)}', '${escapeHtml(repo.name)}')"
+                        class="bevel-out bg-retro-gray px-3 py-[2px] text-black font-header text-xs font-bold active:translate-y-[1px]">&#9654; run</button>
+                    <a href="${escapeHtml(live)}" target="_blank" rel="noopener"
+                        class="bevel-out bg-retro-gray px-3 py-[2px] text-black font-header text-xs font-bold active:translate-y-[1px]">open in new tab</a>
+                </div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// ===== in-site retro internet explorer windows =====
+let ieWindowCount = 0;
+let ieHighestZ = 200;
+function openIEWindow(url, title) {
+    playSound('navigate');
+    ieWindowCount++;
+    const id = `ie-win-${ieWindowCount}`;
+    const win = document.createElement('div');
+    win.className = 'ie-window bevel-out';
+    win.id = id;
+    const isMobile = window.innerWidth < 768;
+    win.style.left = isMobile ? '2vw' : `${60 + (ieWindowCount * 35) % 220}px`;
+    win.style.top = isMobile ? '60px' : `${70 + (ieWindowCount * 30) % 160}px`;
+    win.style.zIndex = ++ieHighestZ;
+
+    const header = document.createElement('div');
+    header.className = 'ie-window-header';
+    header.innerHTML = `
+        <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-4 h-4" alt="">
+        <span class="ie-window-title">${escapeHtml(title)} - microsoft internet explorer</span>`;
+    const btns = document.createElement('div');
+    btns.className = 'flex gap-[2px] ml-auto flex-shrink-0';
+    const minBtn = document.createElement('button');
+    minBtn.className = 'ie-titlebar-btn bevel-out';
+    minBtn.textContent = '_';
+    minBtn.title = 'minimize';
+    minBtn.onclick = () => toggleIEWindow(id);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ie-titlebar-btn bevel-out';
+    closeBtn.textContent = '\u2715';
+    closeBtn.title = 'close';
+    closeBtn.onclick = () => closeIEWindow(id);
+    btns.appendChild(minBtn);
+    btns.appendChild(closeBtn);
+    header.appendChild(btns);
+
+    const addressBar = document.createElement('div');
+    addressBar.className = 'ie-address-bar';
+    addressBar.innerHTML = `<span class="font-header text-xs text-black flex-shrink-0">address:</span>
+        <input class="ie-address-input bevel-in" value="${escapeHtml(url)}" readonly>
+        <a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="open in real browser"
+           class="bevel-out bg-retro-gray px-2 text-black font-header text-xs flex-shrink-0">go</a>`;
+
+    const frameWrap = document.createElement('div');
+    frameWrap.className = 'ie-frame-wrap bevel-in';
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.className = 'ie-frame';
+    iframe.setAttribute('loading', 'lazy');
+    frameWrap.appendChild(iframe);
+
+    const statusBar = document.createElement('div');
+    statusBar.className = 'ie-status-bar bevel-in';
+    statusBar.textContent = `loading ${title}...`;
+    iframe.addEventListener('load', () => { statusBar.textContent = 'done'; });
+
+    win.appendChild(header);
+    win.appendChild(addressBar);
+    win.appendChild(frameWrap);
+    win.appendChild(statusBar);
+    document.body.appendChild(win);
+
+    // drag by header
+    let dragging = false, offX = 0, offY = 0;
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button') || e.target.closest('a')) return;
+        dragging = true;
+        const rect = win.getBoundingClientRect();
+        offX = e.clientX - rect.left;
+        offY = e.clientY - rect.top;
+        win.style.zIndex = ++ieHighestZ;
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        win.style.left = `${e.clientX - offX}px`;
+        win.style.top = `${e.clientY - offY}px`;
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+    win.addEventListener('mousedown', () => { win.style.zIndex = ++ieHighestZ; });
+
+    // taskbar button
+    const tbContainer = document.getElementById('taskbar-windows');
+    if (tbContainer) {
+        const tbBtn = document.createElement('button');
+        tbBtn.className = 'taskbar-window-btn bevel-out';
+        tbBtn.id = `${id}-tb`;
+        tbBtn.innerHTML = `<img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-3 h-3" alt=""><span class="truncate">${escapeHtml(title)}</span>`;
+        tbBtn.onclick = () => toggleIEWindow(id);
+        tbContainer.appendChild(tbBtn);
+    }
+}
+
+function toggleIEWindow(id) {
+    const win = document.getElementById(id);
+    if (!win) return;
+    const hidden = win.style.display === 'none';
+    win.style.display = hidden ? 'flex' : 'none';
+    if (hidden) win.style.zIndex = ++ieHighestZ;
+    playSound('click');
+}
+
+function closeIEWindow(id) {
+    document.getElementById(id)?.remove();
+    document.getElementById(`${id}-tb`)?.remove();
+    playSound('click');
+}
+
+// ===== github user stats (user.dat) =====
+async function fetchGitHubUser() {
+    const panel = document.getElementById('user-stats');
+    if (!panel) return;
+    try {
+        const res = await fetch('https://api.github.com/users/mrhakan');
+        const user = await res.json();
+        if (!user || !user.login) return;
+        document.getElementById('gh-avatar').src = user.avatar_url;
+        document.getElementById('gh-repos').textContent = user.public_repos;
+        document.getElementById('gh-followers').textContent = user.followers;
+        document.getElementById('gh-since').textContent = user.created_at ? new Date(user.created_at).getFullYear() : '?';
+        panel.classList.remove('hidden');
+    } catch (e) { /* panel stays hidden */ }
+}
+
 async function fetchManualProjects() {
     const container = document.getElementById('manual-projects');
     if (!container) return;
@@ -1053,7 +1369,7 @@ async function fetchShoutbox() {
                 <img src="${shoutboxAvatars[nameHash(msg.name) % shoutboxAvatars.length]}" alt="" class="w-6 h-6 rounded-full bg-black flex-shrink-0">
                 <div>
                     <p class="font-bold text-blue-600">${escapeHtml(msg.name)} <span
-                            class="text-gray-400 font-normal text-[10px]">${escapeHtml(msg.date || '')}</span></p>
+                            class="text-gray-400 font-normal text-[10px]">${formatEntryTime(msg)}</span></p>
                     <p class="text-black">${escapeHtml(msg.message)}</p>
                 </div>
             </div>
@@ -1069,16 +1385,30 @@ function postShout() {
         showToast('shoutbox.exe', 'please fill in name and message!');
         return;
     }
+    const now = new Date();
     submitViaPullRequest('shouts', {
         name: name.substring(0, 20),
         message: message.substring(0, 140),
-        date: new Date().toISOString().slice(0, 10)
+        date: now.toISOString().slice(0, 10),
+        timestamp: now.toISOString()
     });
 }
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+// format an entry's timestamp for display. new entries store a full ISO
+// `timestamp`; older entries only have a date-only `date` string, which we
+// show as-is so nothing breaks.
+function formatEntryTime(entry) {
+    const raw = entry.timestamp || entry.date || '';
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return escapeHtml(raw);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function safeUrl(url) {
     try {
@@ -1103,7 +1433,7 @@ async function loadGuestbook() {
             <div class="p-3 bg-[#f0f0f0] border border-gray-400">
                 <div class="flex justify-between items-start mb-1">
                     <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}</span>
-                    <span class="text-[10px] text-gray-500">${escapeHtml(entry.date || '')}</span>
+                    <span class="text-[10px] text-gray-500">${formatEntryTime(entry)}</span>
                 </div>
                 ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener nofollow" class="text-xs text-purple-600 underline">${escapeHtml(website)}</a>` : ''}
                 <p class="text-black font-pixel text-sm mt-1">${escapeHtml(entry.message)}</p>
@@ -1123,10 +1453,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const website = document.getElementById('gb-website')?.value?.trim();
             const message = document.getElementById('gb-message')?.value?.trim();
             if (!name || !message) return;
+            const now = new Date();
             const entry = {
                 name: name.substring(0, 30),
                 message: message.substring(0, 500),
-                date: new Date().toISOString().slice(0, 10)
+                date: now.toISOString().slice(0, 10),
+                timestamp: now.toISOString()
             };
             const cleanSite = website ? safeUrl(website.substring(0, 100)) : '';
             if (cleanSite) entry.website = cleanSite;
@@ -1135,3 +1467,583 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ===== screensaver (dvd-logo style, kicks in after idle) =====
+const SCREENSAVER_IDLE_MS = 90000;
+let screensaverTimer = null;
+let screensaverRAF = null;
+
+function initScreensaver() {
+    const reset = () => {
+        clearTimeout(screensaverTimer);
+        screensaverTimer = setTimeout(() => {
+            if (document.getElementById('boot-screen') || document.getElementById('bsod-screen')) return;
+            startScreensaver();
+        }, SCREENSAVER_IDLE_MS);
+    };
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(ev =>
+        document.addEventListener(ev, reset, { passive: true }));
+    reset();
+}
+
+function startScreensaver() {
+    if (document.getElementById('screensaver')) return;
+    const saver = document.createElement('div');
+    saver.id = 'screensaver';
+    const logo = document.createElement('div');
+    logo.className = 'screensaver-logo';
+    logo.innerHTML = `<img src="src/troll/troll5.png" alt="" draggable="false"><span class="font-header">mrhakan 98</span>`;
+    saver.appendChild(logo);
+    document.body.appendChild(saver);
+
+    let x = Math.random() * (window.innerWidth - 160);
+    let y = Math.random() * (window.innerHeight - 120);
+    let dx = 2.2, dy = 1.8;
+    const colors = ['#0df259', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
+    let colorIdx = 0;
+
+    const step = () => {
+        const w = logo.offsetWidth || 160;
+        const h = logo.offsetHeight || 120;
+        x += dx; y += dy;
+        let bounced = false;
+        if (x <= 0 || x + w >= window.innerWidth) { dx *= -1; bounced = true; x = Math.max(0, Math.min(x, window.innerWidth - w)); }
+        if (y <= 0 || y + h >= window.innerHeight) { dy *= -1; bounced = true; y = Math.max(0, Math.min(y, window.innerHeight - h)); }
+        if (bounced) {
+            colorIdx = (colorIdx + 1) % colors.length;
+            logo.style.color = colors[colorIdx];
+            logo.style.filter = `drop-shadow(0 0 8px ${colors[colorIdx]})`;
+        }
+        logo.style.transform = `translate(${x}px, ${y}px)`;
+        screensaverRAF = requestAnimationFrame(step);
+    };
+    screensaverRAF = requestAnimationFrame(step);
+
+    // wake on any input (delayed a tick so the triggering event doesn't insta-close it)
+    setTimeout(() => {
+        const wake = () => {
+            cancelAnimationFrame(screensaverRAF);
+            saver.remove();
+            ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
+                document.removeEventListener(ev, wake));
+        };
+        ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
+            document.addEventListener(ev, wake, { passive: true }));
+    }, 400);
+}
+
+// ===================================================================
+// generic app window manager (used by minesweeper / paint / task mgr)
+// ===================================================================
+let appWinCount = 0;
+function createAppWindow(title, opts = {}) {
+    appWinCount++;
+    ieHighestZ = (typeof ieHighestZ === 'number' ? ieHighestZ : 200) + 1;
+    const id = `app-win-${appWinCount}`;
+    const win = document.createElement('div');
+    win.className = 'app-window bevel-out';
+    win.id = id;
+    const isMobile = window.innerWidth < 768;
+    const w = opts.width || 320;
+    win.style.width = isMobile ? '94vw' : `${w}px`;
+    win.style.left = isMobile ? '3vw' : `${Math.max(10, (window.innerWidth - w) / 2 + (appWinCount * 24) % 120 - 60)}px`;
+    win.style.top = isMobile ? '54px' : `${70 + (appWinCount * 26) % 130}px`;
+    win.style.zIndex = ieHighestZ;
+
+    const header = document.createElement('div');
+    header.className = 'app-window-header';
+    header.innerHTML = `<span class="material-symbols-outlined text-white text-sm">${opts.icon || 'terminal'}</span>
+        <span class="app-window-title">${escapeHtml(title)}</span>`;
+    const btns = document.createElement('div');
+    btns.className = 'flex gap-[2px] ml-auto flex-shrink-0';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ie-titlebar-btn bevel-out';
+    closeBtn.textContent = '✕';
+    closeBtn.title = 'close';
+    closeBtn.onclick = () => closeAppWindow(id);
+    btns.appendChild(closeBtn);
+    header.appendChild(btns);
+
+    const body = document.createElement('div');
+    body.className = 'app-window-body bevel-in';
+
+    win.appendChild(header);
+    win.appendChild(body);
+    document.body.appendChild(win);
+    playSound('navigate');
+
+    // drag
+    let dragging = false, offX = 0, offY = 0;
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        dragging = true;
+        const rect = win.getBoundingClientRect();
+        offX = e.clientX - rect.left; offY = e.clientY - rect.top;
+        win.style.zIndex = ++ieHighestZ;
+    });
+    const onMove = (e) => {
+        if (!dragging) return;
+        win.style.left = `${e.clientX - offX}px`;
+        win.style.top = `${e.clientY - offY}px`;
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', () => { dragging = false; });
+    win.addEventListener('mousedown', () => { win.style.zIndex = ++ieHighestZ; });
+
+    // taskbar button
+    const tb = document.getElementById('taskbar-windows');
+    if (tb) {
+        const b = document.createElement('button');
+        b.className = 'taskbar-window-btn bevel-out';
+        b.id = `${id}-tb`;
+        b.innerHTML = `<span class="material-symbols-outlined text-sm">${opts.icon || 'terminal'}</span><span class="truncate">${escapeHtml(title)}</span>`;
+        b.onclick = () => {
+            const hidden = win.style.display === 'none';
+            win.style.display = hidden ? 'flex' : 'none';
+            if (hidden) win.style.zIndex = ++ieHighestZ;
+            playSound('click');
+        };
+        tb.appendChild(b);
+    }
+    win._cleanup = () => document.removeEventListener('mousemove', onMove);
+    return { win, body, id, close: () => closeAppWindow(id) };
+}
+function closeAppWindow(id) {
+    const win = document.getElementById(id);
+    if (win && win._cleanup) win._cleanup();
+    win?.remove();
+    document.getElementById(`${id}-tb`)?.remove();
+    playSound('click');
+}
+
+// ===================================================================
+// minesweeper.exe (actually playable)
+// ===================================================================
+function openMinesweeper() {
+    const { body, close } = createAppWindow('minesweeper', { icon: 'flag', width: 300 });
+    const COLS = 9, ROWS = 9, MINES = 10;
+    let grid, revealed, flagged, gameOver, won, firstClick, timer, seconds;
+    const numColors = ['', '#0000ff', '#008000', '#ff0000', '#000080', '#800000', '#008080', '#000000', '#808080'];
+
+    body.innerHTML = `
+        <div class="ms-panel">
+            <div class="ms-counter" id="ms-mines">010</div>
+            <button class="ms-face bevel-out" id="ms-face">🙂</button>
+            <div class="ms-counter" id="ms-timer">000</div>
+        </div>
+        <div class="ms-grid bevel-in" id="ms-grid"></div>
+        <p class="text-[10px] font-pixel text-black mt-1 text-center">left: dig &middot; right: flag</p>`;
+    const gridEl = body.querySelector('#ms-grid');
+    const faceEl = body.querySelector('#ms-face');
+    const minesEl = body.querySelector('#ms-mines');
+    const timerEl = body.querySelector('#ms-timer');
+    gridEl.style.gridTemplateColumns = `repeat(${COLS}, 22px)`;
+
+    function reset() {
+        grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+        revealed = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+        flagged = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+        gameOver = false; won = false; firstClick = true; seconds = 0;
+        clearInterval(timer);
+        timerEl.textContent = '000';
+        minesEl.textContent = String(MINES).padStart(3, '0');
+        faceEl.textContent = '🙂';
+        render();
+    }
+    function placeMines(safeR, safeC) {
+        let placed = 0;
+        while (placed < MINES) {
+            const r = Math.floor(Math.random() * ROWS), c = Math.floor(Math.random() * COLS);
+            if (grid[r][c] === -1 || (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1)) continue;
+            grid[r][c] = -1; placed++;
+        }
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === -1) continue;
+            let n = 0;
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === -1) n++;
+            }
+            grid[r][c] = n;
+        }
+    }
+    function flood(r, c) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS || revealed[r][c] || flagged[r][c]) return;
+        revealed[r][c] = true;
+        if (grid[r][c] === 0) {
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++)
+                if (dr || dc) flood(r + dr, c + dc);
+        }
+    }
+    function reveal(r, c) {
+        if (gameOver || revealed[r][c] || flagged[r][c]) return;
+        if (firstClick) { placeMines(r, c); firstClick = false; timer = setInterval(() => { seconds++; timerEl.textContent = String(Math.min(seconds, 999)).padStart(3, '0'); }, 1000); }
+        if (grid[r][c] === -1) {
+            revealed[r][c] = true; gameOver = true; clearInterval(timer);
+            faceEl.textContent = '💀'; playSound('error');
+            render(); checkWin(); return;
+        }
+        flood(r, c);
+        playSound('click');
+        render(); checkWin();
+    }
+    function toggleFlag(r, c) {
+        if (gameOver || revealed[r][c]) return;
+        flagged[r][c] = !flagged[r][c];
+        const count = flagged.flat().filter(Boolean).length;
+        minesEl.textContent = String(Math.max(0, MINES - count)).padStart(3, '0');
+        render();
+    }
+    function checkWin() {
+        if (gameOver) return;
+        let safe = 0;
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+            if (grid[r][c] !== -1 && revealed[r][c]) safe++;
+        if (safe === ROWS * COLS - MINES) {
+            won = true; gameOver = true; clearInterval(timer);
+            faceEl.textContent = '😎'; playSound('ding');
+            showToast('minesweeper.exe', `you win! ${seconds}s. certified minesweeper legend`);
+        }
+    }
+    function render() {
+        gridEl.innerHTML = '';
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            const cell = document.createElement('button');
+            cell.className = 'ms-cell';
+            if (revealed[r][c]) {
+                cell.classList.add('ms-open', 'bevel-in-light');
+                if (grid[r][c] === -1) { cell.textContent = '💣'; if (won === false && gameOver) cell.classList.add('ms-boom'); }
+                else if (grid[r][c] > 0) { cell.textContent = grid[r][c]; cell.style.color = numColors[grid[r][c]]; }
+            } else {
+                cell.classList.add('bevel-out');
+                if (flagged[r][c]) cell.textContent = '🚩';
+                if (gameOver && grid[r] && grid[r][c] === -1 && !flagged[r][c]) cell.textContent = '💣';
+            }
+            cell.addEventListener('click', () => reveal(r, c));
+            cell.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleFlag(r, c); });
+            gridEl.appendChild(cell);
+        }
+    }
+    faceEl.addEventListener('click', reset);
+    reset();
+}
+
+// ===================================================================
+// paint.exe (draw + save png)
+// ===================================================================
+function openPaint() {
+    const { body } = createAppWindow('untitled - paint', { icon: 'brush', width: 340 });
+    const colors = ['#000000', '#808080', '#c0c0c0', '#ffffff', '#ff0000', '#ff8000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#800080', '#8b4513', '#0df259'];
+    body.innerHTML = `
+        <div class="paint-toolbar">
+            <div class="paint-colors" id="paint-colors"></div>
+            <label class="paint-size">size <input id="paint-size" type="range" min="1" max="24" value="4"></label>
+            <button class="bevel-out paint-btn" id="paint-clear">clear</button>
+            <button class="bevel-out paint-btn" id="paint-save">save png</button>
+        </div>
+        <canvas id="paint-canvas" class="bevel-in" width="320" height="240"></canvas>`;
+    const canvas = body.querySelector('#paint-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.lineJoin = ctx.lineCap = 'round';
+    let color = '#000000', size = 4, drawing = false;
+
+    const swatches = body.querySelector('#paint-colors');
+    colors.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.className = 'paint-swatch' + (i === 0 ? ' selected' : '');
+        b.style.background = c;
+        b.onclick = () => {
+            color = c;
+            swatches.querySelectorAll('.paint-swatch').forEach(s => s.classList.remove('selected'));
+            b.classList.add('selected');
+        };
+        swatches.appendChild(b);
+    });
+    body.querySelector('#paint-size').addEventListener('input', e => { size = +e.target.value; });
+
+    function pos(e) {
+        const r = canvas.getBoundingClientRect();
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+        const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+        return { x: cx * (canvas.width / r.width), y: cy * (canvas.height / r.height) };
+    }
+    function start(e) { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+    function move(e) {
+        if (!drawing) return;
+        const p = pos(e);
+        ctx.strokeStyle = color; ctx.lineWidth = size;
+        ctx.lineTo(p.x, p.y); ctx.stroke();
+        e.preventDefault();
+    }
+    function end() { drawing = false; }
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+
+    body.querySelector('#paint-clear').onclick = () => { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); playSound('click'); };
+    body.querySelector('#paint-save').onclick = () => {
+        const a = document.createElement('a');
+        a.download = 'mrhakan-masterpiece.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+        showToast('paint.exe', 'masterpiece saved. put it in a museum');
+        playSound('ding');
+    };
+}
+
+// ===================================================================
+// task manager (fake processes, real interactions)
+// ===================================================================
+function openTaskManager() {
+    const { body, close } = createAppWindow('task manager', { icon: 'monitoring', width: 340 });
+    let procs = [
+        { name: 'winamp.exe', cpu: 12, mem: 4200, kill: () => { stopTrack && stopTrack(); } },
+        { name: 'guestbook.exe', cpu: 3, mem: 1100, kill: () => showSection('home') },
+        { name: 'shoutbox.exe', cpu: 5, mem: 900 },
+        { name: 'trolls.dll', cpu: 42, mem: 6666, kill: () => { if (typeof trollInterval !== 'undefined') clearInterval(trollInterval); document.getElementById('effects-container').querySelectorAll('img').forEach(i => i.remove()); } },
+        { name: 'vibes.sys', cpu: 88, mem: 13337 },
+        { name: 'explorer.exe', cpu: 2, mem: 2400 },
+        { name: 'clippy.exe', cpu: 1, mem: 300, kill: () => hideAssistant() }
+    ];
+    body.innerHTML = `
+        <div class="tm-tabs">applications | <b>processes</b> | performance</div>
+        <div class="tm-header"><span>image name</span><span>cpu</span><span>mem</span></div>
+        <div class="tm-list" id="tm-list"></div>
+        <div class="tm-footer">
+            <span id="tm-count"></span>
+            <button class="bevel-out tm-endbtn" id="tm-end">end task</button>
+        </div>`;
+    const listEl = body.querySelector('#tm-list');
+    const countEl = body.querySelector('#tm-count');
+    let selected = null;
+
+    function render() {
+        listEl.innerHTML = '';
+        procs.forEach((p, i) => {
+            const row = document.createElement('div');
+            row.className = 'tm-row' + (selected === i ? ' selected' : '');
+            row.innerHTML = `<span>${escapeHtml(p.name)}</span><span>${p.cpu}%</span><span>${p.mem.toLocaleString()}K</span>`;
+            row.onclick = () => { selected = i; render(); };
+            listEl.appendChild(row);
+        });
+        const totalCpu = Math.min(100, procs.reduce((s, p) => s + p.cpu, 0));
+        countEl.textContent = `processes: ${procs.length}  cpu: ${totalCpu}%`;
+    }
+    body.querySelector('#tm-end').onclick = () => {
+        if (selected == null || !procs[selected]) { showToast('task manager', 'select a process first bradar'); return; }
+        const p = procs[selected];
+        // vibes.sys is protected... UNLESS it's the last one standing. ending the
+        // final process empties the list and unleashes the windows error remix.
+        if (p.name === 'vibes.sys' && procs.length > 1) {
+            playSound('error');
+            showRetroDialog({ title: 'access denied', lines: ['cannot end vibes.sys.', 'this process is critical to the shithole.', '(kill everything else first if you dare)'], okLabel: 'fair enough' });
+            return;
+        }
+        if (p.kill) p.kill();
+        procs.splice(selected, 1);
+        selected = null;
+        playSound('click');
+        render();
+        if (procs.length === 0) {
+            startSpartaRemix();
+        } else {
+            showToast('task manager', `${p.name} terminated`);
+        }
+    };
+    // live-ish cpu jitter
+    const jitter = setInterval(() => {
+        procs.forEach(p => { if (p.name !== 'vibes.sys') p.cpu = Math.max(0, Math.min(99, p.cpu + Math.floor(Math.random() * 7) - 3)); });
+        render();
+    }, 1500);
+    const win = document.getElementById(`app-win-${appWinCount}`);
+    if (win) { const orig = win._cleanup; win._cleanup = () => { clearInterval(jitter); orig && orig(); }; }
+    render();
+}
+
+// ===================================================================
+// troll assistant (clippy but cursed) — occasional tips
+// ===================================================================
+const assistantTips = [
+    "it looks like you're trying to have fun. want me to stop that?",
+    "psst... try the konami code. up up down down...",
+    "click the visitor counter 5 times. trust me bradar.",
+    "type 'party' anywhere. i dare you.",
+    "did you sign the guestbook yet? DID YOU?",
+    "press the maximize button on the window. what could go wrong?",
+    "minesweeper is in the start menu. procrastinate responsibly.",
+    "there's a paint app now. draw me something nice.",
+    "type 'bsod' if you miss windows crashing.",
+    "i'm watching you browse. no reason."
+];
+let assistantTimer = null;
+function initAssistant() {
+    if (localStorage.getItem('assistant-off') === '1') return;
+    assistantTimer = setTimeout(showAssistant, 25000);
+}
+function showAssistant() {
+    if (document.getElementById('troll-assistant')) return;
+    if (document.getElementById('boot-screen') || document.getElementById('screensaver')) {
+        assistantTimer = setTimeout(showAssistant, 15000); return;
+    }
+    const tip = assistantTips[Math.floor(Math.random() * assistantTips.length)];
+    const el = document.createElement('div');
+    el.id = 'troll-assistant';
+    el.innerHTML = `
+        <div class="assistant-bubble">
+            <p>${escapeHtml(tip)}</p>
+            <div class="assistant-actions">
+                <button id="assistant-ok">ok ok</button>
+                <button id="assistant-off">go away forever</button>
+            </div>
+        </div>
+        <img src="src/emoj/xdtroll.png" alt="assistant" class="assistant-troll">`;
+    document.body.appendChild(el);
+    playSound('balloon');
+    el.querySelector('#assistant-ok').onclick = () => { hideAssistant(); assistantTimer = setTimeout(showAssistant, 45000); };
+    el.querySelector('#assistant-off').onclick = () => { localStorage.setItem('assistant-off', '1'); hideAssistant(); showToast('clippy.exe', 'fine. i never liked you either'); };
+    el.querySelector('.assistant-troll').onclick = () => { el.querySelector('.assistant-troll').classList.add('spin'); playSound('click'); };
+}
+function hideAssistant() {
+    document.getElementById('troll-assistant')?.remove();
+}
+
+// ===================================================================
+// WINDOWS ERROR REMIX ("this is sparta" but made of XP error sounds)
+// triggered when every process is ended in task manager.
+// recreates the classic youtube meme: the error sound chopped into a
+// rhythmic beat while error dialogs cascade across the screen in sync.
+// ===================================================================
+let spartaCtx = null, spartaBuffer = null, spartaActive = false;
+let spartaTimers = [], spartaSources = [], spartaGain = null, spartaZ = 9000;
+
+async function loadSpartaBuffer() {
+    if (spartaBuffer) return spartaBuffer;
+    spartaCtx = spartaCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const res = await fetch(win98Sounds.error);
+    const arr = await res.arrayBuffer();
+    spartaBuffer = await spartaCtx.decodeAudioData(arr);
+    return spartaBuffer;
+}
+
+async function startSpartaRemix() {
+    if (spartaActive) return;
+    spartaActive = true;
+
+    let buffer = null;
+    try { buffer = await loadSpartaBuffer(); } catch (e) { buffer = null; }
+    if (spartaCtx && spartaCtx.state === 'suspended') { try { await spartaCtx.resume(); } catch (e) { } }
+    if (spartaCtx) {
+        spartaGain = spartaCtx.createGain();
+        spartaGain.gain.value = 0.32;
+        spartaGain.connect(spartaCtx.destination);
+    }
+
+    document.body.classList.add('sparta-mode');
+    const banner = document.createElement('div');
+    banner.id = 'sparta-banner';
+    banner.innerHTML = '<span class="rainbow-text">☠ THIS IS SPARTA ☠</span><small>every OK to make it stop... or wait it out</small>';
+    document.body.appendChild(banner);
+
+    // pitch pattern over a 16-step bar -> a driving melodic beat
+    const step = 0.14;
+    const bar = 16;
+    const pattern = [
+        { s: 0, r: 0.6 }, { s: 2, r: 1.2 }, { s: 3, r: 1.5 }, { s: 4, r: 0.6 },
+        { s: 6, r: 1.2 }, { s: 7, r: 1.8 }, { s: 8, r: 0.6 }, { s: 10, r: 1.2 },
+        { s: 11, r: 1.5 }, { s: 12, r: 0.6 }, { s: 13, r: 1.5 }, { s: 14, r: 1.8 }, { s: 15, r: 1.2 }
+    ];
+    const loops = 6;
+    const audioStart = spartaCtx ? spartaCtx.currentTime + 0.12 : 0;
+
+    for (let loop = 0; loop < loops; loop++) {
+        pattern.forEach(hit => {
+            const t = (loop * bar + hit.s) * step;
+            // schedule the audio stab
+            if (buffer && spartaCtx) {
+                const src = spartaCtx.createBufferSource();
+                src.buffer = buffer;
+                src.playbackRate.value = hit.r;
+                src.connect(spartaGain);
+                try { src.start(audioStart + t, 0, 0.34 / hit.r); } catch (e) { }
+                spartaSources.push(src);
+            } else {
+                // fallback: pitch-shifted HTMLAudio
+                spartaTimers.push(setTimeout(() => {
+                    if (!spartaActive || !soundEnabled) return;
+                    const a = new Audio(win98Sounds.error);
+                    a.preservesPitch = false; a.playbackRate = hit.r; a.volume = 0.3;
+                    a.play().catch(() => { });
+                }, t * 1000 + 120));
+            }
+            // spawn a cascading error dialog on the beat
+            spartaTimers.push(setTimeout(() => { if (spartaActive) spawnSpartaError(); }, t * 1000 + 120));
+            // screen kick on the low (kick-drum) hits
+            if (hit.r <= 0.7) {
+                spartaTimers.push(setTimeout(() => {
+                    if (!spartaActive) return;
+                    document.body.classList.add('sparta-kick');
+                    setTimeout(() => document.body.classList.remove('sparta-kick'), 90);
+                }, t * 1000 + 120));
+            }
+        });
+    }
+
+    const total = loops * bar * step * 1000 + 500;
+    spartaTimers.push(setTimeout(stopSpartaRemix, total));
+
+    spartaEscHandler = (e) => { if (e.key === 'Escape') stopSpartaRemix(); };
+    document.addEventListener('keydown', spartaEscHandler);
+}
+
+const spartaMessages = [
+    'A fatal exception 0E has occurred', 'vibes.sys is not responding', 'THIS IS SPARTA',
+    'Illegal operation: too much swag', 'C:\\ is on fire', 'kernel panic: too lit',
+    'Error 404: chill not found', 'Windows', 'not enough RAM for these vibes',
+    'stack overflow of pure energy', 'CRITICAL_PROCESS_DIED', 'the trolls escaped'
+];
+function spawnSpartaError() {
+    if (document.querySelectorAll('.sparta-error').length > 55) return;
+    const el = document.createElement('div');
+    el.className = 'sparta-error bevel-out';
+    const w = 240, h = 120;
+    el.style.left = `${Math.random() * Math.max(0, window.innerWidth - w)}px`;
+    el.style.top = `${Math.random() * Math.max(0, window.innerHeight - h - 40)}px`;
+    el.style.transform = `rotate(${(Math.random() * 10 - 5).toFixed(1)}deg)`;
+    el.style.zIndex = ++spartaZ;
+    const msg = spartaMessages[Math.floor(Math.random() * spartaMessages.length)];
+    el.innerHTML = `
+        <div class="sparta-error-title">Error<span class="sparta-error-x">✕</span></div>
+        <div class="sparta-error-body">
+            <span class="sparta-error-icon">✕</span>
+            <span>${escapeHtml(msg)}</span>
+        </div>
+        <div class="sparta-error-buttons">
+            <button class="bevel-out">OK</button>
+            <button class="bevel-out">Cancel</button>
+        </div>`;
+    // clicking any button removes this popup; if it's the last, stop the madness
+    el.querySelectorAll('button, .sparta-error-x').forEach(b => b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        el.remove();
+        if (spartaActive && document.querySelectorAll('.sparta-error').length === 0) stopSpartaRemix();
+    }));
+    document.body.appendChild(el);
+}
+
+let spartaEscHandler = null;
+function stopSpartaRemix() {
+    if (!spartaActive && !document.getElementById('sparta-banner')) return;
+    spartaActive = false;
+    spartaTimers.forEach(clearTimeout); spartaTimers = [];
+    spartaSources.forEach(s => { try { s.stop(); } catch (e) { } }); spartaSources = [];
+    if (spartaEscHandler) { document.removeEventListener('keydown', spartaEscHandler); spartaEscHandler = null; }
+    document.body.classList.remove('sparta-mode', 'sparta-kick');
+    document.querySelectorAll('.sparta-error').forEach(e => e.remove());
+    document.getElementById('sparta-banner')?.remove();
+    showToast('system', 'vibes.sys restored. that was close bradar');
+    playSound('startup');
+}
