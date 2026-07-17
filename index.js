@@ -62,6 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initTypedTagline();
     updateSoundUI();
     initCounterEgg();
+    fetchGitHubUser();
+    initScreensaver();
 
     if (window.innerWidth < 768) {
         const mainWindow = document.getElementById('main-window');
@@ -207,8 +209,85 @@ function startMenuAction(action) {
         copyDiscord();
     } else if (action === 'shutdown') {
         shutDown();
+    } else if (action === 'run') {
+        showRunDialog();
     } else {
         showSection(action);
+    }
+}
+
+// ===== start > run... =====
+function showRunDialog() {
+    document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'retro-dialog-overlay';
+    const dialog = document.createElement('div');
+    dialog.className = 'retro-dialog bevel-out';
+    dialog.innerHTML = `
+        <div class="retro-dialog-title">run<button class="retro-dialog-close bevel-out" onclick="this.closest('.retro-dialog-overlay').remove()">✕</button></div>
+        <div class="retro-dialog-body">
+            <p>type the name of a program, folder, or vibe, and windows will open it for you.</p>
+            <input id="run-input" class="bevel-in run-input" placeholder="C:\\>" autocomplete="off" spellcheck="false">
+            <p style="color:#666;font-size:10px;">try: guestbook, work, links, party, troll, bsod, matrix, play, shutdown, help</p>
+        </div>
+        <div class="retro-dialog-buttons">
+            <button class="bevel-out retro-dialog-btn" onclick="execRunCommand()">ok</button>
+            <button class="bevel-out retro-dialog-btn" onclick="this.closest('.retro-dialog-overlay').remove()">cancel</button>
+        </div>`;
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    playSound('notify');
+    const input = document.getElementById('run-input');
+    input.focus();
+    input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+            // prevent the browser's default Enter activation from "clicking"
+            // whatever button gets focused by the dialog we open next
+            e.preventDefault();
+            execRunCommand();
+        }
+        if (e.key === 'Escape') overlay.remove();
+    });
+}
+
+function execRunCommand() {
+    const input = document.getElementById('run-input');
+    const cmd = (input?.value || '').trim().toLowerCase().replace(/\.exe$/, '');
+    document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
+    const commands = {
+        'home': () => showSection('home'),
+        'about': () => showSection('home'),
+        'work': () => showSection('github'),
+        'projects': () => showSection('github'),
+        'links': () => showSection('links'),
+        'guestbook': () => showSection('guestbook'),
+        'discord': copyDiscord,
+        'party': togglePartyMode,
+        'troll': () => { startTrollBouncing(); showToast('troll.exe', 'problem?'); },
+        'bsod': triggerBSOD,
+        'matrix': () => window.hax(),
+        'hax': () => window.hax(),
+        'play': () => playTrack(),
+        'winamp': () => playTrack(),
+        'shutdown': shutDown,
+        'screensaver': () => startScreensaver(),
+        'help': () => showRetroDialog({
+            title: 'help.txt',
+            lines: ['mrhakan 98 - digital soul v2.0', 'built with notepad and pure love.', 'secrets: konami code, click the counter 5x, press the maximize button, type party/troll/bsod anywhere.'],
+            okLabel: 'nice'
+        })
+    };
+    if (!cmd) return;
+    if (commands[cmd]) {
+        commands[cmd]();
+    } else {
+        playSound('error');
+        showRetroDialog({
+            title: 'error',
+            lines: [`'${cmd}' is not recognized as an internal or external command, operable program or vibe.`],
+            okLabel: 'my bad'
+        });
     }
 }
 
@@ -843,30 +922,215 @@ function handleTab(type) {
             break;
     }
 }
+const langColors = {
+    'JavaScript': '#f1e05a', 'TypeScript': '#3178c6', 'Java': '#b07219', 'Python': '#3572A5',
+    'C#': '#178600', 'HTML': '#e34c26', 'CSS': '#563d7c', 'Kotlin': '#A97BFF', 'GLSL': '#5686a5',
+    'AutoHotkey': '#6594b9', 'Shell': '#89e051', 'C++': '#f34b7d', 'C': '#555555', 'Go': '#00ADD8', 'Rust': '#dea584'
+};
+let allRepos = [];
+
+function relativeTime(dateStr) {
+    if (!dateStr) return '';
+    const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+    if (days < 1) return 'updated today';
+    if (days === 1) return 'updated yesterday';
+    if (days < 30) return `updated ${days}d ago`;
+    if (days < 365) return `updated ${Math.floor(days / 30)}mo ago`;
+    return `updated ${Math.floor(days / 365)}y ago`;
+}
+
+function repoPagesUrl(repo) {
+    // project sites live under the user site's domain: mrhakan.github.io/<repo>/
+    if (!repo.has_pages || repo.name.toLowerCase() === 'mrhakan.github.io') return null;
+    return `https://mrhakan.github.io/${repo.name}/`;
+}
+
 async function fetchGitHubRepos() {
     const container = document.getElementById('github-repos');
     if (!container) return;
     try {
-        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=30');
+        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=100');
         const repos = await res.json();
-        if (!Array.isArray(repos)) throw new Error(repos && repos.message ? repos.message : 'unexpected response');
-        container.innerHTML = repos.map(repo => `
-            <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0]">
-                <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener" class="block">
-                    <div class="font-bold text-blue-800 underline font-header mb-1 text-sm">${escapeHtml(repo.name)}</div>
-                    <div class="text-[10px] h-8 overflow-hidden text-black font-body mb-2">${escapeHtml(repo.description || 'no description available.')}</div>
-                    <div class="flex gap-2 text-[10px] font-pixel text-gray-600">
-                        <span>★ ${repo.stargazers_count}</span>
-                        <span>⑂ ${repo.forks_count}</span>
-                        <span>${escapeHtml(repo.language || 'txt')}</span>
-                    </div>
-                </a>
-            </div>
-        `).join('');
+        if (!Array.isArray(repos)) throw new Error((repos && repos.message) || 'unexpected response');
+        allRepos = repos.filter(r => !r.fork);
+        renderRepos();
     } catch (e) {
         container.innerHTML = '<div class="text-red-500 font-pixel">error loading git objects... (github api rate limit? try again later)</div>';
     }
 }
+
+function renderRepos() {
+    const container = document.getElementById('github-repos');
+    if (!container || !allRepos.length) return;
+    const sortBy = document.getElementById('repo-sort')?.value || 'updated';
+    const liveOnly = document.getElementById('repo-live-only')?.checked || false;
+
+    let repos = [...allRepos];
+    if (liveOnly) repos = repos.filter(r => repoPagesUrl(r));
+    if (sortBy === 'stars') repos.sort((a, b) => b.stargazers_count - a.stargazers_count);
+    else if (sortBy === 'name') repos.sort((a, b) => a.name.localeCompare(b.name));
+    else repos.sort((a, b) => new Date(b.pushed_at || b.updated_at) - new Date(a.pushed_at || a.updated_at));
+
+    const countEl = document.getElementById('repo-count');
+    if (countEl) countEl.textContent = `${repos.length} object(s)`;
+
+    if (!repos.length) {
+        container.innerHTML = '<div class="text-center w-full py-8 text-xs font-pixel text-gray-500">nothing here bradar</div>';
+        return;
+    }
+
+    container.innerHTML = repos.map(repo => {
+        const live = repoPagesUrl(repo);
+        const langColor = langColors[repo.language] || '#8b949e';
+        return `
+            <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0] flex flex-col">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                    <a href="${escapeHtml(repo.html_url)}" target="_blank" rel="noopener"
+                       class="font-bold text-blue-800 underline font-header text-sm break-all">${escapeHtml(repo.name)}</a>
+                    ${live ? '<span class="live-badge font-pixel text-[9px] flex-shrink-0"><span class="blink-live">●</span> LIVE</span>' : ''}
+                </div>
+                <div class="text-[10px] min-h-8 overflow-hidden text-black font-body mb-2 flex-1">${escapeHtml(repo.description || 'no description available.')}</div>
+                <div class="flex flex-wrap items-center gap-2 text-[10px] font-pixel text-gray-600">
+                    <span>★ ${repo.stargazers_count}</span>
+                    <span>⑂ ${repo.forks_count}</span>
+                    <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full" style="background:${langColor}"></span>${escapeHtml(repo.language || 'txt')}</span>
+                    <span class="ml-auto text-gray-400">${relativeTime(repo.pushed_at || repo.updated_at)}</span>
+                </div>
+                ${live ? `
+                <div class="flex gap-2 mt-2 pt-2 border-t border-dashed border-gray-300">
+                    <button onclick="openIEWindow('${escapeHtml(live)}', '${escapeHtml(repo.name)}')"
+                        class="bevel-out bg-retro-gray px-3 py-[2px] text-black font-header text-xs font-bold active:translate-y-[1px]">&#9654; run</button>
+                    <a href="${escapeHtml(live)}" target="_blank" rel="noopener"
+                        class="bevel-out bg-retro-gray px-3 py-[2px] text-black font-header text-xs font-bold active:translate-y-[1px]">open in new tab</a>
+                </div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// ===== in-site retro internet explorer windows =====
+let ieWindowCount = 0;
+let ieHighestZ = 200;
+function openIEWindow(url, title) {
+    playSound('navigate');
+    ieWindowCount++;
+    const id = `ie-win-${ieWindowCount}`;
+    const win = document.createElement('div');
+    win.className = 'ie-window bevel-out';
+    win.id = id;
+    const isMobile = window.innerWidth < 768;
+    win.style.left = isMobile ? '2vw' : `${60 + (ieWindowCount * 35) % 220}px`;
+    win.style.top = isMobile ? '60px' : `${70 + (ieWindowCount * 30) % 160}px`;
+    win.style.zIndex = ++ieHighestZ;
+
+    const header = document.createElement('div');
+    header.className = 'ie-window-header';
+    header.innerHTML = `
+        <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-4 h-4" alt="">
+        <span class="ie-window-title">${escapeHtml(title)} - microsoft internet explorer</span>`;
+    const btns = document.createElement('div');
+    btns.className = 'flex gap-[2px] ml-auto flex-shrink-0';
+    const minBtn = document.createElement('button');
+    minBtn.className = 'ie-titlebar-btn bevel-out';
+    minBtn.textContent = '_';
+    minBtn.title = 'minimize';
+    minBtn.onclick = () => toggleIEWindow(id);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ie-titlebar-btn bevel-out';
+    closeBtn.textContent = '\u2715';
+    closeBtn.title = 'close';
+    closeBtn.onclick = () => closeIEWindow(id);
+    btns.appendChild(minBtn);
+    btns.appendChild(closeBtn);
+    header.appendChild(btns);
+
+    const addressBar = document.createElement('div');
+    addressBar.className = 'ie-address-bar';
+    addressBar.innerHTML = `<span class="font-header text-xs text-black flex-shrink-0">address:</span>
+        <input class="ie-address-input bevel-in" value="${escapeHtml(url)}" readonly>
+        <a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="open in real browser"
+           class="bevel-out bg-retro-gray px-2 text-black font-header text-xs flex-shrink-0">go</a>`;
+
+    const frameWrap = document.createElement('div');
+    frameWrap.className = 'ie-frame-wrap bevel-in';
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.className = 'ie-frame';
+    iframe.setAttribute('loading', 'lazy');
+    frameWrap.appendChild(iframe);
+
+    const statusBar = document.createElement('div');
+    statusBar.className = 'ie-status-bar bevel-in';
+    statusBar.textContent = `loading ${title}...`;
+    iframe.addEventListener('load', () => { statusBar.textContent = 'done'; });
+
+    win.appendChild(header);
+    win.appendChild(addressBar);
+    win.appendChild(frameWrap);
+    win.appendChild(statusBar);
+    document.body.appendChild(win);
+
+    // drag by header
+    let dragging = false, offX = 0, offY = 0;
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button') || e.target.closest('a')) return;
+        dragging = true;
+        const rect = win.getBoundingClientRect();
+        offX = e.clientX - rect.left;
+        offY = e.clientY - rect.top;
+        win.style.zIndex = ++ieHighestZ;
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        win.style.left = `${e.clientX - offX}px`;
+        win.style.top = `${e.clientY - offY}px`;
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+    win.addEventListener('mousedown', () => { win.style.zIndex = ++ieHighestZ; });
+
+    // taskbar button
+    const tbContainer = document.getElementById('taskbar-windows');
+    if (tbContainer) {
+        const tbBtn = document.createElement('button');
+        tbBtn.className = 'taskbar-window-btn bevel-out';
+        tbBtn.id = `${id}-tb`;
+        tbBtn.innerHTML = `<img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-3 h-3" alt=""><span class="truncate">${escapeHtml(title)}</span>`;
+        tbBtn.onclick = () => toggleIEWindow(id);
+        tbContainer.appendChild(tbBtn);
+    }
+}
+
+function toggleIEWindow(id) {
+    const win = document.getElementById(id);
+    if (!win) return;
+    const hidden = win.style.display === 'none';
+    win.style.display = hidden ? 'flex' : 'none';
+    if (hidden) win.style.zIndex = ++ieHighestZ;
+    playSound('click');
+}
+
+function closeIEWindow(id) {
+    document.getElementById(id)?.remove();
+    document.getElementById(`${id}-tb`)?.remove();
+    playSound('click');
+}
+
+// ===== github user stats (user.dat) =====
+async function fetchGitHubUser() {
+    const panel = document.getElementById('user-stats');
+    if (!panel) return;
+    try {
+        const res = await fetch('https://api.github.com/users/mrhakan');
+        const user = await res.json();
+        if (!user || !user.login) return;
+        document.getElementById('gh-avatar').src = user.avatar_url;
+        document.getElementById('gh-repos').textContent = user.public_repos;
+        document.getElementById('gh-followers').textContent = user.followers;
+        document.getElementById('gh-since').textContent = user.created_at ? new Date(user.created_at).getFullYear() : '?';
+        panel.classList.remove('hidden');
+    } catch (e) { /* panel stays hidden */ }
+}
+
 async function fetchManualProjects() {
     const container = document.getElementById('manual-projects');
     if (!container) return;
@@ -1135,3 +1399,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ===== screensaver (dvd-logo style, kicks in after idle) =====
+const SCREENSAVER_IDLE_MS = 90000;
+let screensaverTimer = null;
+let screensaverRAF = null;
+
+function initScreensaver() {
+    const reset = () => {
+        clearTimeout(screensaverTimer);
+        screensaverTimer = setTimeout(() => {
+            if (document.getElementById('boot-screen') || document.getElementById('bsod-screen')) return;
+            startScreensaver();
+        }, SCREENSAVER_IDLE_MS);
+    };
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(ev =>
+        document.addEventListener(ev, reset, { passive: true }));
+    reset();
+}
+
+function startScreensaver() {
+    if (document.getElementById('screensaver')) return;
+    const saver = document.createElement('div');
+    saver.id = 'screensaver';
+    const logo = document.createElement('div');
+    logo.className = 'screensaver-logo';
+    logo.innerHTML = `<img src="src/troll/troll5.png" alt="" draggable="false"><span class="font-header">mrhakan 98</span>`;
+    saver.appendChild(logo);
+    document.body.appendChild(saver);
+
+    let x = Math.random() * (window.innerWidth - 160);
+    let y = Math.random() * (window.innerHeight - 120);
+    let dx = 2.2, dy = 1.8;
+    const colors = ['#0df259', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
+    let colorIdx = 0;
+
+    const step = () => {
+        const w = logo.offsetWidth || 160;
+        const h = logo.offsetHeight || 120;
+        x += dx; y += dy;
+        let bounced = false;
+        if (x <= 0 || x + w >= window.innerWidth) { dx *= -1; bounced = true; x = Math.max(0, Math.min(x, window.innerWidth - w)); }
+        if (y <= 0 || y + h >= window.innerHeight) { dy *= -1; bounced = true; y = Math.max(0, Math.min(y, window.innerHeight - h)); }
+        if (bounced) {
+            colorIdx = (colorIdx + 1) % colors.length;
+            logo.style.color = colors[colorIdx];
+            logo.style.filter = `drop-shadow(0 0 8px ${colors[colorIdx]})`;
+        }
+        logo.style.transform = `translate(${x}px, ${y}px)`;
+        screensaverRAF = requestAnimationFrame(step);
+    };
+    screensaverRAF = requestAnimationFrame(step);
+
+    // wake on any input (delayed a tick so the triggering event doesn't insta-close it)
+    setTimeout(() => {
+        const wake = () => {
+            cancelAnimationFrame(screensaverRAF);
+            saver.remove();
+            ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
+                document.removeEventListener(ev, wake));
+        };
+        ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
+            document.addEventListener(ev, wake, { passive: true }));
+    }, 400);
+}

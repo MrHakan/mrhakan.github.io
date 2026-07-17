@@ -751,6 +751,182 @@ body {
     transform-origin: center center;
 }
 
+/* ===== live demo badge ===== */
+.live-badge {
+    background: #300;
+    color: #f44;
+    border: 1px solid #f44;
+    padding: 1px 4px;
+    letter-spacing: 1px;
+}
+
+@keyframes blink-live {
+    50% {
+        opacity: 0.2;
+    }
+}
+
+.blink-live {
+    color: #f44;
+    animation: blink-live 1s steps(2, start) infinite;
+}
+
+/* ===== in-site internet explorer windows ===== */
+.ie-window {
+    position: fixed;
+    width: min(720px, 94vw);
+    height: min(540px, 74vh);
+    background: #c0c0c0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    padding: 2px;
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+}
+
+.ie-window-header {
+    background: linear-gradient(to right, #000080, #1084d0);
+    padding: 3px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: grab;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.ie-window-header:active {
+    cursor: grabbing;
+}
+
+.ie-window-title {
+    color: #fff;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-weight: bold;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ie-titlebar-btn {
+    width: 18px;
+    height: 18px;
+    background: #c0c0c0;
+    color: #000;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ie-address-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-bottom: 1px solid #808080;
+    flex-shrink: 0;
+}
+
+.ie-address-input {
+    flex: 1;
+    min-width: 0;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 2px 4px;
+}
+
+.ie-frame-wrap {
+    flex: 1;
+    background: #fff;
+    margin: 4px;
+    overflow: hidden;
+}
+
+.ie-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+}
+
+.ie-status-bar {
+    background: #c0c0c0;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+}
+
+.taskbar-window-btn {
+    height: 32px;
+    max-width: 140px;
+    min-width: 0;
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.taskbar-window-btn:active {
+    transform: translateY(1px);
+}
+
+/* ===== run dialog input ===== */
+.run-input {
+    width: 100%;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    padding: 4px 6px;
+    margin: 8px 0 4px;
+    outline: none;
+}
+
+/* ===== screensaver ===== */
+#screensaver {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: #000;
+    overflow: hidden;
+    cursor: none;
+}
+
+.screensaver-logo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: #0df259;
+    font-size: 20px;
+    font-weight: bold;
+    will-change: transform;
+}
+
+.screensaver-logo img {
+    width: 110px;
+    image-rendering: pixelated;
+    user-select: none;
+    pointer-events: none;
+}
+
 /* ===== shutdown screen ===== */
 #shutdown-screen {
     position: fixed;
