@@ -278,6 +278,7 @@ function execRunCommand() {
         'taskmgr': openTaskManager,
         'taskmanager': openTaskManager,
         'party': togglePartyMode,
+        'sparta': startSpartaRemix,
         'troll': () => { startTrollBouncing(); showToast('troll.exe', 'problem?'); },
         'bsod': triggerBSOD,
         'matrix': () => window.hax(),
@@ -1835,9 +1836,11 @@ function openTaskManager() {
     body.querySelector('#tm-end').onclick = () => {
         if (selected == null || !procs[selected]) { showToast('task manager', 'select a process first bradar'); return; }
         const p = procs[selected];
-        if (p.name === 'vibes.sys') {
+        // vibes.sys is protected... UNLESS it's the last one standing. ending the
+        // final process empties the list and unleashes the windows error remix.
+        if (p.name === 'vibes.sys' && procs.length > 1) {
             playSound('error');
-            showRetroDialog({ title: 'access denied', lines: ['cannot end vibes.sys.', 'this process is critical to the shithole.'], okLabel: 'fair enough' });
+            showRetroDialog({ title: 'access denied', lines: ['cannot end vibes.sys.', 'this process is critical to the shithole.', '(kill everything else first if you dare)'], okLabel: 'fair enough' });
             return;
         }
         if (p.kill) p.kill();
@@ -1845,7 +1848,11 @@ function openTaskManager() {
         selected = null;
         playSound('click');
         render();
-        showToast('task manager', `${p.name} terminated`);
+        if (procs.length === 0) {
+            startSpartaRemix();
+        } else {
+            showToast('task manager', `${p.name} terminated`);
+        }
     };
     // live-ish cpu jitter
     const jitter = setInterval(() => {
@@ -1902,4 +1909,141 @@ function showAssistant() {
 }
 function hideAssistant() {
     document.getElementById('troll-assistant')?.remove();
+}
+
+// ===================================================================
+// WINDOWS ERROR REMIX ("this is sparta" but made of XP error sounds)
+// triggered when every process is ended in task manager.
+// recreates the classic youtube meme: the error sound chopped into a
+// rhythmic beat while error dialogs cascade across the screen in sync.
+// ===================================================================
+let spartaCtx = null, spartaBuffer = null, spartaActive = false;
+let spartaTimers = [], spartaSources = [], spartaGain = null, spartaZ = 9000;
+
+async function loadSpartaBuffer() {
+    if (spartaBuffer) return spartaBuffer;
+    spartaCtx = spartaCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const res = await fetch(win98Sounds.error);
+    const arr = await res.arrayBuffer();
+    spartaBuffer = await spartaCtx.decodeAudioData(arr);
+    return spartaBuffer;
+}
+
+async function startSpartaRemix() {
+    if (spartaActive) return;
+    spartaActive = true;
+
+    let buffer = null;
+    try { buffer = await loadSpartaBuffer(); } catch (e) { buffer = null; }
+    if (spartaCtx && spartaCtx.state === 'suspended') { try { await spartaCtx.resume(); } catch (e) { } }
+    if (spartaCtx) {
+        spartaGain = spartaCtx.createGain();
+        spartaGain.gain.value = 0.32;
+        spartaGain.connect(spartaCtx.destination);
+    }
+
+    document.body.classList.add('sparta-mode');
+    const banner = document.createElement('div');
+    banner.id = 'sparta-banner';
+    banner.innerHTML = '<span class="rainbow-text">☠ THIS IS SPARTA ☠</span><small>every OK to make it stop... or wait it out</small>';
+    document.body.appendChild(banner);
+
+    // pitch pattern over a 16-step bar -> a driving melodic beat
+    const step = 0.14;
+    const bar = 16;
+    const pattern = [
+        { s: 0, r: 0.6 }, { s: 2, r: 1.2 }, { s: 3, r: 1.5 }, { s: 4, r: 0.6 },
+        { s: 6, r: 1.2 }, { s: 7, r: 1.8 }, { s: 8, r: 0.6 }, { s: 10, r: 1.2 },
+        { s: 11, r: 1.5 }, { s: 12, r: 0.6 }, { s: 13, r: 1.5 }, { s: 14, r: 1.8 }, { s: 15, r: 1.2 }
+    ];
+    const loops = 6;
+    const audioStart = spartaCtx ? spartaCtx.currentTime + 0.12 : 0;
+
+    for (let loop = 0; loop < loops; loop++) {
+        pattern.forEach(hit => {
+            const t = (loop * bar + hit.s) * step;
+            // schedule the audio stab
+            if (buffer && spartaCtx) {
+                const src = spartaCtx.createBufferSource();
+                src.buffer = buffer;
+                src.playbackRate.value = hit.r;
+                src.connect(spartaGain);
+                try { src.start(audioStart + t, 0, 0.34 / hit.r); } catch (e) { }
+                spartaSources.push(src);
+            } else {
+                // fallback: pitch-shifted HTMLAudio
+                spartaTimers.push(setTimeout(() => {
+                    if (!spartaActive || !soundEnabled) return;
+                    const a = new Audio(win98Sounds.error);
+                    a.preservesPitch = false; a.playbackRate = hit.r; a.volume = 0.3;
+                    a.play().catch(() => { });
+                }, t * 1000 + 120));
+            }
+            // spawn a cascading error dialog on the beat
+            spartaTimers.push(setTimeout(() => { if (spartaActive) spawnSpartaError(); }, t * 1000 + 120));
+            // screen kick on the low (kick-drum) hits
+            if (hit.r <= 0.7) {
+                spartaTimers.push(setTimeout(() => {
+                    if (!spartaActive) return;
+                    document.body.classList.add('sparta-kick');
+                    setTimeout(() => document.body.classList.remove('sparta-kick'), 90);
+                }, t * 1000 + 120));
+            }
+        });
+    }
+
+    const total = loops * bar * step * 1000 + 500;
+    spartaTimers.push(setTimeout(stopSpartaRemix, total));
+
+    spartaEscHandler = (e) => { if (e.key === 'Escape') stopSpartaRemix(); };
+    document.addEventListener('keydown', spartaEscHandler);
+}
+
+const spartaMessages = [
+    'A fatal exception 0E has occurred', 'vibes.sys is not responding', 'THIS IS SPARTA',
+    'Illegal operation: too much swag', 'C:\\ is on fire', 'kernel panic: too lit',
+    'Error 404: chill not found', 'Windows', 'not enough RAM for these vibes',
+    'stack overflow of pure energy', 'CRITICAL_PROCESS_DIED', 'the trolls escaped'
+];
+function spawnSpartaError() {
+    if (document.querySelectorAll('.sparta-error').length > 55) return;
+    const el = document.createElement('div');
+    el.className = 'sparta-error bevel-out';
+    const w = 240, h = 120;
+    el.style.left = `${Math.random() * Math.max(0, window.innerWidth - w)}px`;
+    el.style.top = `${Math.random() * Math.max(0, window.innerHeight - h - 40)}px`;
+    el.style.transform = `rotate(${(Math.random() * 10 - 5).toFixed(1)}deg)`;
+    el.style.zIndex = ++spartaZ;
+    const msg = spartaMessages[Math.floor(Math.random() * spartaMessages.length)];
+    el.innerHTML = `
+        <div class="sparta-error-title">Error<span class="sparta-error-x">✕</span></div>
+        <div class="sparta-error-body">
+            <span class="sparta-error-icon">✕</span>
+            <span>${escapeHtml(msg)}</span>
+        </div>
+        <div class="sparta-error-buttons">
+            <button class="bevel-out">OK</button>
+            <button class="bevel-out">Cancel</button>
+        </div>`;
+    // clicking any button removes this popup; if it's the last, stop the madness
+    el.querySelectorAll('button, .sparta-error-x').forEach(b => b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        el.remove();
+        if (spartaActive && document.querySelectorAll('.sparta-error').length === 0) stopSpartaRemix();
+    }));
+    document.body.appendChild(el);
+}
+
+let spartaEscHandler = null;
+function stopSpartaRemix() {
+    if (!spartaActive && !document.getElementById('sparta-banner')) return;
+    spartaActive = false;
+    spartaTimers.forEach(clearTimeout); spartaTimers = [];
+    spartaSources.forEach(s => { try { s.stop(); } catch (e) { } }); spartaSources = [];
+    if (spartaEscHandler) { document.removeEventListener('keydown', spartaEscHandler); spartaEscHandler = null; }
+    document.body.classList.remove('sparta-mode', 'sparta-kick');
+    document.querySelectorAll('.sparta-error').forEach(e => e.remove());
+    document.getElementById('sparta-banner')?.remove();
+    showToast('system', 'vibes.sys restored. that was close bradar');
+    playSound('startup');
 }
