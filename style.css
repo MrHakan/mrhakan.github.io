@@ -927,6 +927,321 @@ body {
     pointer-events: none;
 }
 
+/* ===== generic app window ===== */
+.app-window {
+    position: fixed;
+    background: #c0c0c0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    padding: 2px;
+    box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+    max-width: 96vw;
+}
+
+.app-window-header {
+    background: linear-gradient(to right, #000080, #1084d0);
+    padding: 3px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: grab;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.app-window-header:active {
+    cursor: grabbing;
+}
+
+.app-window-title {
+    color: #fff;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-weight: bold;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-window-body {
+    background: #c0c0c0;
+    padding: 6px;
+    overflow: auto;
+}
+
+.bevel-in-light {
+    border-top: 1px solid #808080;
+    border-left: 1px solid #808080;
+    border-right: 1px solid #fff;
+    border-bottom: 1px solid #fff;
+}
+
+/* ===== minesweeper ===== */
+.ms-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+}
+
+.ms-counter {
+    background: #000;
+    color: #f00;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 20px;
+    padding: 1px 4px;
+    letter-spacing: 2px;
+}
+
+.ms-face {
+    width: 30px;
+    height: 30px;
+    background: #c0c0c0;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.ms-grid {
+    display: grid;
+    gap: 0;
+    background: #808080;
+    padding: 2px;
+    width: max-content;
+    margin: 0 auto;
+}
+
+.ms-cell {
+    width: 22px;
+    height: 22px;
+    background: #c0c0c0;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 13px;
+    padding: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ms-cell.ms-open {
+    background: #bdbdbd;
+}
+
+.ms-cell.ms-boom {
+    background: #f00;
+}
+
+/* ===== paint ===== */
+.paint-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.paint-colors {
+    display: grid;
+    grid-template-columns: repeat(7, 16px);
+    gap: 2px;
+}
+
+.paint-swatch {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #808080;
+    padding: 0;
+}
+
+.paint-swatch.selected {
+    outline: 2px solid #000;
+    outline-offset: -1px;
+    border-color: #fff;
+}
+
+.paint-size {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #000;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.paint-size input {
+    width: 64px;
+}
+
+.paint-btn {
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Comic Sans MS", cursive;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+#paint-canvas {
+    display: block;
+    background: #fff;
+    width: 100%;
+    max-width: 320px;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+/* ===== task manager ===== */
+.tm-tabs {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #000;
+    border-bottom: 1px solid #808080;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+}
+
+.tm-header,
+.tm-row {
+    display: grid;
+    grid-template-columns: 1fr 48px 72px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #000;
+    padding: 2px 4px;
+}
+
+.tm-header {
+    font-weight: bold;
+    background: #c0c0c0;
+    border-bottom: 1px solid #808080;
+}
+
+.tm-list {
+    background: #fff;
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.tm-row {
+    cursor: pointer;
+}
+
+.tm-row:nth-child(even) {
+    background: #f0f0f0;
+}
+
+.tm-row.selected {
+    background: #000080;
+    color: #fff;
+}
+
+.tm-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #000;
+}
+
+.tm-endbtn {
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Comic Sans MS", cursive;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 3px 10px;
+}
+
+/* ===== winamp toggle buttons ===== */
+.winamp-toggle-on {
+    color: #0df259 !important;
+    text-shadow: 0 0 6px #0df259;
+}
+
+/* ===== troll assistant ===== */
+#troll-assistant {
+    position: fixed;
+    right: 10px;
+    bottom: 52px;
+    z-index: 88;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    animation: toast-in 0.25s ease-out;
+}
+
+.assistant-bubble {
+    background: #ffffe1;
+    border: 1px solid #000;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+    padding: 8px 10px;
+    max-width: 220px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #000;
+    border-radius: 8px;
+    position: relative;
+}
+
+.assistant-bubble::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    bottom: 14px;
+    border: 8px solid transparent;
+    border-left-color: #ffffe1;
+}
+
+.assistant-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.assistant-actions button {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 10px;
+    font-weight: bold;
+    color: #000;
+    background: #c0c0c0;
+    border-top: 1px solid #fff;
+    border-left: 1px solid #fff;
+    border-right: 1px solid #404040;
+    border-bottom: 1px solid #404040;
+    padding: 2px 6px;
+}
+
+.assistant-troll {
+    width: 56px;
+    height: 56px;
+    image-rendering: pixelated;
+    cursor: pointer;
+}
+
+.assistant-troll.spin {
+    animation: assistant-spin 0.6s linear;
+}
+
+@keyframes assistant-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* ===== shutdown screen ===== */
 #shutdown-screen {
     position: fixed;

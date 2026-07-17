@@ -377,6 +377,10 @@
               class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">stop</button>
             <button onclick="nextTrack()"
               class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">skip_next</button>
+            <button id="winamp-shuffle" onclick="toggleShuffle()" title="shuffle"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">shuffle</button>
+            <button id="winamp-repeat" onclick="toggleRepeat()" title="repeat one"
+              class="text-[#c0c0c0] hover:text-white material-symbols-outlined text-lg">repeat</button>
 
             <audio id="audio-player"></audio>
           </div>
@@ -441,6 +445,16 @@
         </button>
         <button onclick="startMenuAction('discord')" class="start-item">
           <span class="material-symbols-outlined text-blue-500">chat</span>discord me
+        </button>
+        <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
+        <button onclick="startMenuAction('minesweeper')" class="start-item">
+          <span class="material-symbols-outlined text-red-600">flag</span>minesweeper
+        </button>
+        <button onclick="startMenuAction('paint')" class="start-item">
+          <span class="material-symbols-outlined text-orange-600">brush</span>paint
+        </button>
+        <button onclick="startMenuAction('taskmgr')" class="start-item">
+          <span class="material-symbols-outlined text-green-700">monitoring</span>task manager
         </button>
         <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
         <button onclick="startMenuAction('run')" class="start-item">

@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCounterEgg();
     fetchGitHubUser();
     initScreensaver();
+    initAssistant();
 
     if (window.innerWidth < 768) {
         const mainWindow = document.getElementById('main-window');
@@ -211,10 +212,17 @@ function startMenuAction(action) {
         shutDown();
     } else if (action === 'run') {
         showRunDialog();
+    } else if (action === 'minesweeper') {
+        openMinesweeper();
+    } else if (action === 'paint') {
+        openPaint();
+    } else if (action === 'taskmgr') {
+        openTaskManager();
     } else {
         showSection(action);
     }
 }
+
 
 // ===== start > run... =====
 function showRunDialog() {
@@ -228,7 +236,7 @@ function showRunDialog() {
         <div class="retro-dialog-body">
             <p>type the name of a program, folder, or vibe, and windows will open it for you.</p>
             <input id="run-input" class="bevel-in run-input" placeholder="C:\\>" autocomplete="off" spellcheck="false">
-            <p style="color:#666;font-size:10px;">try: guestbook, work, links, party, troll, bsod, matrix, play, shutdown, help</p>
+            <p style="color:#666;font-size:10px;">try: minesweeper, paint, taskmgr, guestbook, party, troll, bsod, matrix, play, help</p>
         </div>
         <div class="retro-dialog-buttons">
             <button class="bevel-out retro-dialog-btn" onclick="execRunCommand()">ok</button>
@@ -263,6 +271,12 @@ function execRunCommand() {
         'links': () => showSection('links'),
         'guestbook': () => showSection('guestbook'),
         'discord': copyDiscord,
+        'minesweeper': openMinesweeper,
+        'mines': openMinesweeper,
+        'paint': openPaint,
+        'mspaint': openPaint,
+        'taskmgr': openTaskManager,
+        'taskmanager': openTaskManager,
         'party': togglePartyMode,
         'troll': () => { startTrollBouncing(); showToast('troll.exe', 'problem?'); },
         'bsod': triggerBSOD,
@@ -730,10 +744,37 @@ function stopTrack() {
     text.classList.remove('animate-marquee');
     updateProgressBar();
 }
+let shuffleOn = false;
+let repeatOn = false;
 function nextTrack() {
-    currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+    if (!tracks.length) return;
+    // called on 'ended' too: honor repeat-one, then shuffle, then sequential
+    if (repeatOn) {
+        loadTrack(currentTrackIndex);
+        playTrack();
+        return;
+    }
+    if (shuffleOn && tracks.length > 1) {
+        let next;
+        do { next = Math.floor(Math.random() * tracks.length); } while (next === currentTrackIndex);
+        currentTrackIndex = next;
+    } else {
+        currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+    }
     loadTrack(currentTrackIndex);
     playTrack();
+}
+function toggleShuffle() {
+    shuffleOn = !shuffleOn;
+    const btn = document.getElementById('winamp-shuffle');
+    if (btn) btn.classList.toggle('winamp-toggle-on', shuffleOn);
+    showToast('winamp', shuffleOn ? 'shuffle on' : 'shuffle off');
+}
+function toggleRepeat() {
+    repeatOn = !repeatOn;
+    const btn = document.getElementById('winamp-repeat');
+    if (btn) btn.classList.toggle('winamp-toggle-on', repeatOn);
+    showToast('winamp', repeatOn ? 'repeat one on' : 'repeat off');
 }
 function prevTrack() {
     currentTrackIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
@@ -903,22 +944,32 @@ function hideSection(type) {
 function handleTab(type) {
     switch (type) {
         case 'file':
-            if (confirm("Exit application? (Go to Home)")) window.location.href = 'index.html';
+            showRetroDialog({
+                title: 'file',
+                lines: ['what do you want to do bradar?'],
+                okLabel: 'go home', cancelLabel: 'print (lol)',
+                onOk: () => showSection('home')
+            });
             break;
         case 'edit':
-            alert("Clipboard access denied by OS (Windows 98).");
+            openPaint();
             break;
         case 'view':
-            alert("Switching to 800x600 resolution (simulated).");
+            togglePartyMode();
             break;
         case 'favorites':
-            alert("Added 'mrhakan.github.io' to Favorites!");
+            showToast('favorites', "added 'mrhakan.github.io' to your favorites! good choice");
+            playSound('ding');
             break;
         case 'tools':
-            alert("Opening Internet Options...");
+            openTaskManager();
             break;
         case 'help':
-            alert("Digital Soul v1.0\nCreated by: mrhakan\nBuilt with: Notepad");
+            showRetroDialog({
+                title: 'about digital soul',
+                lines: ['mrhakan 98 - digital soul v2.0', 'created by: mrhakan', 'built with: notepad + pure love', 'secrets everywhere. go find them.'],
+                okLabel: 'cool'
+            });
             break;
     }
 }
@@ -1478,4 +1529,377 @@ function startScreensaver() {
         ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
             document.addEventListener(ev, wake, { passive: true }));
     }, 400);
+}
+
+// ===================================================================
+// generic app window manager (used by minesweeper / paint / task mgr)
+// ===================================================================
+let appWinCount = 0;
+function createAppWindow(title, opts = {}) {
+    appWinCount++;
+    ieHighestZ = (typeof ieHighestZ === 'number' ? ieHighestZ : 200) + 1;
+    const id = `app-win-${appWinCount}`;
+    const win = document.createElement('div');
+    win.className = 'app-window bevel-out';
+    win.id = id;
+    const isMobile = window.innerWidth < 768;
+    const w = opts.width || 320;
+    win.style.width = isMobile ? '94vw' : `${w}px`;
+    win.style.left = isMobile ? '3vw' : `${Math.max(10, (window.innerWidth - w) / 2 + (appWinCount * 24) % 120 - 60)}px`;
+    win.style.top = isMobile ? '54px' : `${70 + (appWinCount * 26) % 130}px`;
+    win.style.zIndex = ieHighestZ;
+
+    const header = document.createElement('div');
+    header.className = 'app-window-header';
+    header.innerHTML = `<span class="material-symbols-outlined text-white text-sm">${opts.icon || 'terminal'}</span>
+        <span class="app-window-title">${escapeHtml(title)}</span>`;
+    const btns = document.createElement('div');
+    btns.className = 'flex gap-[2px] ml-auto flex-shrink-0';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'ie-titlebar-btn bevel-out';
+    closeBtn.textContent = '✕';
+    closeBtn.title = 'close';
+    closeBtn.onclick = () => closeAppWindow(id);
+    btns.appendChild(closeBtn);
+    header.appendChild(btns);
+
+    const body = document.createElement('div');
+    body.className = 'app-window-body bevel-in';
+
+    win.appendChild(header);
+    win.appendChild(body);
+    document.body.appendChild(win);
+    playSound('navigate');
+
+    // drag
+    let dragging = false, offX = 0, offY = 0;
+    header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        dragging = true;
+        const rect = win.getBoundingClientRect();
+        offX = e.clientX - rect.left; offY = e.clientY - rect.top;
+        win.style.zIndex = ++ieHighestZ;
+    });
+    const onMove = (e) => {
+        if (!dragging) return;
+        win.style.left = `${e.clientX - offX}px`;
+        win.style.top = `${e.clientY - offY}px`;
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', () => { dragging = false; });
+    win.addEventListener('mousedown', () => { win.style.zIndex = ++ieHighestZ; });
+
+    // taskbar button
+    const tb = document.getElementById('taskbar-windows');
+    if (tb) {
+        const b = document.createElement('button');
+        b.className = 'taskbar-window-btn bevel-out';
+        b.id = `${id}-tb`;
+        b.innerHTML = `<span class="material-symbols-outlined text-sm">${opts.icon || 'terminal'}</span><span class="truncate">${escapeHtml(title)}</span>`;
+        b.onclick = () => {
+            const hidden = win.style.display === 'none';
+            win.style.display = hidden ? 'flex' : 'none';
+            if (hidden) win.style.zIndex = ++ieHighestZ;
+            playSound('click');
+        };
+        tb.appendChild(b);
+    }
+    win._cleanup = () => document.removeEventListener('mousemove', onMove);
+    return { win, body, id, close: () => closeAppWindow(id) };
+}
+function closeAppWindow(id) {
+    const win = document.getElementById(id);
+    if (win && win._cleanup) win._cleanup();
+    win?.remove();
+    document.getElementById(`${id}-tb`)?.remove();
+    playSound('click');
+}
+
+// ===================================================================
+// minesweeper.exe (actually playable)
+// ===================================================================
+function openMinesweeper() {
+    const { body, close } = createAppWindow('minesweeper', { icon: 'flag', width: 300 });
+    const COLS = 9, ROWS = 9, MINES = 10;
+    let grid, revealed, flagged, gameOver, won, firstClick, timer, seconds;
+    const numColors = ['', '#0000ff', '#008000', '#ff0000', '#000080', '#800000', '#008080', '#000000', '#808080'];
+
+    body.innerHTML = `
+        <div class="ms-panel">
+            <div class="ms-counter" id="ms-mines">010</div>
+            <button class="ms-face bevel-out" id="ms-face">🙂</button>
+            <div class="ms-counter" id="ms-timer">000</div>
+        </div>
+        <div class="ms-grid bevel-in" id="ms-grid"></div>
+        <p class="text-[10px] font-pixel text-black mt-1 text-center">left: dig &middot; right: flag</p>`;
+    const gridEl = body.querySelector('#ms-grid');
+    const faceEl = body.querySelector('#ms-face');
+    const minesEl = body.querySelector('#ms-mines');
+    const timerEl = body.querySelector('#ms-timer');
+    gridEl.style.gridTemplateColumns = `repeat(${COLS}, 22px)`;
+
+    function reset() {
+        grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+        revealed = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+        flagged = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+        gameOver = false; won = false; firstClick = true; seconds = 0;
+        clearInterval(timer);
+        timerEl.textContent = '000';
+        minesEl.textContent = String(MINES).padStart(3, '0');
+        faceEl.textContent = '🙂';
+        render();
+    }
+    function placeMines(safeR, safeC) {
+        let placed = 0;
+        while (placed < MINES) {
+            const r = Math.floor(Math.random() * ROWS), c = Math.floor(Math.random() * COLS);
+            if (grid[r][c] === -1 || (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1)) continue;
+            grid[r][c] = -1; placed++;
+        }
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === -1) continue;
+            let n = 0;
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === -1) n++;
+            }
+            grid[r][c] = n;
+        }
+    }
+    function flood(r, c) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS || revealed[r][c] || flagged[r][c]) return;
+        revealed[r][c] = true;
+        if (grid[r][c] === 0) {
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++)
+                if (dr || dc) flood(r + dr, c + dc);
+        }
+    }
+    function reveal(r, c) {
+        if (gameOver || revealed[r][c] || flagged[r][c]) return;
+        if (firstClick) { placeMines(r, c); firstClick = false; timer = setInterval(() => { seconds++; timerEl.textContent = String(Math.min(seconds, 999)).padStart(3, '0'); }, 1000); }
+        if (grid[r][c] === -1) {
+            revealed[r][c] = true; gameOver = true; clearInterval(timer);
+            faceEl.textContent = '💀'; playSound('error');
+            render(); checkWin(); return;
+        }
+        flood(r, c);
+        playSound('click');
+        render(); checkWin();
+    }
+    function toggleFlag(r, c) {
+        if (gameOver || revealed[r][c]) return;
+        flagged[r][c] = !flagged[r][c];
+        const count = flagged.flat().filter(Boolean).length;
+        minesEl.textContent = String(Math.max(0, MINES - count)).padStart(3, '0');
+        render();
+    }
+    function checkWin() {
+        if (gameOver) return;
+        let safe = 0;
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+            if (grid[r][c] !== -1 && revealed[r][c]) safe++;
+        if (safe === ROWS * COLS - MINES) {
+            won = true; gameOver = true; clearInterval(timer);
+            faceEl.textContent = '😎'; playSound('ding');
+            showToast('minesweeper.exe', `you win! ${seconds}s. certified minesweeper legend`);
+        }
+    }
+    function render() {
+        gridEl.innerHTML = '';
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            const cell = document.createElement('button');
+            cell.className = 'ms-cell';
+            if (revealed[r][c]) {
+                cell.classList.add('ms-open', 'bevel-in-light');
+                if (grid[r][c] === -1) { cell.textContent = '💣'; if (won === false && gameOver) cell.classList.add('ms-boom'); }
+                else if (grid[r][c] > 0) { cell.textContent = grid[r][c]; cell.style.color = numColors[grid[r][c]]; }
+            } else {
+                cell.classList.add('bevel-out');
+                if (flagged[r][c]) cell.textContent = '🚩';
+                if (gameOver && grid[r] && grid[r][c] === -1 && !flagged[r][c]) cell.textContent = '💣';
+            }
+            cell.addEventListener('click', () => reveal(r, c));
+            cell.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleFlag(r, c); });
+            gridEl.appendChild(cell);
+        }
+    }
+    faceEl.addEventListener('click', reset);
+    reset();
+}
+
+// ===================================================================
+// paint.exe (draw + save png)
+// ===================================================================
+function openPaint() {
+    const { body } = createAppWindow('untitled - paint', { icon: 'brush', width: 340 });
+    const colors = ['#000000', '#808080', '#c0c0c0', '#ffffff', '#ff0000', '#ff8000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#800080', '#8b4513', '#0df259'];
+    body.innerHTML = `
+        <div class="paint-toolbar">
+            <div class="paint-colors" id="paint-colors"></div>
+            <label class="paint-size">size <input id="paint-size" type="range" min="1" max="24" value="4"></label>
+            <button class="bevel-out paint-btn" id="paint-clear">clear</button>
+            <button class="bevel-out paint-btn" id="paint-save">save png</button>
+        </div>
+        <canvas id="paint-canvas" class="bevel-in" width="320" height="240"></canvas>`;
+    const canvas = body.querySelector('#paint-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.lineJoin = ctx.lineCap = 'round';
+    let color = '#000000', size = 4, drawing = false;
+
+    const swatches = body.querySelector('#paint-colors');
+    colors.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.className = 'paint-swatch' + (i === 0 ? ' selected' : '');
+        b.style.background = c;
+        b.onclick = () => {
+            color = c;
+            swatches.querySelectorAll('.paint-swatch').forEach(s => s.classList.remove('selected'));
+            b.classList.add('selected');
+        };
+        swatches.appendChild(b);
+    });
+    body.querySelector('#paint-size').addEventListener('input', e => { size = +e.target.value; });
+
+    function pos(e) {
+        const r = canvas.getBoundingClientRect();
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+        const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+        return { x: cx * (canvas.width / r.width), y: cy * (canvas.height / r.height) };
+    }
+    function start(e) { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+    function move(e) {
+        if (!drawing) return;
+        const p = pos(e);
+        ctx.strokeStyle = color; ctx.lineWidth = size;
+        ctx.lineTo(p.x, p.y); ctx.stroke();
+        e.preventDefault();
+    }
+    function end() { drawing = false; }
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+
+    body.querySelector('#paint-clear').onclick = () => { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); playSound('click'); };
+    body.querySelector('#paint-save').onclick = () => {
+        const a = document.createElement('a');
+        a.download = 'mrhakan-masterpiece.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+        showToast('paint.exe', 'masterpiece saved. put it in a museum');
+        playSound('ding');
+    };
+}
+
+// ===================================================================
+// task manager (fake processes, real interactions)
+// ===================================================================
+function openTaskManager() {
+    const { body, close } = createAppWindow('task manager', { icon: 'monitoring', width: 340 });
+    let procs = [
+        { name: 'winamp.exe', cpu: 12, mem: 4200, kill: () => { stopTrack && stopTrack(); } },
+        { name: 'guestbook.exe', cpu: 3, mem: 1100, kill: () => showSection('home') },
+        { name: 'shoutbox.exe', cpu: 5, mem: 900 },
+        { name: 'trolls.dll', cpu: 42, mem: 6666, kill: () => { if (typeof trollInterval !== 'undefined') clearInterval(trollInterval); document.getElementById('effects-container').querySelectorAll('img').forEach(i => i.remove()); } },
+        { name: 'vibes.sys', cpu: 88, mem: 13337 },
+        { name: 'explorer.exe', cpu: 2, mem: 2400 },
+        { name: 'clippy.exe', cpu: 1, mem: 300, kill: () => hideAssistant() }
+    ];
+    body.innerHTML = `
+        <div class="tm-tabs">applications | <b>processes</b> | performance</div>
+        <div class="tm-header"><span>image name</span><span>cpu</span><span>mem</span></div>
+        <div class="tm-list" id="tm-list"></div>
+        <div class="tm-footer">
+            <span id="tm-count"></span>
+            <button class="bevel-out tm-endbtn" id="tm-end">end task</button>
+        </div>`;
+    const listEl = body.querySelector('#tm-list');
+    const countEl = body.querySelector('#tm-count');
+    let selected = null;
+
+    function render() {
+        listEl.innerHTML = '';
+        procs.forEach((p, i) => {
+            const row = document.createElement('div');
+            row.className = 'tm-row' + (selected === i ? ' selected' : '');
+            row.innerHTML = `<span>${escapeHtml(p.name)}</span><span>${p.cpu}%</span><span>${p.mem.toLocaleString()}K</span>`;
+            row.onclick = () => { selected = i; render(); };
+            listEl.appendChild(row);
+        });
+        const totalCpu = Math.min(100, procs.reduce((s, p) => s + p.cpu, 0));
+        countEl.textContent = `processes: ${procs.length}  cpu: ${totalCpu}%`;
+    }
+    body.querySelector('#tm-end').onclick = () => {
+        if (selected == null || !procs[selected]) { showToast('task manager', 'select a process first bradar'); return; }
+        const p = procs[selected];
+        if (p.name === 'vibes.sys') {
+            playSound('error');
+            showRetroDialog({ title: 'access denied', lines: ['cannot end vibes.sys.', 'this process is critical to the shithole.'], okLabel: 'fair enough' });
+            return;
+        }
+        if (p.kill) p.kill();
+        procs.splice(selected, 1);
+        selected = null;
+        playSound('click');
+        render();
+        showToast('task manager', `${p.name} terminated`);
+    };
+    // live-ish cpu jitter
+    const jitter = setInterval(() => {
+        procs.forEach(p => { if (p.name !== 'vibes.sys') p.cpu = Math.max(0, Math.min(99, p.cpu + Math.floor(Math.random() * 7) - 3)); });
+        render();
+    }, 1500);
+    const win = document.getElementById(`app-win-${appWinCount}`);
+    if (win) { const orig = win._cleanup; win._cleanup = () => { clearInterval(jitter); orig && orig(); }; }
+    render();
+}
+
+// ===================================================================
+// troll assistant (clippy but cursed) — occasional tips
+// ===================================================================
+const assistantTips = [
+    "it looks like you're trying to have fun. want me to stop that?",
+    "psst... try the konami code. up up down down...",
+    "click the visitor counter 5 times. trust me bradar.",
+    "type 'party' anywhere. i dare you.",
+    "did you sign the guestbook yet? DID YOU?",
+    "press the maximize button on the window. what could go wrong?",
+    "minesweeper is in the start menu. procrastinate responsibly.",
+    "there's a paint app now. draw me something nice.",
+    "type 'bsod' if you miss windows crashing.",
+    "i'm watching you browse. no reason."
+];
+let assistantTimer = null;
+function initAssistant() {
+    if (localStorage.getItem('assistant-off') === '1') return;
+    assistantTimer = setTimeout(showAssistant, 25000);
+}
+function showAssistant() {
+    if (document.getElementById('troll-assistant')) return;
+    if (document.getElementById('boot-screen') || document.getElementById('screensaver')) {
+        assistantTimer = setTimeout(showAssistant, 15000); return;
+    }
+    const tip = assistantTips[Math.floor(Math.random() * assistantTips.length)];
+    const el = document.createElement('div');
+    el.id = 'troll-assistant';
+    el.innerHTML = `
+        <div class="assistant-bubble">
+            <p>${escapeHtml(tip)}</p>
+            <div class="assistant-actions">
+                <button id="assistant-ok">ok ok</button>
+                <button id="assistant-off">go away forever</button>
+            </div>
+        </div>
+        <img src="src/emoj/xdtroll.png" alt="assistant" class="assistant-troll">`;
+    document.body.appendChild(el);
+    playSound('balloon');
+    el.querySelector('#assistant-ok').onclick = () => { hideAssistant(); assistantTimer = setTimeout(showAssistant, 45000); };
+    el.querySelector('#assistant-off').onclick = () => { localStorage.setItem('assistant-off', '1'); hideAssistant(); showToast('clippy.exe', 'fine. i never liked you either'); };
+    el.querySelector('.assistant-troll').onclick = () => { el.querySelector('.assistant-troll').classList.add('spin'); playSound('click'); };
+}
+function hideAssistant() {
+    document.getElementById('troll-assistant')?.remove();
 }
