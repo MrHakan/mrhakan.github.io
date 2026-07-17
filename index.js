@@ -1317,7 +1317,7 @@ async function fetchShoutbox() {
                 <img src="${shoutboxAvatars[nameHash(msg.name) % shoutboxAvatars.length]}" alt="" class="w-6 h-6 rounded-full bg-black flex-shrink-0">
                 <div>
                     <p class="font-bold text-blue-600">${escapeHtml(msg.name)} <span
-                            class="text-gray-400 font-normal text-[10px]">${escapeHtml(msg.date || '')}</span></p>
+                            class="text-gray-400 font-normal text-[10px]">${formatEntryTime(msg)}</span></p>
                     <p class="text-black">${escapeHtml(msg.message)}</p>
                 </div>
             </div>
@@ -1333,16 +1333,30 @@ function postShout() {
         showToast('shoutbox.exe', 'please fill in name and message!');
         return;
     }
+    const now = new Date();
     submitViaPullRequest('shouts', {
         name: name.substring(0, 20),
         message: message.substring(0, 140),
-        date: new Date().toISOString().slice(0, 10)
+        date: now.toISOString().slice(0, 10),
+        timestamp: now.toISOString()
     });
 }
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+// format an entry's timestamp for display. new entries store a full ISO
+// `timestamp`; older entries only have a date-only `date` string, which we
+// show as-is so nothing breaks.
+function formatEntryTime(entry) {
+    const raw = entry.timestamp || entry.date || '';
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return escapeHtml(raw);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function safeUrl(url) {
     try {
@@ -1367,7 +1381,7 @@ async function loadGuestbook() {
             <div class="p-3 bg-[#f0f0f0] border border-gray-400">
                 <div class="flex justify-between items-start mb-1">
                     <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}</span>
-                    <span class="text-[10px] text-gray-500">${escapeHtml(entry.date || '')}</span>
+                    <span class="text-[10px] text-gray-500">${formatEntryTime(entry)}</span>
                 </div>
                 ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener nofollow" class="text-xs text-purple-600 underline">${escapeHtml(website)}</a>` : ''}
                 <p class="text-black font-pixel text-sm mt-1">${escapeHtml(entry.message)}</p>
@@ -1387,10 +1401,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const website = document.getElementById('gb-website')?.value?.trim();
             const message = document.getElementById('gb-message')?.value?.trim();
             if (!name || !message) return;
+            const now = new Date();
             const entry = {
                 name: name.substring(0, 30),
                 message: message.substring(0, 500),
-                date: new Date().toISOString().slice(0, 10)
+                date: now.toISOString().slice(0, 10),
+                timestamp: now.toISOString()
             };
             const cleanSite = website ? safeUrl(website.substring(0, 100)) : '';
             if (cleanSite) entry.website = cleanSite;
