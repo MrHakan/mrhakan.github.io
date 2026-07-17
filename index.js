@@ -1948,61 +1948,46 @@ async function startSpartaRemix() {
     if (spartaCtx && spartaCtx.state === 'suspended') { try { await spartaCtx.resume(); } catch (e) { } }
     if (spartaCtx) {
         spartaGain = spartaCtx.createGain();
-        spartaGain.gain.value = 0.32;
+        spartaGain.gain.value = 0.42;
         spartaGain.connect(spartaCtx.destination);
     }
 
     document.body.classList.add('sparta-mode');
-    const banner = document.createElement('div');
-    banner.id = 'sparta-banner';
-    banner.innerHTML = '<span class="rainbow-text">☠ THIS IS SPARTA ☠</span><small>every OK to make it stop... or wait it out</small>';
-    document.body.appendChild(banner);
 
-    // pitch pattern over a 16-step bar -> a driving melodic beat
-    const step = 0.14;
-    const bar = 16;
-    const pattern = [
-        { s: 0, r: 0.6 }, { s: 2, r: 1.2 }, { s: 3, r: 1.5 }, { s: 4, r: 0.6 },
-        { s: 6, r: 1.2 }, { s: 7, r: 1.8 }, { s: 8, r: 0.6 }, { s: 10, r: 1.2 },
-        { s: 11, r: 1.5 }, { s: 12, r: 0.6 }, { s: 13, r: 1.5 }, { s: 14, r: 1.8 }, { s: 15, r: 1.2 }
-    ];
-    const loops = 6;
+    // steady rhythm of the REAL windows error sound (natural pitch, no melody).
+    // each beat plays the error sound and pops an error dialog on screen.
+    const beat = 0.42;   // seconds between error sounds
+    const count = 26;    // how many error hits total
     const audioStart = spartaCtx ? spartaCtx.currentTime + 0.12 : 0;
 
-    for (let loop = 0; loop < loops; loop++) {
-        pattern.forEach(hit => {
-            const t = (loop * bar + hit.s) * step;
-            // schedule the audio stab
-            if (buffer && spartaCtx) {
-                const src = spartaCtx.createBufferSource();
-                src.buffer = buffer;
-                src.playbackRate.value = hit.r;
-                src.connect(spartaGain);
-                try { src.start(audioStart + t, 0, 0.34 / hit.r); } catch (e) { }
-                spartaSources.push(src);
-            } else {
-                // fallback: pitch-shifted HTMLAudio
-                spartaTimers.push(setTimeout(() => {
-                    if (!spartaActive || !soundEnabled) return;
-                    const a = new Audio(win98Sounds.error);
-                    a.preservesPitch = false; a.playbackRate = hit.r; a.volume = 0.3;
-                    a.play().catch(() => { });
-                }, t * 1000 + 120));
-            }
-            // spawn a cascading error dialog on the beat
-            spartaTimers.push(setTimeout(() => { if (spartaActive) spawnSpartaError(); }, t * 1000 + 120));
-            // screen kick on the low (kick-drum) hits
-            if (hit.r <= 0.7) {
-                spartaTimers.push(setTimeout(() => {
-                    if (!spartaActive) return;
-                    document.body.classList.add('sparta-kick');
-                    setTimeout(() => document.body.classList.remove('sparta-kick'), 90);
-                }, t * 1000 + 120));
-            }
-        });
+    for (let i = 0; i < count; i++) {
+        const t = i * beat;
+        // schedule the audio at natural pitch
+        if (buffer && spartaCtx) {
+            const src = spartaCtx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(spartaGain);
+            try { src.start(audioStart + t); } catch (e) { }
+            spartaSources.push(src);
+        } else {
+            // fallback: plain HTMLAudio at natural pitch
+            spartaTimers.push(setTimeout(() => {
+                if (!spartaActive || !soundEnabled) return;
+                const a = new Audio(win98Sounds.error);
+                a.volume = 0.35;
+                a.play().catch(() => { });
+            }, t * 1000 + 120));
+        }
+        // spawn a cascading error dialog on each beat + a small screen kick
+        spartaTimers.push(setTimeout(() => {
+            if (!spartaActive) return;
+            spawnSpartaError();
+            document.body.classList.add('sparta-kick');
+            setTimeout(() => document.body.classList.remove('sparta-kick'), 100);
+        }, t * 1000 + 120));
     }
 
-    const total = loops * bar * step * 1000 + 500;
+    const total = count * beat * 1000 + 700;
     spartaTimers.push(setTimeout(stopSpartaRemix, total));
 
     spartaEscHandler = (e) => { if (e.key === 'Escape') stopSpartaRemix(); };
@@ -2010,10 +1995,11 @@ async function startSpartaRemix() {
 }
 
 const spartaMessages = [
-    'A fatal exception 0E has occurred', 'vibes.sys is not responding', 'THIS IS SPARTA',
+    'A fatal exception 0E has occurred', 'vibes.sys is not responding',
     'Illegal operation: too much swag', 'C:\\ is on fire', 'kernel panic: too lit',
     'Error 404: chill not found', 'Windows', 'not enough RAM for these vibes',
-    'stack overflow of pure energy', 'CRITICAL_PROCESS_DIED', 'the trolls escaped'
+    'stack overflow of pure energy', 'CRITICAL_PROCESS_DIED', 'the trolls escaped',
+    'This program has performed an illegal operation'
 ];
 function spawnSpartaError() {
     if (document.querySelectorAll('.sparta-error').length > 55) return;
@@ -2046,14 +2032,13 @@ function spawnSpartaError() {
 
 let spartaEscHandler = null;
 function stopSpartaRemix() {
-    if (!spartaActive && !document.getElementById('sparta-banner')) return;
+    if (!spartaActive) return;
     spartaActive = false;
     spartaTimers.forEach(clearTimeout); spartaTimers = [];
     spartaSources.forEach(s => { try { s.stop(); } catch (e) { } }); spartaSources = [];
     if (spartaEscHandler) { document.removeEventListener('keydown', spartaEscHandler); spartaEscHandler = null; }
     document.body.classList.remove('sparta-mode', 'sparta-kick');
     document.querySelectorAll('.sparta-error').forEach(e => e.remove());
-    document.getElementById('sparta-banner')?.remove();
     showToast('system', 'vibes.sys restored. that was close bradar');
     playSound('startup');
 }
