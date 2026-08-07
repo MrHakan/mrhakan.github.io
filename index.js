@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTypedTagline();
     updateSoundUI();
     initCounterEgg();
+    initStartFlyouts();
     fetchGitHubUser();
     initScreensaver();
     initAssistant();
@@ -212,25 +213,68 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// every start-menu / run-dialog entry point lives in one map so the menu,
+// the run box and the terminal all stay in sync
+function appActions() {
+    return {
+        discord: copyDiscord,
+        shutdown: shutDown,
+        run: showRunDialog,
+        minesweeper: openMinesweeper,
+        paint: openPaint,
+        taskmgr: openTaskManager,
+        notepad: () => openNotepad(),
+        calc: openCalculator,
+        terminal: openTerminal,
+        charmap: openCharMap,
+        clock: openClock,
+        mycomputer: openMyComputer,
+        recycle: openRecycleBin,
+        dialup: openDialUp,
+        snake: openSnake,
+        pong: openPong,
+        achievements: openAchievements,
+        '8ball': openMagic8Ball,
+        fortune: showFortune,
+        roast: roastMe,
+        l33t: hackerName,
+        mood: moodRing,
+        horoscope: showHoroscope,
+        poll: openPoll,
+        webring: openWebRing,
+        snow: toggleSnow,
+        confetti: () => { launchConfetti(); playSound('ding'); },
+        control: openControlPanel,
+        sysprops: openSystemProperties,
+        equalizer: openEqualizer,
+        scope: openOscilloscope,
+        stats: openSiteStats,
+        shortcuts: showShortcuts,
+        reset: resetAllModes
+    };
+}
+
 function startMenuAction(action) {
     startMenuOpen = false;
     const menu = document.getElementById('start-menu');
-    if (menu) menu.classList.add('hidden');
-    if (action === 'discord') {
-        copyDiscord();
-    } else if (action === 'shutdown') {
-        shutDown();
-    } else if (action === 'run') {
-        showRunDialog();
-    } else if (action === 'minesweeper') {
-        openMinesweeper();
-    } else if (action === 'paint') {
-        openPaint();
-    } else if (action === 'taskmgr') {
-        openTaskManager();
-    } else {
-        showSection(action);
-    }
+    if (menu) { menu.classList.add('hidden'); menu.querySelectorAll('.start-sub.open').forEach(s => s.classList.remove('open')); }
+    const actions = appActions();
+    if (actions[action]) actions[action]();
+    else showSection(action);
+}
+
+// start menu flyouts: hover on desktop, tap on touch
+function initStartFlyouts() {
+    document.querySelectorAll('.start-sub').forEach(sub => {
+        const btn = sub.querySelector('.has-sub');
+        if (!btn) return;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasOpen = sub.classList.contains('open');
+            document.querySelectorAll('.start-sub').forEach(s => s.classList.remove('open'));
+            if (!wasOpen) { sub.classList.add('open'); playSound('click'); }
+        });
+    });
 }
 
 
@@ -246,7 +290,7 @@ function showRunDialog() {
         <div class="retro-dialog-body">
             <p>type the name of a program, folder, or vibe, and windows will open it for you.</p>
             <input id="run-input" class="bevel-in run-input" placeholder="C:\\>" autocomplete="off" spellcheck="false">
-            <p style="color:#666;font-size:10px;">try: minesweeper, paint, taskmgr, guestbook, party, troll, bsod, matrix, play, help</p>
+            <p style="color:#666;font-size:10px;">try: snake, pong, calc, notepad, cmd, computer, 8ball, snow, disco, gravity, achievements, help</p>
         </div>
         <div class="retro-dialog-buttons">
             <button class="bevel-out retro-dialog-btn" onclick="execRunCommand()">ok</button>
@@ -274,6 +318,7 @@ function execRunCommand() {
     const cmd = (input?.value || '').trim().toLowerCase().replace(/\.exe$/, '');
     document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
     const commands = {
+        ...appActions(),
         'home': () => showSection('home'),
         'about': () => showSection('home'),
         'work': () => showSection('github'),
@@ -287,6 +332,30 @@ function execRunCommand() {
         'mspaint': openPaint,
         'taskmgr': openTaskManager,
         'taskmanager': openTaskManager,
+        'cmd': openTerminal,
+        'command': openTerminal,
+        'computer': openMyComputer,
+        'bin': openRecycleBin,
+        'trash': openRecycleBin,
+        'wallpaper': openControlPanel,
+        'eq': openEqualizer,
+        'scope': openOscilloscope,
+        'achievements': openAchievements,
+        'achv': openAchievements,
+        'ball': openMagic8Ball,
+        '8ball': openMagic8Ball,
+        'snow': toggleSnow,
+        'disco': toggleDiscoFloor,
+        'drunk': toggleDrunk,
+        'flip': toggleUpsideDown,
+        'pixel': togglePixelate,
+        'rainbow': toggleRainbow,
+        'invert': toggleInvert,
+        'gravity': toggleGravity,
+        'bubbles': toggleBubbles,
+        'fireworks': toggleFireworks,
+        'boom': toggleFireworks,
+        'reset': resetAllModes,
         'party': togglePartyMode,
         'sparta': startSpartaRemix,
         'troll': () => { startTrollBouncing(); showToast('troll.exe', 'problem?'); },
@@ -602,6 +671,7 @@ function triggerEasterEgg() {
         playTrack();
     }
     startTrollBouncing();
+    if (typeof unlockAchievement === 'function') unlockAchievement('konami');
     const removeEgg = () => {
         egg.remove();
         document.removeEventListener('keydown', removeEgg);
@@ -612,6 +682,7 @@ function triggerEasterEgg() {
 // ===== more hidden stuff =====
 function triggerBSOD() {
     if (document.getElementById('bsod-screen')) return;
+    if (typeof unlockAchievement === 'function') unlockAchievement('bsod');
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     playSound('error');
     const bsod = document.createElement('div');
@@ -645,6 +716,8 @@ function togglePartyMode() {
     document.body.classList.toggle('party-mode', partyMode);
     if (partyMode) {
         showToast('party.exe', 'PARTY MODE ACTIVATED!! type "party" again to chill');
+        if (typeof unlockAchievement === 'function') unlockAchievement('party');
+        if (typeof launchConfetti === 'function') launchConfetti(60);
         playSound('notify');
     } else {
         showToast('party.exe', 'party over. back to work bradar');
@@ -840,6 +913,7 @@ function loadTrack(index) {
     });
 
     applyTheme(tracks[index]);
+    if (typeof noteTrackPlayed === 'function') noteTrackPlayed(index);
 }
 
 let cachedEqBars = null;
@@ -1473,6 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cleanSite = website ? safeUrl(website.substring(0, 100)) : '';
             if (cleanSite) entry.website = cleanSite;
             playSound('ding');
+            if (typeof unlockAchievement === 'function') unlockAchievement('signer');
             submitViaPullRequest('guestbook', entry);
         });
     }
@@ -1566,11 +1641,33 @@ function createAppWindow(title, opts = {}) {
         <span class="app-window-title">${escapeHtml(title)}</span>`;
     const btns = document.createElement('div');
     btns.className = 'flex gap-[2px] ml-auto flex-shrink-0';
+    // minimize sends the window to its taskbar button
+    const minBtn = document.createElement('button');
+    minBtn.className = 'ie-titlebar-btn bevel-out';
+    minBtn.textContent = '_';
+    minBtn.title = 'minimize';
+    minBtn.onclick = () => { win.style.display = 'none'; playSound('click'); };
+    // maximize toggles a full-desktop layout, remembering the restore geometry
+    const maxBtn = document.createElement('button');
+    maxBtn.className = 'ie-titlebar-btn bevel-out';
+    maxBtn.textContent = '□';
+    maxBtn.title = 'maximize';
+    maxBtn.onclick = () => {
+        if (win.classList.toggle('maximized')) {
+            win._restore = { left: win.style.left, top: win.style.top, width: win.style.width };
+            win.style.left = '0px'; win.style.top = '40px'; win.style.width = '100vw';
+        } else if (win._restore) {
+            win.style.left = win._restore.left; win.style.top = win._restore.top; win.style.width = win._restore.width;
+        }
+        playSound('click');
+    };
     const closeBtn = document.createElement('button');
     closeBtn.className = 'ie-titlebar-btn bevel-out';
     closeBtn.textContent = '✕';
     closeBtn.title = 'close';
     closeBtn.onclick = () => closeAppWindow(id);
+    btns.appendChild(minBtn);
+    btns.appendChild(maxBtn);
     btns.appendChild(closeBtn);
     header.appendChild(btns);
 
@@ -1713,6 +1810,8 @@ function openMinesweeper() {
             won = true; gameOver = true; clearInterval(timer);
             faceEl.textContent = '😎'; playSound('ding');
             showToast('minesweeper.exe', `you win! ${seconds}s. certified minesweeper legend`);
+            if (typeof unlockAchievement === 'function') unlockAchievement('minesweeper');
+            if (typeof launchConfetti === 'function') launchConfetti(80);
         }
     }
     function render() {
@@ -1801,6 +1900,7 @@ function openPaint() {
         a.href = canvas.toDataURL('image/png');
         a.click();
         showToast('paint.exe', 'masterpiece saved. put it in a museum');
+        if (typeof unlockAchievement === 'function') unlockAchievement('painter');
         playSound('ding');
     };
 }
@@ -1953,6 +2053,7 @@ async function startSpartaRemix() {
     }
 
     document.body.classList.add('sparta-mode');
+    if (typeof unlockAchievement === 'function') unlockAchievement('sparta');
 
     // steady rhythm of the REAL windows error sound (natural pitch, no melody).
     // each beat plays the error sound and pops an error dialog on screen.

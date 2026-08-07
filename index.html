@@ -18,6 +18,8 @@
   <link href="style.css" rel="stylesheet" />
   <script src="src/js/typed.umd.js" defer></script>
   <script src="index.js" defer></script>
+  <script src="apps.js" defer></script>
+  <script src="fun.js" defer></script>
 </head>
 
 <body class="font-body overflow-hidden h-screen w-full relative bg-space text-white">
@@ -431,6 +433,93 @@
           style="writing-mode: vertical-rl; transform: rotate(180deg);">mrhakan&nbsp;98</span>
       </div>
       <div class="flex-1 py-1 flex flex-col">
+        <div class="start-sub">
+          <button class="start-item has-sub"><span class="material-symbols-outlined text-blue-700">folder</span>programs<span
+              class="sub-arrow">▸</span></button>
+          <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('notepad')" class="start-item"><span
+                class="material-symbols-outlined text-gray-700">description</span>notepad</button>
+            <button onclick="startMenuAction('calc')" class="start-item"><span
+                class="material-symbols-outlined text-gray-700">calculate</span>calculator</button>
+            <button onclick="startMenuAction('terminal')" class="start-item"><span
+                class="material-symbols-outlined text-gray-800">terminal</span>ms-dos prompt</button>
+            <button onclick="startMenuAction('paint')" class="start-item"><span
+                class="material-symbols-outlined text-orange-600">brush</span>paint</button>
+            <button onclick="startMenuAction('charmap')" class="start-item"><span
+                class="material-symbols-outlined text-purple-700">language</span>character map</button>
+            <button onclick="startMenuAction('clock')" class="start-item"><span
+                class="material-symbols-outlined text-blue-700">schedule</span>clock</button>
+            <button onclick="startMenuAction('mycomputer')" class="start-item"><span
+                class="material-symbols-outlined text-blue-800">computer</span>my computer</button>
+            <button onclick="startMenuAction('recycle')" class="start-item"><span
+                class="material-symbols-outlined text-gray-600">delete</span>recycle bin</button>
+            <button onclick="startMenuAction('dialup')" class="start-item"><span
+                class="material-symbols-outlined text-green-700">public</span>dial-up networking</button>
+          </div>
+        </div>
+        <div class="start-sub">
+          <button class="start-item has-sub"><span
+              class="material-symbols-outlined text-red-600">sports_esports</span>games<span
+              class="sub-arrow">▸</span></button>
+          <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('minesweeper')" class="start-item"><span
+                class="material-symbols-outlined text-red-600">flag</span>minesweeper</button>
+            <button onclick="startMenuAction('snake')" class="start-item"><span
+                class="material-symbols-outlined text-green-600">sports_esports</span>snake</button>
+            <button onclick="startMenuAction('pong')" class="start-item"><span
+                class="material-symbols-outlined text-blue-600">sports_esports</span>pong</button>
+            <button onclick="startMenuAction('achievements')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-600">emoji_events</span>achievements</button>
+          </div>
+        </div>
+        <div class="start-sub">
+          <button class="start-item has-sub"><span class="material-symbols-outlined text-pink-600">casino</span>fun
+            stuff<span class="sub-arrow">▸</span></button>
+          <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('8ball')" class="start-item"><span
+                class="material-symbols-outlined text-purple-700">psychology</span>magic 8-ball</button>
+            <button onclick="startMenuAction('fortune')" class="start-item"><span
+                class="material-symbols-outlined text-orange-600">casino</span>fortune cookie</button>
+            <button onclick="startMenuAction('roast')" class="start-item"><span
+                class="material-symbols-outlined text-red-600">bolt</span>roast me</button>
+            <button onclick="startMenuAction('l33t')" class="start-item"><span
+                class="material-symbols-outlined text-green-700">key</span>l33t name generator</button>
+            <button onclick="startMenuAction('mood')" class="start-item"><span
+                class="material-symbols-outlined text-pink-600">favorite</span>mood ring</button>
+            <button onclick="startMenuAction('horoscope')" class="start-item"><span
+                class="material-symbols-outlined text-blue-600">star</span>horoscope</button>
+            <button onclick="startMenuAction('poll')" class="start-item"><span
+                class="material-symbols-outlined text-blue-700">poll</span>visitor poll</button>
+            <button onclick="startMenuAction('webring')" class="start-item"><span
+                class="material-symbols-outlined text-green-600">public</span>web ring</button>
+            <button onclick="startMenuAction('snow')" class="start-item"><span
+                class="material-symbols-outlined text-blue-400">ac_unit</span>let it snow</button>
+            <button onclick="startMenuAction('confetti')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-600">celebration</span>confetti</button>
+          </div>
+        </div>
+        <div class="start-sub">
+          <button class="start-item has-sub"><span
+              class="material-symbols-outlined text-gray-700">settings</span>settings<span
+              class="sub-arrow">▸</span></button>
+          <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('control')" class="start-item"><span
+                class="material-symbols-outlined text-blue-700">wallpaper</span>display properties</button>
+            <button onclick="startMenuAction('sysprops')" class="start-item"><span
+                class="material-symbols-outlined text-green-700">monitoring</span>system properties</button>
+            <button onclick="startMenuAction('equalizer')" class="start-item"><span
+                class="material-symbols-outlined text-purple-600">graphic_eq</span>equalizer</button>
+            <button onclick="startMenuAction('scope')" class="start-item"><span
+                class="material-symbols-outlined text-green-600">graphic_eq</span>oscilloscope</button>
+            <button onclick="startMenuAction('stats')" class="start-item"><span
+                class="material-symbols-outlined text-blue-600">monitoring</span>site statistics</button>
+            <button onclick="startMenuAction('shortcuts')" class="start-item"><span
+                class="material-symbols-outlined text-gray-800">key</span>keyboard shortcuts</button>
+            <button onclick="startMenuAction('reset')" class="start-item"><span
+                class="material-symbols-outlined text-red-600">refresh</span>reset all effects</button>
+          </div>
+        </div>
+        <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
         <button onclick="startMenuAction('home')" class="start-item">
           <span class="material-symbols-outlined text-yellow-600">cottage</span>about me
         </button>
@@ -447,16 +536,9 @@
           <span class="material-symbols-outlined text-blue-500">chat</span>discord me
         </button>
         <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
-        <button onclick="startMenuAction('minesweeper')" class="start-item">
-          <span class="material-symbols-outlined text-red-600">flag</span>minesweeper
-        </button>
-        <button onclick="startMenuAction('paint')" class="start-item">
-          <span class="material-symbols-outlined text-orange-600">brush</span>paint
-        </button>
         <button onclick="startMenuAction('taskmgr')" class="start-item">
           <span class="material-symbols-outlined text-green-700">monitoring</span>task manager
         </button>
-        <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
         <button onclick="startMenuAction('run')" class="start-item">
           <span class="material-symbols-outlined text-gray-700">terminal</span>run...
         </button>
