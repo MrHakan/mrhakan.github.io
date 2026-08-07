@@ -2506,3 +2506,451 @@ body.disco-floor::after {
     border: 1px solid #505060;
     outline: none;
 }
+
+/* ===================================================================
+   PERSONAL WEB PAGES — /now /uses /colophon, buttons, shrine, quiz
+   =================================================================== */
+
+.doc-body {
+    max-height: min(430px, 62vh);
+    overflow-y: auto;
+    background: #fff !important;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    padding: 10px 12px !important;
+}
+
+.doc-loading {
+    text-align: center;
+    color: #777;
+    padding: 24px 0;
+}
+
+.doc-h1 {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 18px;
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+    padding-bottom: 3px;
+    margin-bottom: 6px;
+}
+
+.doc-h2 {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 13px;
+    font-weight: bold;
+    color: #000080;
+    margin: 12px 0 4px;
+    border-bottom: 1px dashed #aaa;
+}
+
+.doc-meta {
+    font-size: 10px;
+    color: #777;
+    margin-bottom: 6px;
+}
+
+.doc-intro {
+    background: #ffffe1;
+    border: 1px solid #d0d090;
+    padding: 5px 7px;
+    margin-bottom: 8px;
+}
+
+.doc-list {
+    list-style: none;
+    padding-left: 4px;
+}
+
+.doc-list li {
+    padding: 2px 0 2px 16px;
+    position: relative;
+}
+
+.doc-list li::before {
+    content: '►';
+    position: absolute;
+    left: 0;
+    color: #0a8c3a;
+    font-size: 9px;
+    top: 4px;
+}
+
+.doc-foot {
+    margin-top: 12px;
+    padding-top: 6px;
+    border-top: 1px dashed #bbb;
+    font-size: 10px;
+    color: #666;
+}
+
+.doc-btn {
+    display: inline-block;
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Comic Sans MS", cursive;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 4px 12px;
+    margin-top: 6px;
+    text-decoration: none;
+}
+
+.doc-btn:active {
+    transform: translateY(1px);
+}
+
+/* ---- changelog ---- */
+.cl-entry {
+    border-left: 3px solid #0df259;
+    padding-left: 8px;
+    margin: 10px 0;
+}
+
+.cl-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    margin-bottom: 2px;
+}
+
+.cl-head span {
+    color: #777;
+    font-size: 10px;
+}
+
+.cl-latest {
+    background: #0df259;
+    color: #000 !important;
+    font-weight: bold;
+    padding: 0 5px;
+    font-size: 9px !important;
+}
+
+/* ---- 88x31 button wall ---- */
+.btn-mine {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: #f0f0f0;
+    border: 1px solid #999;
+    padding: 8px;
+}
+
+.btn-badge {
+    image-rendering: pixelated;
+    border: 1px solid #000;
+    flex-shrink: 0;
+}
+
+.btn-mine-txt {
+    flex: 1;
+    min-width: 0;
+}
+
+.btn-code {
+    width: 100%;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    padding: 4px;
+    resize: none;
+    margin-top: 4px;
+}
+
+.btn-wall {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    background: #e8e8e8;
+    border: 1px inset #999;
+    padding: 8px;
+}
+
+.btn-wall img {
+    image-rendering: pixelated;
+    border: 1px solid #888;
+}
+
+.btn-wall a:hover img {
+    border-color: #0df259;
+    filter: brightness(1.15);
+}
+
+/* ---- blogroll ---- */
+.friend-list {
+    border-top: 2px solid #808080;
+    border-left: 2px solid #808080;
+    background: #fff;
+}
+
+.friend-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 7px;
+    border-bottom: 1px dashed #ddd;
+    color: #000;
+    text-decoration: none;
+}
+
+.friend-row:hover {
+    background: #000080;
+    color: #fff;
+}
+
+.friend-name {
+    font-weight: bold;
+    color: #0000cc;
+    text-decoration: underline;
+    flex-shrink: 0;
+}
+
+.friend-row:hover .friend-name {
+    color: #fff;
+}
+
+.friend-note {
+    font-size: 10px;
+    opacity: 0.75;
+    text-align: right;
+}
+
+/* ---- shrine ---- */
+.shrine-cat {
+    margin-bottom: 8px;
+}
+
+.shrine-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.shrine-tag {
+    background: linear-gradient(#fff, #dfdfdf);
+    border-top: 1px solid #fff;
+    border-left: 1px solid #fff;
+    border-right: 1px solid #808080;
+    border-bottom: 1px solid #808080;
+    padding: 2px 7px;
+    font-size: 11px;
+}
+
+/* ---- timeline ---- */
+.timeline {
+    position: relative;
+    padding-left: 4px;
+}
+
+.tl-row {
+    display: grid;
+    grid-template-columns: 44px 14px 1fr;
+    align-items: start;
+    gap: 4px;
+    padding: 4px 0;
+}
+
+.tl-year {
+    font-weight: bold;
+    color: #000080;
+    font-size: 11px;
+}
+
+.tl-dot {
+    position: relative;
+    height: 100%;
+}
+
+.tl-dot::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+    background: #0df259;
+    border: 1px solid #000;
+    border-radius: 50%;
+}
+
+.tl-dot::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 12px;
+    bottom: -8px;
+    width: 2px;
+    background: #ccc;
+}
+
+.tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+.tl-text {
+    font-size: 11px;
+}
+
+/* ---- site map ---- */
+.map-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 3px;
+}
+
+.map-link {
+    text-align: left;
+    background: #f4f4f4;
+    border: 1px solid #ccc;
+    color: #0000cc;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 3px 6px;
+    text-decoration: underline;
+}
+
+.map-link:hover {
+    background: #000080;
+    color: #fff;
+    border-color: #000;
+}
+
+/* ---- quiz ---- */
+.quiz-progress {
+    position: relative;
+    background: #fff;
+    height: 18px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.quiz-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(#0df259, #068c33);
+    transition: width 0.3s;
+}
+
+.quiz-progress span {
+    position: relative;
+    display: block;
+    text-align: center;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 18px;
+    color: #000;
+}
+
+.quiz-q {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #000;
+}
+
+.quiz-answers {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.quiz-a {
+    background: #c0c0c0;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 6px 9px;
+    text-align: left;
+}
+
+.quiz-a:hover {
+    background: #d8d8d8;
+}
+
+.quiz-a:active {
+    transform: translateY(1px);
+}
+
+.quiz-result {
+    text-align: center;
+    padding: 6px 0;
+}
+
+.quiz-emoji {
+    font-size: 46px;
+    line-height: 1;
+}
+
+.quiz-label {
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.quiz-title {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 20px;
+    font-weight: bold;
+    color: #000080;
+}
+
+.quiz-artist {
+    font-size: 12px;
+    color: #444;
+    margin-bottom: 8px;
+}
+
+.quiz-desc {
+    background: #ffffe1;
+    border: 1px solid #d0d090;
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 11px;
+}
+
+.quiz-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+/* ---- tray status widget ---- */
+.tray-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 230px;
+    height: 32px;
+    padding: 0 8px;
+    margin-right: 4px;
+    background: #c0c0c0;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+}
+
+.tray-status-txt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .tray-status {
+        display: none;
+    }
+}

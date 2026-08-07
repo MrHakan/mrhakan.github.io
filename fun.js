@@ -26,6 +26,10 @@ const ACHIEVEMENTS = {
     dj: { icon: '🎧', name: 'the dj', desc: 'played 3 different tracks' },
     fortune: { icon: '🥠', name: 'seeker', desc: 'asked the magic 8-ball' },
     voter: { icon: '🗳️', name: 'democracy', desc: 'voted in the poll' },
+    nosy: { icon: '👀', name: 'nosy', desc: 'read the /now page' },
+    shrine: { icon: '⛩️', name: 'pilgrim', desc: 'visited the shrine' },
+    linkback: { icon: '🔗', name: 'webmaster', desc: 'copied the 88x31 link-to-me code' },
+    quiz: { icon: '🔮', name: 'know thyself', desc: 'found out which track you are' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
 };
 function getUnlocked() {
