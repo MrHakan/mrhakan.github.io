@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>mrhakan's shithole</title>
+    <link>https://mrhakan.github.io/</link>
+    <description>a retro y2k personal site — winamp, guestbook, minesweeper, trolls and all. best viewed at 800x600.</description>
+    <language>en</language>
+    <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
+
+    <item>
+      <title>v3.0 — the personal web update</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v3.0</guid>
+      <pubDate>Fri, 07 Aug 2026 12:00:00 +0000</pubDate>
+      <description><![CDATA[
+        Added the classic personal-web pages: /now, /uses, /colophon and a changelog.
+        Plus an 88x31 button wall with a link-to-me badge, a shrine of favourite things,
+        an internet-history timeline, a full site map, a "which track are you?" quiz
+        and this very RSS feed.
+      ]]></description>
+    </item>
+
+    <item>
+      <title>v2.0 — 55+ apps, games and effects</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v2.0</guid>
+      <pubDate>Fri, 07 Aug 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[
+        Minesweeper, snake, pong, paint, notepad, calculator and a working MS-DOS prompt.
+        My Computer, recycle bin, control panel with 7 wallpapers and a dial-up simulator.
+        23 achievements, 12 screen effects, magic 8-ball, visitor poll and site statistics.
+      ]]></description>
+    </item>
+
+    <item>
+      <title>v1.5 — windows error remix</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v1.5</guid>
+      <pubDate>Thu, 16 Jul 2026 21:00:00 +0000</pubDate>
+      <description><![CDATA[
+        End every process in the task manager and the Windows XP error sound becomes a
+        rhythmic beat while error dialogs cascade across the screen. Also: live repo demos
+        in fake Internet Explorer windows, and a guestbook powered by GitHub pull requests.
+      ]]></description>
+    </item>
+
+    <item>
+      <title>v1.0 — the shithole opens</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v1.0</guid>
+      <pubDate>Wed, 16 Jul 2026 17:00:00 +0000</pubDate>
+      <description><![CDATA[
+        A Windows 98 desktop on the web: taskbar, start menu, BIOS boot screen, a Winamp
+        player with a real audio visualiser and per-track themes, canvas matrix rain,
+        the konami code and a troll invasion.
+      ]]></description>
+    </item>
+  </channel>
+</rss>

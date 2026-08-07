@@ -1,0 +1,199 @@
+{
+    "status": {
+        "text": "building this website instead of sleeping",
+        "emoji": "🛠️",
+        "updated": "2026-08-07"
+    },
+    "now": {
+        "updated": "2026-08-07",
+        "intro": "this is a /now page — what im up to lately, not a resume.",
+        "sections": [
+            {
+                "title": "currently building",
+                "items": [
+                    "this shithole (it will never be finished)",
+                    "minecraft mods & clients in java",
+                    "random tools nobody asked for"
+                ]
+            },
+            {
+                "title": "currently playing",
+                "items": [
+                    "minecraft (still, yes)",
+                    "whatever is in my steam library gathering dust",
+                    "minesweeper in the start menu"
+                ]
+            },
+            {
+                "title": "currently listening",
+                "items": [
+                    "009 sound system - dreamscape",
+                    "gigi d'agostino - bla bla bla",
+                    "the entire winamp playlist on shuffle"
+                ]
+            },
+            {
+                "title": "currently avoiding",
+                "items": [
+                    "sleep schedules",
+                    "modern web design",
+                    "responsive layouts (jk i fixed those)"
+                ]
+            }
+        ]
+    },
+    "uses": {
+        "intro": "the gear and software behind the shithole.",
+        "groups": [
+            {
+                "title": "editor & tools",
+                "items": [
+                    "vs code (dark theme obviously)",
+                    "notepad (for the authentic experience)",
+                    "git + github pages for hosting",
+                    "autohotkey for automating nonsense"
+                ]
+            },
+            {
+                "title": "languages",
+                "items": [
+                    "java — minecraft mods & clients",
+                    "javascript — web stuff like this",
+                    "python — scrapers and scripts",
+                    "c# — games and console apps"
+                ]
+            },
+            {
+                "title": "daily drivers",
+                "items": [
+                    "discord (open 24/7)",
+                    "steam",
+                    "winamp (spiritually)",
+                    "way too many browser tabs"
+                ]
+            }
+        ]
+    },
+    "colophon": {
+        "intro": "how this website is actually made.",
+        "lines": [
+            "hand-written html, css and vanilla javascript",
+            "zero frameworks — no react, no build step, no npm install",
+            "tailwind via cdn for utility classes only",
+            "typed.js self-hosted for the terminal tagline",
+            "material symbols icon font, subsetted to 59 glyphs (47kb)",
+            "guestbook + shoutbox are json files in the repo, added by pull request",
+            "visitor counter via counterapi.dev",
+            "hosted free on github pages, deployed by github actions",
+            "audio visualiser + error remix built on the web audio api",
+            "every window, game and effect is plain dom + canvas",
+            "no trackers. no analytics. no cookie banner. no ads."
+        ]
+    },
+    "shrine": {
+        "intro": "things i will defend with my life.",
+        "categories": [
+            {
+                "title": "games",
+                "icon": "🎮",
+                "items": ["minecraft", "counter-strike", "deadpool (the game)", "anything with mods"]
+            },
+            {
+                "title": "music",
+                "icon": "🎧",
+                "items": ["009 sound system", "daft punk", "linkin park", "gigi d'agostino", "eurodance in general"]
+            },
+            {
+                "title": "internet artifacts",
+                "icon": "💾",
+                "items": ["winamp", "msn messenger nudges", "trollface", "flash games", "unregistered hypercam 2"]
+            },
+            {
+                "title": "eternal enemies",
+                "icon": "💀",
+                "items": ["cookie banners", "sites that need 8mb of js to show text", "autoplay video ads", "infinite scroll"]
+            }
+        ]
+    },
+    "history": [
+        { "year": "20??", "text": "first computer. immediately broke it." },
+        { "year": "20??", "text": "discovered flash games at school. teachers were not happy." },
+        { "year": "20??", "text": "msn messenger era. nudge spam was a personality." },
+        { "year": "20??", "text": "started modding minecraft. never stopped." },
+        { "year": "20??", "text": "learned java because a mod wouldnt compile." },
+        { "year": "20??", "text": "made a discord bot. it got the server raided." },
+        { "year": "2024", "text": "started putting projects on github properly." },
+        { "year": "2026", "text": "built this shithole. peak achieved." }
+    ],
+    "buttons": [
+        { "img": "https://cyber.dabamos.de/88x31/notepad.gif", "alt": "made with notepad", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/ie4.gif", "alt": "best viewed with ie4", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/winxp2.gif", "alt": "windows xp", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/best800x600.gif", "alt": "best at 800x600", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/anybrowser3.gif", "alt": "any browser", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/geocities.gif", "alt": "geocities", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/winamp.gif", "alt": "winamp", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/firefox.gif", "alt": "firefox", "url": "https://firefox.com" },
+        { "img": "https://cyber.dabamos.de/88x31/html.gif", "alt": "written in html", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/css.gif", "alt": "css", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/javascript.gif", "alt": "javascript", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/notepad2.gif", "alt": "notepad again", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/nowar.gif", "alt": "no war", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/gnu.gif", "alt": "gnu", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/linux2.gif", "alt": "linux", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/vim.gif", "alt": "vim", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/dialup.gif", "alt": "dial-up", "url": "" },
+        { "img": "https://cyber.dabamos.de/88x31/w3c-html.gif", "alt": "valid html", "url": "" }
+    ],
+    "friends": [
+        { "name": "neocities", "url": "https://neocities.org", "note": "where the old web lives now" },
+        { "name": "the old net", "url": "https://theoldnet.com", "note": "browse the 90s web for real" },
+        { "name": "internet archive", "url": "https://archive.org", "note": "the wayback machine" },
+        { "name": "cameron's world", "url": "https://cameronsworld.net", "note": "a geocities collage" },
+        { "name": "windows 93", "url": "https://windows93.net", "note": "the fake os that started it all" },
+        { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
+    ],
+    "changelog": [
+        {
+            "version": "3.0",
+            "date": "2026-08",
+            "changes": [
+                "added /now, /uses, /colophon and changelog pages",
+                "88x31 button wall + link-to-me badge",
+                "shrine, internet history timeline and site map",
+                "'which track are you' personality quiz",
+                "rss feed and status widget in the tray"
+            ]
+        },
+        {
+            "version": "2.0",
+            "date": "2026-08",
+            "changes": [
+                "minesweeper, snake, pong, paint, notepad, calculator, terminal",
+                "my computer, recycle bin, control panel, dial-up simulator",
+                "23 achievements, 12 screen effects, magic 8-ball and toys",
+                "start menu flyouts, right-click desktop menu, calendar popup"
+            ]
+        },
+        {
+            "version": "1.5",
+            "date": "2026-07",
+            "changes": [
+                "windows error remix when you end every process",
+                "live repo demos in fake internet explorer windows",
+                "guestbook + shoutbox moved to github pull requests",
+                "self-hosted icon font, fixed all the broken glyphs"
+            ]
+        },
+        {
+            "version": "1.0",
+            "date": "2026-07",
+            "changes": [
+                "windows 98 taskbar, start menu and boot screen",
+                "winamp player with visualiser and per-track themes",
+                "canvas matrix rain, konami code, troll invasion",
+                "the shithole opens its doors"
+            ]
+        }
+    ]
+}

@@ -250,7 +250,18 @@ function appActions() {
         scope: openOscilloscope,
         stats: openSiteStats,
         shortcuts: showShortcuts,
-        reset: resetAllModes
+        reset: resetAllModes,
+        now: openNowPage,
+        usespage: openUsesPage,
+        colophon: openColophon,
+        changelog: openChangelog,
+        buttons: openButtonWall,
+        blogroll: openFriends,
+        shrine: openShrine,
+        nethistory: openInternetHistory,
+        sitemap: openSiteMap,
+        quiz: openQuiz,
+        rss: () => window.open('feed.xml', '_blank', 'noopener')
     };
 }
 
