@@ -30,6 +30,9 @@ const ACHIEVEMENTS = {
     shrine: { icon: '⛩️', name: 'pilgrim', desc: 'visited the shrine' },
     linkback: { icon: '🔗', name: 'webmaster', desc: 'copied the 88x31 link-to-me code' },
     quiz: { icon: '🔮', name: 'know thyself', desc: 'found out which track you are' },
+    solitaire: { icon: '🃏', name: 'card shark', desc: 'won a game of solitaire' },
+    defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
+    reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
 };
 function getUnlocked() {
@@ -492,6 +495,7 @@ const SHORTCUTS = [
     ['Ctrl + Alt + Del', 'task manager'],
     ['F1', 'help / about'],
     ['F2', 'achievements'],
+    ['F3', 'find: files'],
     ['F4', 'terminal'],
     ['?', 'this shortcut list'],
     ['Esc', 'close top window / stop chaos'],
@@ -499,6 +503,7 @@ const SHORTCUTS = [
     ['type: party, troll, bsod', 'chaos words'],
     ['type: snow, disco, drunk', 'more chaos words'],
     ['type: gravity, sparta, 8ball', 'even more'],
+    ['type: solitaire, defrag', 'the good windows programs'],
     ['right-click desktop', 'context menu']
 ];
 function showShortcuts() {
@@ -516,6 +521,7 @@ function initShortcuts() {
         if (typing) return;
         if (e.key === 'F1') { e.preventDefault(); handleTab('help'); }
         else if (e.key === 'F2') { e.preventDefault(); openAchievements(); }
+        else if (e.key === 'F3') { e.preventDefault(); openFindFiles(); }
         else if (e.key === 'F4') { e.preventDefault(); openTerminal(); }
         else if (e.key === '?') { e.preventDefault(); showShortcuts(); }
         else if (e.key === 'Escape') {
@@ -541,6 +547,8 @@ function initExtraSecrets() {
         boom: () => { toggleFireworks(); },
         snake: () => openSnake(),
         pong: () => openPong(),
+        solitaire: () => openSolitaire(),
+        defrag: () => openDefrag(),
         roast: roastMe,
         fortune: showFortune,
         l33t: hackerName,

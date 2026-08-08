@@ -1,0 +1,20 @@
+{
+    "name": "mrhakan's shithole",
+    "short_name": "mrhakan 98",
+    "description": "a retro y2k personal site — winamp, guestbook, minesweeper, trolls and all. best viewed at 800x600.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#0d0517",
+    "theme_color": "#1a0b2e",
+    "categories": ["entertainment", "personalization"],
+    "icons": [
+        {
+            "src": "/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png",
+            "sizes": "any",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}

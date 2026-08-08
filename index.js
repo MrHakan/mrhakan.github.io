@@ -261,6 +261,10 @@ function appActions() {
         nethistory: openInternetHistory,
         sitemap: openSiteMap,
         quiz: openQuiz,
+        solitaire: openSolitaire,
+        defrag: openDefrag,
+        devlog: openDevlog,
+        find: openFindFiles,
         rss: () => window.open('feed.xml', '_blank', 'noopener')
     };
 }
@@ -301,7 +305,7 @@ function showRunDialog() {
         <div class="retro-dialog-body">
             <p>type the name of a program, folder, or vibe, and windows will open it for you.</p>
             <input id="run-input" class="bevel-in run-input" placeholder="C:\\>" autocomplete="off" spellcheck="false">
-            <p style="color:#666;font-size:10px;">try: snake, pong, calc, notepad, cmd, computer, 8ball, snow, disco, gravity, achievements, help</p>
+            <p style="color:#666;font-size:10px;">try: sol, defrag, blog, find, mystify, pipes, snake, pong, calc, notepad, cmd, computer, 8ball, snow, disco, gravity, achievements, help</p>
         </div>
         <div class="retro-dialog-buttons">
             <button class="bevel-out retro-dialog-btn" onclick="execRunCommand()">ok</button>
@@ -376,7 +380,18 @@ function execRunCommand() {
         'play': () => playTrack(),
         'winamp': () => playTrack(),
         'shutdown': shutDown,
+        'sol': openSolitaire,
+        'cards': openSolitaire,
+        'klondike': openSolitaire,
+        'defrag': openDefrag,
+        'blog': openDevlog,
+        'posts': openDevlog,
+        'search': openFindFiles,
         'screensaver': () => startScreensaver(),
+        'mystify': () => startScreensaver('mystify'),
+        'starfield': () => startScreensaver('starfield'),
+        'pipes': () => startScreensaver('pipes'),
+        'flying': () => startScreensaver('flying'),
         'help': () => showRetroDialog({
             title: 'help.txt',
             lines: ['mrhakan 98 - digital soul v2.0', 'built with notepad and pure love.', 'secrets: konami code, click the counter 5x, press the maximize button, type party/troll/bsod anywhere.'],
@@ -1564,69 +1579,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ===== screensaver (dvd-logo style, kicks in after idle) =====
-const SCREENSAVER_IDLE_MS = 90000;
-let screensaverTimer = null;
-let screensaverRAF = null;
-
-function initScreensaver() {
-    const reset = () => {
-        clearTimeout(screensaverTimer);
-        screensaverTimer = setTimeout(() => {
-            if (document.getElementById('boot-screen') || document.getElementById('bsod-screen')) return;
-            startScreensaver();
-        }, SCREENSAVER_IDLE_MS);
-    };
-    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(ev =>
-        document.addEventListener(ev, reset, { passive: true }));
-    reset();
-}
-
-function startScreensaver() {
-    if (document.getElementById('screensaver')) return;
-    const saver = document.createElement('div');
-    saver.id = 'screensaver';
-    const logo = document.createElement('div');
-    logo.className = 'screensaver-logo';
-    logo.innerHTML = `<img src="src/troll/troll5.png" alt="" draggable="false"><span class="font-header">mrhakan 98</span>`;
-    saver.appendChild(logo);
-    document.body.appendChild(saver);
-
-    let x = Math.random() * (window.innerWidth - 160);
-    let y = Math.random() * (window.innerHeight - 120);
-    let dx = 2.2, dy = 1.8;
-    const colors = ['#0df259', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
-    let colorIdx = 0;
-
-    const step = () => {
-        const w = logo.offsetWidth || 160;
-        const h = logo.offsetHeight || 120;
-        x += dx; y += dy;
-        let bounced = false;
-        if (x <= 0 || x + w >= window.innerWidth) { dx *= -1; bounced = true; x = Math.max(0, Math.min(x, window.innerWidth - w)); }
-        if (y <= 0 || y + h >= window.innerHeight) { dy *= -1; bounced = true; y = Math.max(0, Math.min(y, window.innerHeight - h)); }
-        if (bounced) {
-            colorIdx = (colorIdx + 1) % colors.length;
-            logo.style.color = colors[colorIdx];
-            logo.style.filter = `drop-shadow(0 0 8px ${colors[colorIdx]})`;
-        }
-        logo.style.transform = `translate(${x}px, ${y}px)`;
-        screensaverRAF = requestAnimationFrame(step);
-    };
-    screensaverRAF = requestAnimationFrame(step);
-
-    // wake on any input (delayed a tick so the triggering event doesn't insta-close it)
-    setTimeout(() => {
-        const wake = () => {
-            cancelAnimationFrame(screensaverRAF);
-            saver.remove();
-            ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
-                document.removeEventListener(ev, wake));
-        };
-        ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev =>
-            document.addEventListener(ev, wake, { passive: true }));
-    }, 400);
-}
+// ===== screensaver =====
+// the savers themselves live in extras.js (mystify / starfield / 3d pipes /
+// flying windows / bouncing logo), picked in display properties.
 
 // ===================================================================
 // generic app window manager (used by minesweeper / paint / task mgr)
@@ -1998,6 +1953,10 @@ const assistantTips = [
     "minesweeper is in the start menu. procrastinate responsibly.",
     "there's a paint app now. draw me something nice.",
     "type 'bsod' if you miss windows crashing.",
+    "solitaire is in the start menu. your boss can't see you.",
+    "run defrag.exe and stare at it. that's the whole activity.",
+    "press F3. it finds every single thing on this site.",
+    "change your screensaver in display properties. mystify is the correct answer.",
     "i'm watching you browse. no reason."
 ];
 let assistantTimer = null;

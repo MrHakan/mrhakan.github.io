@@ -1,8 +1,8 @@
 {
     "status": {
-        "text": "building this website instead of sleeping",
+        "text": "teaching a website how to play solitaire",
         "emoji": "🛠️",
-        "updated": "2026-08-07"
+        "updated": "2026-08-08"
     },
     "now": {
         "updated": "2026-08-07",
@@ -81,13 +81,15 @@
             "zero frameworks — no react, no build step, no npm install",
             "tailwind via cdn for utility classes only",
             "typed.js self-hosted for the terminal tagline",
-            "material symbols icon font, subsetted to 59 glyphs (47kb)",
+            "material symbols icon font, subsetted to only the 48 glyphs used (6.7kb)",
             "guestbook + shoutbox are json files in the repo, added by pull request",
             "visitor counter via counterapi.dev",
+            "a service worker keeps the whole desktop working offline",
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
-            "no trackers. no analytics. no cookie banner. no ads."
+            "no trackers. no analytics. no cookie banner. no ads.",
+            "installable as an app — there is a web manifest and everything"
         ]
     },
     "shrine": {
@@ -154,6 +156,17 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "4.0",
+            "date": "2026-08",
+            "changes": [
+                "klondike solitaire with undo, auto-finish and the win cascade",
+                "five screensavers — mystify, starfield, 3d pipes, flying windows, bouncing logo",
+                "defrag.exe, the most hypnotic program microsoft ever shipped",
+                "a devlog, and a find: files search across everything on the site",
+                "works offline now, plus a real 404, humans.txt, robots.txt and sitemap"
+            ]
+        },
         {
             "version": "3.0",
             "date": "2026-08",

@@ -187,6 +187,7 @@ const SITE_MAP = [
     },
     {
         group: 'about this site', items: [
+            ['devlog.txt', 'openDevlog()'],
             ['now.txt', 'openNowPage()'], ['uses.txt', 'openUsesPage()'],
             ['colophon.txt', 'openColophon()'], ['changelog.txt', 'openChangelog()'],
             ['buttons.html', 'openButtonWall()'], ['blogroll.txt', 'openFriends()'],
@@ -199,11 +200,13 @@ const SITE_MAP = [
             ['ms-dos prompt', 'openTerminal()'], ['paint', 'openPaint()'],
             ['character map', 'openCharMap()'], ['clock', 'openClock()'],
             ['my computer', 'openMyComputer()'], ['recycle bin', 'openRecycleBin()'],
-            ['dial-up networking', 'openDialUp()'], ['task manager', 'openTaskManager()']
+            ['dial-up networking', 'openDialUp()'], ['task manager', 'openTaskManager()'],
+            ['disk defragmenter', 'openDefrag()'], ['find: files', 'openFindFiles()']
         ]
     },
     {
         group: 'games & toys', items: [
+            ['solitaire', 'openSolitaire()'],
             ['minesweeper', 'openMinesweeper()'], ['snake', 'openSnake()'], ['pong', 'openPong()'],
             ['which track are you?', 'openQuiz()'], ['magic 8-ball', 'openMagic8Ball()'],
             ['visitor poll', 'openPoll()'], ['achievements', 'openAchievements()']
