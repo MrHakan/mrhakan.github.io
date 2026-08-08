@@ -1,0 +1,6 @@
+# hello robot. mind the wet paint.
+User-agent: *
+Allow: /
+Disallow: /node_modules/
+
+Sitemap: https://mrhakan.github.io/sitemap.xml

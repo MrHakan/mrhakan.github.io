@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>404 — a fatal exception has occurred</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0000aa" />
+  <link rel="icon" type="image/png" href="/src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+  <style>
+    /* the whole point of a 404 is that it loads even when everything else is broken,
+       so this page carries its own styles instead of depending on style.css */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0000aa;
+      color: #fff;
+      font-family: "Lucida Console", "Courier New", monospace;
+      font-size: 15px;
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .bsod {
+      max-width: 640px;
+      width: 100%;
+    }
+
+    .bsod h1 {
+      background: #aaa;
+      color: #0000aa;
+      font-size: 15px;
+      font-weight: normal;
+      display: inline-block;
+      padding: 0 10px;
+      margin: 0 0 22px;
+    }
+
+    .bsod p {
+      margin: 0 0 16px;
+    }
+
+    .bsod ul {
+      margin: 0 0 16px;
+      padding-left: 22px;
+    }
+
+    .bsod a {
+      color: #ffff00;
+    }
+
+    .bsod a:hover {
+      background: #ffff00;
+      color: #0000aa;
+      text-decoration: none;
+    }
+
+    .center {
+      text-align: center;
+      margin-top: 28px;
+    }
+
+    .blink {
+      animation: blink 1.1s step-end infinite;
+    }
+
+    @keyframes blink {
+
+      50% {
+        opacity: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .blink {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="bsod">
+    <h1>mrhakan 98</h1>
+
+    <p>A fatal exception <b>404</b> has occurred at 0028:C000E4O4 in VXD VMM(01) +
+      00010E36. The page you were looking for was not found, has been moved, or
+      never existed in the first place.</p>
+
+    <p>This may be because:</p>
+    <ul>
+      <li>you typed the address by hand and slipped</li>
+      <li>i deleted the page and forgot to fix the link</li>
+      <li>a link somewhere on the internet is stale</li>
+      <li>the hamsters powering this server went on strike</li>
+    </ul>
+
+    <p>* Press any key to go <a href="/">back to the desktop</a>.<br />
+      * Press CTRL+ALT+DEL to restart your computer. You will lose any unsaved
+      information in all applications, and probably your afternoon.</p>
+
+    <p class="center">
+      <a href="/">home</a> &nbsp;·&nbsp;
+      <a href="/links.html">links</a> &nbsp;·&nbsp;
+      <a href="/guestbook.html">guestbook</a> &nbsp;·&nbsp;
+      <a href="/feed.xml">rss</a>
+    </p>
+
+    <p class="center blink">Press any key to continue _</p>
+  </main>
+
+  <script>
+    // any key or click takes you home, exactly like the real thing promised
+    var go = function () { window.location.href = '/'; };
+    document.addEventListener('keydown', go);
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('a')) go();
+    });
+  </script>
+</body>
+
+</html>

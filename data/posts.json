@@ -1,0 +1,51 @@
+{
+    "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
+    "posts": [
+        {
+            "id": "solitaire-and-screensavers",
+            "title": "solitaire, five screensavers and a defragmenter",
+            "date": "2026-08-08",
+            "tags": ["update", "windows"],
+            "body": [
+                "went looking around at what other people put on their personal sites — the indieweb crowd, the neocities crowd, the 'ask hn: show me your site' threads — and made a list of everything this place was missing.",
+                "turns out the list was mostly windows. so: klondike solitaire is in, with the card cascade at the end and everything. the screensaver is no longer just the bouncing logo — there are five of them now (mystify, starfield, 3d pipes, flying windows, and the original) and you pick one in display properties.",
+                "also added defrag.exe. it does absolutely nothing useful. it just moves little coloured blocks around for a few minutes while you watch, exactly like it did in 1997. i lost an entire evening to it as a kid and now you can too.",
+                "the boring but important half: this site finally has a 404 page, a humans.txt, a robots.txt, a sitemap, and it works offline. open it once, pull your ethernet cable out, reload. still there. dial-up era compatible."
+            ]
+        },
+        {
+            "id": "why-a-personal-site",
+            "title": "why bother with a personal site in 2026",
+            "date": "2026-08-07",
+            "tags": ["thoughts"],
+            "body": [
+                "every platform i grew up on either died or got worse. the forums are gone, the blogs got replaced by feeds, and the feeds got replaced by whatever an algorithm thinks will keep me here for four more minutes.",
+                "a personal site is the one page on the internet that nobody can restyle, deprioritise, or put an ad in the middle of. it loads the same in five years. if it looks stupid, it looks stupid on purpose, because i made it stupid on purpose.",
+                "there is no engagement metric on this page. there is a hit counter, which is the honest version of an engagement metric — it goes up when someone visits, and it does not tell me anything else about you.",
+                "make one. it does not have to be good. mine is called shithole."
+            ]
+        },
+        {
+            "id": "the-personal-web-update",
+            "title": "the personal web update",
+            "date": "2026-08-07",
+            "tags": ["update", "indieweb"],
+            "body": [
+                "added the whole set of slash pages the old web ran on: /now, /uses, /colophon, and a changelog. plus an 88x31 button wall with a badge you can steal, a shrine, an internet-history timeline, a site map and an rss feed.",
+                "the 88x31 button is the part i care about most. it is a 31 pixel tall gif that says 'this site exists' and it was how the entire web found itself before search engines decided what we were allowed to see.",
+                "if you have a site, take my button. i will take yours."
+            ]
+        },
+        {
+            "id": "55-apps",
+            "title": "55 apps later",
+            "date": "2026-08-06",
+            "tags": ["update"],
+            "body": [
+                "minesweeper, snake, pong, paint, notepad, calculator, a working ms-dos prompt, my computer, the recycle bin, a control panel with seven wallpapers and a dial-up simulator that makes the handshake noise.",
+                "none of this is a portfolio piece. a portfolio is a page that tries to get you hired. this is a page that tries to make you stay for twenty minutes and then tell a friend.",
+                "there is also a troll assistant. it is clippy, except it is a troll face, and it says worse things. you can turn it off. i would not."
+            ]
+        }
+    ]
+}

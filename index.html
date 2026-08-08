@@ -12,9 +12,21 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://mrhakan.github.io/" />
   <meta property="og:image" content="https://mrhakan.github.io/src/emoj/dusung.png" />
+  <meta property="og:image:alt" content="a cursed emoji, which is the whole brand" />
+  <meta property="og:site_name" content="mrhakan's shithole" />
+  <meta property="og:locale" content="en_US" />
   <meta name="twitter:card" content="summary" />
+  <meta name="author" content="mrhakan" />
+  <link rel="canonical" href="https://mrhakan.github.io/" />
   <link rel="alternate" type="application/rss+xml" title="mrhakan's shithole" href="feed.xml" />
   <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+  <link rel="apple-touch-icon" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+  <link rel="manifest" href="site.webmanifest" />
+  <link rel="author" href="humans.txt" />
+  <!-- indieweb: rel=me tells other sites these accounts are the same person -->
+  <link rel="me" href="https://github.com/MrHakan" />
+  <link rel="me" href="https://www.youtube.com/@MrHakanYT" />
+  <link rel="me" href="https://steamcommunity.com/id/prufski/" />
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="style.css" rel="stylesheet" />
   <script src="src/js/typed.umd.js" defer></script>
@@ -22,6 +34,18 @@
   <script src="apps.js" defer></script>
   <script src="fun.js" defer></script>
   <script src="pages.js" defer></script>
+  <script src="extras.js" defer></script>
+  <script>
+    // offline support: open the site once and it keeps working with the cable out
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function () { });
+      });
+    }
+    // a note for whoever hits view-source, because somebody always does
+    console.log('%cmrhakan 98', 'font:bold 34px monospace;color:#0df259;text-shadow:2px 2px 0 #ff00ff');
+    console.log('%cyou opened the console. respect. \nno build step, no framework, no bundler — just files.\ntype  hax()  or try the konami code.', 'font:13px monospace;color:#ff00ff');
+  </script>
 </head>
 
 <body class="font-body overflow-hidden h-screen w-full relative bg-space text-white">
@@ -161,12 +185,17 @@
           </div>
 
 
-          <div id="section-home" class="relative z-10 max-w-2xl mx-auto">
+          <!-- h-card: the indieweb microformat that lets other sites read who this is -->
+          <div id="section-home" class="relative z-10 max-w-2xl mx-auto h-card">
             <h1
               class="text-4xl md:text-5xl font-bold text-black mb-6 font-header tracking-tight drop-shadow-[2px_2px_0px_#0df259]">
               hello world!
               <span class="inline-block animate-bounce"></span>
             </h1>
+            <a class="u-url u-uid" href="https://mrhakan.github.io/" hidden>mrhakan.github.io</a>
+            <span class="p-name" hidden>mrhakan</span>
+            <span class="p-nickname" hidden>bradar</span>
+            <span class="p-country-name" hidden>Türkiye</span>
             <div class="flex flex-col md:flex-row gap-6 items-start">
               <div class="flex flex-col gap-2 shrink-0">
                 <div class="p-1 border-2 border-dashed border-black bg-[#f0f0f0] rotate-[-2deg] shadow-lg relative">
@@ -174,7 +203,7 @@
                     class="absolute -top-4 -right-4 w-8 h-8 z-10">
                   <div class="w-40 h-40 bg-gray-200 overflow-hidden flex items-center justify-center"
                     data-alt="pixelated avatar of a person with spiky hair">
-                    <img alt="pixel avatar" class="w-36 h-36 object-contain" src="src/emoj/dusung.png" />
+                    <img alt="pixel avatar" class="w-36 h-36 object-contain u-photo" src="src/emoj/dusung.png" />
                   </div>
                   <img src="src/emoj/trollcinaye.gif" alt="" class="absolute -bottom-3 -left-3 w-8 h-8 z-10">
                 </div>
@@ -241,7 +270,7 @@
           <div id="section-links" class="hidden relative z-10 mx-auto max-w-2xl">
             <h2 class="text-3xl font-bold text-black mb-4 font-header border-b-2 border-black pb-2">cool_links.txt</h2>
             <div class="space-y-3">
-              <a href="https://steamcommunity.com/id/prufski/" target="_blank"
+              <a href="https://steamcommunity.com/id/prufski/" rel="me noopener" target="_blank"
                 class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
                 <span class="text-blue-600 underline font-header">steam</span>
                 <p class="text-xs text-black font-body mt-1">my steam profile - add me bradar</p>
@@ -251,12 +280,12 @@
                 <span class="text-blue-600 underline font-header">discord server</span>
                 <p class="text-xs text-black font-body mt-1">join the server</p>
               </a>
-              <a href="https://www.youtube.com/@MrHakanYT" target="_blank"
+              <a href="https://www.youtube.com/@MrHakanYT" rel="me noopener" target="_blank"
                 class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
                 <span class="text-blue-600 underline font-header">youtube channel</span>
                 <p class="text-xs text-black font-body mt-1">subscribe to my channel</p>
               </a>
-              <a href="https://github.com/MrHakan" target="_blank"
+              <a href="https://github.com/MrHakan" rel="me noopener" target="_blank"
                 class="block p-3 bg-[#f0f0f0] border-2 border-black hover:bg-[#e0e0e0]">
                 <span class="text-blue-600 underline font-header">github</span>
                 <p class="text-xs text-black font-body mt-1">check out my code</p>
@@ -457,6 +486,8 @@
                 class="material-symbols-outlined text-gray-600">delete</span>recycle bin</button>
             <button onclick="startMenuAction('dialup')" class="start-item"><span
                 class="material-symbols-outlined text-green-700">public</span>dial-up networking</button>
+            <button onclick="startMenuAction('defrag')" class="start-item"><span
+                class="material-symbols-outlined text-blue-600">storage</span>disk defragmenter</button>
           </div>
         </div>
         <div class="start-sub">
@@ -464,6 +495,8 @@
               class="material-symbols-outlined text-red-600">sports_esports</span>games<span
               class="sub-arrow">▸</span></button>
           <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('solitaire')" class="start-item"><span
+                class="material-symbols-outlined text-red-700">style</span>solitaire</button>
             <button onclick="startMenuAction('minesweeper')" class="start-item"><span
                 class="material-symbols-outlined text-red-600">flag</span>minesweeper</button>
             <button onclick="startMenuAction('snake')" class="start-item"><span
@@ -481,6 +514,8 @@
               class="material-symbols-outlined text-green-700">description</span>about this site<span
               class="sub-arrow">▸</span></button>
           <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('devlog')" class="start-item"><span
+                class="material-symbols-outlined text-orange-700">draft</span>devlog.txt</button>
             <button onclick="startMenuAction('now')" class="start-item"><span
                 class="material-symbols-outlined text-blue-700">schedule</span>now.txt</button>
             <button onclick="startMenuAction('usespage')" class="start-item"><span
@@ -567,6 +602,9 @@
           <span class="material-symbols-outlined text-blue-500">chat</span>discord me
         </button>
         <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
+        <button onclick="startMenuAction('find')" class="start-item">
+          <span class="material-symbols-outlined text-yellow-700">search</span>find...
+        </button>
         <button onclick="startMenuAction('taskmgr')" class="start-item">
           <span class="material-symbols-outlined text-green-700">monitoring</span>task manager
         </button>

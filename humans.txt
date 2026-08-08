@@ -1,0 +1,26 @@
+/* TEAM */
+    Webmaster, designer, janitor: mrhakan
+    Site: https://mrhakan.github.io/
+    GitHub: @MrHakan
+    From: Türkiye
+
+/* THANKS */
+    Everyone who signed the guestbook.
+    Everyone who still runs a personal website in 2026.
+    The people who made 88x31 buttons a thing.
+    Winamp. It really whipped the llama's ass.
+
+/* SITE */
+    Standards: HTML5, CSS3, vanilla JavaScript
+    Components: no framework, no build step, no bundler
+    Software: a text editor and too much free time
+    Hosting: GitHub Pages
+    Doctype: HTML5
+    Language: English (with a Turkish accent)
+    Best viewed at: 800x600, 256 colours
+
+              .-.
+             (o o)   no javascript frameworks
+             | O \   were harmed in the making
+              \   \  of this website
+               `~~~'

@@ -8,6 +8,22 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v4.0 — solitaire, screensavers and a defragmenter</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v4.0</guid>
+      <pubDate>Sat, 08 Aug 2026 10:00:00 +0000</pubDate>
+      <description><![CDATA[
+        Klondike solitaire with undo, auto-finish and the card cascade at the end.
+        Five screensavers you pick in Display Properties — Mystify, Starfield,
+        3D Pipes, Flying Windows and the original bouncing logo. Defrag.exe, which
+        does nothing useful and is the best thing here. Plus a devlog, a "Find: Files"
+        search across the whole site, and the boring-but-important half: a real 404
+        page, humans.txt, robots.txt, a sitemap, a web manifest, and offline support —
+        open the site once and it keeps working with the cable pulled out.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v3.0 — the personal web update</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v3.0</guid>

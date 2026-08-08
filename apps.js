@@ -482,6 +482,12 @@ function openControlPanel() {
                 <span class="cp-swatch wp-swatch-${w.id}"></span>
                 <span>${escapeHtml(w.name)}</span>
             </button>`).join('')}</div>
+        <p class="cp-label">screen saver:</p>
+        <div class="cp-saver-row">
+            <select class="bevel-in cp-select" id="cp-saver"></select>
+            <button class="bevel-out cp-preview" id="cp-saver-preview">preview</button>
+        </div>
+        <p class="cp-hint">kicks in after 90 seconds of you doing nothing.</p>
         <p class="cp-label">effects:</p>
         <div class="cp-toggles">
             <label><input type="checkbox" id="cp-crt"> CRT scanlines</label>
@@ -489,6 +495,24 @@ function openControlPanel() {
             <label><input type="checkbox" id="cp-stars"> starfield</label>
             <label><input type="checkbox" id="cp-snow"> let it snow</label>
         </div>`;
+
+    // the savers themselves live in extras.js
+    const saverSel = body.querySelector('#cp-saver');
+    if (typeof SCREENSAVERS !== 'undefined') {
+        const curSaver = getScreensaverId();
+        saverSel.innerHTML = Object.entries(SCREENSAVERS)
+            .map(([id, s]) => `<option value="${id}"${id === curSaver ? ' selected' : ''}>${escapeHtml(s.name)}</option>`)
+            .join('');
+        saverSel.onchange = () => {
+            localStorage.setItem('screensaver', saverSel.value);
+            playSound('click');
+            unlockAchievement('decorator');
+        };
+        body.querySelector('#cp-saver-preview').onclick = () => {
+            if (saverSel.value === 'none') { playSound('error'); return; }
+            startScreensaver(saverSel.value);
+        };
+    }
     body.querySelectorAll('.cp-wp').forEach(b => b.onclick = () => {
         body.querySelectorAll('.cp-wp').forEach(x => x.classList.remove('sel'));
         b.classList.add('sel');
