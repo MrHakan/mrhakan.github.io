@@ -31,6 +31,9 @@ const ACHIEVEMENTS = {
     linkback: { icon: '🔗', name: 'webmaster', desc: 'copied the 88x31 link-to-me code' },
     quiz: { icon: '🔮', name: 'know thyself', desc: 'found out which track you are' },
     solitaire: { icon: '🃏', name: 'card shark', desc: 'won a game of solitaire' },
+    jokerz: { icon: '🎰', name: 'the run begins', desc: 'opened jokerz 98' },
+    jokerz_ante: { icon: '🂡', name: 'small time', desc: 'cleared ante 3 in jokerz 98' },
+    jokerz_win: { icon: '👑', name: 'beat the house', desc: 'cleared ante 8 in jokerz 98' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
@@ -504,6 +507,7 @@ const SHORTCUTS = [
     ['type: snow, disco, drunk', 'more chaos words'],
     ['type: gravity, sparta, 8ball', 'even more'],
     ['type: solitaire, defrag', 'the good windows programs'],
+    ['type: jokerz or balatro', 'the poker roguelike'],
     ['right-click desktop', 'context menu']
 ];
 function showShortcuts() {
@@ -548,6 +552,8 @@ function initExtraSecrets() {
         snake: () => openSnake(),
         pong: () => openPong(),
         solitaire: () => openSolitaire(),
+        jokerz: () => openBalatro(),
+        balatro: () => openBalatro(),
         defrag: () => openDefrag(),
         roast: roastMe,
         fortune: showFortune,

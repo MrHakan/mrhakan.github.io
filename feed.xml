@@ -8,6 +8,22 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v5.0 — jokerz 98, a poker roguelike inside the website</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v5.0</guid>
+      <pubDate>Sun, 09 Aug 2026 12:00:00 +0000</pubDate>
+      <description><![CDATA[
+        A full Balatro-like poker roguelike, built into the Windows 98 desktop.
+        Score is chips times mult; poker hands have levels; jokers hook into every
+        stage of the scoring pipeline. 165 jokers, 22 tarots, 12 planets, 21 spectrals,
+        35 vouchers, 31 boss blinds, 17 decks, 8 stakes, 15 booster packs and 20 skip
+        tags. Fifteen of the jokers are original and exist nowhere else. Runs are
+        seeded and saved, and the whole thing is vanilla JavaScript that only loads
+        when you open it.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v4.0 — solitaire, screensavers and a defragmenter</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v4.0</guid>

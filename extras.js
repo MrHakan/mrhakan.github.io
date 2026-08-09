@@ -323,6 +323,40 @@ function solitaireCascade(win) {
 }
 
 // ===================================================================
+// jokerz 98 — the poker roguelike, loaded on demand
+//
+// It is by far the biggest thing on this site, so it stays out of the
+// initial page load and only arrives when somebody actually opens it.
+// ===================================================================
+let balLoading = null;
+function balLoadScripts() {
+    if (window.startBalatro) return Promise.resolve();
+    if (balLoading) return balLoading;
+    const load = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = res;
+        s.onerror = () => rej(new Error(src));
+        document.head.appendChild(s);
+    });
+    // data first: the engine reads BAL at definition time
+    balLoading = load('games/balatro-data.js').then(() => load('games/balatro.js'));
+    return balLoading;
+}
+
+function openBalatro() {
+    if (window.startBalatro) { startBalatro(); return; }
+    const { body, win } = createAppWindow('jokerz 98', { icon: 'casino', width: 320 });
+    body.innerHTML = '<div class="bj-loading">shuffling deck...</div>';
+    balLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        startBalatro();
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">could not load the game files bradar</div>';
+    });
+}
+
+// ===================================================================
 // screensavers — five of them, picked in display properties
 // ===================================================================
 const SCREENSAVERS = {
@@ -733,6 +767,7 @@ function siteSearchIndex() {
         ['my internet life', 'document', () => openInternetHistory(), 'timeline history nostalgia'],
         ['site map', 'document', () => openSiteMap(), 'index everything'],
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
+        ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],
         ['snake', 'game', () => openSnake(), 'nokia arcade'],
