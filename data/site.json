@@ -1,6 +1,6 @@
 {
     "status": {
-        "text": "teaching a website how to play solitaire",
+        "text": "lost another evening to my own poker game",
         "emoji": "🛠️",
         "updated": "2026-08-08"
     },
@@ -85,6 +85,7 @@
             "guestbook + shoutbox are json files in the repo, added by pull request",
             "visitor counter via counterapi.dev",
             "a service worker keeps the whole desktop working offline",
+            "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
@@ -156,6 +157,16 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "5.0",
+            "date": "2026-08",
+            "changes": [
+                "jokerz 98 — a full poker roguelike, built into the desktop",
+                "165 jokers, 22 tarots, 12 planets, 21 spectrals, 35 vouchers",
+                "31 boss blinds, 17 decks, 8 stakes, 15 booster packs, 20 skip tags",
+                "seeded runs, saved runs, and 15 jokers that exist nowhere else"
+            ]
+        },
         {
             "version": "4.0",
             "date": "2026-08",

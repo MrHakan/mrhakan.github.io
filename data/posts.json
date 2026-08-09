@@ -2,10 +2,31 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
+            "id": "jokerz-98",
+            "title": "i built a whole poker roguelike into my website",
+            "date": "2026-08-09",
+            "tags": [
+                "update",
+                "games",
+                "big one"
+            ],
+            "body": [
+                "balatro ate about two hundred hours of my life, so the only reasonable response was to rebuild it. jokerz 98 is in the start menu, under games. it is a real one — not a demo, not a joke button.",
+                "the whole system is in there. score is chips times mult. poker hands have levels you raise with planet cards. jokers modify the scoring pipeline at every stage: when a card scores, when a card is held in hand, on retrigger, once per hand, at the end of a round. 165 of them. blueprint and brainstorm copy their neighbours, which means they copy each other's copies, which means you can build a stupid chain and watch the number stop being a number.",
+                "also in: 22 tarots, 12 planets, 21 spectrals, 35 vouchers, 31 boss blinds with real abilities, 17 decks, 8 stakes, 15 booster pack variants and 20 skip tags. card enhancements, editions, seals. interest on your money. the shop, the reroll, the whole loop.",
+                "fifteen of the jokers are mine and exist nowhere else. troll face gives X4 mult with a 1 in 4 chance of giving you X0 instead. defrag.exe gains chips every time you discard. error 404 scales with the hand types you have never played. y2k bug scales with your draw pile and is exactly as unreliable as it sounds.",
+                "runs are seeded, so a good seed can be shared and replayed. runs also save, so closing the window mid-ante does not throw the run away. and because the site works offline, so does the game.",
+                "it is about 150kb of vanilla javascript with no framework and no build step, and it only loads when you open it, so the desktop stays as fast as it was yesterday."
+            ]
+        },
+        {
             "id": "solitaire-and-screensavers",
             "title": "solitaire, five screensavers and a defragmenter",
             "date": "2026-08-08",
-            "tags": ["update", "windows"],
+            "tags": [
+                "update",
+                "windows"
+            ],
             "body": [
                 "went looking around at what other people put on their personal sites — the indieweb crowd, the neocities crowd, the 'ask hn: show me your site' threads — and made a list of everything this place was missing.",
                 "turns out the list was mostly windows. so: klondike solitaire is in, with the card cascade at the end and everything. the screensaver is no longer just the bouncing logo — there are five of them now (mystify, starfield, 3d pipes, flying windows, and the original) and you pick one in display properties.",
@@ -17,7 +38,9 @@
             "id": "why-a-personal-site",
             "title": "why bother with a personal site in 2026",
             "date": "2026-08-07",
-            "tags": ["thoughts"],
+            "tags": [
+                "thoughts"
+            ],
             "body": [
                 "every platform i grew up on either died or got worse. the forums are gone, the blogs got replaced by feeds, and the feeds got replaced by whatever an algorithm thinks will keep me here for four more minutes.",
                 "a personal site is the one page on the internet that nobody can restyle, deprioritise, or put an ad in the middle of. it loads the same in five years. if it looks stupid, it looks stupid on purpose, because i made it stupid on purpose.",
@@ -29,7 +52,10 @@
             "id": "the-personal-web-update",
             "title": "the personal web update",
             "date": "2026-08-07",
-            "tags": ["update", "indieweb"],
+            "tags": [
+                "update",
+                "indieweb"
+            ],
             "body": [
                 "added the whole set of slash pages the old web ran on: /now, /uses, /colophon, and a changelog. plus an 88x31 button wall with a badge you can steal, a shrine, an internet-history timeline, a site map and an rss feed.",
                 "the 88x31 button is the part i care about most. it is a 31 pixel tall gif that says 'this site exists' and it was how the entire web found itself before search engines decided what we were allowed to see.",
@@ -40,7 +66,9 @@
             "id": "55-apps",
             "title": "55 apps later",
             "date": "2026-08-06",
-            "tags": ["update"],
+            "tags": [
+                "update"
+            ],
             "body": [
                 "minesweeper, snake, pong, paint, notepad, calculator, a working ms-dos prompt, my computer, the recycle bin, a control panel with seven wallpapers and a dial-up simulator that makes the handshake noise.",
                 "none of this is a portfolio piece. a portfolio is a page that tries to get you hired. this is a page that tries to make you stay for twenty minutes and then tell a friend.",

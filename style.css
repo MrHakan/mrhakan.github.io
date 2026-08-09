@@ -3395,3 +3395,989 @@ body.disco-floor::after {
     color: #333;
     margin-top: 4px;
 }
+
+/* =================================================================== */
+/* jokerz 98 — the poker roguelike                                     */
+/* =================================================================== */
+.bj-loading {
+    padding: 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #000;
+}
+
+.bj-body {
+    background: #17402f;
+    color: #eee;
+    padding: 6px;
+    font-size: 11px;
+    max-height: 78vh;
+}
+
+.bj-body h2,
+.bj-body h3 {
+    margin: 0 0 6px;
+    color: #fff;
+}
+
+.bj-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 20px;
+    text-align: center;
+    color: #ffd400;
+    text-shadow: 2px 2px 0 #c0392b;
+    margin: 10px 0 6px;
+}
+
+.bj-lose {
+    color: #ff5a5a;
+    text-shadow: 2px 2px 0 #000;
+}
+
+.bj-win {
+    color: #0df259;
+    text-shadow: 2px 2px 0 #000;
+}
+
+.bj-sub {
+    text-align: center;
+    color: #b9d5c8;
+    margin: 0 0 10px;
+    font-size: 11px;
+}
+
+.bj-label {
+    color: #8fd6b4;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 8px 0 4px;
+}
+
+.bj-hint {
+    color: #8fd6b4;
+    font-size: 10px;
+    margin: 6px 0 0;
+}
+
+.bj-empty {
+    color: #6e9683;
+    font-size: 10px;
+    padding: 8px;
+}
+
+/* ---------- buttons ---------- */
+.bj-btn {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 10px;
+    background: #c0c0c0;
+    color: #000;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    cursor: pointer;
+}
+
+.bj-btn:active {
+    transform: translateY(1px);
+    border-top-color: #404040;
+    border-left-color: #404040;
+    border-right-color: #fff;
+    border-bottom-color: #fff;
+}
+
+.bj-btn.bj-go {
+    background: #ffd400;
+    font-weight: bold;
+}
+
+.bj-btn.bj-ghost {
+    background: #6e8f7f;
+    color: #fff;
+}
+
+.bj-btn.bj-small {
+    font-size: 10px;
+    padding: 2px 7px;
+}
+
+.bj-btn.bj-wide {
+    display: block;
+    width: 100%;
+    margin: 8px 0;
+    padding: 7px;
+    font-weight: bold;
+}
+
+.bj-btn.bj-play {
+    background: #2f7fd4;
+    color: #fff;
+    font-weight: bold;
+}
+
+.bj-btn.bj-disc {
+    background: #c0392b;
+    color: #fff;
+    font-weight: bold;
+}
+
+.bj-btn.bj-buy {
+    width: 100%;
+    margin-top: 3px;
+    font-size: 10px;
+}
+
+/* ---------- top bar ---------- */
+.bj-top {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    background: #0f2d21;
+    padding: 4px 6px;
+    border: 1px solid #2f6b50;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+}
+
+.bj-stat {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 48px;
+}
+
+.bj-stat b {
+    color: #8fd6b4;
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+.bj-stat span {
+    color: #fff;
+    font-size: 12px;
+}
+
+.bj-money span {
+    color: #ffd400;
+    font-weight: bold;
+}
+
+.bj-top .bj-btn {
+    margin-left: auto;
+}
+
+/* ---------- blind select ---------- */
+.bj-blinds {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.bj-blind {
+    flex: 1;
+    background: #0f2d21;
+    border: 2px solid #2f6b50;
+    padding: 8px 6px;
+    text-align: center;
+    opacity: .65;
+}
+
+.bj-blind.now {
+    opacity: 1;
+    border-color: #ffd400;
+    background: #14503a;
+}
+
+.bj-blind.boss {
+    border-color: #7d2b3a;
+}
+
+.bj-blind.boss.now {
+    border-color: #ff5a5a;
+    background: #4a1520;
+}
+
+.bj-blind.done {
+    opacity: .4;
+}
+
+.bj-blind-name {
+    font-weight: bold;
+    color: #fff;
+    font-size: 12px;
+}
+
+.bj-blind-req {
+    font-size: 20px;
+    color: #ff5a5a;
+    font-weight: bold;
+    margin: 4px 0 0;
+}
+
+.bj-blind-sub,
+.bj-blind-reward,
+.bj-blind-done {
+    font-size: 9px;
+    color: #8fd6b4;
+}
+
+.bj-blind-text {
+    font-size: 10px;
+    color: #ffd400;
+    margin: 5px 0;
+    min-height: 26px;
+}
+
+.bj-blind-reward {
+    margin: 5px 0;
+    color: #ffd400;
+}
+
+.bj-blind .bj-btn {
+    width: 100%;
+    margin-top: 3px;
+}
+
+.bj-tags {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #ffd400;
+}
+
+/* ---------- blind bar & progress ---------- */
+.bj-blindbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #14503a;
+    border: 1px solid #2f6b50;
+    padding: 3px 6px;
+    flex-wrap: wrap;
+}
+
+.bj-blindbar.boss {
+    background: #4a1520;
+    border-color: #7d2b3a;
+}
+
+.bj-blindbar-name {
+    font-weight: bold;
+    color: #fff;
+}
+
+.bj-blindbar-text {
+    color: #ffd400;
+    font-size: 10px;
+}
+
+.bj-blindbar-score {
+    margin-left: auto;
+    color: #fff;
+    font-weight: bold;
+}
+
+.bj-progress {
+    height: 8px;
+    background: #0a1c14;
+    margin: 3px 0 6px;
+    padding: 1px;
+}
+
+.bj-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #c0392b, #ffd400, #0df259);
+    transition: width .25s;
+}
+
+/* ---------- joker & consumable slots ---------- */
+.bj-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.bj-slotlabel {
+    display: block;
+    font-size: 9px;
+    color: #8fd6b4;
+    text-transform: uppercase;
+}
+
+.bj-jokers,
+.bj-cons {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    min-height: 62px;
+}
+
+.bj-joker {
+    position: relative;
+    flex: 0 0 118px;
+    background: #1d1d28;
+    border: 2px solid var(--rar, #4a90d9);
+    border-radius: 3px;
+    padding: 3px 4px;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 1.25;
+}
+
+.bj-joker:hover {
+    background: #2b2b3c;
+}
+
+.bj-joker.confirm {
+    border-color: #ff5a5a;
+    background: #3a1520;
+}
+
+.bj-joker.confirm::after {
+    content: attr(data-hint);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    background: #ff5a5a;
+    color: #fff;
+    font-size: 9px;
+    padding: 2px;
+    text-align: center;
+    z-index: 2;
+}
+
+.bj-joker.debuffed {
+    filter: grayscale(1);
+    opacity: .5;
+}
+
+.bj-joker.bj-extra {
+    box-shadow: inset 0 0 0 1px #ffd400;
+}
+
+.bj-joker-name {
+    font-weight: bold;
+    color: #fff;
+    font-size: 10px;
+}
+
+.bj-joker-text {
+    color: #c9c9d8;
+}
+
+.bj-joker-dyn {
+    color: #ffd400;
+    font-weight: bold;
+}
+
+.bj-joker-tags {
+    color: #ff9ec4;
+}
+
+.bj-joker-foot {
+    display: flex;
+    justify-content: space-between;
+    color: var(--rar, #4a90d9);
+    margin-top: 2px;
+    font-size: 8px;
+    text-transform: uppercase;
+}
+
+.bj-con {
+    flex: 0 0 108px;
+    background: #2a1d3a;
+    border: 2px solid #9b5de5;
+    border-radius: 3px;
+    padding: 3px 4px;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 1.25;
+}
+
+.bj-con:hover {
+    background: #3a2a50;
+}
+
+.bj-con-planet {
+    border-color: #4a90d9;
+    background: #16273a;
+}
+
+.bj-con-spectral {
+    border-color: #3aa7a7;
+    background: #113030;
+}
+
+.bj-con-name {
+    font-weight: bold;
+    color: #fff;
+    font-size: 10px;
+}
+
+.bj-con-text {
+    color: #c9c9d8;
+}
+
+.bj-con-foot {
+    color: #8fd6b4;
+    font-size: 8px;
+    text-transform: uppercase;
+}
+
+/* editions */
+.ed-foil {
+    box-shadow: inset 0 0 10px rgba(140, 200, 255, .8);
+}
+
+.ed-holo {
+    box-shadow: inset 0 0 10px rgba(255, 120, 220, .8);
+}
+
+.ed-poly {
+    box-shadow: inset 0 0 12px rgba(255, 210, 60, .9);
+}
+
+.ed-negative {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* ---------- the score readout ---------- */
+.bj-readout {
+    text-align: center;
+    background: #0f2d21;
+    border: 1px solid #2f6b50;
+    padding: 4px;
+    margin-bottom: 6px;
+}
+
+.bj-hand-name {
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.bj-hand-name small {
+    color: #8fd6b4;
+    font-weight: normal;
+}
+
+.bj-calc {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.bj-chips {
+    background: #2f7fd4;
+    color: #fff;
+    font-weight: bold;
+    padding: 2px 12px;
+    min-width: 66px;
+    font-size: 14px;
+}
+
+.bj-mult {
+    background: #c0392b;
+    color: #fff;
+    font-weight: bold;
+    padding: 2px 12px;
+    min-width: 66px;
+    font-size: 14px;
+}
+
+.bj-x {
+    color: #ffd400;
+    font-weight: bold;
+}
+
+.bj-last {
+    color: #ffd400;
+    font-size: 10px;
+    margin-top: 2px;
+}
+
+/* ---------- cards ---------- */
+.bj-hand {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-height: 74px;
+    margin-bottom: 6px;
+}
+
+.bj-hand.small .bj-card {
+    width: 34px;
+    height: 48px;
+}
+
+.bj-card {
+    position: relative;
+    width: 44px;
+    height: 62px;
+    background: #fff;
+    color: #111;
+    border: 1px solid #000;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform .08s;
+}
+
+.bj-card:hover {
+    transform: translateY(-4px);
+}
+
+.bj-card.sel {
+    transform: translateY(-10px);
+    outline: 2px solid #ffd400;
+}
+
+.bj-card.red {
+    color: #d40000;
+}
+
+.bj-card.debuffed {
+    filter: grayscale(1) brightness(.65);
+}
+
+.bj-card.bj-back {
+    background: repeating-linear-gradient(45deg, #2a4fb8 0 5px, #1b3a92 5px 10px);
+    box-shadow: inset 0 0 0 2px #fff;
+}
+
+.bj-rank {
+    position: absolute;
+    top: 2px;
+    left: 3px;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.bj-suit {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.bj-seal {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, .5);
+}
+
+.seal-red {
+    background: #e33;
+}
+
+.seal-blue {
+    background: #39c;
+}
+
+.seal-gold {
+    background: #dc3;
+}
+
+.seal-purple {
+    background: #93c;
+}
+
+/* enhancements read as a card tint */
+.enh-bonus {
+    background: #cfe4ff;
+}
+
+.enh-mult {
+    background: #ffd0cc;
+}
+
+.enh-wild {
+    background: #e2ffd6;
+}
+
+.enh-glass {
+    background: #eaf7ff;
+    opacity: .85;
+}
+
+.enh-steel {
+    background: #d8d8e2;
+}
+
+.enh-stone {
+    background: #a9a9a9;
+    color: #333;
+}
+
+.enh-gold {
+    background: #ffe9a8;
+}
+
+.enh-lucky {
+    background: #d9ffe6;
+}
+
+/* ---------- actions ---------- */
+.bj-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+.bj-actions2 {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: center;
+    margin-top: 5px;
+    flex-wrap: wrap;
+}
+
+.bj-counts {
+    display: flex;
+    gap: 6px;
+}
+
+.bj-count {
+    background: #0f2d21;
+    border: 1px solid #2f6b50;
+    padding: 2px 8px;
+    font-size: 9px;
+    color: #8fd6b4;
+    text-align: center;
+}
+
+.bj-count b {
+    display: block;
+    font-size: 14px;
+}
+
+.bj-hands b {
+    color: #4aa3ff;
+}
+
+.bj-discards b {
+    color: #ff7b6b;
+}
+
+.bj-deckcount {
+    color: #8fd6b4;
+    font-size: 10px;
+}
+
+/* ---------- scoring log ---------- */
+.bj-log {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #8fd6b4;
+}
+
+.bj-log summary {
+    cursor: pointer;
+}
+
+.bj-logrows {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 4px;
+    max-height: 90px;
+    overflow-y: auto;
+}
+
+.bj-logrows span {
+    background: #0f2d21;
+    border: 1px solid #2f6b50;
+    padding: 1px 4px;
+    color: #fff;
+}
+
+.bj-logrows b {
+    color: #8fd6b4;
+    margin-right: 4px;
+    font-weight: normal;
+}
+
+/* ---------- shop & packs ---------- */
+.bj-shophead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.bj-shophead h3 {
+    margin: 0;
+    flex: 1;
+}
+
+.bj-shoprow {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    align-items: flex-start;
+}
+
+.bj-shopitem {
+    flex: 0 0 124px;
+}
+
+.bj-shopitem.taken {
+    opacity: .35;
+}
+
+.bj-shopcard-card {
+    display: flex;
+    justify-content: center;
+    background: #0f2d21;
+    border: 1px solid #2f6b50;
+    padding: 6px;
+    min-height: 62px;
+}
+
+.bj-pack,
+.bj-voucher {
+    background: #3a2a12;
+    border: 2px solid #ffd400;
+    padding: 5px;
+    font-size: 9px;
+    line-height: 1.3;
+    min-height: 52px;
+}
+
+.bj-voucher {
+    background: #12303a;
+    border-color: #3aa7a7;
+}
+
+.bj-pack b,
+.bj-voucher b {
+    display: block;
+    color: #fff;
+    font-size: 10px;
+}
+
+.bj-pack span,
+.bj-voucher span {
+    color: #c9c9d8;
+}
+
+/* ---------- cash out ---------- */
+.bj-cashout {
+    background: #0f2d21;
+    border: 2px solid #ffd400;
+    padding: 10px;
+    text-align: center;
+}
+
+.bj-paylist {
+    margin: 8px 0;
+}
+
+.bj-payrow {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted #2f6b50;
+    padding: 2px 0;
+}
+
+.bj-payrow b {
+    color: #ffd400;
+}
+
+.bj-paytotal {
+    font-size: 13px;
+    margin: 6px 0;
+}
+
+.bj-paytotal b {
+    color: #ffd400;
+}
+
+/* ---------- menu / choices ---------- */
+.bj-menu {
+    padding: 4px;
+}
+
+.bj-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.bj-field label {
+    color: #8fd6b4;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.bj-input {
+    flex: 1;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 3px 5px;
+    background: #fff;
+    color: #000;
+    border: none;
+}
+
+.bj-choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 4px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+
+.bj-choice {
+    text-align: left;
+    background: #0f2d21;
+    border: 2px solid #2f6b50;
+    color: #c9c9d8;
+    padding: 4px 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 9px;
+    line-height: 1.3;
+}
+
+.bj-choice b {
+    display: block;
+    color: #fff;
+    font-size: 10px;
+}
+
+.bj-choice.sel {
+    border-color: #ffd400;
+    background: #14503a;
+}
+
+.bj-stakes .bj-choice {
+    border-left: 5px solid var(--rar, #e8e8e8);
+}
+
+.bj-choice.bj-extra b::after {
+    content: ' ★';
+    color: #ffd400;
+}
+
+/* ---------- run info ---------- */
+.bj-info {
+    padding: 4px;
+}
+
+.bj-inforow {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted #2f6b50;
+    padding: 2px 0;
+}
+
+.bj-inforow b {
+    color: #ffd400;
+}
+
+.bj-inforow2 {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.bj-vlist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.bj-vlist span {
+    background: #12303a;
+    border: 1px solid #3aa7a7;
+    padding: 1px 5px;
+    font-size: 9px;
+}
+
+/* ---------- hand level table ---------- */
+.bj-side {
+    margin-top: 6px;
+    font-size: 10px;
+    color: #8fd6b4;
+}
+
+.bj-side summary {
+    cursor: pointer;
+}
+
+.bj-levels {
+    margin-top: 4px;
+}
+
+.bj-level {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    border-bottom: 1px dotted #2f6b50;
+    padding: 1px 0;
+}
+
+.bj-lvlname {
+    color: #fff;
+}
+
+.bj-lvlnum {
+    color: #ffd400;
+}
+
+.bj-lvlval {
+    color: #8fd6b4;
+}
+
+.bj-lvlplays {
+    color: #6e9683;
+    min-width: 18px;
+    text-align: right;
+}
+
+.bj-end {
+    padding: 16px 10px;
+    text-align: center;
+}
+
+@media (max-width: 640px) {
+    .bj-card {
+        width: 34px;
+        height: 48px;
+    }
+
+    .bj-suit {
+        font-size: 15px;
+    }
+
+    .bj-rank {
+        font-size: 10px;
+    }
+
+    .bj-joker {
+        flex-basis: 100px;
+    }
+
+    .bj-blinds {
+        flex-direction: column;
+    }
+}
