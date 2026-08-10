@@ -772,35 +772,25 @@ document.addEventListener('keydown', (e) => {
 });
 
 // clicking the visitor counter 5 times = h4x0r mode
-// the real count is a third-party badge image, so the egg hides it and spins
-// the LED display in its place, then puts the badge back
 let counterClicks = 0;
 function initCounterEgg() {
-    const box = document.getElementById('visitor-box');
-    const badge = document.getElementById('visitor-badge');
-    const led = document.getElementById('visitor-count');
-    if (!box || !led) return;
-    box.style.cursor = 'pointer';
-    box.addEventListener('click', () => {
+    const counter = document.getElementById('visitor-count');
+    if (!counter) return;
+    counter.parentElement.style.cursor = 'pointer';
+    counter.parentElement.addEventListener('click', () => {
         counterClicks++;
         if (counterClicks < 5) return;
         counterClicks = 0;
         playSound('error');
-        const badgeWasShowing = badge && !badge.classList.contains('hidden');
-        const original = led.textContent;
-        if (badge) badge.classList.add('hidden');
-        led.classList.remove('hidden');
+        const original = counter.textContent;
         let spins = 0;
         const spin = setInterval(() => {
-            led.textContent = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
+            counter.textContent = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
             if (++spins > 20) {
                 clearInterval(spin);
-                led.textContent = '999999';
+                counter.textContent = '999999';
                 showToast('h4x0r.exe', 'counter overclocked!! the feds are on their way');
-                setTimeout(() => {
-                    led.textContent = original;
-                    if (badgeWasShowing) { led.classList.add('hidden'); badge.classList.remove('hidden'); }
-                }, 5000);
+                setTimeout(() => { counter.textContent = original; }, 5000);
             }
         }, 50);
     });
@@ -1344,30 +1334,25 @@ function copyDiscord() {
         showToast('discord.exe', `my discord username is "${username}"`);
     }
 }
-// The hit counter is komarev's ghpvc badge — the same one on my github profile
-// readme, so the number is "people who looked at my stuff" across both places.
-// Loading the image is what registers the hit; there is no api call to make and
-// no key to keep secret. If the badge cannot load — offline, blocked, adblock —
-// fall back to a local count so the panel is never an empty box.
-function initVisitorCounter() {
-    const badge = document.getElementById('visitor-badge');
+// A real per-site hit counter via abacus (jasoncameron.dev/abacus) — a free,
+// keyless, CORS-open counter API: no signup, no secret, and — unlike a github
+// profile-view badge — it goes up on every actual load of THIS page, because
+// that's the request that hits it. Falls back to a local count if the
+// service is unreachable (offline, blocked, down) so the panel is never empty.
+const VISITOR_COUNTER_URL = 'https://abacus.jasoncameron.dev/hit/mrhakan.github.io/site-visits';
+async function initVisitorCounter() {
     const led = document.getElementById('visitor-count');
-    if (!badge || !led) return;
-    let done = false;
-    const fallback = () => {
-        if (done) return;
-        done = true;
-        badge.classList.add('hidden');
-        led.classList.remove('hidden');
+    if (!led) return;
+    try {
+        const res = await fetch(VISITOR_COUNTER_URL);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        led.textContent = String(data.value).padStart(6, '0');
+    } catch (e) {
         const count = parseInt(localStorage.getItem('visitor-count') || '0', 10) + 1;
         localStorage.setItem('visitor-count', count);
         led.textContent = String(count).padStart(6, '0');
-    };
-    badge.addEventListener('error', fallback);
-    // the browser starts loading the badge while parsing the html, so a blocked
-    // request (adblock, offline) can fail before this listener exists — a
-    // finished image with no intrinsic width is one that already failed
-    if (badge.complete && badge.naturalWidth === 0) fallback();
+    }
 }
 const GH_REPO = 'MrHakan/mrhakan.github.io';
 const GH_BRANCH = 'main';

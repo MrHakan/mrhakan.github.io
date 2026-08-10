@@ -8,6 +8,20 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v5.2 — a hit counter that actually counts site hits</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v5.2</guid>
+      <pubDate>Mon, 10 Aug 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[
+        The komarev counter badge turned out to only increment on real GitHub
+        profile views, not visits to this page. Swapped it for abacus
+        (jasoncameron.dev/abacus) — a keyless, CORS-open counter that increments
+        on every request, verified from the command line before shipping. Back to
+        a plain number in the site's own retro LED display.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v5.1 — jokerz 98 gets sound</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v5.1</guid>
