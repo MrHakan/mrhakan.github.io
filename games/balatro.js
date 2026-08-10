@@ -17,6 +17,8 @@
 
 let BG = null;               // the active run
 let balWinBody = null;       // the app window body we render into
+let balSuppressRender = false; // true while a scoring animation owns the DOM
+let balAnimating = false;      // re-entrancy guard for the play-hand flow
 
 // ---------- rng ----------
 // a seeded PRNG so a run can be replayed from its seed string
@@ -342,6 +344,7 @@ function balScoreHand(g, played) {
         parts: ev.parts, chips: vals.chips, mult: vals.mult,
         money: 0, log: [], destroyPlayed: [], after: null, self: null
     };
+    ctx.log.push({ t: BAL.HANDS[ev.key].name, v: `lvl ${vals.level}`, chips: ctx.chips, mult: ctx.mult });
 
     // --- boss modifiers on the base numbers ---
     if (balBossActive(g, 'flint')) {
@@ -368,14 +371,14 @@ function balScoreHand(g, played) {
         g.consumables.forEach(c => {
             if (c.kind === 'planet') {
                 const p = BAL.PLANETS.find(x => x.id === c.id);
-                if (p && p.hand === ev.key) { ctx.mult *= 1.5; ctx.log.push({ t: 'Observatory', v: 'X1.5' }); }
+                if (p && p.hand === ev.key) { ctx.mult *= 1.5; ctx.log.push({ t: 'Observatory', v: 'X1.5', chips: ctx.chips, mult: ctx.mult }); }
             }
         });
     }
 
     // --- scoring cards, left to right ---
     ev.scoring.forEach(card => {
-        if (card.debuffed) { ctx.log.push({ t: balCardLabel(card), v: 'debuffed' }); return; }
+        if (card.debuffed) { ctx.log.push({ t: balCardLabel(card), v: 'debuffed', chips: ctx.chips, mult: ctx.mult }); return; }
 
         let triggers = 1;
         if (card.seal === 'red') triggers += 1;
@@ -385,28 +388,28 @@ function balScoreHand(g, played) {
 
         for (let t = 0; t < triggers; t++) {
             const base = balChipsOf(card);
-            if (base) { ctx.chips += base; ctx.log.push({ t: balCardLabel(card), v: `+${base}` }); }
+            if (base) { ctx.chips += base; ctx.log.push({ t: balCardLabel(card), v: `+${base}`, chips: ctx.chips, mult: ctx.mult }); }
 
             switch (card.enhancement) {
-                case 'bonus': ctx.chips += 30; ctx.log.push({ t: 'Bonus', v: '+30' }); break;
-                case 'mult': ctx.mult += 4; ctx.log.push({ t: 'Mult Card', v: '+4' }); break;
-                case 'stone': ctx.chips += 50; ctx.log.push({ t: 'Stone', v: '+50' }); break;
-                case 'glass': ctx.mult *= 2; ctx.log.push({ t: 'Glass', v: 'X2' }); break;
+                case 'bonus': ctx.chips += 30; ctx.log.push({ t: 'Bonus', v: '+30', chips: ctx.chips, mult: ctx.mult }); break;
+                case 'mult': ctx.mult += 4; ctx.log.push({ t: 'Mult Card', v: '+4', chips: ctx.chips, mult: ctx.mult }); break;
+                case 'stone': ctx.chips += 50; ctx.log.push({ t: 'Stone', v: '+50', chips: ctx.chips, mult: ctx.mult }); break;
+                case 'glass': ctx.mult *= 2; ctx.log.push({ t: 'Glass', v: 'X2', chips: ctx.chips, mult: ctx.mult }); break;
                 case 'lucky': {
                     if (balChance(g, 1, 5)) {
-                        ctx.mult += 20; ctx.log.push({ t: 'Lucky!', v: '+20' });
+                        ctx.mult += 20; ctx.log.push({ t: 'Lucky!', v: '+20', chips: ctx.chips, mult: ctx.mult });
                         balEachJoker(g, (d2, s2) => { if (d2.id === 'lucky_cat') s2.counter += 1; });
                     }
-                    if (balChance(g, 1, 15)) { ctx.money += 20; ctx.log.push({ t: 'Lucky!', v: '+$20' }); }
+                    if (balChance(g, 1, 15)) { ctx.money += 20; ctx.log.push({ t: 'Lucky!', v: '+$20', chips: ctx.chips, mult: ctx.mult }); }
                     break;
                 }
             }
             switch (card.edition) {
-                case 'foil': ctx.chips += 50; ctx.log.push({ t: 'Foil', v: '+50' }); break;
-                case 'holo': ctx.mult += 10; ctx.log.push({ t: 'Holo', v: '+10' }); break;
-                case 'poly': ctx.mult *= 1.5; ctx.log.push({ t: 'Poly', v: 'X1.5' }); break;
+                case 'foil': ctx.chips += 50; ctx.log.push({ t: 'Foil', v: '+50', chips: ctx.chips, mult: ctx.mult }); break;
+                case 'holo': ctx.mult += 10; ctx.log.push({ t: 'Holo', v: '+10', chips: ctx.chips, mult: ctx.mult }); break;
+                case 'poly': ctx.mult *= 1.5; ctx.log.push({ t: 'Poly', v: 'X1.5', chips: ctx.chips, mult: ctx.mult }); break;
             }
-            if (card.seal === 'gold') { ctx.money += 3; ctx.log.push({ t: 'Gold Seal', v: '+$3' }); }
+            if (card.seal === 'gold') { ctx.money += 3; ctx.log.push({ t: 'Gold Seal', v: '+$3', chips: ctx.chips, mult: ctx.mult }); }
 
             balEachJoker(g, (def, self) => {
                 if (!def.scored) return;
@@ -425,7 +428,7 @@ function balScoreHand(g, played) {
             if (def.heldRetrigger) { ctx.self = self; triggers += def.heldRetrigger(ctx, card) || 0; }
         });
         for (let t = 0; t < triggers; t++) {
-            if (card.enhancement === 'steel') { ctx.mult *= 1.5; ctx.log.push({ t: 'Steel', v: 'X1.5' }); }
+            if (card.enhancement === 'steel') { ctx.mult *= 1.5; ctx.log.push({ t: 'Steel', v: 'X1.5', chips: ctx.chips, mult: ctx.mult }); }
             balEachJoker(g, (def, self) => {
                 if (!def.held) return;
                 ctx.self = self;
@@ -439,9 +442,9 @@ function balScoreHand(g, played) {
         if (!def.indep) return;
         ctx.self = self;
         balApply(ctx, def.indep(ctx), def.name);
-        if (self.edition === 'foil') { ctx.chips += 50; ctx.log.push({ t: 'Foil Joker', v: '+50' }); }
-        if (self.edition === 'holo') { ctx.mult += 10; ctx.log.push({ t: 'Holo Joker', v: '+10' }); }
-        if (self.edition === 'poly') { ctx.mult *= 1.5; ctx.log.push({ t: 'Poly Joker', v: 'X1.5' }); }
+        if (self.edition === 'foil') { ctx.chips += 50; ctx.log.push({ t: 'Foil Joker', v: '+50', chips: ctx.chips, mult: ctx.mult }); }
+        if (self.edition === 'holo') { ctx.mult += 10; ctx.log.push({ t: 'Holo Joker', v: '+10', chips: ctx.chips, mult: ctx.mult }); }
+        if (self.edition === 'poly') { ctx.mult *= 1.5; ctx.log.push({ t: 'Poly Joker', v: 'X1.5', chips: ctx.chips, mult: ctx.mult }); }
     });
 
     afters.forEach(fn => fn());
@@ -450,7 +453,7 @@ function balScoreHand(g, played) {
     if (g.deckId === 'plasma') {
         const avg = (ctx.chips + ctx.mult) / 2;
         ctx.chips = avg; ctx.mult = avg;
-        ctx.log.push({ t: 'Plasma', v: 'balanced' });
+        ctx.log.push({ t: 'Plasma', v: 'balanced', chips: ctx.chips, mult: ctx.mult });
     }
 
     ctx.mult = Math.max(0, ctx.mult);
@@ -462,12 +465,12 @@ function balScoreHand(g, played) {
 // fold one effect result into the running score
 function balApply(ctx, r, name) {
     if (!r) return;
-    if (r.chips) { ctx.chips += r.chips; ctx.log.push({ t: name, v: `+${r.chips}` }); }
-    if (r.mult) { ctx.mult += r.mult; ctx.log.push({ t: name, v: `+${r.mult}` }); }
-    if (r.xmult !== undefined && r.xmult !== 1) { ctx.mult *= r.xmult; ctx.log.push({ t: name, v: `X${r.xmult}` }); }
-    if (r.money) { ctx.money += r.money; ctx.log.push({ t: name, v: `+$${r.money}` }); }
+    if (r.chips) { ctx.chips += r.chips; ctx.log.push({ t: name, v: `+${r.chips}`, chips: ctx.chips, mult: ctx.mult }); }
+    if (r.mult) { ctx.mult += r.mult; ctx.log.push({ t: name, v: `+${r.mult}`, chips: ctx.chips, mult: ctx.mult }); }
+    if (r.xmult !== undefined && r.xmult !== 1) { ctx.mult *= r.xmult; ctx.log.push({ t: name, v: `X${r.xmult}`, chips: ctx.chips, mult: ctx.mult }); }
+    if (r.money) { ctx.money += r.money; ctx.log.push({ t: name, v: `+$${r.money}`, chips: ctx.chips, mult: ctx.mult }); }
     if (r.create) { balCreateConsumable(ctx.g, r.create); }
-    if (r.msg) ctx.log.push({ t: name, v: r.msg });
+    if (r.msg) ctx.log.push({ t: name, v: r.msg, chips: ctx.chips, mult: ctx.mult });
 }
 
 function balCardLabel(c) {
@@ -637,6 +640,7 @@ function balBlindInfo(g, index) {
 
 function balSelectBlind() {
     const g = BG;
+    balSfx('blindselect');
     const info = balBlindInfo(g, g.blindIndex);
     g.required = info.req * (g.deckId === 'plasma' ? 2 : 1);
     g.score = 0;
@@ -671,6 +675,7 @@ function balSelectBlind() {
 function balSkipBlind() {
     const g = BG;
     if (g.blindIndex === 2) return;
+    balSfx('take');
     g.stats.blindsSkipped++;
     const tag = balPick(BAL.TAGS).id;
     g.pendingTags.push(tag);
@@ -875,8 +880,9 @@ function balPlayHand() {
 
 function balDiscard() {
     const g = BG;
-    if (!g.selected.length) { balToast(g, 'jokerz', 'select cards to discard'); return; }
-    if (g.discards <= 0) { balToast(g, 'jokerz', 'no discards left'); return; }
+    if (!g.selected.length) { balToast(g, 'jokerz', 'select cards to discard'); balSfx('error'); return; }
+    if (g.discards <= 0) { balToast(g, 'jokerz', 'no discards left'); balSfx('error'); return; }
+    balSfx('carddiscard');
     const cards = g.selected.slice();
 
     cards.forEach(c => { if (c.seal === 'purple') balCreateConsumable(g, 'tarot'); });
@@ -1140,7 +1146,8 @@ function balOpenShop(g) {
 function balReroll() {
     const g = BG;
     const cost = balRerollCost(g);
-    if (g.money < cost && !balCanAfford(g, cost)) { balToast(g, 'shop', 'not enough money'); return; }
+    if (g.money < cost && !balCanAfford(g, cost)) { balToast(g, 'shop', 'not enough money'); balSfx('error'); return; }
+    balSfx('reroll');
     if (balHasJoker(g, 'chaos') && !g.shop.chaosUsed && cost === 0) g.shop.chaosUsed = true;
     g.money -= cost;
     g.shop.rerolls++;
@@ -1163,22 +1170,27 @@ function balBuy(kind, index) {
     if (!item) return;
     let cost = balPriceOf(g, item);
     if (item.type === 'joker' && g.shop.shareware && !g.shop.sharewareUsed) { cost = 0; g.shop.sharewareUsed = true; }
-    if (!balCanAfford(g, cost)) { balToast(g, 'shop', 'not enough money'); return; }
+    if (!balCanAfford(g, cost)) { balToast(g, 'shop', 'not enough money'); balSfx('error'); return; }
 
     if (item.type === 'joker') {
-        if (g.jokers.length >= balJokerSlots(g) && item.edition !== 'negative') { balToast(g, 'shop', 'no joker slots free'); return; }
+        if (g.jokers.length >= balJokerSlots(g) && item.edition !== 'negative') { balToast(g, 'shop', 'no joker slots free'); balSfx('error'); return; }
         balAddJoker(g, item.def, { edition: item.edition, eternal: item.eternal, perishable: item.perishable, rental: item.rental });
+        balSfx('buy');
     } else if (item.type === 'tarot' || item.type === 'planet' || item.type === 'spectral') {
-        if (g.consumables.length >= balConsumableSlots(g)) { balToast(g, 'shop', 'no consumable slots free'); return; }
+        if (g.consumables.length >= balConsumableSlots(g)) { balToast(g, 'shop', 'no consumable slots free'); balSfx('error'); return; }
         g.consumables.push(item.con);
+        balSfx('buy');
     } else if (item.type === 'card') {
         g.deck.push(item.card);
         balEachJoker(g, (d, s) => { if (d.id === 'hologram') s.counter += 1; });
+        balSfx('buy');
     } else if (item.type === 'voucher') {
         g.vouchers.push(item.def.id);
         balApplyVoucher(g, item.def.id);
+        balSfx('buy');
     } else if (item.type === 'pack') {
         g.money -= cost;
+        balSfx('packopen');
         balOpenPack(g, item.def);
         list.splice(index, 1);
         balRender();
@@ -1253,7 +1265,7 @@ function balPackTake(index) {
     if (!item || p.taken.includes(index)) return;
 
     if (item.type === 'joker') {
-        if (g.jokers.length >= balJokerSlots(g)) { balToast(g, 'pack', 'no joker slots free'); return; }
+        if (g.jokers.length >= balJokerSlots(g)) { balToast(g, 'pack', 'no joker slots free'); balSfx('error'); return; }
         balAddJoker(g, item.def, { edition: item.edition });
     } else if (item.type === 'card') {
         g.deck.push(item.card);
@@ -1262,10 +1274,12 @@ function balPackTake(index) {
         // a consumable from a pack can be used at once if there is no slot
         if (g.consumables.length >= balConsumableSlots(g)) {
             balToast(g, 'pack', 'no consumable slots free');
+            balSfx('error');
             return;
         }
         g.consumables.push(item.con);
     }
+    balSfx('take');
     p.taken.push(index);
     p.picks--;
     if (p.picks <= 0) balPackClose();
@@ -1301,12 +1315,14 @@ function balUseConsumable(uid) {
         const [min, max] = src.need;
         if (sel.length < min || sel.length > max) {
             balToast(g, con.name, `select ${min === max ? min : min + '-' + max} card${max > 1 ? 's' : ''}`);
+            balSfx('error');
             return;
         }
     }
 
     const ok = con.kind === 'planet' ? balUsePlanet(g, con) : balUseCard(g, con, src, sel);
     if (!ok) return;
+    balSfx('use');
 
     g.consumables.splice(idx, 1);
     g.selected = [];
@@ -1462,7 +1478,8 @@ function balSellJoker(uid) {
     const i = g.jokers.findIndex(j => j.uid === uid);
     if (i < 0) return;
     const j = g.jokers[i];
-    if (j.eternal) { balToast(g, 'Eternal', 'this joker cannot be sold'); return; }
+    if (j.eternal) { balToast(g, 'Eternal', 'this joker cannot be sold'); balSfx('error'); return; }
+    balSfx('sell');
     const v = balSellValue(j);
     const e = balEffective(g, j);
     g.jokers.splice(i, 1);
@@ -1480,6 +1497,7 @@ function balSellConsumable(uid) {
     const i = g.consumables.findIndex(c => c.uid === uid);
     if (i < 0) return;
     const c = g.consumables[i];
+    balSfx('sell');
     g.money += Math.max(1, Math.floor((c.cost || 3) / 2)) + (c.extraValue || 0);
     g.consumables.splice(i, 1);
     g.stats.cardsSold++;
@@ -1618,7 +1636,7 @@ function balConHtml(g, c) {
 }
 
 function balRender() {
-    if (!balWinBody || !BG) return;
+    if (balSuppressRender || !balWinBody || !BG) return;
     const g = BG;
     const screens = {
         menu: balRenderMenu, blind: balRenderBlind, play: balRenderPlay,
@@ -1636,6 +1654,7 @@ function balTopBar(g) {
         <div class="bj-stat"><b>Round</b><span>${g.round}</span></div>
         <div class="bj-stat bj-money"><b>Money</b><span>$${g.money}</span></div>
         <div class="bj-stat"><b>Blind</b><span>${escapeHtml(info.name)}</span></div>
+        <button class="bj-btn bj-small" data-act="music" title="toggle background music">${balMusic.isOn() ? '♪ music' : '♪ muted'}</button>
         <button class="bj-btn bj-small" data-act="info">run info</button>
     </div>`;
 }
@@ -1643,6 +1662,7 @@ function balTopBar(g) {
 // ---------- deck & stake picker ----------
 function balRenderMenu(g) {
     return `<div class="bj-menu">
+        <div class="bj-menutop"><button class="bj-btn bj-small" data-act="music">${balMusic.isOn() ? '♪ music: on' : '♪ music: off'}</button></div>
         <h2 class="bj-title">JOKERZ 98</h2>
         <p class="bj-sub">a poker roguelike. build a deck of jokers, beat the blind, do it again with worse ideas.</p>
         ${balHasSave() ? `<button class="bj-btn bj-wide" data-act="continue">continue saved run</button>` : ''}
@@ -1898,15 +1918,15 @@ function balBind(g) {
 
     // selecting cards in hand
     on('.bj-hand .bj-card', el => {
+        if (balAnimating) return;
         const c = g.hand.find(x => x.uid === el.dataset.uid);
         if (!c) return;
         const i = g.selected.indexOf(c);
-        if (i >= 0) g.selected.splice(i, 1);
-        else if (g.selected.length < 5) g.selected.push(c);
-        else { playSound('error'); return; }
+        if (i >= 0) { g.selected.splice(i, 1); balSfx('deselect'); }
+        else if (g.selected.length < 5) { g.selected.push(c); balSfx('select'); }
+        else { balSfx('error'); return; }
         // keep selection in the order shown on the table
         g.selected.sort((a, x) => g.hand.indexOf(a) - g.hand.indexOf(x));
-        playSound('click');
         balRender();
     });
 
@@ -1914,10 +1934,11 @@ function balBind(g) {
     on('.bj-jokers .bj-joker', el => {
         const j = g.jokers.find(x => x.uid === el.dataset.joker);
         if (!j) return;
-        if (el.classList.contains('confirm')) { balSellJoker(j.uid); playSound('ding'); return; }
+        if (el.classList.contains('confirm')) { balSellJoker(j.uid); return; }
         b.querySelectorAll('.bj-joker.confirm').forEach(x => x.classList.remove('confirm'));
         el.classList.add('confirm');
         el.setAttribute('data-hint', `click again to sell for $${balSellValue(j)}`);
+        balSfx('select');
     });
 
     // consumables: click to use, shift-click to sell
@@ -1930,6 +1951,29 @@ function balBind(g) {
     on('[data-pack]', el => balPackTake(+el.dataset.pack));
 }
 
+// plays the hand for real (balPlayHand, unchanged), then reveals the
+// already-decided result as an animation before handing off to balRender —
+// the animation is pure presentation, it can't affect the outcome
+async function balPlayHandUI() {
+    if (balAnimating) return;
+    const g = BG;
+    const err = balCanPlay(g);
+    if (err) { balToast(g, 'jokerz', err); balSfx('error'); return; }
+    balAnimating = true;
+    balSfx('cardplay');
+    balSuppressRender = true;
+    balPlayHand();
+    balSuppressRender = false;
+    const ctx = g.lastScore;
+    await balAnimateScoring(ctx);
+    if (g.screen === 'cashout') balSfx('blindwin');
+    else if (g.screen === 'won') balSfx('win');
+    else if (g.screen === 'over') balSfx('gameover');
+    balSave();
+    balAnimating = false;
+    balRender();
+}
+
 function balAction(act, el) {
     const g = BG;
     switch (act) {
@@ -1940,30 +1984,259 @@ function balAction(act, el) {
             const stake = g.pickStake || 1;
             balNewRun(deck, stake, seed);
             BG.screen = 'blind';
-            playSound('navigate');
+            balSfx('newrun');
+            balMusic.start();
             balSave();
             balRender();
             break;
         }
-        case 'continue': if (balLoad()) { playSound('navigate'); balRender(); } break;
-        case 'select': playSound('navigate'); balSelectBlind(); break;
-        case 'skip': playSound('click'); balSkipBlind(); break;
-        case 'play': playSound('click'); balPlayHand(); balSave(); break;
-        case 'discard': playSound('click'); balDiscard(); break;
+        case 'continue': if (balLoad()) { balSfx('newrun'); balMusic.start(); balRender(); } break;
+        case 'select': balMusic.start(); balSelectBlind(); break;
+        case 'skip': balSkipBlind(); break;
+        case 'play': balPlayHandUI(); break;
+        case 'discard': balDiscard(); break;
         case 'sort-rank': g.sortMode = 'rank'; balSortHand(g); balRender(); break;
         case 'sort-suit': g.sortMode = 'suit'; balSortHand(g); balRender(); break;
         case 'use': if (g.consumables.length) balUseConsumable(g.consumables[0].uid); break;
-        case 'cashout': playSound('ding'); balCashOut(); break;
-        case 'reroll': playSound('click'); balReroll(); break;
-        case 'leave': playSound('navigate'); balLeaveShop(); break;
-        case 'skippack': balPackClose(); break;
+        case 'cashout': balSfx('money'); balCashOut(); break;
+        case 'reroll': balReroll(); break;
+        case 'leave': balLeaveShop(); break;
+        case 'skippack': balSfx('carddiscard'); balPackClose(); break;
         case 'info': g.prevScreen = g.screen; g.screen = 'info'; balRender(); break;
         case 'back': g.screen = g.prevScreen || 'blind'; balRender(); break;
-        case 'abandon': balSaveClear(); BG = { screen: 'menu', pickDeck: 'red', pickStake: 1 }; balRender(); break;
-        case 'menu': balSaveClear(); BG = { screen: 'menu', pickDeck: 'red', pickStake: 1 }; balRender(); break;
+        case 'abandon': balMusic.stop(); balSaveClear(); BG = { screen: 'menu', pickDeck: 'red', pickStake: 1 }; balRender(); break;
+        case 'menu': balMusic.stop(); balSaveClear(); BG = { screen: 'menu', pickDeck: 'red', pickStake: 1 }; balRender(); break;
         case 'endless': g.screen = 'blind'; g.ante++; g.blindIndex = 0; balRollBoss(g); balRender(); break;
+        case 'music': balMusic.toggle(); balSfx('select'); balRender(); break;
     }
 }
+
+// ===================================================================
+// sound — every effect and the background loop are synthesized with the
+// Web Audio API, no audio files. Nothing here is a Balatro sample; it's
+// an original chiptune-ish sound bank built to fit the win98 aesthetic.
+// Respects the site's global mute (the `soundEnabled` toggle in the tray).
+// ===================================================================
+let balActx = null;
+function balAudioCtx() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!balActx) balActx = new AC();
+    if (balActx.state === 'suspended') balActx.resume().catch(() => { });
+    return balActx;
+}
+function balSoundOn() {
+    return typeof soundEnabled === 'undefined' ? true : soundEnabled;
+}
+
+// a single tone with a short percussive envelope
+function balTone(freq, dur, opts) {
+    if (!balSoundOn()) return;
+    const ctx = balAudioCtx();
+    if (!ctx) return;
+    opts = opts || {};
+    try {
+        const t0 = ctx.currentTime + (opts.delay || 0);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = opts.type || 'square';
+        osc.frequency.setValueAtTime(Math.max(1, freq), t0);
+        if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, opts.slideTo), t0 + dur);
+        const peak = opts.gain !== undefined ? opts.gain : 0.09;
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(0.015, dur / 3));
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+    } catch (e) { /* audio can fail quietly on locked-down browsers */ }
+}
+function balChord(freqs, dur, opts) { freqs.forEach(f => balTone(f, dur, opts)); }
+
+// a short filtered noise burst, used for whooshes (card play/discard, reroll)
+function balNoiseBurst(dur, opts) {
+    if (!balSoundOn()) return;
+    const ctx = balAudioCtx();
+    if (!ctx) return;
+    opts = opts || {};
+    try {
+        const t0 = ctx.currentTime + (opts.delay || 0);
+        const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+        const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(opts.filterStart || 4000, t0);
+        if (opts.filterEnd) filter.frequency.exponentialRampToValueAtTime(opts.filterEnd, t0 + dur);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(opts.gain || 0.12, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+        src.start(t0);
+    } catch (e) { }
+}
+
+// the sound bank: every distinct in-game event gets its own short cue
+function balSfx(name, opts) {
+    opts = opts || {};
+    switch (name) {
+        case 'select': balTone(880, 0.05, { type: 'square', gain: 0.06 }); break;
+        case 'deselect': balTone(520, 0.05, { type: 'square', gain: 0.05 }); break;
+        case 'cardtick': balTone(600 + Math.min(8, opts.pitch || 0) * 22, 0.07, { type: 'triangle', gain: 0.08 }); break;
+        case 'chip': balTone(700 + Math.random() * 60, 0.055, { type: 'square', gain: 0.065 }); break;
+        case 'mult': balTone(340, 0.09, { type: 'sawtooth', gain: 0.08, slideTo: 240 }); break;
+        case 'xmult': balChord([392, 587], 0.14, { type: 'sawtooth', gain: 0.09 }); break;
+        case 'money': balTone(1046, 0.06, { type: 'square', gain: 0.08 }); balTone(1568, 0.09, { type: 'square', gain: 0.08, delay: 0.05 }); break;
+        case 'joker': balTone(500, 0.08, { type: 'sine', gain: 0.07, slideTo: 900 }); break;
+        case 'total': balChord([523, 659, 784], 0.32, { type: 'square', gain: 0.1 }); break;
+        case 'cardplay': balNoiseBurst(0.16, { filterStart: 3200, filterEnd: 800, gain: 0.1 }); break;
+        case 'carddiscard': balNoiseBurst(0.14, { filterStart: 1800, filterEnd: 300, gain: 0.09 }); break;
+        case 'buy': balTone(660, 0.05, { type: 'square', gain: 0.07 }); balTone(990, 0.08, { type: 'square', gain: 0.07, delay: 0.05 }); break;
+        case 'sell': balTone(880, 0.05, { type: 'triangle', gain: 0.07 }); balTone(660, 0.08, { type: 'triangle', gain: 0.06, delay: 0.05 }); break;
+        case 'reroll': balNoiseBurst(0.18, { filterStart: 2500, filterEnd: 2500, gain: 0.08 }); balTone(440, 0.05, { type: 'square', gain: 0.05, delay: 0.05 }); break;
+        case 'packopen': balTone(392, 0.08, { type: 'triangle', gain: 0.07 }); balTone(523, 0.08, { type: 'triangle', gain: 0.07, delay: 0.06 }); balTone(659, 0.1, { type: 'triangle', gain: 0.07, delay: 0.12 }); break;
+        case 'take': balTone(880, 0.07, { type: 'triangle', gain: 0.07 }); break;
+        case 'use': balTone(700, 0.06, { type: 'sine', gain: 0.07 }); balTone(1050, 0.08, { type: 'sine', gain: 0.06, delay: 0.05 }); balTone(1400, 0.1, { type: 'sine', gain: 0.05, delay: 0.1 }); break;
+        case 'blindselect': balTone(220, 0.16, { type: 'triangle', gain: 0.08 }); balTone(165, 0.22, { type: 'triangle', gain: 0.07, delay: 0.08 }); break;
+        case 'newrun': balTone(392, 0.08, { type: 'triangle', gain: 0.07 }); balTone(523, 0.08, { type: 'triangle', gain: 0.07, delay: 0.06 }); balTone(784, 0.14, { type: 'triangle', gain: 0.07, delay: 0.12 }); break;
+        case 'blindwin': balChord([523, 659, 784], 0.22, { type: 'square', gain: 0.09 }); break;
+        case 'gameover': balTone(392, 0.18, { type: 'sawtooth', gain: 0.09, slideTo: 220 }); balTone(220, 0.3, { type: 'sawtooth', gain: 0.08, delay: 0.16, slideTo: 110 }); break;
+        case 'win': balTone(523, 0.12, { type: 'square', gain: 0.1 }); balTone(659, 0.12, { type: 'square', gain: 0.1, delay: 0.11 }); balTone(784, 0.12, { type: 'square', gain: 0.1, delay: 0.22 }); balTone(1046, 0.3, { type: 'square', gain: 0.11, delay: 0.33 }); break;
+        case 'error': balTone(180, 0.12, { type: 'sawtooth', gain: 0.08 }); balTone(140, 0.14, { type: 'sawtooth', gain: 0.07, delay: 0.06 }); break;
+    }
+}
+
+// a short, fixed 16-step lounge-ish loop (bass + a soft arp on top), scheduled
+// with a lookahead timer so it can't drift or stack notes if a tab stalls
+const balMusic = (() => {
+    let playing = false, timer = null, nextTime = 0, step = 0;
+    const bpm = 96, stepDur = 60 / bpm / 2;
+    const bassPat = [110, 0, 110, 0, 82.4, 0, 82.4, 0, 98, 0, 98, 0, 73.4, 0, 98, 0];
+    const arpPat = [660, 0, 554, 0, 494, 0, 440, 0, 587, 0, 494, 0, 440, 0, 554, 0];
+    function note(freq, time, dur, type, peak) {
+        const ctx = balAudioCtx();
+        if (!ctx) return;
+        try {
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, time);
+            gain.gain.setValueAtTime(0.0001, time);
+            gain.gain.exponentialRampToValueAtTime(peak, time + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(time); osc.stop(time + dur + 0.02);
+        } catch (e) { }
+    }
+    function tick() {
+        const ctx = balAudioCtx();
+        if (!ctx) return;
+        while (nextTime < ctx.currentTime + 0.12) {
+            if (balSoundOn()) {
+                const b = bassPat[step % bassPat.length];
+                const a = arpPat[step % arpPat.length];
+                if (b) note(b, nextTime, stepDur * 1.8, 'triangle', 0.045);
+                if (a) note(a, nextTime, stepDur * 2.6, 'sine', 0.026);
+            }
+            step++;
+            nextTime += stepDur;
+        }
+    }
+    return {
+        start() {
+            if (playing || localStorage.getItem('jokerz98-music') === 'off') return;
+            const ctx = balAudioCtx();
+            if (!ctx) return;
+            playing = true; step = 0; nextTime = ctx.currentTime + 0.1;
+            timer = setInterval(tick, 100);
+        },
+        stop() { playing = false; if (timer) clearInterval(timer); timer = null; },
+        toggle() {
+            const wasOn = localStorage.getItem('jokerz98-music') !== 'off';
+            localStorage.setItem('jokerz98-music', wasOn ? 'off' : 'on');
+            if (wasOn) this.stop(); else this.start();
+        },
+        isOn: () => localStorage.getItem('jokerz98-music') !== 'off'
+    };
+})();
+
+// ===================================================================
+// scoring animation — plays back the log balScoreHand already recorded
+// (nothing here changes the outcome, it only reveals it) with a quick
+// left-to-right flash across the played cards, then a tally through
+// every scoring step with a matching sound and a pulse on whichever
+// joker earned it, before handing off to the real render.
+// ===================================================================
+function balAnimateScoring(ctx) {
+    return new Promise(resolve => {
+        if (!balWinBody || !ctx || !ctx.log || !ctx.log.length) { resolve(); return; }
+        const chipsEl = balWinBody.querySelector('.bj-chips');
+        const multEl = balWinBody.querySelector('.bj-mult');
+        if (!chipsEl || !multEl) { resolve(); return; }
+        const readout = balWinBody.querySelector('.bj-readout');
+        balWinBody.classList.add('bj-animating');
+
+        const cardEls = [...balWinBody.querySelectorAll('.bj-hand .bj-card.sel')];
+        const jokerEls = [...balWinBody.querySelectorAll('.bj-jokers .bj-joker')];
+        const findJokerEl = name => jokerEls.find(el => {
+            const n = el.querySelector('.bj-joker-name');
+            return n && n.textContent === name;
+        });
+
+        const rows = ctx.log;
+        const perStep = Math.max(30, Math.min(120, Math.floor(1100 / rows.length)));
+        const cardStep = Math.max(55, Math.min(130, perStep));
+        const phaseADuration = cardEls.length ? cardEls.length * cardStep + 120 : 0;
+
+        cardEls.forEach((el, i) => {
+            setTimeout(() => {
+                if (!balWinBody) return;
+                el.classList.add('bj-scoring-pulse');
+                balSfx('cardtick', { pitch: i });
+                setTimeout(() => el.classList.remove('bj-scoring-pulse'), 220);
+            }, i * cardStep);
+        });
+
+        let step = 0;
+        const finish = () => {
+            if (balWinBody) {
+                chipsEl.textContent = balNum(Math.round(ctx.chips));
+                multEl.textContent = balMultText(ctx.mult);
+                balSfx('total');
+                if (readout) readout.classList.add('bj-finale');
+            }
+            setTimeout(() => {
+                if (readout) readout.classList.remove('bj-finale');
+                if (balWinBody) balWinBody.classList.remove('bj-animating');
+                resolve();
+            }, 260);
+        };
+        const tally = () => {
+            if (!balWinBody || step >= rows.length) { finish(); return; }
+            const row = rows[step];
+            const prev = step > 0 ? rows[step - 1] : { chips: 0, mult: 0 };
+            const dChips = row.chips - prev.chips;
+            const dMult = +(row.mult - prev.mult).toFixed(4);
+            chipsEl.textContent = balNum(Math.round(row.chips));
+            multEl.textContent = balMultText(row.mult);
+            chipsEl.classList.remove('tick'); void chipsEl.offsetWidth; chipsEl.classList.add('tick');
+            multEl.classList.remove('tick'); void multEl.offsetWidth; multEl.classList.add('tick');
+            const v = String(row.v || '');
+            if (v.startsWith('+$')) balSfx('money');
+            else if (dMult > 0) balSfx(v.startsWith('X') ? 'xmult' : 'mult');
+            else if (dChips > 0) balSfx('chip');
+            else balSfx('joker');
+            const je = findJokerEl(row.t);
+            if (je) { je.classList.add('bj-trigger-pulse'); setTimeout(() => je.classList.remove('bj-trigger-pulse'), 260); }
+            step++;
+            setTimeout(tally, perStep);
+        };
+        setTimeout(tally, phaseADuration);
+    });
+}
+function balMultText(m) { const r = Math.round(m * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2); }
 
 // ===================================================================
 // entry point
@@ -1972,8 +2245,9 @@ function startBalatro() {
     const { body, win } = createAppWindow('jokerz 98', { icon: 'casino', width: 780 });
     body.classList.add('bj-body');
     balWinBody = body;
-    win._cleanup = () => { balSave(); balWinBody = null; };
+    win._cleanup = () => { balSave(); balMusic.stop(); balWinBody = null; };
     if (!BG || BG.over) BG = { screen: 'menu', pickDeck: 'red', pickStake: 1 };
     balRender();
+    if (BG.screen !== 'menu') balMusic.start();
     if (typeof unlockAchievement === 'function') unlockAchievement('jokerz');
 }

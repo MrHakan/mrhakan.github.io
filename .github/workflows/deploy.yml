@@ -21,10 +21,6 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Inject API Key
-              run: |
-                  sed -i "s/__COUNTER_API_KEY__/${{ secrets.COUNTERAPIKEY }}/g" index.js
-
             - name: Setup Pages
               uses: actions/configure-pages@v4
 

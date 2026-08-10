@@ -2,6 +2,21 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
+            "id": "jokerz-98-sound",
+            "title": "jokerz 98 can make noise now",
+            "date": "2026-08-09",
+            "tags": [
+                "update",
+                "games"
+            ],
+            "body": [
+                "shipped jokerz 98 without a single sound effect, which in hindsight was like shipping a pinball machine that doesn't light up. fixed that.",
+                "everything is synthesized live with the web audio api — oscillators and a filtered noise burst or two, nothing pre-recorded. a card tick, a chip counting up, a joker popping when it triggers, a coin sound for money, a satisfying x-mult stab, a sad little descending sting when you lose. no audio files, so nothing to license and nothing to download.",
+                "playing a hand now runs a short animation first: the played cards flash left to right, then the score tallies through every single step of the scoring log — base chips, enhancements, editions, seals, every joker in order — with the exact joker that earned each bit lighting up as it fires. it's the same computed result, just revealed properly instead of dumped on screen instantly.",
+                "there's also a tiny original background loop, a 16-step bass-and-arp pattern nobody will mistake for a real soundtrack, with a mute button in the corner of the game window. respects the site's global sound toggle too."
+            ]
+        },
+        {
             "id": "jokerz-98",
             "title": "i built a whole poker roguelike into my website",
             "date": "2026-08-09",
