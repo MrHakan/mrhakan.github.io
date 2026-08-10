@@ -2,6 +2,20 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
+            "id": "counter-take-two",
+            "title": "the hit counter, take two",
+            "date": "2026-08-10",
+            "tags": [
+                "update",
+                "fix"
+            ],
+            "body": [
+                "swapped the counter again. the komarev badge i moved to last time turned out to only budge when someone actually opened my github profile — because that's a real page view that pulls the badge fresh, while my own site refreshing the same image apparently doesn't count the same way. so the number on this page was quietly tracking github, not this page.",
+                "now it's abacus (jasoncameron.dev/abacus) — no signup, no key, real cors headers, and it increments on every single request. tested it from the command line before wiring it in: three requests in a row, three increments, no dedup weirdness. it just counts hits, which is all a hit counter needs to do.",
+                "back to being a plain fetch() + a number in the retro LED span, styled by this site instead of borrowed from someone else's svg. falls back to a local count if the service is ever unreachable, same as before."
+            ]
+        },
+        {
             "id": "jokerz-98-sound",
             "title": "jokerz 98 can make noise now",
             "date": "2026-08-09",

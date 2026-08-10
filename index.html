@@ -117,14 +117,10 @@
         <span class="text-[#0df259] text-xs font-header uppercase">visitors:</span>
         <div id="visitor-box"
           class="bg-black border border-[#222] px-2 py-1 flex items-center justify-center min-h-[30px]">
-          <!-- komarev's ghpvc badge, the same counter as my github profile readme.
-               it has to be an <img>: komarev sends no CORS headers so js cannot read
-               the number, and it only tracks real github usernames so the site cannot
-               have its own key. the LED span is the offline / blocked fallback. -->
-          <img id="visitor-badge" class="visitor-badge" alt="total visitors" height="20"
-            src="https://komarev.com/ghpvc/?username=MrHakan&amp;color=0df259&amp;style=flat-square&amp;label=">
+          <!-- a real per-site counter (abacus, api.js), not a github profile badge —
+               it goes up on every actual visit to this page. see initVisitorCounter(). -->
           <span id="visitor-count"
-            class="hidden text-red-600 font-pixel font-bold tracking-[4px] text-xl shadow-[0_0_10px_rgba(220,38,38,0.8)]">...</span>
+            class="text-red-600 font-pixel font-bold tracking-[4px] text-xl shadow-[0_0_10px_rgba(220,38,38,0.8)]">...</span>
         </div>
       </div>
 

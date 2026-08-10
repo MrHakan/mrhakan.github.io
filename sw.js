@@ -55,11 +55,11 @@ self.addEventListener('fetch', (event) => {
     if (req.method !== 'GET') return;
 
     const url = new URL(req.url);
-    // the hit counter badge and the GitHub API must never be served from a cache —
-    // a stale hit count is worse than no hit count, and letting the badge request
-    // reach the network is what registers the visit in the first place. Offline the
-    // badge simply fails, and the page falls back to its local count.
-    if (url.hostname.includes('komarev.com') || url.hostname.includes('api.github.com')) return;
+    // the hit counter and the GitHub API must never be served from a cache —
+    // a stale hit count is worse than no hit count, and letting the request reach
+    // the network is what registers the visit in the first place. Offline the
+    // fetch simply fails, and the page falls back to its local count.
+    if (url.hostname.includes('abacus.jasoncameron.dev') || url.hostname.includes('api.github.com')) return;
 
     event.respondWith(
         fetch(req)
