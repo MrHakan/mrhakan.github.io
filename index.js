@@ -511,7 +511,10 @@ function applyTheme(track) {
 
     const marqueeText = document.querySelector('.animate-marquee span');
     if (marqueeText) {
-        marqueeText.textContent = `::: NOW PLAYING: ${track.artist} - ${track.title} ::: ${track.bg} :::`;
+        // reuse the meme loadTrack() already rolled for this play so both
+        // ticker boxes read the same line instead of two random ones
+        const meme = track._currentMeme || pickTrackMeme(track);
+        marqueeText.textContent = `::: NOW PLAYING: ${track.artist} - ${track.title} ::: ${meme} :::`;
         marqueeText.style.color = track.theme ? track.theme.accentColor : '#0df259';
     }
 }
@@ -919,6 +922,16 @@ function initPlaylist() {
     });
 }
 
+// one random meme line per track, per load — not lyrics, just original
+// commentary on where the song sits in internet culture. re-rolled every
+// time the track is (re)loaded, and shared between the winamp ticker and
+// the top marquee so both boxes agree for the length of that play.
+function pickTrackMeme(track) {
+    if (!track || !Array.isArray(track.memes) || !track.memes.length) return '';
+    track._currentMeme = track.memes[Math.floor(Math.random() * track.memes.length)];
+    return track._currentMeme;
+}
+
 function loadTrack(index) {
     const audio = document.getElementById('audio-player');
     const text = document.getElementById('winamp-text');
@@ -930,7 +943,10 @@ function loadTrack(index) {
 
     const title = tracks[index].title || "Unknown Track";
     const artist = tracks[index].artist || "Unknown Artist";
-    text.textContent = `*** ${artist} - ${title} *** (kbps: 128) ***`;
+    const meme = pickTrackMeme(tracks[index]);
+    text.textContent = meme
+        ? `*** ${artist} - ${title} *** (kbps: 128) *** ${meme} ***`
+        : `*** ${artist} - ${title} *** (kbps: 128) ***`;
 
 
     const list = document.getElementById('winamp-playlist');

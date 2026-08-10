@@ -10,7 +10,14 @@
             "fontStyle": "Arial, sans-serif"
         },
         "effect": "notepad_typing",
-        "bg": "Windows XP default desktop bliss wallpaper style, low resolution nostalgic vibe, early 2000s youtube tutorial aesthetic, notepad window overlay"
+        "bg": "Windows XP default desktop bliss wallpaper style, low resolution nostalgic vibe, early 2000s youtube tutorial aesthetic, notepad window overlay",
+        "memes": [
+            "recognized instantly by everyone, named by absolutely nobody",
+            "the sound of forty browser tabs and one youtube poop compilation",
+            "certified 2007 dial-up-to-broadband transition anthem",
+            "this is what a windows startup sound would grow up to be",
+            "peak myspace profile autoplay energy"
+        ]
     },
     {
         "id": 2,
@@ -23,7 +30,14 @@
             "fontStyle": "Gothic"
         },
         "effect": "falling_rain_dark",
-        "bg": "Gothic city at night, dark blue tones, view from a high skyscraper window, falling rain, dramatic moody atmosphere, cinematic lighting"
+        "bg": "Gothic city at night, dark blue tones, view from a high skyscraper window, falling rain, dramatic moody atmosphere, cinematic lighting",
+        "memes": [
+            "the 2003 radio hook everyone can hum and nobody can name",
+            "guyliner and gothic keyboards, name a more iconic combo",
+            "every emo kid's first cd, no exceptions, no appeals",
+            "the duet everyone air-sings alone in their bedroom",
+            "peak myspace top-8 soundtrack material"
+        ]
     },
     {
         "id": 3,
@@ -36,7 +50,14 @@
             "fontStyle": "Comic Sans MS"
         },
         "effect": "flashing_rainbow_strobe",
-        "bg": "Anime aesthetic, super flat style, vibrant pink and yellow colors, cute cartoon rabbits dancing, disco lights, upbeat kawaii vibe"
+        "bg": "Anime aesthetic, super flat style, vibrant pink and yellow colors, cute cartoon rabbits dancing, disco lights, upbeat kawaii vibe",
+        "memes": [
+            "the orange rabbit dance that outlived three internet generations",
+            "sped up, looped, and permanently lodged in the collective unconscious",
+            "if you know, you know, and you're probably swaying right now",
+            "amv culture's unofficial national anthem",
+            "the sound of every anime forum, circa 2007"
+        ]
     },
     {
         "id": 4,
@@ -49,7 +70,14 @@
             "fontStyle": "Courier New"
         },
         "effect": "matrix_digital_rain",
-        "bg": "The Matrix digital rain code, falling green japanese characters on black background, cyberpunk aesthetic, glitchy digital distortion"
+        "bg": "The Matrix digital rain code, falling green japanese characters on black background, cyberpunk aesthetic, glitchy digital distortion",
+        "memes": [
+            "the lobby scene song, you know the one",
+            "every slow-motion bullet dodge needs exactly this bpm",
+            "trench coats and gunfire, that's the whole vibe",
+            "peak late-90s everything-looks-cooler-in-slow-motion energy",
+            "this is what walking away from an explosion sounds like"
+        ]
     },
     {
         "id": 5,
@@ -62,7 +90,14 @@
             "fontStyle": "Futura"
         },
         "effect": "rotating_vinyl_neon",
-        "bg": "French house aesthetic, neon lights circling around a globe, retro-futuristic disco, shiny metallic textures, daft punk helmet reflections"
+        "bg": "French house aesthetic, neon lights circling around a globe, retro-futuristic disco, shiny metallic textures, daft punk helmet reflections",
+        "memes": [
+            "one phrase, one loop, infinite dance floor",
+            "the robots figured out the secret to a good hook: just repeat it",
+            "the most efficient songwriting in french house history",
+            "helmets on, brains off",
+            "still the best three words in electronic music"
+        ]
     },
     {
         "id": 6,
@@ -75,7 +110,14 @@
             "fontStyle": "Tech Mono"
         },
         "effect": "robotic_glitch_text",
-        "bg": "Daft Punk anime Interstella 5555 style, retro sci-fi factory, robotic arms assembling parts, glowing LED text, vibrant flat colors"
+        "bg": "Daft Punk anime Interstella 5555 style, retro sci-fi factory, robotic arms assembling parts, glowing LED text, vibrant flat colors",
+        "memes": [
+            "the riff a certain rapper borrowed and never quite gave back",
+            "vocoder supremacy since 2001",
+            "four words, infinite motivation",
+            "the gym playlist's founding father",
+            "robots giving career advice, and somehow it works"
+        ]
     },
     {
         "id": 7,
@@ -88,7 +130,14 @@
             "fontStyle": "Impact"
         },
         "effect": "comic_book_dots",
-        "bg": "Comic book style halftone pattern, red and black grunge texture, breaking the fourth wall chaotic doodles, bullets and chimichangas background"
+        "bg": "Comic book style halftone pattern, red and black grunge texture, breaking the fourth wall chaotic doodles, bullets and chimichangas background",
+        "memes": [
+            "youtube gaming-channel rock at its most self-aware",
+            "the sound of a merc with a mouth and a marshall stack",
+            "chimichangas and power chords",
+            "peak 2013 let's-play intro energy",
+            "fourth wall optional, riffs mandatory"
+        ]
     },
     {
         "id": 8,
@@ -101,7 +150,14 @@
             "fontStyle": "Verdana"
         },
         "effect": "bouncing_smiley_faces",
-        "bg": "Early 2000s internet flash animation style, simple bouncing smiley faces, bright orange and blue abstract background, techno rave aesthetics"
+        "bg": "Early 2000s internet flash animation style, simple bouncing smiley faces, bright orange and blue abstract background, techno rave aesthetics",
+        "memes": [
+            "norwegian novelty pop that should not work and absolutely does",
+            "the jump song. you will, in fact, jump",
+            "scandinavian chaos in under three minutes",
+            "trollfest energy before trollfest was a genre",
+            "this is what a fjord rave sounds like"
+        ]
     },
     {
         "id": 9,
@@ -114,7 +170,14 @@
             "fontStyle": "Helvetica"
         },
         "effect": "evolution_morphing",
-        "bg": "Evolutionary timeline concept, morphing creatures from sea to land, pixelated 90s digital art style, big beat album cover aesthetic"
+        "bg": "Evolutionary timeline concept, morphing creatures from sea to land, pixelated 90s digital art style, big beat album cover aesthetic",
+        "memes": [
+            "the trailer music that made everything look important",
+            "big beat's finest hour, no notes",
+            "evolution of man, soundtrack edition",
+            "instant main-character-montage energy",
+            "the sample that launched a thousand movie trailers"
+        ]
     },
     {
         "id": 10,
@@ -127,7 +190,14 @@
             "fontStyle": "Handwritten"
         },
         "effect": "walking_line_man",
-        "bg": "La Linea cartoon style, simple white line drawing on infinite background, little walking man animation character, minimalist surrealism"
+        "bg": "La Linea cartoon style, simple white line drawing on infinite background, little walking man animation character, minimalist surrealism",
+        "memes": [
+            "italian eurodance that became a stadium chant by accident",
+            "the unofficial anthem of every 2am kebab shop in europe",
+            "certified terrace football classic",
+            "peak how-did-i-end-up-in-this-club energy",
+            "gigi understood the assignment in 1999 and never looked back"
+        ]
     },
     {
         "id": 11,
@@ -140,7 +210,14 @@
             "fontStyle": "Cinematic"
         },
         "effect": "dust_particles_wind",
-        "bg": "Surreal desert landscape, a giant flying whale in the sky, barren wasteland, moody storm clouds, early 2000s CGI music video aesthetic"
+        "bg": "Surreal desert landscape, a giant flying whale in the sky, barren wasteland, moody storm clouds, early 2000s CGI music video aesthetic",
+        "memes": [
+            "the piano intro that still gives you chills, admit it",
+            "2001's answer to processing your feelings out loud",
+            "rap-rock's finest crossover moment",
+            "the line every millennial can finish without trying, you know the one",
+            "chester's voice, unmatched, forever missed"
+        ]
     },
     {
         "id": 12,
@@ -153,7 +230,14 @@
             "fontStyle": "Times New Roman"
         },
         "effect": "troll_bouncing",
-        "bg": "Old vintage ballroom, black and white grainy photo, face blurred out, heavy film grain, eerie liminal space, decaying memory aesthetic"
+        "bg": "Old vintage ballroom, black and white grainy photo, face blurred out, heavy film grain, eerie liminal space, decaying memory aesthetic",
+        "memes": [
+            "ambient dread for people who like their nostalgia unsettling",
+            "the ballroom record skipping in your brain at 3am",
+            "this is what forgetting sounds like, slowed all the way down",
+            "not background music, foreground dread",
+            "the soundtrack to a memory you can't quite place anymore"
+        ]
     },
     {
         "id": 13,
@@ -166,7 +250,14 @@
             "fontStyle": "Distorted Grunge"
         },
         "effect": "screen_shake_pulse",
-        "bg": "Nu metal grunge aesthetic, dark distorted textures, aggressive red lighting, mosh pit energy, scratched metal surface texture"
+        "bg": "Nu metal grunge aesthetic, dark distorted textures, aggressive red lighting, mosh pit energy, scratched metal surface texture",
+        "memes": [
+            "the gym anthem that needs no introduction",
+            "the wrestling entrance music of an entire generation",
+            "four words, a thousand mosh pits, you know which four",
+            "peak 2001 nu-metal aggression, completely unfiltered",
+            "the sound of a locker room getting hyped for no reason"
+        ]
     },
     {
         "id": 14,
@@ -179,7 +270,14 @@
             "fontStyle": "Sci-Fi Block"
         },
         "effect": "lens_flare_explosions",
-        "bg": "Michael Bay Transformers movie ending aesthetic, sunset over a highway, lens flares, metallic robot parts in background, cinematic epic vibe"
+        "bg": "Michael Bay Transformers movie ending aesthetic, sunset over a highway, lens flares, metallic robot parts in background, cinematic epic vibe",
+        "memes": [
+            "the transformers trailer's not-so-secret weapon",
+            "2007's answer to how do robots feel regret",
+            "the piano-into-scream formula, perfected",
+            "every optimus prime slow-mo shot needed exactly this song",
+            "michael bay's favorite button to press"
+        ]
     },
     {
         "id": 15,
@@ -192,6 +290,13 @@
             "fontStyle": "Arial"
         },
         "effect": "unregistered_hypercam_watermark",
-        "bg": "Windows XP blue screen of death shade, old youtube interface 2009, 'Unregistered Hypercam 2' text overlay in top corner, nostalgic tech tutorial vibe"
+        "bg": "Windows XP blue screen of death shade, old youtube interface 2009, 'Unregistered Hypercam 2' text overlay in top corner, nostalgic tech tutorial vibe",
+        "memes": [
+            "trance that sounds like a modem finally getting through",
+            "the sequel nobody asked for and everybody needed",
+            "peak staring-at-a-lava-lamp music",
+            "this is what your winamp visualizer was built for",
+            "certified 3am-study-that-turned-into-a-rave soundtrack"
+        ]
     }
 ]
