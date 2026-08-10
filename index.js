@@ -30,7 +30,7 @@ let audioContext, analyser, dataArray;
 
 document.addEventListener('DOMContentLoaded', () => {
     const audio = document.getElementById('audio-player');
-    fetchVisitorCount();
+    initVisitorCounter();
     fetchShoutbox();
     fetchGitHubRepos();
     fetchManualProjects();
@@ -772,25 +772,35 @@ document.addEventListener('keydown', (e) => {
 });
 
 // clicking the visitor counter 5 times = h4x0r mode
+// the real count is a third-party badge image, so the egg hides it and spins
+// the LED display in its place, then puts the badge back
 let counterClicks = 0;
 function initCounterEgg() {
-    const counter = document.getElementById('visitor-count');
-    if (!counter) return;
-    counter.parentElement.style.cursor = 'pointer';
-    counter.parentElement.addEventListener('click', () => {
+    const box = document.getElementById('visitor-box');
+    const badge = document.getElementById('visitor-badge');
+    const led = document.getElementById('visitor-count');
+    if (!box || !led) return;
+    box.style.cursor = 'pointer';
+    box.addEventListener('click', () => {
         counterClicks++;
         if (counterClicks < 5) return;
         counterClicks = 0;
         playSound('error');
-        const original = counter.textContent;
+        const badgeWasShowing = badge && !badge.classList.contains('hidden');
+        const original = led.textContent;
+        if (badge) badge.classList.add('hidden');
+        led.classList.remove('hidden');
         let spins = 0;
         const spin = setInterval(() => {
-            counter.textContent = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
+            led.textContent = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
             if (++spins > 20) {
                 clearInterval(spin);
-                counter.textContent = '999999';
+                led.textContent = '999999';
                 showToast('h4x0r.exe', 'counter overclocked!! the feds are on their way');
-                setTimeout(() => { counter.textContent = original; }, 5000);
+                setTimeout(() => {
+                    led.textContent = original;
+                    if (badgeWasShowing) { led.classList.add('hidden'); badge.classList.remove('hidden'); }
+                }, 5000);
             }
         }, 50);
     });
@@ -1334,26 +1344,30 @@ function copyDiscord() {
         showToast('discord.exe', `my discord username is "${username}"`);
     }
 }
-const COUNTER_API = 'https://api.counterapi.dev/v2/mrhakans-team-2418/global-visitor-counter';
-const COUNTER_TOKEN = '__COUNTER_API_KEY__';
-async function fetchVisitorCount() {
-    const counterEl = document.getElementById('visitor-count');
-    if (!counterEl) return;
-    try {
-        await fetch(`${COUNTER_API}/up`, {
-            headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
-        });
-        const res = await fetch(COUNTER_API, {
-            headers: { 'Authorization': `Bearer ${COUNTER_TOKEN}` }
-        });
-        const data = await res.json();
-        counterEl.textContent = data.value.toString().padStart(6, '0');
-    } catch (e) {
-        let count = parseInt(localStorage.getItem('visitor-count') || '0');
-        count++;
+// The hit counter is komarev's ghpvc badge — the same one on my github profile
+// readme, so the number is "people who looked at my stuff" across both places.
+// Loading the image is what registers the hit; there is no api call to make and
+// no key to keep secret. If the badge cannot load — offline, blocked, adblock —
+// fall back to a local count so the panel is never an empty box.
+function initVisitorCounter() {
+    const badge = document.getElementById('visitor-badge');
+    const led = document.getElementById('visitor-count');
+    if (!badge || !led) return;
+    let done = false;
+    const fallback = () => {
+        if (done) return;
+        done = true;
+        badge.classList.add('hidden');
+        led.classList.remove('hidden');
+        const count = parseInt(localStorage.getItem('visitor-count') || '0', 10) + 1;
         localStorage.setItem('visitor-count', count);
-        counterEl.textContent = count.toString().padStart(6, '0');
-    }
+        led.textContent = String(count).padStart(6, '0');
+    };
+    badge.addEventListener('error', fallback);
+    // the browser starts loading the badge while parsing the html, so a blocked
+    // request (adblock, offline) can fail before this listener exists — a
+    // finished image with no intrinsic width is one that already failed
+    if (badge.complete && badge.naturalWidth === 0) fallback();
 }
 const GH_REPO = 'MrHakan/mrhakan.github.io';
 const GH_BRANCH = 'main';

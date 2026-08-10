@@ -4458,3 +4458,14 @@ body.disco-floor::after {
         transform: none !important;
     }
 }
+
+/* ---------- hit counter badge ---------- */
+/* the count comes from komarev as an svg image, so it cannot be restyled —
+   a green glow is enough to seat it on the black LED panel */
+.visitor-badge {
+    display: block;
+    height: 20px;
+    width: auto;
+    max-width: 100%;
+    filter: drop-shadow(0 0 6px rgba(13, 242, 89, 0.55));
+}
