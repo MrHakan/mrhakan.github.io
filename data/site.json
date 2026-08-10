@@ -83,7 +83,7 @@
             "typed.js self-hosted for the terminal tagline",
             "material symbols icon font, subsetted to only the 48 glyphs used (6.7kb)",
             "guestbook + shoutbox are json files in the repo, added by pull request",
-            "hit counter is a real per-site counter (abacus), not a shared github badge — it goes up on every visit",
+            "hit counter via komarev's ghpvc badge, the same one on my github profile readme",
             "a service worker keeps the whole desktop working offline",
             "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
             "its sound effects and music are synthesized in-browser — zero audio files, zero licensing to think about",
