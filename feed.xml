@@ -8,6 +8,21 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v5.1 — jokerz 98 gets sound</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v5.1</guid>
+      <pubDate>Sun, 09 Aug 2026 18:00:00 +0000</pubDate>
+      <description><![CDATA[
+        Jokerz 98 now has a full sound design, synthesized live with the Web Audio
+        API — no audio files. Card ticks, a rising chip/mult tally, jokers popping
+        when they trigger, coin sounds, a win fanfare, a game-over sting. Playing a
+        hand now runs a short scoring animation that reveals the already-computed
+        result step by step instead of dumping it on screen. Plus a small original
+        background loop with a mute toggle.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v5.0 — jokerz 98, a poker roguelike inside the website</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v5.0</guid>

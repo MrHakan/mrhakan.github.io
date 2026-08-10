@@ -86,6 +86,7 @@
             "visitor counter via counterapi.dev",
             "a service worker keeps the whole desktop working offline",
             "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
+            "its sound effects and music are synthesized in-browser — zero audio files, zero licensing to think about",
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
@@ -157,6 +158,15 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "5.1",
+            "date": "2026-08-09",
+            "changes": [
+                "jokerz 98 now has sound — every effect is synthesized live with the Web Audio API, no audio files",
+                "a scoring animation: cards flash, jokers pulse when they trigger, chips and mult tally up live",
+                "a small original background loop, toggleable with the music button in the game window"
+            ]
+        },
         {
             "version": "5.0",
             "date": "2026-08",
