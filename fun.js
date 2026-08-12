@@ -39,7 +39,7 @@ const ACHIEVEMENTS = {
     troll_wave_10: { icon: '🌉', name: 'bridge holds', desc: 'cleared wave 10 in troll problem' },
     troll_wave_15: { icon: '🌲', name: 'the woods are quiet now', desc: 'cleared wave 15 in troll problem' },
     troll_wave_20: { icon: '🏰', name: 'gates unbreached', desc: 'cleared wave 20 in troll problem' },
-    troll_wave_25: { icon: '⚔️', name: 'throne room', desc: 'reached the troll king' },
+    troll_wave_25: { icon: '⚔️', name: 'throne room', desc: 'cleared wave 25 in troll problem' },
     troll_king_slain: { icon: '👑', name: 'problem solved', desc: 'defeated the troll king' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },

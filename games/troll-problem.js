@@ -1,24 +1,21 @@
 // ===================================================================
 // SIR, WE HAVE A TROLL PROBLEM — engine
 //
-// A real-time horde-defense mini-game. You move Sir mrhakan around an
-// arena, your equipped weapons auto-fire at the nearest troll, and the
-// trolls do not stop coming. Content (weapons/enemies/waves/perks)
-// lives in troll-problem-data.js; this file is the game loop, combat,
-// rendering, shop and save system.
+// A tower defense. Trolls walk a fixed path from the spawn to your gate;
+// you build towers on the ground beside it. Anything that reaches the
+// gate costs lives. Crystals earned per run buy permanent upgrades.
+//
+// Content (maps, towers, enemies, waves, meta tree) lives in
+// troll-problem-data.js. This file is the simulation and the UI.
 // ===================================================================
 
-let TGRun = null;        // the active run's mutable state
-let tgWinBody = null;    // the app window body we render into
-let tgRAF = null;        // requestAnimationFrame handle
+let TG = null;              // active run state
+let tgWinBody = null;       // app window body we render into
+let tgRAF = null;
 let tgLastT = 0;
-let tgKeys = Object.create(null);
-let tgTouch = { x: 0, y: 0, active: false };
 
 // ===================================================================
-// sound — same synthesis approach as jokerz 98's sound bank, kept as
-// its own small copy so this game has no load-order dependency on
-// balatro.js (both are independent lazy bundles).
+// sound — synthesized, no audio files, respects the site's mute toggle
 // ===================================================================
 let tgActx = null;
 function tgAudioCtx() {
@@ -29,104 +26,97 @@ function tgAudioCtx() {
     return tgActx;
 }
 function tgSoundOn() { return typeof soundEnabled === 'undefined' ? true : soundEnabled; }
-function tgTone(freq, dur, opts) {
+function tgTone(freq, dur, o) {
     if (!tgSoundOn()) return;
     const ctx = tgAudioCtx();
     if (!ctx) return;
-    opts = opts || {};
+    o = o || {};
     try {
-        const t0 = ctx.currentTime + (opts.delay || 0);
-        const osc = ctx.createOscillator(), gain = ctx.createGain();
-        osc.type = opts.type || 'square';
+        const t0 = ctx.currentTime + (o.delay || 0);
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.type = o.type || 'square';
         osc.frequency.setValueAtTime(Math.max(1, freq), t0);
-        if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, opts.slideTo), t0 + dur);
-        const peak = opts.gain !== undefined ? opts.gain : 0.08;
-        gain.gain.setValueAtTime(0.0001, t0);
-        gain.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(0.012, dur / 3));
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        osc.connect(gain); gain.connect(ctx.destination);
+        if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.slideTo), t0 + dur);
+        const peak = o.gain !== undefined ? o.gain : 0.06;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(0.012, dur / 3));
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(g); g.connect(ctx.destination);
         osc.start(t0); osc.stop(t0 + dur + 0.02);
     } catch (e) { }
 }
-function tgNoise(dur, opts) {
+function tgNoise(dur, o) {
     if (!tgSoundOn()) return;
     const ctx = tgAudioCtx();
     if (!ctx) return;
-    opts = opts || {};
+    o = o || {};
     try {
-        const t0 = ctx.currentTime + (opts.delay || 0);
+        const t0 = ctx.currentTime + (o.delay || 0);
         const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
         const buf = ctx.createBuffer(1, n, ctx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(opts.filterStart || 3500, t0);
-        if (opts.filterEnd) filter.frequency.exponentialRampToValueAtTime(opts.filterEnd, t0 + dur);
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(opts.gain || 0.1, t0);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const f = ctx.createBiquadFilter(); f.type = 'lowpass';
+        f.frequency.setValueAtTime(o.filterStart || 3000, t0);
+        if (o.filterEnd) f.frequency.exponentialRampToValueAtTime(o.filterEnd, t0 + dur);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(o.gain || 0.08, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        src.connect(f); f.connect(g); g.connect(ctx.destination);
         src.start(t0);
     } catch (e) { }
 }
-function tgSfx(name, opts) {
-    opts = opts || {};
+let tgSfxBudget = 0;
+function tgSfx(name) {
+    // hundreds of trolls can die in one second; throttle so it stays audible
+    const now = performance.now();
+    if (name === 'hit' || name === 'die') {
+        if (now < tgSfxBudget) return;
+        tgSfxBudget = now + 45;
+    }
     switch (name) {
-        case 'swing': tgNoise(0.09, { filterStart: 2600, filterEnd: 900, gain: 0.09 }); break;
-        case 'shoot': tgTone(520, 0.05, { type: 'triangle', gain: 0.06, slideTo: 700 }); break;
-        case 'hit': tgTone(180 + Math.random() * 60, 0.05, { type: 'square', gain: 0.05 }); break;
-        case 'crit': tgTone(300, 0.08, { type: 'sawtooth', gain: 0.08, slideTo: 120 }); break;
-        case 'death': tgTone(220, 0.12, { type: 'sawtooth', gain: 0.07, slideTo: 60 }); break;
-        case 'boss_death': tgTone(160, 0.4, { type: 'sawtooth', gain: 0.1, slideTo: 40 }); tgTone(100, 0.5, { type: 'sawtooth', gain: 0.08, delay: 0.12, slideTo: 30 }); break;
-        case 'gold': tgTone(1046, 0.05, { type: 'square', gain: 0.06 }); tgTone(1568, 0.07, { type: 'square', gain: 0.06, delay: 0.04 }); break;
-        case 'hurt': tgTone(140, 0.13, { type: 'sawtooth', gain: 0.09 }); break;
-        case 'levelup': tgTone(523, 0.08, { type: 'square', gain: 0.08 }); tgTone(659, 0.08, { type: 'square', gain: 0.08, delay: 0.07 }); tgTone(784, 0.12, { type: 'square', gain: 0.08, delay: 0.14 }); break;
-        case 'wave_clear': tgTone(392, 0.1, { type: 'triangle', gain: 0.08 }); tgTone(523, 0.1, { type: 'triangle', gain: 0.08, delay: 0.09 }); tgTone(659, 0.16, { type: 'triangle', gain: 0.08, delay: 0.18 }); break;
-        case 'boss_warn': tgTone(110, 0.3, { type: 'sawtooth', gain: 0.1 }); tgTone(110, 0.3, { type: 'sawtooth', gain: 0.1, delay: 0.4 }); break;
-        case 'buy': tgTone(660, 0.05, { type: 'square', gain: 0.07 }); tgTone(990, 0.07, { type: 'square', gain: 0.07, delay: 0.05 }); break;
-        case 'error': tgTone(180, 0.1, { type: 'sawtooth', gain: 0.07 }); break;
-        case 'gameover': tgTone(392, 0.18, { type: 'sawtooth', gain: 0.09, slideTo: 200 }); tgTone(200, 0.35, { type: 'sawtooth', gain: 0.08, delay: 0.16, slideTo: 90 }); break;
-        case 'victory': tgTone(523, 0.13, { type: 'square', gain: 0.1 }); tgTone(659, 0.13, { type: 'square', gain: 0.1, delay: 0.12 }); tgTone(784, 0.13, { type: 'square', gain: 0.1, delay: 0.24 }); tgTone(1046, 0.4, { type: 'square', gain: 0.11, delay: 0.36 }); break;
-        case 'revive': tgTone(300, 0.1, { type: 'sine', gain: 0.08 }); tgTone(500, 0.1, { type: 'sine', gain: 0.08, delay: 0.08 }); tgTone(800, 0.2, { type: 'sine', gain: 0.08, delay: 0.16 }); break;
+        case 'shoot': tgTone(560 + Math.random() * 80, 0.04, { type: 'triangle', gain: 0.04 }); break;
+        case 'hit': tgTone(190 + Math.random() * 50, 0.04, { type: 'square', gain: 0.035 }); break;
+        case 'die': tgTone(150, 0.09, { type: 'sawtooth', gain: 0.05, slideTo: 60 }); break;
+        case 'boom': tgNoise(0.16, { filterStart: 1400, filterEnd: 200, gain: 0.09 }); break;
+        case 'zap': tgTone(880, 0.06, { type: 'sawtooth', gain: 0.05, slideTo: 1600 }); break;
+        case 'build': tgTone(440, 0.05, { type: 'square', gain: 0.06 }); tgTone(660, 0.07, { type: 'square', gain: 0.06, delay: 0.05 }); break;
+        case 'sell': tgTone(660, 0.05, { type: 'triangle', gain: 0.05 }); tgTone(440, 0.07, { type: 'triangle', gain: 0.05, delay: 0.05 }); break;
+        case 'upgrade': tgTone(523, 0.06, { type: 'square', gain: 0.06 }); tgTone(784, 0.09, { type: 'square', gain: 0.06, delay: 0.06 }); break;
+        case 'leak': tgTone(220, 0.18, { type: 'sawtooth', gain: 0.09, slideTo: 90 }); break;
+        case 'wave': tgTone(392, 0.09, { type: 'triangle', gain: 0.07 }); tgTone(523, 0.12, { type: 'triangle', gain: 0.07, delay: 0.08 }); break;
+        case 'boss': tgTone(110, 0.3, { type: 'sawtooth', gain: 0.09 }); tgTone(98, 0.35, { type: 'sawtooth', gain: 0.09, delay: 0.32 }); break;
+        case 'clear': tgTone(523, 0.1, { type: 'square', gain: 0.07 }); tgTone(659, 0.1, { type: 'square', gain: 0.07, delay: 0.09 }); tgTone(784, 0.16, { type: 'square', gain: 0.07, delay: 0.18 }); break;
+        case 'win': [523, 659, 784, 1046].forEach((f, i) => tgTone(f, i === 3 ? 0.4 : 0.13, { type: 'square', gain: 0.09, delay: i * 0.12 })); break;
+        case 'lose': tgTone(392, 0.2, { type: 'sawtooth', gain: 0.09, slideTo: 190 }); tgTone(190, 0.4, { type: 'sawtooth', gain: 0.08, delay: 0.18, slideTo: 80 }); break;
+        case 'error': tgTone(170, 0.1, { type: 'sawtooth', gain: 0.06 }); break;
+        case 'crystal': tgTone(1200, 0.07, { type: 'sine', gain: 0.06 }); tgTone(1600, 0.12, { type: 'sine', gain: 0.05, delay: 0.06 }); break;
     }
 }
 
 // ===================================================================
-// sprite loading
+// sprites
 // ===================================================================
 const tgImgCache = Object.create(null);
 function tgImg(src) {
-    if (!tgImgCache[src]) {
-        const img = new Image();
-        img.src = src;
-        tgImgCache[src] = img;
-    }
+    if (!tgImgCache[src]) { const i = new Image(); i.src = src; tgImgCache[src] = i; }
     return tgImgCache[src];
 }
-function tgPreload() {
-    tgImg('src/emoj/dusung.png');
-    Object.values(TP.ENEMIES).forEach(e => tgImg(e.sprite));
-}
+function tgPreload() { Object.values(TP.ENEMIES).forEach(e => tgImg(e.sprite)); }
 
 // ===================================================================
-// save / load
+// save
 // ===================================================================
-const TG_META_KEY = 'trollproblem-meta';
-const TG_RUN_KEY = 'trollproblem-run';
+const TG_META_KEY = 'trollproblem-meta-v2';
+const TG_RUN_KEY = 'trollproblem-run-v2';
 
 function tgDefaultMeta() {
     return {
-        unlockedWeapons: ['shortsword'],
-        unlockedSlots: TP.BASE_SLOTS,
-        bestWave: 0,
-        totalKills: 0,
-        totalGold: 0,
-        runsPlayed: 0,
-        bossesSlain: 0,
-        clearedGame: false
+        crystals: 0, spent: {},
+        unlockedTowers: ['archer'],
+        unlockedMaps: ['outskirts'],
+        bestWave: {}, runs: 0, totalKills: 0, totalLeaks: 0, cleared: false
     };
 }
 function tgLoadMeta() {
@@ -136,987 +126,1110 @@ function tgLoadMeta() {
         return Object.assign(tgDefaultMeta(), JSON.parse(raw));
     } catch (e) { return tgDefaultMeta(); }
 }
-function tgSaveMeta(meta) {
-    try { localStorage.setItem(TG_META_KEY, JSON.stringify(meta)); } catch (e) { }
-}
+function tgSaveMeta(m) { try { localStorage.setItem(TG_META_KEY, JSON.stringify(m)); } catch (e) { } }
+function tgHasRunSave() { try { return !!localStorage.getItem(TG_RUN_KEY); } catch (e) { return false; } }
+function tgClearRunSave() { try { localStorage.removeItem(TG_RUN_KEY); } catch (e) { } }
 function tgSaveRun() {
-    const g = TGRun;
-    if (!g || g.screen === 'over' || g.screen === 'won' || g.screen === 'menu') { tgClearRunSave(); return; }
+    const g = TG;
+    if (!g || g.screen !== 'play') return;
     try {
         localStorage.setItem(TG_RUN_KEY, JSON.stringify({
-            wave: g.wave, hp: g.player.hp, maxHp: g.player.maxHp, gold: g.gold,
-            weapons: g.weapons, perks: g.perks, screen: g.screen === 'playing' ? 'shop' : g.screen,
-            secondWindUsed: g.secondWindUsed, kills: g.kills
+            mapId: g.map.id, wave: g.wave, gold: g.gold, lives: g.lives, kills: g.kills,
+            towers: g.towers.map(t => ({ id: t.id, cx: t.cx, cy: t.cy, level: t.level, spent: t.spent, mode: t.mode }))
         }));
     } catch (e) { }
 }
-function tgClearRunSave() { try { localStorage.removeItem(TG_RUN_KEY); } catch (e) { } }
-function tgHasRunSave() { try { return !!localStorage.getItem(TG_RUN_KEY); } catch (e) { return false; } }
-
-// ===================================================================
-// run setup
-// ===================================================================
-const TG_ARENA_W = 660, TG_ARENA_H = 420;
-
-function tgNewRun() {
-    const meta = tgLoadMeta();
-    const g = {
-        meta,
-        wave: 1, gold: 0, kills: 0,
-        weapons: [{ id: 'shortsword', level: 1, cd: 0 }],
-        perks: {},
-        secondWindUsed: false,
-        player: { x: TG_ARENA_W / 2, y: TG_ARENA_H / 2, hp: 100, maxHp: 100, speed: 130, radius: 14, facing: 0, hitFlash: 0 },
-        enemies: [], projectiles: [], effects: [], floaters: [], particles: [],
-        spawnQueue: [], spawnTimer: 0,
-        waveActive: false, waveClearedAt: 0,
-        screen: 'menu', prevScreen: null,
-        shop: null,
-        milestoneToastQueue: [],
-        elapsed: 0
-    };
-    TGRun = g;
-    return g;
-}
 function tgResumeRun() {
-    let saved;
-    try { saved = JSON.parse(localStorage.getItem(TG_RUN_KEY)); } catch (e) { return false; }
-    if (!saved) return false;
-    const g = tgNewRun();
-    g.wave = saved.wave; g.gold = saved.gold;
-    g.player.hp = saved.hp; g.player.maxHp = saved.maxHp;
-    g.weapons = saved.weapons; g.perks = saved.perks || {};
-    g.secondWindUsed = !!saved.secondWindUsed;
-    g.kills = saved.kills || 0;
-    g.screen = 'shop';
-    tgBuildShop(g);
+    let s;
+    try { s = JSON.parse(localStorage.getItem(TG_RUN_KEY)); } catch (e) { return false; }
+    if (!s) return false;
+    const map = TP.MAPS.find(m => m.id === s.mapId);
+    if (!map) return false;
+    tgNewRun(map);
+    const g = TG;
+    g.wave = s.wave; g.gold = s.gold; g.lives = s.lives; g.kills = s.kills || 0;
+    g.towers = (s.towers || []).map(t => {
+        const def = TP.TOWERS_BY_ID[t.id];
+        if (!def) return null;
+        return tgMakeTower(def, t.cx, t.cy, t.level, t.spent, t.mode);
+    }).filter(Boolean);
+    g.towers.forEach(t => { g.occupied[t.cy * TP.COLS + t.cx] = true; });
+    g.screen = 'play';
+    g.phase = 'prep';
+    g.prepLeft = TP.PREP_TIME;
     return true;
 }
 
-function tgMaxSlots(g) { return g.meta.unlockedSlots; }
-function tgWeaponDef(id) { return TP.WEAPONS_BY_ID[id]; }
-function tgPerkDef(id) { return TP.PERKS_BY_ID[id]; }
-function tgPerkStacks(g, id) { return g.perks[id] || 0; }
-
-function tgPerkTotal(g, id) {
-    const def = tgPerkDef(id);
-    const n = tgPerkStacks(g, id);
-    if (!def || !n) return 0;
+// ===================================================================
+// meta helpers
+// ===================================================================
+function tgMetaLevel(meta, id) { return meta.spent[id] || 0; }
+function tgMetaCost(meta, id) {
+    const def = TP.META_BY_ID[id];
+    return def.cost + def.step * tgMetaLevel(meta, id);
+}
+function tgMetaBonus(meta, id) {
+    const n = tgMetaLevel(meta, id);
     switch (id) {
-        case 'vitality': return n * 20;
-        case 'swiftness': return n * 0.08;
-        case 'armor': return Math.min(0.6, n * 0.05);
-        case 'greed': return n * 0.15;
-        case 'haste': return Math.min(0.5, n * 0.06);
-        case 'vampirism': return n * 0.02;
-        case 'thorns': return n * 0.15;
-        case 'regen': return n;
-        case 'fortune': return n * 0.03;
-        case 'second_wind': return n;
+        case 'dmg': return n * 0.06;
+        case 'rate': return n * 0.04;
+        case 'range': return n * 0.04;
+        case 'gold': return n * 0.08;
+        case 'start': return n * 25;
+        case 'lives': return n * 3;
+        case 'discount': return n * 0.04;
+        case 'crystal': return n * 0.15;
     }
     return 0;
 }
 
-// weapon level -> multiplier, +22% per level above 1
-function tgLevelMult(level) { return Math.pow(1.22, (level || 1) - 1); }
-
-function tgWeaponStat(g, w, key) {
-    const def = tgWeaponDef(w.id);
-    const base = def[key] || 0;
-    if (key === 'cd') {
-        const haste = tgPerkTotal(g, 'haste');
-        return Math.max(120, base * (1 - haste) / (1 + (w.level - 1) * 0.06));
+// ===================================================================
+// path building
+// ===================================================================
+function tgBuildPath(map) {
+    // expand the right-angle waypoints into a per-cell centre-line the trolls follow
+    const pts = [];
+    const cells = new Set();
+    const wp = map.waypoints;
+    // the first and last waypoints sit one cell off the board (trolls walk in from
+    // offscreen and leave through the gate), so only in-bounds cells get recorded —
+    // an out-of-range x would otherwise wrap into a bogus cell on the row next door
+    const mark = (x, y) => {
+        if (x >= 0 && x < TP.COLS && y >= 0 && y < TP.ROWS) cells.add(y * TP.COLS + x);
+    };
+    for (let i = 0; i < wp.length - 1; i++) {
+        const [x0, y0] = wp[i], [x1, y1] = wp[i + 1];
+        const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0);
+        let x = x0, y = y0;
+        while (x !== x1 || y !== y1) {
+            pts.push({ x: x * TP.CELL + TP.CELL / 2, y: y * TP.CELL + TP.CELL / 2 });
+            mark(x, y);
+            x += dx; y += dy;
+        }
     }
-    if (key === 'dmg') return base * tgLevelMult(w.level);
-    if (key === 'range') return base * (1 + (w.level - 1) * 0.04);
-    return base;
+    const last = wp[wp.length - 1];
+    pts.push({ x: last[0] * TP.CELL + TP.CELL / 2, y: last[1] * TP.CELL + TP.CELL / 2 });
+    mark(last[0], last[1]);
+
+    // cumulative length so "how far along" is comparable between trolls
+    let total = 0;
+    const dist = [0];
+    for (let i = 1; i < pts.length; i++) {
+        total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        dist.push(total);
+    }
+    return { pts, cells, dist, total };
 }
 
 // ===================================================================
-// wave director
+// run setup
 // ===================================================================
-function tgWaveEnemyList(g, wave) {
-    const chapter = TP.chapterForWave(wave);
-    const idxInChapter = (wave - 1) % TP.WAVES_PER_CHAPTER;
-    const comp = chapter.waves[idxInChapter].slice();
-    const list = [];
-    comp.forEach(([id, count]) => { for (let i = 0; i < count; i++) list.push(id); });
-    if (TP.isBossWave(wave)) list.push(chapter.boss);
-    // shuffle spawn order a little so it's not always grouped by type
-    for (let i = list.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [list[i], list[j]] = [list[j], list[i]];
+function tgNewRun(map) {
+    const meta = tgLoadMeta();
+    const path = tgBuildPath(map);
+    const g = {
+        meta, map, path,
+        wave: 1, gold: TP.START_GOLD + tgMetaBonus(meta, 'start'),
+        lives: TP.START_LIVES + tgMetaBonus(meta, 'lives'),
+        kills: 0, leaked: 0, crystalsEarned: 0,
+        towers: [], enemies: [], shots: [], patches: [], fx: [], floaters: [],
+        occupied: {},
+        spawnQueue: [], spawnTimer: 0,
+        phase: 'prep', prepLeft: TP.PREP_TIME,
+        speed: 1, paused: false,
+        selectedTower: null,   // tower def id chosen in the build bar
+        selected: null,        // placed tower currently inspected
+        hover: null,
+        screen: 'play',
+        toastQueue: []
+    };
+    TG = g;
+    return g;
+}
+
+function tgMakeTower(def, cx, cy, level, spent, mode) {
+    return {
+        id: def.id, def, cx, cy,
+        x: cx * TP.CELL + TP.CELL / 2, y: cy * TP.CELL + TP.CELL / 2,
+        level: level || 0, spent: spent || def.cost, mode: mode || 'first',
+        cd: 0, angle: 0, kills: 0, damageDealt: 0
+    };
+}
+
+// resolved stat for a tower at its current level, including meta + banner buffs
+function tgStat(g, t, key) {
+    const def = t.def;
+    let v = def[key];
+    for (let i = 0; i < t.level; i++) {
+        const up = def.levels[i];
+        if (up && up[key] !== undefined) v = up[key];
     }
-    return list;
+    if (v === undefined) return undefined;
+    if (typeof v !== 'number') return v;   // slow/burn/patch/buff objects pass through
+
+    if (key === 'dmg') v *= 1 + tgMetaBonus(g.meta, 'dmg') + tgBannerBuff(g, t, 'dmg');
+    if (key === 'range') v *= 1 + tgMetaBonus(g.meta, 'range');
+    if (key === 'cd') v /= 1 + tgMetaBonus(g.meta, 'rate') + tgBannerBuff(g, t, 'rate');
+    return v;
 }
-
-function tgScaledStat(base, wave, rate) { return base * (1 + (wave - 1) * rate); }
-
-function tgSpawnEnemy(g, enemyId) {
-    const def = TP.ENEMIES[enemyId];
-    if (!def) return;
-    // spawn just outside the arena on a random edge
-    const side = Math.floor(Math.random() * 4);
-    let x, y;
-    if (side === 0) { x = Math.random() * TG_ARENA_W; y = -30; }
-    else if (side === 1) { x = TG_ARENA_W + 30; y = Math.random() * TG_ARENA_H; }
-    else if (side === 2) { x = Math.random() * TG_ARENA_W; y = TG_ARENA_H + 30; }
-    else { x = -30; y = Math.random() * TG_ARENA_H; }
-
-    const hp = def.boss ? tgScaledStat(def.hp, g.wave, 0.10) : tgScaledStat(def.hp, g.wave, 0.13);
-    const dmg = tgScaledStat(def.dmg, g.wave, 0.06);
-    g.enemies.push({
-        id: enemyId, def, x, y, hp, maxHp: hp, dmg, speed: def.speed,
-        radius: def.size / 2, attackCd: 0, rangedCd: def.ranged ? Math.random() * def.ranged.cd : 0,
-        pulseCd: def.pulse ? def.pulse.cd * 0.5 : 0, jitterPhase: Math.random() * Math.PI * 2,
-        hitFlash: 0, slowUntil: 0, slowMult: 1, burnUntil: 0, burnTick: 0,
-        knockX: 0, knockY: 0
-    });
-}
-
-function tgStartWave(g) {
-    g.spawnQueue = tgWaveEnemyList(g, g.wave);
-    g.spawnTimer = 0;
-    g.waveActive = true;
-    g.enemies = [];
-    g.projectiles = [];
-    g.screen = 'playing';
-    if (TP.isBossWave(g.wave)) {
-        tgSfx('boss_warn');
-        showToast('troll problem', `Boss wave: ${TP.ENEMIES[TP.chapterForWave(g.wave).boss].name}`);
-    }
-    tgRender();
-    tgLoopStart();
-}
-
-function tgCheckWaveClear(g) {
-    if (!g.waveActive) return;
-    if (g.spawnQueue.length === 0 && g.enemies.length === 0) {
-        g.waveActive = false;
-        tgOnWaveClear(g);
-    }
-}
-
-function tgOnWaveClear(g) {
-    tgSfx('wave_clear');
-    const bonus = 10 + g.wave * 2;
-    tgGainGold(g, bonus);
-    g.floaters.push({ x: g.player.x, y: g.player.y - 30, text: `wave clear +$${bonus}`, life: 1400, vy: -22, color: '#ffd400' });
-
-    // permanent meta unlocks
-    const milestone = TP.MILESTONES.find(m => m.wave === g.wave);
-    if (milestone) {
-        let changed = false;
-        (milestone.weapons || []).forEach(id => {
-            if (!g.meta.unlockedWeapons.includes(id)) { g.meta.unlockedWeapons.push(id); changed = true; g.milestoneToastQueue.push(`unlocked: ${tgWeaponDef(id).name}`); }
-        });
-        if (milestone.slot && g.meta.unlockedSlots < milestone.slot) { g.meta.unlockedSlots = milestone.slot; changed = true; g.milestoneToastQueue.push(`unlocked: weapon slot ${milestone.slot}`); }
-        if (changed) tgSaveMeta(g.meta);
-    }
-    if (g.wave > g.meta.bestWave) { g.meta.bestWave = g.wave; tgSaveMeta(g.meta); }
-    TP.ACHIEVEMENT_WAVES.forEach(w => {
-        if (g.wave === w && typeof unlockAchievement === 'function') unlockAchievement('troll_wave_' + w);
-    });
-
-    if (g.wave >= TP.FINAL_WAVE) {
-        g.screen = 'won';
-        g.meta.clearedGame = true;
-        tgSaveMeta(g.meta);
-        tgClearRunSave();
-        tgSfx('victory');
-        if (typeof unlockAchievement === 'function') unlockAchievement('troll_king_slain');
-        tgLoopStop();
-        tgRender();
-        return;
-    }
-
-    g.wave++;
-    g.screen = 'shop';
-    tgBuildShop(g);
-    tgSaveRun();
-    tgLoopStop();
-    tgRender();
-}
-
-// ===================================================================
-// gold / damage helpers
-// ===================================================================
-function tgGainGold(g, amount) {
-    const bonus = 1 + tgPerkTotal(g, 'greed');
-    const total = Math.round(amount * bonus);
-    g.gold += total;
-    g.meta.totalGold += total;
-}
-
-function tgDamagePlayer(g, amount, source) {
-    if (g.player.invuln > 0) return;
-    const reduce = tgPerkTotal(g, 'armor');
-    const dealt = Math.max(1, Math.round(amount * (1 - reduce)));
-    g.player.hp -= dealt;
-    g.player.hitFlash = 220;
-    g.player.invuln = 260;
-    tgSfx('hurt');
-    g.floaters.push({ x: g.player.x, y: g.player.y - 18, text: `-${dealt}`, life: 700, vy: -30, color: '#ff5a5a' });
-    const thorns = tgPerkTotal(g, 'thorns');
-    if (thorns && source) {
-        const back = Math.max(1, Math.round(dealt * thorns));
-        source.hp -= back;
-        source.hitFlash = 150;
-    }
-    if (g.player.hp <= 0) tgOnPlayerDeath(g);
-}
-
-function tgOnPlayerDeath(g) {
-    if (!g.secondWindUsed && tgPerkStacks(g, 'second_wind') > 0) {
-        g.secondWindUsed = true;
-        g.player.hp = Math.round(g.player.maxHp * 0.3);
-        g.player.invuln = 1200;
-        tgSfx('revive');
-        showToast('troll problem', 'second wind! back up.');
-        return;
-    }
-    g.player.hp = 0;
-    g.screen = 'over';
-    g.meta.runsPlayed++;
-    if (g.wave > g.meta.bestWave) g.meta.bestWave = g.wave;
-    tgSaveMeta(g.meta);
-    tgClearRunSave();
-    tgSfx('gameover');
-    tgLoopStop();
-    tgRender();
-}
-
-function tgDamageEnemy(g, en, amount, opts) {
-    // a corpse can still be in g.enemies for the rest of the frame, and a
-    // multi-hit weapon will happily stab it again — ignore those blows
-    if (!en || !en.def || en.dead) return;
-    opts = opts || {};
-    let dmg = amount;
-    if (en.def.boss && opts.bossBonus) dmg *= opts.bossBonus;
-    const crit = Math.random() < 0.08;
-    if (crit) dmg *= 1.8;
-    dmg = Math.round(dmg);
-    en.hp -= dmg;
-    en.hitFlash = 120;
-    tgSfx(crit ? 'crit' : 'hit');
-    g.floaters.push({ x: en.x, y: en.y - en.radius - 4, text: String(dmg), life: 500, vy: -26, color: crit ? '#ffd400' : '#fff' });
-
-    if (opts.knockback) {
-        const dx = en.x - g.player.x, dy = en.y - g.player.y;
-        const d = Math.max(1, Math.hypot(dx, dy));
-        en.knockX = (dx / d) * opts.knockback;
-        en.knockY = (dy / d) * opts.knockback;
-    }
-    if (opts.slow) { en.slowUntil = performance.now() + opts.slow.dur; en.slowMult = opts.slow.mult; }
-    if (opts.burn) { en.burnUntil = performance.now() + opts.burn.dur; en.burnDmg = opts.burn.dmg; }
-
-    const fortune = tgPerkTotal(g, 'fortune');
-    if (!en.def.boss && fortune && Math.random() < fortune) en.hp = 0;
-
-    const vamp = tgPerkTotal(g, 'vampirism');
-    if (vamp) g.player.hp = Math.min(g.player.maxHp, g.player.hp + amount * vamp);
-
-    if (en.hp <= 0) tgKillEnemy(g, en);
-}
-
-function tgKillEnemy(g, en) {
-    if (en.dead) return;   // never pay out gold or count a kill twice
-    en.dead = true;
-    g.kills++;
-    g.meta.totalKills++;
-    tgGainGold(g, en.def.gold);
-    tgSfx(en.def.boss ? 'boss_death' : 'death');
-    g.floaters.push({ x: en.x, y: en.y - en.radius, text: `+$${en.def.gold}`, life: 700, vy: -24, color: '#ffd400' });
-    for (let i = 0; i < (en.def.boss ? 18 : 6); i++) {
-        const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 80;
-        g.particles.push({ x: en.x, y: en.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 400 + Math.random() * 300, color: en.def.boss ? '#ffd400' : '#8fbf6a' });
-    }
-    if (en.def.boss) { g.meta.bossesSlain++; tgSaveMeta(g.meta); }
-}
-
-// ===================================================================
-// combat — weapons firing, projectiles, enemy AI, contact damage
-// ===================================================================
-function tgNearestEnemy(g, x, y, range) {
-    let best = null, bestD = range;
-    g.enemies.forEach(en => {
-        if (en.dead) return;
-        const d = Math.hypot(en.x - x, en.y - y);
-        if (d <= bestD) { bestD = d; best = en; }
+function tgBannerBuff(g, t, key) {
+    if (t.def.kind === 'support') return 0;
+    let best = 0;
+    g.towers.forEach(b => {
+        if (b.def.kind !== 'support' || b === t) return;
+        const r = tgStat(g, b, 'range');
+        if (Math.hypot(b.x - t.x, b.y - t.y) > r) return;
+        const buff = tgStat(g, b, 'buff');
+        if (buff && buff[key] > best) best = buff[key];
     });
     return best;
 }
+function tgTowerCost(g, def) {
+    return Math.max(1, Math.round(def.cost * (1 - tgMetaBonus(g.meta, 'discount'))));
+}
+function tgUpgradeCost(g, t) {
+    const up = t.def.levels[t.level];
+    if (!up) return null;
+    return Math.max(1, Math.round(up.cost * (1 - tgMetaBonus(g.meta, 'discount'))));
+}
 
-function tgFireWeapon(g, w, dt) {
-    const def = tgWeaponDef(w.id);
-    w.cd -= dt;
-    if (w.cd > 0) return;
-    const range = tgWeaponStat(g, w, 'range');
-    const target = tgNearestEnemy(g, g.player.x, g.player.y, range);
-    if (!target) return;
-    w.cd = tgWeaponStat(g, w, 'cd');
-    const dmg = tgWeaponStat(g, w, 'dmg');
+// ===================================================================
+// building
+// ===================================================================
+function tgCellFree(g, cx, cy) {
+    if (cx < 0 || cy < 0 || cx >= TP.COLS || cy >= TP.ROWS) return false;
+    if (g.path.cells.has(cy * TP.COLS + cx)) return false;
+    if (g.occupied[cy * TP.COLS + cx]) return false;
+    return true;
+}
+function tgPlaceTower(g, cx, cy) {
+    const defId = g.selectedTower;
+    if (!defId) return;
+    const def = TP.TOWERS_BY_ID[defId];
+    if (!def) return;
+    if (!tgCellFree(g, cx, cy)) { tgSfx('error'); return; }
+    const cost = tgTowerCost(g, def);
+    if (g.gold < cost) { tgSfx('error'); tgToast('not enough gold'); return; }
+    g.gold -= cost;
+    const t = tgMakeTower(def, cx, cy);
+    t.spent = cost;
+    g.towers.push(t);
+    g.occupied[cy * TP.COLS + cx] = true;
+    g.selected = t;
+    tgSfx('build');
+}
+function tgUpgradeTower(g, t) {
+    const cost = tgUpgradeCost(g, t);
+    if (cost === null) { tgSfx('error'); return; }
+    if (g.gold < cost) { tgSfx('error'); tgToast('not enough gold'); return; }
+    g.gold -= cost;
+    t.spent += cost;
+    t.level++;
+    tgSfx('upgrade');
+}
+function tgSellTower(g, t) {
+    const refund = Math.floor(t.spent * TP.SELL_REFUND);
+    g.gold += refund;
+    delete g.occupied[t.cy * TP.COLS + t.cx];
+    g.towers.splice(g.towers.indexOf(t), 1);
+    if (g.selected === t) g.selected = null;
+    tgSfx('sell');
+    tgToast(`sold for $${refund}`);
+}
+function tgToast(msg) {
+    const g = TG;
+    if (g) g.floaters.push({ x: TP.W / 2, y: 30, text: msg, life: 1200, vy: -14, color: '#ffd400', big: true });
+}
 
-    if (def.type === 'melee') {
-        tgSfx('swing');
-        const angle = Math.atan2(target.y - g.player.y, target.x - g.player.x);
-        g.effects.push({ type: 'swing', x: g.player.x, y: g.player.y, angle, arc: def.arc, range, life: 180, maxLife: 180 });
-        const hits = def.pierceLine ? 3 : 99;
-        let hitCount = 0;
-        g.enemies.forEach(en => {
-            if (en.dead || hitCount >= hits) return;
-            const d = Math.hypot(en.x - g.player.x, en.y - g.player.y);
-            if (d > range + en.radius) return;
-            const a = Math.atan2(en.y - g.player.y, en.x - g.player.x);
-            let diff = Math.abs(a - angle);
-            if (diff > Math.PI) diff = Math.PI * 2 - diff;
-            if (diff > (def.arc * Math.PI / 180) / 2) return;
-            hitCount++;
-            const times = def.hits || 1;
-            for (let i = 0; i < times && !en.dead; i++) tgDamageEnemy(g, en, dmg, { bossBonus: def.bossBonus, knockback: def.knockback });
-            if (def.heal) g.player.hp = Math.min(g.player.maxHp, g.player.hp + def.heal);
-        });
-    } else if (def.type === 'ranged') {
-        tgSfx('shoot');
-        g.projectiles.push({
-            x: g.player.x, y: g.player.y,
-            target, vx: 0, vy: 0, speed: def.projSpeed, dmg, pierce: def.pierce || 0,
-            splash: def.splash, chain: def.chain, chained: 0, slow: def.slow, weaponId: w.id, hitSet: new Set()
-        });
-    } else if (def.type === 'aoe') {
-        tgSfx('swing');
-        g.effects.push({ type: 'pulse', x: g.player.x, y: g.player.y, range, life: 260, maxLife: 260 });
-        g.enemies.forEach(en => {
-            if (en.dead) return;
-            const d = Math.hypot(en.x - g.player.x, en.y - g.player.y);
-            if (d > range + en.radius) return;
-            tgDamageEnemy(g, en, dmg, { burn: def.burn });
-            if (def.stagger) { en.knockX = 0; en.knockY = 0; en.staggerUntil = performance.now() + 350; }
-        });
+// ===================================================================
+// waves
+// ===================================================================
+function tgWaveComposition(g, wave) {
+    const spec = TP.WAVES[Math.min(wave, TP.WAVES.length) - 1];
+    const out = [];
+    spec.forEach(([id, count, gap]) => {
+        for (let i = 0; i < count; i++) out.push({ id, delay: gap });
+    });
+    return out;
+}
+function tgStartWave(g) {
+    g.spawnQueue = tgWaveComposition(g, g.wave);
+    g.spawnTimer = 0;
+    g.phase = 'combat';
+    if (TP.isBossWave(g.wave)) { tgSfx('boss'); tgToast(`WAVE ${g.wave} — BOSS`); }
+    else { tgSfx('wave'); }
+}
+function tgCallWaveEarly(g) {
+    if (g.phase !== 'prep') return;
+    const bonus = Math.floor((g.prepLeft / 1000) * TP.EARLY_BONUS_PER_SEC);
+    if (bonus > 0) { g.gold += bonus; tgToast(`called early +$${bonus}`); }
+    g.prepLeft = 0;
+    tgStartWave(g);
+}
+
+function tgSpawn(g, id) {
+    const def = TP.ENEMIES[id];
+    if (!def) return;
+    const hp = Math.round(def.hp * TP.waveHpMult(g.wave, g.map.difficulty));
+    const speed = def.speed * TP.waveSpeedMult(g.wave);
+    const start = g.path.pts[0];
+    g.enemies.push({
+        id, def, hp, maxHp: hp, speed, armor: def.armor,
+        seg: 0, segT: 0, dist: 0,
+        x: start.x, y: start.y,
+        slowUntil: 0, slowMult: 1, burnUntil: 0, burnDps: 0, burnTick: 0,
+        healCd: def.heal ? def.heal.cd : 0, summonCd: def.summon ? def.summon.cd : 0,
+        hitFlash: 0, dead: false, leaked: false
+    });
+}
+
+function tgUpdateSpawns(g, dt) {
+    if (g.phase !== 'combat' || !g.spawnQueue.length) return;
+    g.spawnTimer -= dt;
+    while (g.spawnTimer <= 0 && g.spawnQueue.length) {
+        const next = g.spawnQueue.shift();
+        tgSpawn(g, next.id);
+        g.spawnTimer += next.delay;
+        if (next.delay <= 0) break;
     }
 }
 
-function tgUpdateProjectiles(g, dt) {
-    g.projectiles.forEach(p => {
-        if (p.dead) return;
-        const t = p.target;
-        if (!t || t.dead) { p.dead = true; return; }
-        const dx = t.x - p.x, dy = t.y - p.y;
-        const d = Math.hypot(dx, dy) || 1;
-        p.vx = (dx / d) * p.speed;
-        p.vy = (dy / d) * p.speed;
-        p.x += p.vx * dt / 1000;
-        p.y += p.vy * dt / 1000;
-        if (d < t.radius + 6 && !p.hitSet.has(t)) {
-            p.hitSet.add(t);
-            // a spitter's shot is aimed at Sir mrhakan, and the player is not an
-            // enemy — it has no `def`, so it must never reach tgDamageEnemy
-            if (p.enemyShot) { tgDamagePlayer(g, p.dmg); p.dead = true; return; }
-            tgDamageEnemy(g, t, p.dmg, { slow: p.slow });
-            if (p.splash) {
-                g.enemies.forEach(en => {
-                    if (en === t || en.dead || p.hitSet.has(en)) return;
-                    if (Math.hypot(en.x - t.x, en.y - t.y) <= p.splash) { p.hitSet.add(en); tgDamageEnemy(g, en, p.dmg * 0.6, {}); }
-                });
-            }
-            if (p.pierce > 0) {
-                p.pierce--;
-                const next = tgNearestEnemy(g, p.x, p.y, 200);
-                if (next && !p.hitSet.has(next)) p.target = next; else p.dead = true;
-            } else if (p.chain && p.chained < p.chain) {
-                p.chained++;
-                const next = g.enemies.find(en => !en.dead && !p.hitSet.has(en) && Math.hypot(en.x - p.x, en.y - p.y) < 140);
-                if (next) p.target = next; else p.dead = true;
-            } else {
-                p.dead = true;
-            }
+function tgCheckWaveEnd(g) {
+    if (g.phase !== 'combat') return;
+    if (g.spawnQueue.length || g.enemies.length) return;
+    tgOnWaveCleared(g);
+}
+
+function tgOnWaveCleared(g) {
+    tgSfx('clear');
+    const reward = 24 + g.wave * 6;
+    g.gold += reward;
+    g.floaters.push({ x: TP.W / 2, y: 60, text: `wave ${g.wave} cleared  +$${reward}`, life: 1600, vy: -16, color: '#8fd66a', big: true });
+
+    // permanent unlocks
+    const best = g.meta.bestWave[g.map.id] || 0;
+    if (g.wave > best) { g.meta.bestWave[g.map.id] = g.wave; }
+    TP.TOWER_UNLOCKS.forEach(u => {
+        if (g.wave >= u.wave && !g.meta.unlockedTowers.includes(u.tower)) {
+            g.meta.unlockedTowers.push(u.tower);
+            g.toastQueue.push(`new tower: ${TP.TOWERS_BY_ID[u.tower].name}`);
         }
-        if (p.x < -60 || p.x > TG_ARENA_W + 60 || p.y < -60 || p.y > TG_ARENA_H + 60) p.dead = true;
     });
-    g.projectiles = g.projectiles.filter(p => !p.dead);
+    if (g.wave >= TP.MAP_UNLOCK_WAVE) {
+        const i = TP.MAPS.findIndex(m => m.id === g.map.id);
+        const next = TP.MAPS[i + 1];
+        if (next && !g.meta.unlockedMaps.includes(next.id)) {
+            g.meta.unlockedMaps.push(next.id);
+            g.toastQueue.push(`new map: ${next.name}`);
+        }
+    }
+    TP.ACHIEVEMENT_WAVES.forEach(w => {
+        if (g.wave === w && typeof unlockAchievement === 'function') unlockAchievement('troll_wave_' + w);
+    });
+    tgSaveMeta(g.meta);
+
+    if (g.wave >= TP.TOTAL_WAVES) { tgEndRun(g, true); return; }
+
+    g.wave++;
+    g.phase = 'prep';
+    g.prepLeft = TP.PREP_TIME;
+    tgSaveRun();
+    while (g.toastQueue.length) showToast('troll problem', g.toastQueue.shift());
+    tgRender();
+}
+
+function tgEndRun(g, won) {
+    const mult = 1 + tgMetaBonus(g.meta, 'crystal');
+    const base = Math.floor(g.wave * 1.5) + (won ? 30 : 0) + Math.floor(g.kills / 40);
+    g.crystalsEarned = Math.max(1, Math.round(base * mult));
+    g.meta.crystals += g.crystalsEarned;
+    g.meta.runs++;
+    g.meta.totalKills += g.kills;
+    g.meta.totalLeaks += g.leaked;
+    if (won) {
+        g.meta.cleared = true;
+        if (typeof unlockAchievement === 'function') unlockAchievement('troll_king_slain');
+    }
+    tgSaveMeta(g.meta);
+    tgClearRunSave();
+    g.screen = won ? 'won' : 'over';
+    tgSfx(won ? 'win' : 'lose');
+    tgLoopStop();
+    tgRender();
+}
+
+// ===================================================================
+// enemies
+// ===================================================================
+function tgEnemyPos(g, e) {
+    const pts = g.path.pts;
+    if (e.def.flying) {
+        // fliers cut straight from the spawn to the gate, ignoring the road
+        const a = pts[0], b = pts[pts.length - 1];
+        const total = Math.hypot(b.x - a.x, b.y - a.y);
+        const t = Math.min(1, e.dist / total);
+        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, done: t >= 1 };
+    }
+    let i = 0;
+    while (i < g.path.dist.length - 1 && g.path.dist[i + 1] < e.dist) i++;
+    if (i >= pts.length - 1) return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y, done: true };
+    const segLen = g.path.dist[i + 1] - g.path.dist[i] || 1;
+    const t = (e.dist - g.path.dist[i]) / segLen;
+    return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t, done: false };
+}
+
+function tgProgress(g, e) {
+    if (e.def.flying) {
+        const a = g.path.pts[0], b = g.path.pts[g.path.pts.length - 1];
+        return e.dist / Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+    }
+    return e.dist / Math.max(1, g.path.total);
 }
 
 function tgUpdateEnemies(g, dt) {
     const now = performance.now();
-    g.enemies.forEach(en => {
-        if (en.dead) return;
-        if (en.hp <= 0) { tgKillEnemy(g, en); return; }
+    g.enemies.forEach(e => {
+        if (e.dead) return;
 
-        let speed = en.speed;
-        if (en.def.enrageSpeed && en.hp < en.maxHp * 0.5) speed = en.def.enrageSpeed;
-        if (now < en.slowUntil) speed *= en.slowMult;
-        const staggered = en.staggerUntil && now < en.staggerUntil;
-
-        // burn dot
-        if (en.burnUntil && now < en.burnUntil) {
-            en.burnTick -= dt;
-            if (en.burnTick <= 0) { en.hp -= en.burnDmg; en.burnTick = 500; g.floaters.push({ x: en.x, y: en.y - en.radius, text: String(en.burnDmg), life: 400, vy: -20, color: '#ff8a3a' }); }
-        }
-
-        // knockback decay
-        if (Math.abs(en.knockX) > 1 || Math.abs(en.knockY) > 1) {
-            en.x += en.knockX * dt / 1000; en.y += en.knockY * dt / 1000;
-            en.knockX *= 0.86; en.knockY *= 0.86;
-        }
-
-        const ranged = en.def.ranged;
-        const dx = g.player.x - en.x, dy = g.player.y - en.y;
-        const dist = Math.hypot(dx, dy) || 1;
-
-        if (!staggered) {
-            if (ranged) {
-                en.rangedCd -= dt;
-                if (dist > ranged.range * 0.7) {
-                    en.x += (dx / dist) * speed * dt / 1000;
-                    en.y += (dy / dist) * speed * dt / 1000;
-                } else if (dist < ranged.range * 0.45) {
-                    en.x -= (dx / dist) * speed * 0.6 * dt / 1000;
-                    en.y -= (dy / dist) * speed * 0.6 * dt / 1000;
-                }
-                if (en.rangedCd <= 0 && dist <= ranged.range) {
-                    en.rangedCd = ranged.cd;
-                    g.projectiles.push({
-                        x: en.x, y: en.y, target: g.player, vx: 0, vy: 0, speed: ranged.projSpeed,
-                        dmg: en.dmg, pierce: 0, enemyShot: true, hitSet: new Set()
-                    });
-                }
-            } else {
-                let mx = dx / dist, my = dy / dist;
-                if (en.def.jitter) {
-                    en.jitterPhase += dt / 1000 * 4;
-                    const jog = Math.sin(en.jitterPhase) * 0.5;
-                    const px = -my, py = mx;
-                    mx += px * jog; my += py * jog;
-                    const norm = Math.hypot(mx, my) || 1; mx /= norm; my /= norm;
-                }
-                en.x += mx * speed * dt / 1000;
-                en.y += my * speed * dt / 1000;
-            }
-
-            // boss pulse attack
-            if (en.def.pulse) {
-                en.pulseCd -= dt;
-                if (en.pulseCd <= 0 && dist <= en.def.pulse.radius + 20) {
-                    en.pulseCd = en.def.pulse.cd;
-                    g.effects.push({ type: 'pulse', x: en.x, y: en.y, range: en.def.pulse.radius, life: 300, maxLife: 300, boss: true });
-                    if (dist <= en.def.pulse.radius) tgDamagePlayer(g, en.def.pulse.dmg, en);
-                }
-            }
-            // boss summon
-            if (en.def.summon && !en.summonedAt) en.summonedAt = now + 6000 + Math.random() * 4000;
-            if (en.def.summon && now > en.summonedAt) {
-                en.summonedAt = now + 8000 + Math.random() * 5000;
-                tgSpawnEnemy(g, en.def.summon);
+        // burn / poison ticks
+        if (e.burnUntil > now) {
+            e.burnTick -= dt;
+            if (e.burnTick <= 0) {
+                e.burnTick = 250;
+                tgHurt(g, e, e.burnDps * 0.25, { trueDamage: true, silent: true });
+                if (e.dead) return;
             }
         }
+        // standing in a gas patch
+        let patchSlow = 1;
+        g.patches.forEach(p => {
+            if (Math.hypot(p.x - e.x, p.y - e.y) > p.radius) return;
+            patchSlow = Math.min(patchSlow, p.slow);
+            p.tick -= dt;
+            if (p.tick <= 0) { /* tick handled globally below */ }
+        });
 
-        // contact damage
-        if (dist < en.radius + g.player.radius) {
-            en.attackCd -= dt;
-            if (en.attackCd <= 0) {
-                en.attackCd = 600;
-                tgDamagePlayer(g, en.dmg, en);
-                if (en.def.knockback) {
-                    const kx = (g.player.x - en.x) / dist, ky = (g.player.y - en.y) / dist;
-                    g.player.x += kx * 18; g.player.y += ky * 18;
+        let speed = e.speed;
+        if (now < e.slowUntil) speed *= e.slowMult;
+        speed *= patchSlow;
+        e.dist += speed * dt / 1000;
+
+        const pos = tgEnemyPos(g, e);
+        e.x = pos.x; e.y = pos.y;
+        if (pos.done) { tgLeak(g, e); return; }
+
+        // shaman heals nearby trolls
+        if (e.def.heal) {
+            e.healCd -= dt;
+            if (e.healCd <= 0) {
+                e.healCd = e.def.heal.cd;
+                let healed = false;
+                g.enemies.forEach(o => {
+                    if (o === e || o.dead || o.hp >= o.maxHp) return;
+                    if (Math.hypot(o.x - e.x, o.y - e.y) > e.def.heal.radius) return;
+                    o.hp = Math.min(o.maxHp, o.hp + e.def.heal.amount);
+                    healed = true;
+                });
+                if (healed) g.fx.push({ type: 'ring', x: e.x, y: e.y, r: e.def.heal.radius, life: 300, maxLife: 300, color: '#6aff9a' });
+            }
+        }
+        // the king calls in reinforcements
+        if (e.def.summon) {
+            e.summonCd -= dt;
+            if (e.summonCd <= 0) {
+                e.summonCd = e.def.summon.cd;
+                for (let i = 0; i < e.def.summon.count; i++) {
+                    tgSpawn(g, e.def.summon.id);
+                    const spawned = g.enemies[g.enemies.length - 1];
+                    spawned.dist = Math.max(0, e.dist - 20 - i * 14);
                 }
             }
         }
-        if (en.hitFlash > 0) en.hitFlash -= dt;
-        en.x = Math.max(-40, Math.min(TG_ARENA_W + 40, en.x));
-        en.y = Math.max(-40, Math.min(TG_ARENA_H + 40, en.y));
+        if (e.hitFlash > 0) e.hitFlash -= dt;
     });
-    g.enemies = g.enemies.filter(en => !en.dead);
+
+    // gas patch damage, applied on the patch's own tick so it can't scale with framerate
+    g.patches.forEach(p => {
+        p.life -= dt;
+        p.dmgTick -= dt;
+        if (p.dmgTick <= 0) {
+            p.dmgTick = 400;
+            g.enemies.forEach(e => {
+                if (e.dead || e.def.flying) return;
+                if (Math.hypot(p.x - e.x, p.y - e.y) > p.radius) return;
+                tgHurt(g, e, p.dps * 0.4, { trueDamage: true, silent: true });
+            });
+        }
+    });
+    g.patches = g.patches.filter(p => p.life > 0);
+    g.enemies = g.enemies.filter(e => !e.dead && !e.leaked);
 }
 
-function tgUpdateSpawns(g, dt) {
-    if (!g.waveActive || g.spawnQueue.length === 0) return;
-    g.spawnTimer -= dt;
-    if (g.spawnTimer <= 0) {
-        const id = g.spawnQueue.shift();
-        tgSpawnEnemy(g, id);
-        const dense = g.enemies.length > 14;
-        g.spawnTimer = dense ? 550 : 320;
+function tgLeak(g, e) {
+    e.leaked = true;
+    g.lives -= e.def.leak;
+    g.leaked++;
+    tgSfx('leak');
+    g.fx.push({ type: 'leak', x: e.x, y: e.y, life: 400, maxLife: 400 });
+    if (g.lives <= 0) { g.lives = 0; tgEndRun(g, false); }
+}
+
+function tgHurt(g, e, amount, opts) {
+    if (!e || e.dead || !e.def) return;
+    opts = opts || {};
+    let dmg = amount;
+    if (!opts.trueDamage) {
+        const armor = Math.max(0, e.armor - (opts.armorPierce || 0));
+        dmg = Math.max(1, dmg - armor);
+        if (e.def.shield) dmg *= (1 - e.def.shield);
+    }
+    dmg = Math.max(0, dmg);
+    e.hp -= dmg;
+    e.hitFlash = 90;
+    if (opts.source) { opts.source.damageDealt += dmg; }
+    if (!opts.silent) tgSfx('hit');
+    if (e.hp <= 0) tgKill(g, e, opts.source);
+}
+
+function tgKill(g, e, source) {
+    if (e.dead) return;
+    e.dead = true;
+    g.kills++;
+    if (source) source.kills++;
+    const bounty = Math.round(e.def.bounty * (1 + tgMetaBonus(g.meta, 'gold')));
+    g.gold += bounty;
+    tgSfx('die');
+    g.floaters.push({ x: e.x, y: e.y - 10, text: `+${bounty}`, life: 550, vy: -24, color: '#ffd400' });
+    for (let i = 0; i < (e.def.boss ? 16 : 4); i++) {
+        const a = Math.random() * Math.PI * 2, sp = 30 + Math.random() * 70;
+        g.fx.push({ type: 'bit', x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 350, maxLife: 350, color: e.def.boss ? '#ffd400' : '#8fbf6a' });
     }
 }
 
-function tgUpdatePlayer(g, dt) {
-    const p = g.player;
-    let mx = 0, my = 0;
-    if (tgKeys['arrowleft'] || tgKeys['a']) mx -= 1;
-    if (tgKeys['arrowright'] || tgKeys['d']) mx += 1;
-    if (tgKeys['arrowup'] || tgKeys['w']) my -= 1;
-    if (tgKeys['arrowdown'] || tgKeys['s']) my += 1;
-    if (tgTouch.active) { mx = tgTouch.x; my = tgTouch.y; }
-    const len = Math.hypot(mx, my);
-    if (len > 0.01) {
-        mx /= len; my /= len;
-        p.facing = Math.atan2(my, mx);
-        const speed = p.speed * (1 + tgPerkTotal(g, 'swiftness'));
-        p.x += mx * speed * dt / 1000;
-        p.y += my * speed * dt / 1000;
-        p.moving = true;
-    } else p.moving = false;
-    p.x = Math.max(p.radius, Math.min(TG_ARENA_W - p.radius, p.x));
-    p.y = Math.max(p.radius, Math.min(TG_ARENA_H - p.radius, p.y));
+// ===================================================================
+// towers firing
+// ===================================================================
+function tgPickTarget(g, t) {
+    const range = tgStat(g, t, 'range');
+    const minRange = t.def.minRange || 0;
+    let best = null, bestKey = null;
+    g.enemies.forEach(e => {
+        if (e.dead) return;
+        if (e.def.flying && !t.def.air) return;
+        const d = Math.hypot(e.x - t.x, e.y - t.y);
+        if (d > range || d < minRange) return;
+        // lowest key wins, so each mode just picks the right sort value
+        let key;
+        switch (t.mode) {
+            case 'last': key = tgProgress(g, e); break;    // least far along
+            case 'strong': key = -e.hp; break;
+            case 'weak': key = e.hp; break;
+            case 'close': key = d; break;
+            case 'first':
+            default: key = -tgProgress(g, e); break;       // furthest along
+        }
+        if (bestKey === null || key < bestKey) { bestKey = key; best = e; }
+    });
+    return best;
+}
 
-    if (p.invuln > 0) p.invuln -= dt;
-    if (p.hitFlash > 0) p.hitFlash -= dt;
+function tgUpdateTowers(g, dt) {
+    g.towers.forEach(t => {
+        if (t.def.kind === 'support') return;
+        t.cd -= dt;
+        if (t.cd > 0) return;
+        const target = tgPickTarget(g, t);
+        if (!target) return;
+        t.cd = tgStat(g, t, 'cd');
+        t.angle = Math.atan2(target.y - t.y, target.x - t.x);
+        tgFire(g, t, target);
+    });
+}
 
-    const regen = tgPerkTotal(g, 'regen');
-    if (regen) {
-        p.regenAcc = (p.regenAcc || 0) + regen * dt / 1000;
-        if (p.regenAcc >= 1) { p.hp = Math.min(p.maxHp, p.hp + Math.floor(p.regenAcc)); p.regenAcc %= 1; }
+function tgFire(g, t, target) {
+    const def = t.def;
+    const dmg = tgStat(g, t, 'dmg') || 0;
+    tgSfx(def.kind === 'chain' ? 'zap' : 'shoot');
+
+    if (def.kind === 'ground') {
+        g.shots.push({ kind: 'patch', x: t.x, y: t.y, tx: target.x, ty: target.y, speed: def.projSpeed, patch: tgStat(g, t, 'patch'), src: t });
+        return;
     }
+    if (def.kind === 'chain') {
+        // instant arc — hits the target then jumps to the nearest unhit trolls
+        let cur = target, hit = new Set(), d = dmg;
+        const chain = tgStat(g, t, 'chain');
+        const pts = [{ x: t.x, y: t.y }];
+        for (let i = 0; i < chain && cur; i++) {
+            hit.add(cur);
+            pts.push({ x: cur.x, y: cur.y });
+            tgHurt(g, cur, d, { source: t, silent: i > 0 });
+            d *= def.chainFalloff;
+            let next = null, nd = 90;
+            g.enemies.forEach(e => {
+                if (e.dead || hit.has(e)) return;
+                if (e.def.flying && !def.air) return;
+                const dist = Math.hypot(e.x - cur.x, e.y - cur.y);
+                if (dist < nd) { nd = dist; next = e; }
+            });
+            cur = next;
+        }
+        g.fx.push({ type: 'chain', pts, life: 160, maxLife: 160 });
+        return;
+    }
+    if (def.kind === 'single' && def.projSpeed >= 999) {
+        // flame sconce: instant, short range, mostly a burn applicator
+        tgHurt(g, target, dmg, { source: t, armorPierce: def.armorPierce, trueDamage: def.trueDamage, silent: true });
+        const burn = tgStat(g, t, 'burn');
+        if (burn) { target.burnUntil = performance.now() + burn.dur; target.burnDps = burn.dps; }
+        g.fx.push({ type: 'beam', x1: t.x, y1: t.y, x2: target.x, y2: target.y, life: 90, maxLife: 90, color: '#ff9a3a' });
+        return;
+    }
+    g.shots.push({
+        kind: def.kind, x: t.x, y: t.y, target, speed: def.projSpeed, dmg,
+        splash: tgStat(g, t, 'splash'), pierce: tgStat(g, t, 'pierce') || 0,
+        slow: tgStat(g, t, 'slow'), burn: tgStat(g, t, 'burn'),
+        armorPierce: def.armorPierce, trueDamage: def.trueDamage,
+        air: def.air, src: t, hit: new Set()
+    });
+}
 
-    g.weapons.forEach(w => tgFireWeapon(g, w, dt));
+function tgUpdateShots(g, dt) {
+    g.shots.forEach(s => {
+        if (s.dead) return;
+        let tx, ty;
+        if (s.kind === 'patch') { tx = s.tx; ty = s.ty; }
+        else {
+            if (!s.target || s.target.dead) {
+                // keep flying to where it was aimed rather than vanishing
+                s.target = null;
+                tx = s.lastX !== undefined ? s.lastX : s.x;
+                ty = s.lastY !== undefined ? s.lastY : s.y;
+            } else { tx = s.target.x; ty = s.target.y; s.lastX = tx; s.lastY = ty; }
+        }
+        const dx = tx - s.x, dy = ty - s.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const step = s.speed * dt / 1000;
+        if (d <= step + 4) {
+            s.x = tx; s.y = ty;
+            tgShotImpact(g, s);
+            if (!s.pierce || s.kind !== 'pierce') s.dead = true;
+        } else {
+            s.x += dx / d * step;
+            s.y += dy / d * step;
+            if (s.kind === 'pierce') tgPierceCheck(g, s);
+        }
+        if (s.x < -40 || s.x > TP.W + 40 || s.y < -40 || s.y > TP.H + 40) s.dead = true;
+    });
+    g.shots = g.shots.filter(s => !s.dead);
+}
+
+function tgPierceCheck(g, s) {
+    g.enemies.forEach(e => {
+        if (e.dead || s.hit.has(e)) return;
+        if (e.def.flying && !s.air) return;
+        if (Math.hypot(e.x - s.x, e.y - s.y) > e.def.size / 2 + 5) return;
+        s.hit.add(e);
+        tgHurt(g, e, s.dmg, { source: s.src, armorPierce: s.armorPierce, trueDamage: s.trueDamage });
+        if (s.hit.size >= s.pierce) s.dead = true;
+    });
+}
+
+function tgShotImpact(g, s) {
+    if (s.kind === 'patch') {
+        const p = s.patch;
+        g.patches.push({ x: s.x, y: s.y, radius: p.radius, dps: p.dps, slow: p.slow, life: p.dur, dmgTick: 0, tick: 0 });
+        g.fx.push({ type: 'ring', x: s.x, y: s.y, r: p.radius, life: 300, maxLife: 300, color: '#9ad14a' });
+        return;
+    }
+    if (s.kind === 'splash') {
+        tgSfx('boom');
+        g.fx.push({ type: 'ring', x: s.x, y: s.y, r: s.splash, life: 240, maxLife: 240, color: '#ffb03a' });
+        g.enemies.forEach(e => {
+            if (e.dead) return;
+            if (e.def.flying && !s.air) return;
+            if (Math.hypot(e.x - s.x, e.y - s.y) > s.splash) return;
+            tgHurt(g, e, s.dmg, { source: s.src, armorPierce: s.armorPierce, trueDamage: s.trueDamage, silent: true });
+        });
+        return;
+    }
+    if (s.kind === 'pierce') { tgPierceCheck(g, s); return; }
+    // plain single target
+    if (s.target && !s.target.dead) {
+        tgHurt(g, s.target, s.dmg, { source: s.src, armorPierce: s.armorPierce, trueDamage: s.trueDamage });
+        if (s.slow) { s.target.slowUntil = performance.now() + s.slow.dur; s.target.slowMult = s.slow.mult; }
+        if (s.burn) { s.target.burnUntil = performance.now() + s.burn.dur; s.target.burnDps = s.burn.dps; }
+    }
 }
 
 function tgUpdateFx(g, dt) {
-    g.effects.forEach(e => e.life -= dt);
-    g.effects = g.effects.filter(e => e.life > 0);
+    g.fx.forEach(f => {
+        f.life -= dt;
+        if (f.type === 'bit') { f.x += f.vx * dt / 1000; f.y += f.vy * dt / 1000; f.vx *= 0.93; f.vy *= 0.93; }
+    });
+    g.fx = g.fx.filter(f => f.life > 0);
     g.floaters.forEach(f => { f.life -= dt; f.y += f.vy * dt / 1000; });
     g.floaters = g.floaters.filter(f => f.life > 0);
-    g.particles.forEach(p => { p.life -= dt; p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000; p.vx *= 0.94; p.vy *= 0.94; });
-    g.particles = g.particles.filter(p => p.life > 0);
 }
 
 // ===================================================================
 // main loop
 // ===================================================================
-function tgTick(t) {
-    const g = TGRun;
-    if (!g || g.screen !== 'playing') { tgRAF = null; return; }
-    const dt = Math.min(50, tgLastT ? t - tgLastT : 16);
-    tgLastT = t;
-    g.elapsed += dt;
-
-    tgUpdatePlayer(g, dt);
-    tgUpdateEnemies(g, dt);
-    tgUpdateProjectiles(g, dt);
+function tgStep(g, dt) {
+    if (g.phase === 'prep') {
+        g.prepLeft -= dt;
+        if (g.prepLeft <= 0) tgStartWave(g);
+    }
     tgUpdateSpawns(g, dt);
+    tgUpdateEnemies(g, dt);
+    tgUpdateTowers(g, dt);
+    tgUpdateShots(g, dt);
     tgUpdateFx(g, dt);
-    tgCheckWaveClear(g);
+    tgCheckWaveEnd(g);
+}
 
-    if (g.screen === 'playing') {
-        tgDrawArena(g);
+function tgTick(t) {
+    const g = TG;
+    if (!g || g.screen !== 'play') { tgRAF = null; return; }
+    const raw = Math.min(50, tgLastT ? t - tgLastT : 16);
+    tgLastT = t;
+    if (!g.paused) {
+        // run the sim in fixed slices so 3x speed can't tunnel through collisions
+        let budget = raw * g.speed;
+        while (budget > 0) {
+            const slice = Math.min(20, budget);
+            tgStep(g, slice);
+            budget -= slice;
+            if (g.screen !== 'play') break;
+        }
+    }
+    if (g.screen === 'play') {
+        tgDraw(g);
         tgUpdateHud(g);
         tgRAF = requestAnimationFrame(tgTick);
-    } else {
-        tgRAF = null;
-        tgRender();
-    }
+    } else { tgRAF = null; tgRender(); }
 }
 function tgLoopStart() { tgLastT = 0; if (!tgRAF) tgRAF = requestAnimationFrame(tgTick); }
 function tgLoopStop() { if (tgRAF) { cancelAnimationFrame(tgRAF); tgRAF = null; } }
 
 // ===================================================================
-// canvas rendering
+// rendering
 // ===================================================================
-function tgDrawArena(g) {
+function tgDraw(g) {
     const cv = tgWinBody && tgWinBody.querySelector('#tg-canvas');
     if (!cv) return;
     const ctx = cv.getContext('2d');
-    const chapter = TP.chapterForWave(g.wave);
-    const w = TG_ARENA_W, h = TG_ARENA_H;
+    const map = g.map;
 
-    ctx.fillStyle = chapter.bg;
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillStyle = map.ground;
+    ctx.fillRect(0, 0, TP.W, TP.H);
+
+    // buildable grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.045)';
     ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-    for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-    ctx.strokeStyle = chapter.accent;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
+    for (let x = 0; x <= TP.COLS; x++) { ctx.beginPath(); ctx.moveTo(x * TP.CELL, 0); ctx.lineTo(x * TP.CELL, TP.H); ctx.stroke(); }
+    for (let y = 0; y <= TP.ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * TP.CELL); ctx.lineTo(TP.W, y * TP.CELL); ctx.stroke(); }
 
-    // particles (behind entities)
-    g.particles.forEach(p => {
-        ctx.globalAlpha = Math.max(0, p.life / 500);
-        ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill();
+    // the road
+    ctx.fillStyle = map.road;
+    g.path.cells.forEach(idx => {
+        const cx = idx % TP.COLS, cy = Math.floor(idx / TP.COLS);
+        ctx.fillRect(cx * TP.CELL, cy * TP.CELL, TP.CELL, TP.CELL);
     });
-    ctx.globalAlpha = 1;
+    // spawn and gate both sit one cell off the board, so clamp their markers back
+    // onto the canvas edge or they get drawn where nobody can see them
+    const clampX = x => Math.min(TP.W - 6, Math.max(6, x));
+    const clampY = y => Math.min(TP.H - 6, Math.max(6, y));
+    const start = g.path.pts[0];
+    ctx.fillStyle = 'rgba(160,120,220,0.75)';
+    ctx.fillRect(clampX(start.x) - 4, clampY(start.y) - TP.CELL / 2, 8, TP.CELL);
+    ctx.fillStyle = '#e0d0ff';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPAWN', clampX(start.x) + 14, clampY(start.y) - TP.CELL / 2 - 4);
 
-    // enemies
-    g.enemies.forEach(en => {
-        const img = tgImg(en.def.sprite);
-        const s = en.radius * 2;
+    const end = g.path.pts[g.path.pts.length - 1];
+    const gx = clampX(end.x), gy = clampY(end.y);
+    ctx.fillStyle = '#c94a3a';
+    ctx.fillRect(gx - 5, gy - TP.CELL / 2, 10, TP.CELL);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText('GATE', gx - 14, gy - TP.CELL / 2 - 4);
+
+    // gas patches under everything
+    g.patches.forEach(p => {
+        ctx.fillStyle = `rgba(120,200,60,${0.16 * Math.min(1, p.life / 800)})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // build preview
+    if (g.selectedTower && g.hover) {
+        const def = TP.TOWERS_BY_ID[g.selectedTower];
+        const free = tgCellFree(g, g.hover.cx, g.hover.cy);
+        const px = g.hover.cx * TP.CELL, py = g.hover.cy * TP.CELL;
+        ctx.fillStyle = free ? 'rgba(120,220,120,0.28)' : 'rgba(220,80,80,0.3)';
+        ctx.fillRect(px, py, TP.CELL, TP.CELL);
+        if (free && def.range) {
+            const r = def.range * (1 + tgMetaBonus(g.meta, 'range'));
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.beginPath(); ctx.arc(px + TP.CELL / 2, py + TP.CELL / 2, r, 0, Math.PI * 2); ctx.stroke();
+            if (def.minRange) { ctx.strokeStyle = 'rgba(255,120,120,0.4)'; ctx.beginPath(); ctx.arc(px + TP.CELL / 2, py + TP.CELL / 2, def.minRange, 0, Math.PI * 2); ctx.stroke(); }
+        }
+    }
+    // selected tower's range
+    if (g.selected) {
+        const r = tgStat(g, g.selected, 'range');
+        ctx.strokeStyle = 'rgba(255,212,0,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(g.selected.x, g.selected.y, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = '#ffd400';
+        ctx.strokeRect(g.selected.cx * TP.CELL + 1, g.selected.cy * TP.CELL + 1, TP.CELL - 2, TP.CELL - 2);
+    }
+
+    // towers
+    g.towers.forEach(t => {
+        const px = t.cx * TP.CELL, py = t.cy * TP.CELL;
+        ctx.fillStyle = t.def.kind === 'support' ? '#3f5a2a' : '#2c3a44';
+        ctx.fillRect(px + 2, py + 2, TP.CELL - 4, TP.CELL - 4);
+        ctx.strokeStyle = map.accent;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(px + 2, py + 2, TP.CELL - 4, TP.CELL - 4);
+        ctx.font = '16px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.def.icon, t.x, t.y + 1);
+        if (t.level > 0) {
+            ctx.fillStyle = '#ffd400';
+            ctx.font = 'bold 9px monospace';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('★'.repeat(t.level), t.x, py + TP.CELL - 2);
+        }
+        ctx.textBaseline = 'alphabetic';
+    });
+
+    // enemies — every troll is drawn as a round unit token: an opaque disc in the
+    // type's colour with the sprite multiplied on top. three of the site's gifs have
+    // an opaque white background, and multiply turns that white into the disc colour
+    // while leaving the dark linework alone — so they read as units instead of white
+    // boxes, and they keep animating (a pre-processed static canvas would not).
+    g.enemies.forEach(e => {
+        const img = tgImg(e.def.sprite);
+        const s = e.def.size;
+        const r = s / 2;
         ctx.save();
-        if (en.hitFlash > 0) { ctx.filter = 'brightness(1.8) saturate(2)'; }
-        if (en.def.boss) {
-            ctx.shadowColor = TP.CHAPTERS.find(c => c.boss === en.id) ? '#ff5a5a' : '#ffd400';
-            ctx.shadowBlur = 14;
-        }
-        if (img.complete && img.naturalWidth) ctx.drawImage(img, en.x - s / 2, en.y - s / 2, s, s);
-        else { ctx.fillStyle = '#6a8f4a'; ctx.beginPath(); ctx.arc(en.x, en.y, en.radius, 0, Math.PI * 2); ctx.fill(); }
+        if (e.def.flying) { ctx.shadowColor = '#7fd0ff'; ctx.shadowBlur = 8; }
+        else if (e.def.boss) { ctx.shadowColor = '#ff5a5a'; ctx.shadowBlur = 10; }
+        ctx.fillStyle = e.def.token || '#8a6';
+        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-        // hp bar
-        if (en.hp < en.maxHp) {
-            const bw = s;
-            ctx.fillStyle = '#000'; ctx.fillRect(en.x - bw / 2, en.y - s / 2 - 8, bw, 4);
-            ctx.fillStyle = en.def.boss ? '#ff5a5a' : '#0df259';
-            ctx.fillRect(en.x - bw / 2, en.y - s / 2 - 8, bw * Math.max(0, en.hp / en.maxHp), 4);
+
+        if (img.complete && img.naturalWidth) {
+            ctx.save();
+            ctx.beginPath(); ctx.arc(e.x, e.y, r - 1, 0, Math.PI * 2); ctx.clip();
+            ctx.globalCompositeOperation = 'multiply';
+            if (e.hitFlash > 0) ctx.filter = 'brightness(1.6)';
+            ctx.drawImage(img, e.x - r, e.y - r, s, s);
+            ctx.restore();
+        }
+
+        // rim: white flash on hit, red for bosses, cyan for fliers, dark otherwise
+        ctx.save();
+        ctx.lineWidth = e.def.boss ? 2 : 1.5;
+        ctx.strokeStyle = e.hitFlash > 0 ? '#fff'
+            : e.def.boss ? '#ff5a5a'
+                : e.def.flying ? '#7fd0ff'
+                    : e.def.armor >= 6 ? '#8fa4b4' : 'rgba(0,0,0,0.55)';
+        ctx.beginPath(); ctx.arc(e.x, e.y, r - 0.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        if (performance.now() < e.burnUntil) {
+            ctx.fillStyle = 'rgba(255,140,40,0.5)';
+            ctx.beginPath(); ctx.arc(e.x, e.y, s / 2 + 2, 0, Math.PI * 2); ctx.fill();
+        }
+        if (performance.now() < e.slowUntil) {
+            ctx.strokeStyle = 'rgba(120,200,255,0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(e.x, e.y, s / 2 + 2, 0, Math.PI * 2); ctx.stroke();
+        }
+        if (e.hp < e.maxHp) {
+            const bw = Math.max(16, s);
+            ctx.fillStyle = '#000'; ctx.fillRect(e.x - bw / 2, e.y - s / 2 - 6, bw, 3);
+            ctx.fillStyle = e.def.boss ? '#ff5a5a' : '#7ee06a';
+            ctx.fillRect(e.x - bw / 2, e.y - s / 2 - 6, bw * Math.max(0, e.hp / e.maxHp), 3);
         }
     });
 
-    // projectiles
-    g.projectiles.forEach(p => {
-        ctx.fillStyle = p.enemyShot ? '#ff5a5a' : '#ffe066';
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.enemyShot ? 5 : 4, 0, Math.PI * 2); ctx.fill();
+    // shots
+    g.shots.forEach(s => {
+        ctx.fillStyle = s.kind === 'patch' ? '#9ad14a' : s.kind === 'splash' ? '#ffb03a' : '#ffe9a0';
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.kind === 'splash' ? 4 : 3, 0, Math.PI * 2); ctx.fill();
     });
 
-    // effects: swings & pulses
-    g.effects.forEach(e => {
-        const t = e.life / e.maxLife;
-        if (e.type === 'swing') {
-            ctx.strokeStyle = `rgba(255,255,255,${t * 0.9})`;
-            ctx.lineWidth = 5;
+    // fx
+    g.fx.forEach(f => {
+        const a = f.life / f.maxLife;
+        if (f.type === 'ring') {
+            ctx.strokeStyle = f.color.replace(')', `,${a})`).replace('rgb', 'rgba');
+            ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1.1 - a * 0.1), 0, Math.PI * 2); ctx.stroke();
+            ctx.globalAlpha = 1;
+        } else if (f.type === 'chain') {
+            ctx.globalAlpha = a; ctx.strokeStyle = '#9ad8ff'; ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(e.x, e.y, e.range * (1 - t * 0.2), e.angle - (e.arc * Math.PI / 180) / 2, e.angle + (e.arc * Math.PI / 180) / 2);
-            ctx.stroke();
-        } else if (e.type === 'pulse') {
-            ctx.strokeStyle = e.boss ? `rgba(255,90,90,${t * 0.8})` : `rgba(255,212,0,${t * 0.8})`;
-            ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(e.x, e.y, e.range * (1.2 - t * 0.2), 0, Math.PI * 2); ctx.stroke();
+            f.pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+            ctx.stroke(); ctx.globalAlpha = 1;
+        } else if (f.type === 'beam') {
+            ctx.globalAlpha = a; ctx.strokeStyle = f.color; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke(); ctx.globalAlpha = 1;
+        } else if (f.type === 'bit') {
+            ctx.globalAlpha = a; ctx.fillStyle = f.color;
+            ctx.beginPath(); ctx.arc(f.x, f.y, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        } else if (f.type === 'leak') {
+            ctx.globalAlpha = a; ctx.strokeStyle = '#ff4a4a'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(f.x, f.y, 20 * (1.4 - a), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
         }
     });
 
-    // player — a blue ring under the avatar so "which one is me" is never a
-    // question, since the troll sprites are also round cartoon faces
-    const p = g.player;
-    ctx.save();
-    if (p.invuln > 0 && Math.floor(performance.now() / 90) % 2 === 0) ctx.globalAlpha = 0.4;
-    const ps = p.radius * 2.6;
-    ctx.fillStyle = 'rgba(74,144,217,0.35)';
-    ctx.beginPath(); ctx.arc(p.x, p.y, ps / 2 + 4, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#6ab6ff';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(p.x, p.y, ps / 2 + 4, 0, Math.PI * 2); ctx.stroke();
-    if (p.hitFlash > 0) ctx.filter = 'brightness(1.6) saturate(0.4) hue-rotate(-20deg)';
-    const pimg = tgImg('src/emoj/dusung.png');
-    if (pimg.complete && pimg.naturalWidth) {
-        ctx.save();
-        ctx.beginPath(); ctx.arc(p.x, p.y, ps / 2, 0, Math.PI * 2); ctx.clip();
-        ctx.drawImage(pimg, p.x - ps / 2, p.y - ps / 2, ps, ps);
-        ctx.restore();
-    } else { ctx.fillStyle = '#4a90d9'; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); }
-    ctx.restore();
-
-    // floating damage/gold text
+    // floating text
     g.floaters.forEach(f => {
-        ctx.globalAlpha = Math.max(0, f.life / 700);
+        ctx.globalAlpha = Math.min(1, f.life / 500);
         ctx.fillStyle = f.color;
-        ctx.font = 'bold 12px monospace';
+        ctx.font = f.big ? 'bold 14px monospace' : 'bold 11px monospace';
         ctx.textAlign = 'center';
         ctx.fillText(f.text, f.x, f.y);
+        ctx.globalAlpha = 1;
     });
-    ctx.globalAlpha = 1;
+
+    if (g.paused) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0, 0, TP.W, TP.H);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', TP.W / 2, TP.H / 2);
+    }
 }
 
 function tgUpdateHud(g) {
     const b = tgWinBody;
     if (!b) return;
-    const hpFill = b.querySelector('#tg-hpfill');
-    const hpText = b.querySelector('#tg-hptext');
-    if (hpFill) hpFill.style.width = `${Math.max(0, g.player.hp / g.player.maxHp) * 100}%`;
-    if (hpText) hpText.textContent = `${Math.max(0, Math.ceil(g.player.hp))}/${g.player.maxHp}`;
-    const goldEl = b.querySelector('#tg-gold');
-    if (goldEl) goldEl.textContent = `$${g.gold}`;
-    const waveEl = b.querySelector('#tg-wave');
-    if (waveEl) waveEl.textContent = `wave ${g.wave}/${TP.FINAL_WAVE}`;
-    const remainEl = b.querySelector('#tg-remain');
-    if (remainEl) remainEl.textContent = `${g.enemies.length + g.spawnQueue.length} trolls left`;
-}
-
-// ===================================================================
-// input
-// ===================================================================
-function tgBindInput() {
-    window.addEventListener('keydown', tgKeyDown);
-    window.addEventListener('keyup', tgKeyUp);
-}
-function tgUnbindInput() {
-    window.removeEventListener('keydown', tgKeyDown);
-    window.removeEventListener('keyup', tgKeyUp);
-}
-function tgKeyDown(e) {
-    if (!TGRun || TGRun.screen !== 'playing') return;
-    const k = e.key.toLowerCase();
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(k)) {
-        tgKeys[k] = true;
-        e.preventDefault();
+    const set = (sel, txt) => { const el = b.querySelector(sel); if (el && el.textContent !== txt) el.textContent = txt; };
+    set('#tg-lives', String(g.lives));
+    set('#tg-gold', `$${g.gold}`);
+    set('#tg-wave', `${g.wave}/${TP.TOTAL_WAVES}`);
+    const phase = b.querySelector('#tg-phase');
+    if (phase) {
+        if (g.phase === 'prep') phase.textContent = `build — ${Math.ceil(g.prepLeft / 1000)}s`;
+        else phase.textContent = `${g.enemies.length + g.spawnQueue.length} trolls`;
     }
-}
-function tgKeyUp(e) { tgKeys[e.key.toLowerCase()] = false; }
-
-function tgBindTouch(cv) {
-    const stick = tgWinBody.querySelector('#tg-stick');
-    if (!stick) return;
-    const base = stick;
-    let activePointer = null;
-    const handle = (clientX, clientY) => {
-        const rect = base.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
-        let dx = clientX - cx, dy = clientY - cy;
-        const max = rect.width / 2;
-        const d = Math.hypot(dx, dy);
-        if (d > max) { dx = dx / d * max; dy = dy / d * max; }
-        tgTouch.x = dx / max; tgTouch.y = dy / max; tgTouch.active = true;
-        const knob = base.querySelector('.tg-stick-knob');
-        if (knob) knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    };
-    const end = () => {
-        tgTouch.active = false; tgTouch.x = 0; tgTouch.y = 0; activePointer = null;
-        const knob = base.querySelector('.tg-stick-knob');
-        if (knob) knob.style.transform = 'translate(0,0)';
-    };
-    base.addEventListener('pointerdown', e => { activePointer = e.pointerId; base.setPointerCapture(e.pointerId); handle(e.clientX, e.clientY); });
-    base.addEventListener('pointermove', e => { if (activePointer === e.pointerId) handle(e.clientX, e.clientY); });
-    base.addEventListener('pointerup', end);
-    base.addEventListener('pointercancel', end);
-}
-
-// ===================================================================
-// shop — offered between waves, same reroll/buy rhythm as jokerz 98
-// ===================================================================
-function tgBuildShop(g) {
-    g.shop = { weaponOffers: [], perkOffers: [], rerolls: 0 };
-    tgRollShop(g);
-}
-
-function tgRollShop(g) {
-    const pool = g.meta.unlockedWeapons.filter(id => {
-        const w = g.weapons.find(x => x.id === id);
-        if (w) return w.level < tgWeaponDef(id).maxLevel;
-        return g.weapons.length < tgMaxSlots(g);
-    });
-    const weaponPicks = [];
-    const poolCopy = pool.slice();
-    for (let i = 0; i < 2 && poolCopy.length; i++) {
-        const idx = Math.floor(Math.random() * poolCopy.length);
-        weaponPicks.push(poolCopy.splice(idx, 1)[0]);
-    }
-    g.shop.weaponOffers = weaponPicks.map(id => {
-        const def = tgWeaponDef(id);
-        const owned = g.weapons.find(w => w.id === id);
-        const level = owned ? owned.level + 1 : 1;
-        const cost = owned ? Math.round(def.cost * 0.6 * level) : def.cost;
-        return { id, level, cost, isUpgrade: !!owned };
-    });
-
-    const perkPool = TP.PERKS.filter(p => tgPerkStacks(g, p.id) < p.maxStack);
-    const perkPicks = [];
-    const perkCopy = perkPool.slice();
-    for (let i = 0; i < 2 && perkCopy.length; i++) {
-        const idx = Math.floor(Math.random() * perkCopy.length);
-        perkPicks.push(perkCopy.splice(idx, 1)[0]);
-    }
-    g.shop.perkOffers = perkPicks.map(p => {
-        const n = tgPerkStacks(g, p.id);
-        return { id: p.id, cost: p.cost + p.priceStep * n };
-    });
-}
-
-function tgRerollCost(g) { return 8 + g.shop.rerolls * 4; }
-
-function tgShopReroll() {
-    const g = TGRun;
-    const cost = tgRerollCost(g);
-    if (g.gold < cost) { tgSfx('error'); showToast('shop', 'not enough gold'); return; }
-    g.gold -= cost;
-    g.shop.rerolls++;
-    tgRollShop(g);
-    tgSfx('buy');
-    tgRender();
-}
-
-function tgBuyWeapon(index) {
-    const g = TGRun;
-    const offer = g.shop.weaponOffers[index];
-    if (!offer) return;
-    if (g.gold < offer.cost) { tgSfx('error'); showToast('shop', 'not enough gold'); return; }
-    g.gold -= offer.cost;
-    const existing = g.weapons.find(w => w.id === offer.id);
-    if (existing) { existing.level++; tgSfx('levelup'); }
-    else { g.weapons.push({ id: offer.id, level: 1, cd: 0 }); tgSfx('buy'); }
-    g.shop.weaponOffers.splice(index, 1);
-    tgSaveRun();
-    tgRender();
-}
-
-function tgBuyPerk(index) {
-    const g = TGRun;
-    const offer = g.shop.perkOffers[index];
-    if (!offer) return;
-    if (g.gold < offer.cost) { tgSfx('error'); showToast('shop', 'not enough gold'); return; }
-    g.gold -= offer.cost;
-    g.perks[offer.id] = (g.perks[offer.id] || 0) + 1;
-    if (offer.id === 'vitality') g.player.maxHp += 20;
-    tgSfx('buy');
-    g.shop.perkOffers.splice(index, 1);
-    tgSaveRun();
-    tgRender();
-}
-
-function tgLeaveShop() {
-    const g = TGRun;
-    // recompute max hp from vitality stacks so it's always consistent
-    g.player.maxHp = 100 + tgPerkTotal(g, 'vitality');
-    if (g.player.hp > g.player.maxHp) g.player.hp = g.player.maxHp;
-    g.shop = null;
-    while (g.milestoneToastQueue.length) showToast('troll problem', g.milestoneToastQueue.shift());
-    tgSaveRun();
-    tgStartWave(g);
+    const early = b.querySelector('#tg-early');
+    if (early) early.style.visibility = g.phase === 'prep' ? 'visible' : 'hidden';
 }
 
 // ===================================================================
 // screens
 // ===================================================================
 function tgRender() {
-    if (!tgWinBody || !TGRun) return;
-    const g = TGRun;
-    const screens = { menu: tgRenderMenu, playing: tgRenderPlaying, shop: tgRenderShop, over: tgRenderOver, won: tgRenderWon };
+    if (!tgWinBody || !TG) return;
+    const g = TG;
+    const screens = { menu: tgRenderMenu, meta: tgRenderMeta, maps: tgRenderMaps, play: tgRenderPlay, over: tgRenderEnd, won: tgRenderEnd };
     tgWinBody.innerHTML = (screens[g.screen] || tgRenderMenu)(g);
     tgBind(g);
-    if (g.screen === 'playing') {
-        const cv = tgWinBody.querySelector('#tg-canvas');
-        if (cv) { tgDrawArena(g); tgBindTouch(cv); }
-    }
-}
-
-function tgWeaponRowHtml(w, opts) {
-    opts = opts || {};
-    const def = tgWeaponDef(w.id);
-    return `<div class="tg-wslot${opts.empty ? ' empty' : ''}" ${opts.attr || ''}>
-        <span class="tg-wicon">${def ? def.icon : '➕'}</span>
-        ${def ? `<span class="tg-wlvl">lvl ${w.level}</span>` : ''}
-    </div>`;
+    if (g.screen === 'play') { tgDraw(g); tgUpdateHud(g); tgLoopStart(); }
 }
 
 function tgRenderMenu(g) {
-    const meta = g.meta;
-    const hasSave = tgHasRunSave();
-    let resumeWave = '?';
-    if (hasSave) {
-        try { resumeWave = JSON.parse(localStorage.getItem(TG_RUN_KEY) || '{}').wave || '?'; } catch (e) { }
-    }
+    const m = g.meta;
+    const totalBest = Math.max(0, ...Object.values(m.bestWave || {}), 0);
     return `<div class="tg-menu">
         <h2 class="tg-title">SIR, WE HAVE A<br>TROLL PROBLEM</h2>
-        <p class="tg-sub">defend the keep. the trolls will not stop coming. they never do.</p>
-        ${hasSave ? `<button class="tg-btn tg-wide tg-go" data-act="resume">continue run — wave ${resumeWave}</button>` : ''}
-        <button class="tg-btn tg-wide ${hasSave ? '' : 'tg-go'}" data-act="newrun">${hasSave ? 'start a new run' : 'start run'}</button>
+        <p class="tg-sub">they come down the road in their thousands. build the wall.</p>
+        ${tgHasRunSave() ? `<button class="tg-btn tg-wide tg-go" data-act="resume">continue run</button>` : ''}
+        <button class="tg-btn tg-wide ${tgHasRunSave() ? '' : 'tg-go'}" data-act="maps">choose a map</button>
+        <button class="tg-btn tg-wide" data-act="meta">💎 upgrades &nbsp;<b>${m.crystals}</b> crystals</button>
         <div class="tg-statsgrid">
-            <div><b>${meta.bestWave}</b><span>best wave</span></div>
-            <div><b>${meta.totalKills}</b><span>trolls slain</span></div>
-            <div><b>${meta.bossesSlain}</b><span>bosses slain</span></div>
-            <div><b>${meta.runsPlayed}</b><span>runs played</span></div>
+            <div><b>${totalBest}</b><span>best wave</span></div>
+            <div><b>${m.totalKills}</b><span>trolls slain</span></div>
+            <div><b>${m.runs}</b><span>runs</span></div>
+            <div><b>${m.unlockedTowers.length}/${TP.TOWERS.length}</b><span>towers</span></div>
         </div>
-        ${meta.clearedGame ? '<p class="tg-cleared">👑 you have defeated the troll king</p>' : ''}
-        <p class="tg-label">armory (unlocked weapons)</p>
-        <div class="tg-armory">${TP.WEAPONS.map(w => `
-            <span class="tg-armory-item${meta.unlockedWeapons.includes(w.id) ? ' got' : ''}" title="${escapeHtml(w.name)}">${meta.unlockedWeapons.includes(w.id) ? w.icon : '🔒'}</span>`).join('')}</div>
-        <p class="tg-hint">WASD or arrow keys to move. weapons fire on their own — just don't get surrounded.</p>
+        ${m.cleared ? '<p class="tg-cleared">👑 you have held the gate to the very end</p>' : ''}
+        <p class="tg-label">armory</p>
+        <div class="tg-armory">${TP.TOWERS.map(t => `<span class="tg-armory-item${m.unlockedTowers.includes(t.id) ? ' got' : ''}" title="${escapeHtml(t.name)}">${m.unlockedTowers.includes(t.id) ? t.icon : '🔒'}</span>`).join('')}</div>
+        <p class="tg-hint">click a tower, click the ground to build. towers only go beside the road, never on it.</p>
     </div>`;
 }
 
-function tgRenderPlaying(g) {
-    const chapter = TP.chapterForWave(g.wave);
-    return `<div class="tg-hud">
-        <div class="tg-hudrow">
-            <span class="tg-chapter" style="color:${chapter.accent}">${escapeHtml(chapter.name)}</span>
-            <span id="tg-wave">wave ${g.wave}/${TP.FINAL_WAVE}</span>
-            <span id="tg-gold" class="tg-goldstat">$${g.gold}</span>
-        </div>
-        <div class="tg-hpbar bevel-in"><div id="tg-hpfill" class="tg-hpfill" style="width:${(g.player.hp / g.player.maxHp) * 100}%"></div>
-            <span id="tg-hptext" class="tg-hptext">${Math.ceil(g.player.hp)}/${g.player.maxHp}</span></div>
-        <span id="tg-remain" class="tg-remain">${g.enemies.length + g.spawnQueue.length} trolls left</span>
+function tgRenderMaps(g) {
+    const m = g.meta;
+    return `<div class="tg-menu">
+        <div class="tg-shophead"><h3>choose your ground</h3>
+            <button class="tg-btn tg-small" data-act="menu">back</button></div>
+        <div class="tg-maplist">${TP.MAPS.map(map => {
+        const locked = !m.unlockedMaps.includes(map.id);
+        const best = m.bestWave[map.id] || 0;
+        return `<button class="tg-mapcard${locked ? ' locked' : ''}" ${locked ? '' : `data-map="${map.id}"`}>
+                <span class="tg-mapname" style="color:${map.accent}">${locked ? '🔒 ' : ''}${escapeHtml(map.name)}</span>
+                <span class="tg-mapblurb">${locked ? `clear wave ${TP.MAP_UNLOCK_WAVE} on the previous map` : escapeHtml(map.blurb)}</span>
+                <span class="tg-mapmeta">difficulty x${map.difficulty} &middot; best wave ${best}</span>
+            </button>`;
+    }).join('')}</div>
+    </div>`;
+}
+
+function tgRenderMeta(g) {
+    const m = g.meta;
+    return `<div class="tg-menu">
+        <div class="tg-shophead"><h3>💎 permanent upgrades</h3>
+            <span class="tg-goldstat">${m.crystals} crystals</span>
+            <button class="tg-btn tg-small" data-act="menu">back</button></div>
+        <p class="tg-hint" style="text-align:left">crystals are earned every run, win or lose. these never reset.</p>
+        <div class="tg-offers">${TP.META.map(node => {
+        const lvl = tgMetaLevel(m, node.id);
+        const maxed = lvl >= node.max;
+        const cost = tgMetaCost(m, node.id);
+        return `<div class="tg-offer">
+                <span class="tg-offer-icon">${node.icon}</span>
+                <div class="tg-offer-info"><b>${escapeHtml(node.name)} <span class="tg-lvl">${lvl}/${node.max}</span></b>
+                    <span>${escapeHtml(node.text)}</span></div>
+                ${maxed ? '<span class="tg-maxed">MAX</span>'
+                : `<button class="tg-btn tg-buy${m.crystals < cost ? ' tg-poor' : ''}" data-meta="${node.id}">💎${cost}</button>`}
+            </div>`;
+    }).join('')}</div>
+    </div>`;
+}
+
+function tgRenderPlay(g) {
+    const m = g.meta;
+    const next = TP.WAVES[Math.min(g.wave, TP.WAVES.length) - 1];
+    const preview = next.map(([id, count]) => `${count}× ${TP.ENEMIES[id].name.replace(' Troll', '')}`).join(', ');
+    return `<div class="tg-topbar">
+        <span class="tg-stat tg-lives">❤️ <b id="tg-lives">${g.lives}</b></span>
+        <span class="tg-stat tg-goldstat">💰 <b id="tg-gold">$${g.gold}</b></span>
+        <span class="tg-stat">🌊 <b id="tg-wave">${g.wave}/${TP.TOTAL_WAVES}</b></span>
+        <span class="tg-stat" id="tg-phase"></span>
+        <span class="tg-speeds">
+            <button class="tg-sbtn${g.paused ? ' on' : ''}" data-speed="pause">⏸</button>
+            ${TP.SPEEDS.map(s => `<button class="tg-sbtn${!g.paused && g.speed === s ? ' on' : ''}" data-speed="${s}">${s}×</button>`).join('')}
+        </span>
+        <button class="tg-btn tg-small" data-act="quit">quit</button>
     </div>
-    <canvas id="tg-canvas" class="tg-canvas bevel-in" width="${TG_ARENA_W}" height="${TG_ARENA_H}"></canvas>
-    <div class="tg-weaponbar">${g.weapons.map(w => tgWeaponRowHtml(w)).join('')}</div>
-    <div id="tg-stick" class="tg-stick"><div class="tg-stick-knob"></div></div>
-    <p class="tg-hint">wasd / arrows to move &middot; weapons auto-fire</p>`;
+    <div class="tg-waveinfo">next: ${escapeHtml(preview)}${TP.isBossWave(g.wave) ? ' <b class="tg-bosstag">BOSS</b>' : ''}
+        <button class="tg-btn tg-small tg-go" id="tg-early" data-act="early">send them in +$${Math.floor((g.prepLeft / 1000) * TP.EARLY_BONUS_PER_SEC)}</button></div>
+    <canvas id="tg-canvas" class="tg-canvas bevel-in" width="${TP.W}" height="${TP.H}"></canvas>
+    <div class="tg-buildbar">${TP.TOWERS.filter(t => m.unlockedTowers.includes(t.id)).map(t => {
+        const cost = tgTowerCost(g, t);
+        return `<button class="tg-tbtn${g.selectedTower === t.id ? ' sel' : ''}${g.gold < cost ? ' tg-poor' : ''}" data-tower="${t.id}" title="${escapeHtml(t.name)} — ${escapeHtml(t.text)}">
+            <span class="tg-ticon">${t.icon}</span><span class="tg-tcost">$${cost}</span></button>`;
+    }).join('')}</div>
+    ${g.selected ? tgInspectorHtml(g, g.selected) : '<div class="tg-inspect tg-inspect-empty">click a tower to inspect it · click a build button then the ground to place</div>'}`;
 }
 
-function tgRenderShop(g) {
-    const s = g.shop;
-    return `<div class="tg-shop">
-        <div class="tg-shophead">
-            <h3>camp — wave ${g.wave} of ${TP.FINAL_WAVE}</h3>
-            <span class="tg-goldstat">$${g.gold}</span>
+function tgInspectorHtml(g, t) {
+    const upCost = tgUpgradeCost(g, t);
+    const dmg = tgStat(g, t, 'dmg');
+    const rate = tgStat(g, t, 'cd');
+    return `<div class="tg-inspect">
+        <span class="tg-offer-icon">${t.def.icon}</span>
+        <div class="tg-offer-info">
+            <b>${escapeHtml(t.def.name)} ${t.level ? '★'.repeat(t.level) : ''}</b>
+            <span>${dmg ? `dmg ${Math.round(dmg)} · ` : ''}${rate ? `${(1000 / rate).toFixed(1)}/s · ` : ''}range ${Math.round(tgStat(g, t, 'range'))} · ${t.kills} kills</span>
         </div>
-        <div class="tg-loadout">${Array.from({ length: tgMaxSlots(g) }, (_, i) => g.weapons[i]
-            ? tgWeaponRowHtml(g.weapons[i])
-            : `<div class="tg-wslot empty"><span class="tg-wicon">➕</span></div>`).join('')}
-        </div>
-        <p class="tg-label">weapons</p>
-        <div class="tg-offers">${s.weaponOffers.map((o, i) => {
-            const def = tgWeaponDef(o.id);
-            return `<div class="tg-offer" data-buyweapon="${i}">
-                <span class="tg-offer-icon">${def.icon}</span>
-                <div class="tg-offer-info"><b>${escapeHtml(def.name)}</b>
-                    <span>${o.isUpgrade ? `upgrade to lvl ${o.level}` : escapeHtml(def.text)}</span></div>
-                <button class="tg-btn tg-buy">$${o.cost}</button>
-            </div>`;
-        }).join('') || '<div class="tg-offer-empty">nothing new — go get stronger elsewhere</div>'}</div>
-        <p class="tg-label">perks</p>
-        <div class="tg-offers">${s.perkOffers.map((o, i) => {
-            const def = tgPerkDef(o.id);
-            const n = tgPerkStacks(g, o.id);
-            return `<div class="tg-offer" data-buyperk="${i}">
-                <span class="tg-offer-icon">${def.icon}</span>
-                <div class="tg-offer-info"><b>${escapeHtml(def.name)}${n ? ` (${n})` : ''}</b>
-                    <span>${escapeHtml(def.text)}</span></div>
-                <button class="tg-btn tg-buy">$${o.cost}</button>
-            </div>`;
-        }).join('') || '<div class="tg-offer-empty">nothing new here either</div>'}</div>
-        <div class="tg-shopfoot">
-            <button class="tg-btn" data-act="reroll">reroll $${tgRerollCost(g)}</button>
-            <button class="tg-btn tg-wide tg-go" data-act="nextwave">next wave</button>
-        </div>
+        <select class="tg-select" data-mode>${TP.TARGET_MODES.map(m => `<option value="${m.id}"${t.mode === m.id ? ' selected' : ''}>${m.name}</option>`).join('')}</select>
+        ${upCost !== null ? `<button class="tg-btn tg-buy${g.gold < upCost ? ' tg-poor' : ''}" data-act="upgrade">up $${upCost}</button>` : '<span class="tg-maxed">MAX</span>'}
+        <button class="tg-btn tg-buy" data-act="sell">sell $${Math.floor(t.spent * TP.SELL_REFUND)}</button>
     </div>`;
 }
 
-function tgRenderOver(g) {
+function tgRenderEnd(g) {
+    const won = g.screen === 'won';
     return `<div class="tg-end">
-        <h2 class="tg-title tg-lose">the trolls win this time</h2>
-        <p>you fell on wave ${g.wave}, chapter "${escapeHtml(TP.chapterForWave(g.wave).name)}".</p>
-        <p class="tg-sub">${g.kills} trolls slain &middot; $${g.gold} gold on hand &middot; ${Math.floor(g.elapsed / 1000)}s survived this wave</p>
-        <p class="tg-sub">best wave ever: ${g.meta.bestWave}</p>
-        <button class="tg-btn tg-wide tg-go" data-act="newrun">try again</button>
-        <button class="tg-btn tg-wide" data-act="menu">main menu</button>
-    </div>`;
-}
-
-function tgRenderWon(g) {
-    return `<div class="tg-end">
-        <h2 class="tg-title tg-win">the troll problem is solved</h2>
-        <p>the Troll King has fallen. the keep is safe. probably.</p>
-        <p class="tg-sub">${g.kills} trolls slain across ${TP.FINAL_WAVE} waves &middot; ${g.meta.bossesSlain} bosses total, ever</p>
-        <button class="tg-btn tg-wide tg-go" data-act="newrun">go again</button>
+        <h2 class="tg-title ${won ? 'tg-win' : 'tg-lose'}">${won ? 'the gate held' : 'the gate has fallen'}</h2>
+        <p>${won ? `all ${TP.TOTAL_WAVES} waves turned back on ${escapeHtml(g.map.name)}.` : `they got through on wave ${g.wave} of ${escapeHtml(g.map.name)}.`}</p>
+        <p class="tg-sub">${g.kills} trolls slain · ${g.leaked} got past you</p>
+        <p class="tg-crystals">💎 +${g.crystalsEarned} crystals</p>
+        <button class="tg-btn tg-wide tg-go" data-act="meta">spend crystals</button>
+        <button class="tg-btn tg-wide" data-act="maps">another run</button>
         <button class="tg-btn tg-wide" data-act="menu">main menu</button>
     </div>`;
 }
 
 // ===================================================================
-// input binding & actions
+// input
 // ===================================================================
 function tgBind(g) {
     const b = tgWinBody;
     const on = (sel, fn) => b.querySelectorAll(sel).forEach(el => el.onclick = e => { e.stopPropagation(); fn(el, e); });
+
     on('[data-act]', el => tgAction(el.dataset.act));
-    on('[data-buyweapon]', el => tgBuyWeapon(+el.dataset.buyweapon));
-    on('[data-buyperk]', el => tgBuyPerk(+el.dataset.buyperk));
+    on('[data-map]', el => {
+        const map = TP.MAPS.find(m => m.id === el.dataset.map);
+        if (!map) return;
+        tgClearRunSave();
+        tgNewRun(map);
+        TG.screen = 'play';
+        tgSfx('build');
+        tgRender();
+    });
+    on('[data-meta]', el => {
+        const id = el.dataset.meta;
+        const cost = tgMetaCost(g.meta, id);
+        if (g.meta.crystals < cost) { tgSfx('error'); return; }
+        if (tgMetaLevel(g.meta, id) >= TP.META_BY_ID[id].max) return;
+        g.meta.crystals -= cost;
+        g.meta.spent[id] = tgMetaLevel(g.meta, id) + 1;
+        tgSaveMeta(g.meta);
+        tgSfx('crystal');
+        tgRender();
+    });
+    on('[data-tower]', el => {
+        g.selectedTower = g.selectedTower === el.dataset.tower ? null : el.dataset.tower;
+        g.selected = null;
+        tgSfx('shoot');
+        tgRender();
+    });
+    on('[data-speed]', el => {
+        const v = el.dataset.speed;
+        if (v === 'pause') g.paused = !g.paused;
+        else { g.paused = false; g.speed = +v; }
+        tgRender();
+    });
+    const modeSel = b.querySelector('[data-mode]');
+    if (modeSel) modeSel.onchange = () => { if (g.selected) g.selected.mode = modeSel.value; };
+
+    const cv = b.querySelector('#tg-canvas');
+    if (cv) {
+        const cellFrom = e => {
+            const r = cv.getBoundingClientRect();
+            const scale = TP.W / r.width;
+            return {
+                cx: Math.floor((e.clientX - r.left) * scale / TP.CELL),
+                cy: Math.floor((e.clientY - r.top) * scale / TP.CELL)
+            };
+        };
+        cv.onmousemove = e => { g.hover = cellFrom(e); };
+        cv.onmouseleave = () => { g.hover = null; };
+        cv.onclick = e => {
+            const { cx, cy } = cellFrom(e);
+            const existing = g.towers.find(t => t.cx === cx && t.cy === cy);
+            if (existing) { g.selected = existing; g.selectedTower = null; tgRender(); return; }
+            if (g.selectedTower) { tgPlaceTower(g, cx, cy); tgRender(); return; }
+            g.selected = null;
+            tgRender();
+        };
+    }
 }
 
 function tgAction(act) {
-    const g = TGRun;
+    const g = TG;
     switch (act) {
-        case 'newrun': tgNewRun(); tgClearRunSave(); TGRun.screen = 'shop'; TGRun.wave = 1; tgBuildShop(TGRun); tgRender(); break;
-        case 'resume': if (!tgResumeRun()) { tgNewRun(); TGRun.screen = 'shop'; tgBuildShop(TGRun); } tgRender(); break;
-        case 'reroll': tgShopReroll(); break;
-        case 'nextwave': tgLeaveShop(); break;
-        case 'menu': tgLoopStop(); tgUnbindInput(); TGRun = tgNewRun(); TGRun.screen = 'menu'; tgRender(); break;
+        case 'maps': tgLoopStop(); g.screen = 'maps'; tgRender(); break;
+        case 'meta': tgLoopStop(); g.screen = 'meta'; tgRender(); break;
+        case 'menu': tgLoopStop(); g.meta = tgLoadMeta(); g.screen = 'menu'; tgRender(); break;
+        case 'resume': if (tgResumeRun()) tgRender(); break;
+        case 'early': tgCallWaveEarly(g); tgRender(); break;
+        case 'upgrade': if (g.selected) { tgUpgradeTower(g, g.selected); tgRender(); } break;
+        case 'sell': if (g.selected) { tgSellTower(g, g.selected); tgRender(); } break;
+        case 'quit': tgLoopStop(); tgSaveRun(); g.screen = 'menu'; tgRender(); break;
     }
 }
 
@@ -1128,9 +1241,10 @@ function startTrollProblem() {
     body.classList.add('tg-body');
     tgWinBody = body;
     tgPreload();
-    tgBindInput();
-    win._cleanup = () => { tgLoopStop(); tgUnbindInput(); tgSaveRun(); tgWinBody = null; };
-    if (!TGRun || TGRun.screen === 'menu') TGRun = tgNewRun();
+    win._cleanup = () => { tgLoopStop(); tgSaveRun(); tgWinBody = null; };
+    if (!TG) { tgNewRun(TP.MAPS[0]); TG.screen = 'menu'; }
+    else if (TG.screen === 'play') { /* keep the run going */ }
+    else { TG.meta = tgLoadMeta(); TG.screen = 'menu'; }
     tgRender();
     if (typeof unlockAchievement === 'function') unlockAchievement('troll_problem');
 }
