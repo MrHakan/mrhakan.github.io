@@ -357,6 +357,37 @@ function openBalatro() {
 }
 
 // ===================================================================
+// sir, we have a troll problem — horde-defense mini-game, loaded on
+// demand, same lazy pattern as jokerz 98.
+// ===================================================================
+let tgLoading = null;
+function tgLoadScripts() {
+    if (window.startTrollProblem) return Promise.resolve();
+    if (tgLoading) return tgLoading;
+    const load = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = res;
+        s.onerror = () => rej(new Error(src));
+        document.head.appendChild(s);
+    });
+    tgLoading = load('games/troll-problem-data.js').then(() => load('games/troll-problem.js'));
+    return tgLoading;
+}
+
+function openTrollProblem() {
+    if (window.startTrollProblem) { startTrollProblem(); return; }
+    const { body, win } = createAppWindow('sir, we have a troll problem', { icon: 'castle', width: 320 });
+    body.innerHTML = '<div class="bj-loading">sharpening swords...</div>';
+    tgLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        startTrollProblem();
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">could not load the game files bradar</div>';
+    });
+}
+
+// ===================================================================
 // screensavers — five of them, picked in display properties
 // ===================================================================
 const SCREENSAVERS = {
@@ -768,6 +799,7 @@ function siteSearchIndex() {
         ['site map', 'document', () => openSiteMap(), 'index everything'],
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
+        ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'horde defense orcs waves weapons shop keep survival action'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],
         ['snake', 'game', () => openSnake(), 'nokia arcade'],

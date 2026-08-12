@@ -34,6 +34,13 @@ const ACHIEVEMENTS = {
     jokerz: { icon: '🎰', name: 'the run begins', desc: 'opened jokerz 98' },
     jokerz_ante: { icon: '🂡', name: 'small time', desc: 'cleared ante 3 in jokerz 98' },
     jokerz_win: { icon: '👑', name: 'beat the house', desc: 'cleared ante 8 in jokerz 98' },
+    troll_problem: { icon: '🛡️', name: 'sir, indeed', desc: 'opened sir, we have a troll problem' },
+    troll_wave_5: { icon: '🪓', name: 'outskirts cleared', desc: 'cleared wave 5 in troll problem' },
+    troll_wave_10: { icon: '🌉', name: 'bridge holds', desc: 'cleared wave 10 in troll problem' },
+    troll_wave_15: { icon: '🌲', name: 'the woods are quiet now', desc: 'cleared wave 15 in troll problem' },
+    troll_wave_20: { icon: '🏰', name: 'gates unbreached', desc: 'cleared wave 20 in troll problem' },
+    troll_wave_25: { icon: '⚔️', name: 'throne room', desc: 'reached the troll king' },
+    troll_king_slain: { icon: '👑', name: 'problem solved', desc: 'defeated the troll king' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
@@ -508,6 +515,7 @@ const SHORTCUTS = [
     ['type: gravity, sparta, 8ball', 'even more'],
     ['type: solitaire, defrag', 'the good windows programs'],
     ['type: jokerz or balatro', 'the poker roguelike'],
+    ['type: troll or orcs', 'sir, we have a troll problem'],
     ['right-click desktop', 'context menu']
 ];
 function showShortcuts() {
@@ -554,6 +562,8 @@ function initExtraSecrets() {
         solitaire: () => openSolitaire(),
         jokerz: () => openBalatro(),
         balatro: () => openBalatro(),
+        troll: () => openTrollProblem(),
+        orcs: () => openTrollProblem(),
         defrag: () => openDefrag(),
         roast: roastMe,
         fortune: showFortune,

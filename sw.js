@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v2';
+const CACHE = 'mrhakan98-v3';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -21,6 +21,8 @@ const PRECACHE = [
     '/extras.js',
     '/games/balatro-data.js',
     '/games/balatro.js',
+    '/games/troll-problem-data.js',
+    '/games/troll-problem.js',
     '/links.html',
     '/guestbook.html',
     '/404.html',

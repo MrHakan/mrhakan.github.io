@@ -87,6 +87,7 @@
             "a service worker keeps the whole desktop working offline",
             "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
             "its sound effects and music are synthesized in-browser — zero audio files, zero licensing to think about",
+            "sir, we have a troll problem reuses the site's own emoji art as monster sprites, no new art needed",
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
@@ -158,6 +159,16 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "6.0",
+            "date": "2026-08-12",
+            "changes": [
+                "sir, we have a troll problem — an original horde-defense mini-game",
+                "15 hand-designed weapons, 8 troll types using the site's own emoji art, 5 chapters across 25 waves",
+                "10 passive perks, a between-wave shop, and permanent weapon unlocks that persist across runs",
+                "full local save: mid-run resume plus permanent armory progression"
+            ]
+        },
         {
             "version": "5.2",
             "date": "2026-08-10",

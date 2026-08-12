@@ -2,6 +2,24 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
+            "id": "troll-problem",
+            "title": "sir, we have a troll problem",
+            "date": "2026-08-12",
+            "tags": [
+                "update",
+                "games",
+                "big one"
+            ],
+            "body": [
+                "the second full game on this site. an original horde-defense mini-game — you move around an arena as sir mrhakan, your weapons fire on their own, and the trolls keep coming until you or they stop.",
+                "the trolls are not new art. they're the site's own emoji and reaction images — the ones already sitting in src/emoj and src/troll from years of discord chat — pressed into service as monster sprites. grunt trolls, sneaky trolls, a giggling troll made from a laughing emoji, and a final boss that is, appropriately, the biggest troll image on the site.",
+                "15 weapons i designed myself: swords and daggers and a war hammer for melee, a bow and crossbow and throwing axes for ranged, a fire torch and frost wand and a holy handbell for the weirder stuff, and excalibur waiting at the very end for anyone who clears all 25 waves once. weapons level up in a shop between waves, same rhythm as jokerz 98's shop — random offers, a reroll button, gold you actually have to spend before it's worth anything.",
+                "5 chapters, 5 waves each, a boss at the end of every chapter and the troll king waiting at wave 25. clearing a wave for the first time permanently unlocks that chapter's new weapons into the shop pool for every future run — so even after you die on wave 3 a hundred times, the hundred-and-first run has more options than the first ever did.",
+                "full local save: die or close the window mid-run and it picks back up where you left off, and the permanent unlocks (weapons, weapon slots, best wave ever) live in their own save that never resets. sound is synthesized the same way jokerz 98's is — swing whooshes, hit ticks, a death groan, zero audio files.",
+                "works with wasd or arrow keys, and there's an on-screen joystick for touch. bring a weapon you like. bring three."
+            ]
+        },
+        {
             "id": "counter-take-two",
             "title": "the hit counter, take two",
             "date": "2026-08-10",

@@ -8,6 +8,24 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v6.0 — Sir, We Have a Troll Problem</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v6.0</guid>
+      <pubDate>Wed, 12 Aug 2026 12:00:00 +0000</pubDate>
+      <description><![CDATA[
+        A second full game on the desktop: an original horde-defense mini-game.
+        Move Sir mrhakan around an arena as trolls close in from every side —
+        the site's own emoji and reaction images, reused as monster sprites.
+        15 original weapons across melee, ranged and magic, 8 troll types, 5
+        chapters of 5 waves each with a boss at the end of every one, 10 passive
+        perks, and a between-wave shop. Weapon unlocks are permanent across runs,
+        and the whole thing has full local save — mid-run resume plus
+        persistent armory progression. Synthesized sound, no audio files, works
+        with keyboard or an on-screen joystick.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v5.2 — a hit counter that actually counts site hits</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v5.2</guid>

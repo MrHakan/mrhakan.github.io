@@ -263,6 +263,7 @@ function appActions() {
         quiz: openQuiz,
         solitaire: openSolitaire,
         jokerz: openBalatro,
+        trollproblem: openTrollProblem,
         defrag: openDefrag,
         devlog: openDevlog,
         find: openFindFiles,
@@ -306,7 +307,7 @@ function showRunDialog() {
         <div class="retro-dialog-body">
             <p>type the name of a program, folder, or vibe, and windows will open it for you.</p>
             <input id="run-input" class="bevel-in run-input" placeholder="C:\\>" autocomplete="off" spellcheck="false">
-            <p style="color:#666;font-size:10px;">try: jokerz, sol, defrag, blog, find, mystify, pipes, snake, pong, calc, notepad, cmd, computer, 8ball, snow, disco, gravity, achievements, help</p>
+            <p style="color:#666;font-size:10px;">try: troll, jokerz, sol, defrag, blog, find, mystify, pipes, snake, pong, calc, notepad, cmd, computer, 8ball, snow, disco, gravity, achievements, help</p>
         </div>
         <div class="retro-dialog-buttons">
             <button class="bevel-out retro-dialog-btn" onclick="execRunCommand()">ok</button>
@@ -382,6 +383,9 @@ function execRunCommand() {
         'winamp': () => playTrack(),
         'shutdown': shutDown,
         'jokerz': openBalatro,
+        'troll': openTrollProblem,
+        'trollproblem': openTrollProblem,
+        'orcs': openTrollProblem,
         'balatro': openBalatro,
         'poker': openBalatro,
         'sol': openSolitaire,
@@ -1989,6 +1993,7 @@ const assistantTips = [
     "type 'bsod' if you miss windows crashing.",
     "solitaire is in the start menu. your boss can't see you.",
     "jokerz 98 is a whole poker roguelike. it will eat your evening.",
+    "there is a troll problem in the start menu. bring weapons.",
     "run defrag.exe and stare at it. that's the whole activity.",
     "press F3. it finds every single thing on this site.",
     "change your screensaver in display properties. mystify is the correct answer.",

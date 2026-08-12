@@ -206,7 +206,8 @@ const SITE_MAP = [
     },
     {
         group: 'games & toys', items: [
-            ['jokerz 98 (poker roguelike)', 'openBalatro()'], ['solitaire', 'openSolitaire()'],
+            ['jokerz 98 (poker roguelike)', 'openBalatro()'],
+            ['sir, we have a troll problem', 'openTrollProblem()'], ['solitaire', 'openSolitaire()'],
             ['minesweeper', 'openMinesweeper()'], ['snake', 'openSnake()'], ['pong', 'openPong()'],
             ['which track are you?', 'openQuiz()'], ['magic 8-ball', 'openMagic8Ball()'],
             ['visitor poll', 'openPoll()'], ['achievements', 'openAchievements()']
