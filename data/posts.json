@@ -2,8 +2,8 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
-            "id": "troll-problem",
-            "title": "sir, we have a troll problem",
+            "id": "troll-problem-td",
+            "title": "the troll problem was not, in fact, a tower defense",
             "date": "2026-08-12",
             "tags": [
                 "update",
@@ -11,12 +11,16 @@
                 "big one"
             ],
             "body": [
-                "the second full game on this site. an original horde-defense mini-game — you move around an arena as sir mrhakan, your weapons fire on their own, and the trolls keep coming until you or they stop.",
-                "the trolls are not new art. they're the site's own emoji and reaction images — the ones already sitting in src/emoj and src/troll from years of discord chat — pressed into service as monster sprites. grunt trolls, sneaky trolls, a giggling troll made from a laughing emoji, and a final boss that is, appropriately, the biggest troll image on the site.",
-                "15 weapons i designed myself: swords and daggers and a war hammer for melee, a bow and crossbow and throwing axes for ranged, a fire torch and frost wand and a holy handbell for the weirder stuff, and excalibur waiting at the very end for anyone who clears all 25 waves once. weapons level up in a shop between waves, same rhythm as jokerz 98's shop — random offers, a reroll button, gold you actually have to spend before it's worth anything.",
-                "5 chapters, 5 waves each, a boss at the end of every chapter and the troll king waiting at wave 25. clearing a wave for the first time permanently unlocks that chapter's new weapons into the shop pool for every future run — so even after you die on wave 3 a hundred times, the hundred-and-first run has more options than the first ever did.",
-                "full local save: die or close the window mid-run and it picks back up where you left off, and the permanent unlocks (weapons, weapon slots, best wave ever) live in their own save that never resets. sound is synthesized the same way jokerz 98's is — swing whooshes, hit ticks, a death groan, zero audio files.",
-                "works with wasd or arrow keys, and there's an on-screen joystick for touch. bring a weapon you like. bring three."
+                "shipped a game called sir, we have a troll problem, got told immediately that it looked nothing like the game it was named after, and the criticism was correct. what i built was a horde-survival arena — you walked a knight around and things chased him. the actual thing is a tower defense. you do not move. you build.",
+                "so i went back, played the real one properly, read about what makes the genre work, and rewrote the whole game from the ground up. same filename, same start menu entry, nothing else survived.",
+                "here is the shape of it now. trolls walk a fixed route from the spawn to your gate. you put towers on the grass next to that route and they shoot the trolls as they pass. anything that reaches the gate costs you lives — a grunt costs one, the troll king costs twenty — and at zero lives the run is over.",
+                "10 towers, all of them doing something different rather than being the same tower at different prices. an archer post that shoots one thing quickly. a cannon that splashes. a frost spire that slows. a flame sconce that burns over time. a tesla coil that chains between targets. a ballista that pierces a whole line. a mortar with a minimum range, so it is useless up close and devastating at the far end of the map. a gas vat that leaves a lingering pool on the road. a war banner that buffs every tower around it instead of shooting at all. and an arcane spire whose damage ignores armour entirely.",
+                "three upgrade tiers each, and every tower has a targeting priority you can flip — first, last, strongest, weakest, closest. that one setting is most of the skill in a tower defense and every good one has it. sell any tower back for 60% and rebuild somewhere better.",
+                "9 troll types, still made from the site's own emoji and reaction gifs. grunts, runners, imps that come in swarms, armoured ironhides that shrug off small hits, winged trolls that fly over the road in a straight line and only the anti-air towers can touch, shamans that heal everything near them, and two bosses with damage shields. three of those gifs have a solid white background, which looked ridiculous, so every troll is now drawn as a coloured disc with its sprite multiplied on top — the white becomes the disc colour, the linework stays, and the gifs keep animating.",
+                "30 waves, hand-written rather than generated, so the difficulty curve is a thing i chose. you can see what is coming next before it arrives, and calling a wave early pays a gold bonus if you are confident. 1x, 2x and 3x speed, and the simulation steps in fixed slices so fast-forward cannot make shots tunnel through targets.",
+                "between runs there is a crystal tree — 8 permanent upgrades bought with crystals you earn from every run, win or lose. more starting gold, more lives, more range, more damage. it is the incremental part, and it means a run that ends on wave 12 still moves you forward. i tested that curve: a fresh account with nothing bought dies around wave 17, and a maxed-out one clears wave 30 without losing a single life. that gap is the game.",
+                "5 maps, each unlocked by getting to wave 15 on the one before it. full local save for both layers — mid-run resume and the permanent crystal progression, in separate keys so quitting a run never touches the second one.",
+                "no audio files, same as everything else here. it is vanilla javascript, it only loads when you open it, and it works offline."
             ]
         },
         {

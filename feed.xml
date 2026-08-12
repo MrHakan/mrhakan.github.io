@@ -8,20 +8,36 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v6.5 — the troll problem is an actual tower defense now</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v6.5</guid>
+      <pubDate>Wed, 12 Aug 2026 20:00:00 +0000</pubDate>
+      <description><![CDATA[
+        The first version of Sir, We Have a Troll Problem was a horde-survival
+        arena wearing a tower defense's name. Rewritten from scratch as the real
+        thing: trolls walk a fixed route to your gate, you build towers on the
+        grass beside it, and anything that gets through costs lives. 10 towers
+        that each do something genuinely different — splash, chain, pierce,
+        burn, slow, a minimum-range mortar, a lingering gas pool, an armour-piercing
+        spire and a war banner that buffs its neighbours instead of shooting.
+        Three upgrade tiers and a targeting priority on every one. 30 hand-authored
+        waves, 9 troll types with armour, flight, healing, shields and summons,
+        bosses at 10, 20, 25 and 30. An 8-node crystal tree carries progress
+        between runs, 5 maps unlock as you go, and both save layers are local.
+        Wave telegraph, early-call gold bonus, 1x/2x/3x speed, synthesized sound.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v6.0 — Sir, We Have a Troll Problem</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v6.0</guid>
       <pubDate>Wed, 12 Aug 2026 12:00:00 +0000</pubDate>
       <description><![CDATA[
-        A second full game on the desktop: an original horde-defense mini-game.
-        Move Sir mrhakan around an arena as trolls close in from every side —
-        the site's own emoji and reaction images, reused as monster sprites.
-        15 original weapons across melee, ranged and magic, 8 troll types, 5
-        chapters of 5 waves each with a boss at the end of every one, 10 passive
-        perks, and a between-wave shop. Weapon unlocks are permanent across runs,
-        and the whole thing has full local save — mid-run resume plus
-        persistent armory progression. Synthesized sound, no audio files, works
-        with keyboard or an on-screen joystick.
+        A second full game on the desktop, built from the site's own emoji and
+        reaction images reused as monster sprites. Full local save — mid-run
+        resume plus permanent progression that never resets. Synthesized sound,
+        no audio files, lazy-loaded so the desktop stays as fast as it was.
       ]]></description>
     </item>
 

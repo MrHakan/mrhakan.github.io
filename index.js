@@ -1993,7 +1993,7 @@ const assistantTips = [
     "type 'bsod' if you miss windows crashing.",
     "solitaire is in the start menu. your boss can't see you.",
     "jokerz 98 is a whole poker roguelike. it will eat your evening.",
-    "there is a troll problem in the start menu. bring weapons.",
+    "there is a troll problem in the start menu. build towers, hold the gate.",
     "run defrag.exe and stare at it. that's the whole activity.",
     "press F3. it finds every single thing on this site.",
     "change your screensaver in display properties. mystify is the correct answer.",

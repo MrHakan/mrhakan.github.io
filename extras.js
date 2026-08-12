@@ -357,7 +357,7 @@ function openBalatro() {
 }
 
 // ===================================================================
-// sir, we have a troll problem — horde-defense mini-game, loaded on
+// sir, we have a troll problem — tower defense mini-game, loaded on
 // demand, same lazy pattern as jokerz 98.
 // ===================================================================
 let tgLoading = null;
@@ -799,7 +799,7 @@ function siteSearchIndex() {
         ['site map', 'document', () => openSiteMap(), 'index everything'],
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
-        ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'horde defense orcs waves weapons shop keep survival action'],
+        ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],
         ['snake', 'game', () => openSnake(), 'nokia arcade'],

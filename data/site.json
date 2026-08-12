@@ -87,7 +87,7 @@
             "a service worker keeps the whole desktop working offline",
             "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
             "its sound effects and music are synthesized in-browser — zero audio files, zero licensing to think about",
-            "sir, we have a troll problem reuses the site's own emoji art as monster sprites, no new art needed",
+            "sir, we have a troll problem reuses the site's own emoji art as monster sprites, no new art needed — each one is composited onto a colour-coded disc so the sprites read as units",
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
@@ -160,13 +160,22 @@
     ],
     "changelog": [
         {
+            "version": "6.5",
+            "date": "2026-08-12",
+            "changes": [
+                "troll problem rebuilt as an actual tower defense — the first version was a horde-survival game wearing the name",
+                "5 maps with fixed troll routes, 10 towers with 3 upgrade tiers each, per-tower targeting priority and a sell button",
+                "30 hand-authored waves, 9 troll types with armour, flight, healing, shields and summons, bosses at 10/20/25/30",
+                "an 8-node crystal upgrade tree that persists between runs, plus a wave telegraph, early-call bonus and 1x/2x/3x speed"
+            ]
+        },
+        {
             "version": "6.0",
             "date": "2026-08-12",
             "changes": [
-                "sir, we have a troll problem — an original horde-defense mini-game",
-                "15 hand-designed weapons, 8 troll types using the site's own emoji art, 5 chapters across 25 waves",
-                "10 passive perks, a between-wave shop, and permanent weapon unlocks that persist across runs",
-                "full local save: mid-run resume plus permanent armory progression"
+                "sir, we have a troll problem — an original mini-game using the site's own emoji art as monster sprites",
+                "full local save: mid-run resume plus permanent progression that never resets",
+                "synthesized sound, no audio files, lazy-loaded so the desktop stays fast"
             ]
         },
         {
