@@ -387,6 +387,9 @@ function tgOnPlayerDeath(g) {
 }
 
 function tgDamageEnemy(g, en, amount, opts) {
+    // a corpse can still be in g.enemies for the rest of the frame, and a
+    // multi-hit weapon will happily stab it again — ignore those blows
+    if (!en || !en.def || en.dead) return;
     opts = opts || {};
     let dmg = amount;
     if (en.def.boss && opts.bossBonus) dmg *= opts.bossBonus;
@@ -417,6 +420,7 @@ function tgDamageEnemy(g, en, amount, opts) {
 }
 
 function tgKillEnemy(g, en) {
+    if (en.dead) return;   // never pay out gold or count a kill twice
     en.dead = true;
     g.kills++;
     g.meta.totalKills++;
@@ -469,13 +473,13 @@ function tgFireWeapon(g, w, dt) {
             if (diff > (def.arc * Math.PI / 180) / 2) return;
             hitCount++;
             const times = def.hits || 1;
-            for (let i = 0; i < times; i++) tgDamageEnemy(g, en, dmg, { bossBonus: def.bossBonus, knockback: def.knockback });
+            for (let i = 0; i < times && !en.dead; i++) tgDamageEnemy(g, en, dmg, { bossBonus: def.bossBonus, knockback: def.knockback });
             if (def.heal) g.player.hp = Math.min(g.player.maxHp, g.player.hp + def.heal);
         });
     } else if (def.type === 'ranged') {
         tgSfx('shoot');
         g.projectiles.push({
-            x: g.player.x, y: g.player.y, targetId: target.uid || (target.uid = Math.random()),
+            x: g.player.x, y: g.player.y,
             target, vx: 0, vy: 0, speed: def.projSpeed, dmg, pierce: def.pierce || 0,
             splash: def.splash, chain: def.chain, chained: 0, slow: def.slow, weaponId: w.id, hitSet: new Set()
         });
@@ -505,6 +509,9 @@ function tgUpdateProjectiles(g, dt) {
         p.y += p.vy * dt / 1000;
         if (d < t.radius + 6 && !p.hitSet.has(t)) {
             p.hitSet.add(t);
+            // a spitter's shot is aimed at Sir mrhakan, and the player is not an
+            // enemy — it has no `def`, so it must never reach tgDamageEnemy
+            if (p.enemyShot) { tgDamagePlayer(g, p.dmg); p.dead = true; return; }
             tgDamageEnemy(g, t, p.dmg, { slow: p.slow });
             if (p.splash) {
                 g.enemies.forEach(en => {
@@ -879,7 +886,6 @@ function tgBuildShop(g) {
 }
 
 function tgRollShop(g) {
-    const owned = new Set(g.weapons.map(w => w.id));
     const pool = g.meta.unlockedWeapons.filter(id => {
         const w = g.weapons.find(x => x.id === id);
         if (w) return w.level < tgWeaponDef(id).maxLevel;
