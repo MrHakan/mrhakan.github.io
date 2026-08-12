@@ -14,8 +14,9 @@
 const TP = {};
 
 // ---------- weapon slots ----------
+// slots 1 and 2 are free; further slots are granted by TP.MILESTONES below,
+// which is the single source of truth for every permanent unlock
 TP.BASE_SLOTS = 2;
-TP.SLOT_UNLOCK_WAVES = { 3: 3, 4: 10, 5: 20 }; // slot number -> wave milestone that grants it (slot 1&2 free)
 
 // ---------- weapons ----------
 // type: 'melee' (arc swing, hits everything in range+arc at once)
