@@ -268,6 +268,7 @@ function appActions() {
         solitaire: openSolitaire,
         jokerz: openBalatro,
         trollproblem: openTrollProblem,
+        becomeuser: openBecomeUser,
         defrag: openDefrag,
         devlog: openDevlog,
         find: openFindFiles,
@@ -393,6 +394,9 @@ function execRunCommand() {
         'troll': openTrollProblem,
         'trollproblem': openTrollProblem,
         'orcs': openTrollProblem,
+        'become': openBecomeUser,
+        'becomeuser': openBecomeUser,
+        'story': openBecomeUser,
         'balatro': openBalatro,
         'poker': openBalatro,
         'sol': openSolitaire,
@@ -1672,6 +1676,13 @@ function createAppWindow(title, opts = {}) {
         }
         playSound('click');
     };
+    // real fullscreen — hands the whole screen to the window and scales any
+    // canvas inside it up to fit. esc gets you out, same as every other app.
+    const fsBtn = document.createElement('button');
+    fsBtn.className = 'ie-titlebar-btn bevel-out fs-btn';
+    fsBtn.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+    fsBtn.title = 'full screen';
+    fsBtn.onclick = () => toggleWindowFullscreen(win);
     const closeBtn = document.createElement('button');
     closeBtn.className = 'ie-titlebar-btn bevel-out';
     closeBtn.textContent = '✕';
@@ -1679,6 +1690,7 @@ function createAppWindow(title, opts = {}) {
     closeBtn.onclick = () => closeAppWindow(id);
     btns.appendChild(minBtn);
     btns.appendChild(maxBtn);
+    btns.appendChild(fsBtn);
     btns.appendChild(closeBtn);
     header.appendChild(btns);
 
@@ -1726,8 +1738,91 @@ function createAppWindow(title, opts = {}) {
     win._cleanup = () => document.removeEventListener('mousemove', onMove);
     return { win, body, id, close: () => closeAppWindow(id) };
 }
+// ---------- fullscreen ----------
+// the browser only grants fullscreen from a user gesture, and only one element
+// at a time, so this always targets the window the button belongs to.
+function toggleWindowFullscreen(win) {
+    if (!win) return;
+    playSound('click');
+    if (document.fullscreenElement === win) { exitWindowFullscreen(); return; }
+    const req = win.requestFullscreen || win.webkitRequestFullscreen || win.msRequestFullscreen;
+    if (!req) { showToast('display', 'your browser will not do fullscreen here'); return; }
+    Promise.resolve(req.call(win)).catch(() => showToast('display', 'fullscreen was refused'));
+}
+function exitWindowFullscreen() {
+    const ex = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (ex && document.fullscreenElement) ex.call(document);
+}
+
+// a canvas has a fixed bitmap size, so going fullscreen has to scale it by
+// hand — css alone cannot grow a replaced element past its intrinsic size
+// without losing the aspect ratio.
+function fitFullscreenCanvas(win) {
+    if (!win) return;
+    win.querySelectorAll('canvas').forEach(cv => {
+        if (!cv.width || !cv.height) return;
+        if (!win.classList.contains('fs-active')) { cv.style.width = ''; cv.style.height = ''; return; }
+        const box = cv.closest('.app-window-body') || win;
+        // shrink the canvas to nothing and measure where the surrounding chrome
+        // actually sits. scrollHeight is useless here — it never reports less
+        // than clientHeight, so on a tall fullscreen box it claims the chrome
+        // fills the whole thing and the canvas gets scaled down to nothing.
+        cv.style.width = '1px';
+        cv.style.height = '1px';
+        const boxRect = box.getBoundingClientRect();
+        const cvRect = cv.getBoundingClientRect();
+        let contentBottom = boxRect.top;
+        for (const child of box.children) {
+            contentBottom = Math.max(contentBottom, child.getBoundingClientRect().bottom);
+        }
+        const above = Math.max(0, cvRect.top - boxRect.top);
+        const below = Math.max(0, contentBottom - cvRect.bottom);
+        const availW = Math.max(80, box.clientWidth - 10);
+        const availH = Math.max(80, box.clientHeight - above - below - 10);
+        const scale = Math.min(availW / cv.width, availH / cv.height);
+        if (!isFinite(scale) || scale <= 0) return;
+        cv.style.width = Math.floor(cv.width * scale) + 'px';
+        cv.style.height = Math.floor(cv.height * scale) + 'px';
+    });
+}
+
+// escape is the browser's universal "leave fullscreen" key, and it is also the
+// site's "close the top window" key. without this, leaving fullscreen also
+// closed the game you were playing.
+let fsLeftAt = 0;
+function fullscreenSwallowsEscape() {
+    return !!document.fullscreenElement || (Date.now() - fsLeftAt) < 500;
+}
+
+function onFullscreenChange() {
+    const fs = document.fullscreenElement;
+    if (!fs) fsLeftAt = Date.now();
+    document.querySelectorAll('.app-window.fs-active').forEach(w => {
+        if (w !== fs) {
+            w.classList.remove('fs-active');
+            const b = w.querySelector('.fs-btn .material-symbols-outlined');
+            if (b) b.textContent = 'fullscreen';
+            fitFullscreenCanvas(w);
+        }
+    });
+    if (fs && fs.classList && fs.classList.contains('app-window')) {
+        fs.classList.add('fs-active');
+        const b = fs.querySelector('.fs-btn .material-symbols-outlined');
+        if (b) b.textContent = 'fullscreen_exit';
+        // let the fullscreen layout settle before measuring it
+        requestAnimationFrame(() => requestAnimationFrame(() => fitFullscreenCanvas(fs)));
+    }
+}
+['fullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(e =>
+    document.addEventListener(e, onFullscreenChange));
+window.addEventListener('resize', () => {
+    const fs = document.fullscreenElement;
+    if (fs && fs.classList && fs.classList.contains('fs-active')) fitFullscreenCanvas(fs);
+});
+
 function closeAppWindow(id) {
     const win = document.getElementById(id);
+    if (win && document.fullscreenElement === win) exitWindowFullscreen();
     if (win && win._cleanup) win._cleanup();
     win?.remove();
     document.getElementById(`${id}-tb`)?.remove();
