@@ -215,7 +215,8 @@ const SITE_MAP = [
     },
     {
         group: 'system', items: [
-            ['display properties', 'openControlPanel()'], ['system properties', 'openSystemProperties()'],
+            ['display properties', 'openControlPanel()'], ['theme maker', 'launchThemeMaker()'],
+            ['system properties', 'openSystemProperties()'],
             ['equalizer', 'openEqualizer()'], ['oscilloscope', 'openOscilloscope()'],
             ['site statistics', 'openSiteStats()'], ['keyboard shortcuts', 'showShortcuts()'],
             ['web ring', 'openWebRing()'], ['rss feed', "window.open('feed.xml','_blank')"]

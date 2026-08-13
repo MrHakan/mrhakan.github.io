@@ -1,0 +1,509 @@
+// ===================================================================
+// mrhakan 98 — upload scanner
+//
+// anything a visitor attaches to a theme (an audio file, a .thm bundle)
+// goes through here before it is allowed anywhere near the desktop or a
+// pull request.
+//
+// this file is deliberately environment-agnostic: the browser runs it to
+// give instant feedback in the theme maker, and .github/scripts/scan-theme.mjs
+// runs the exact same functions in CI on the submitted pull request. one
+// engine, so a file can never pass locally and fail (or worse, pass) in CI
+// for a different reason.
+//
+// the browser pass is a *pre-flight*, not the authority. the authority is
+// the CI pass, which additionally asks virustotal about the file hash when
+// the repo has an api key configured. an api key can never live in a static
+// site, so client-side "virustotal integration" would mean publishing the
+// key — instead the client computes the sha-256 and CI does the lookup.
+// ===================================================================
+
+const SCAN_LIMITS = {
+    audioBytes: 12 * 1024 * 1024,   // 12 MB — enough for a 5 minute mp3 at 320k
+    themeBytes: 256 * 1024,
+    minAudioBytes: 8 * 1024,
+    maxTrailingBytes: 8 * 1024      // junk allowed after the last audio frame
+};
+
+// ---------- byte helpers ----------
+function scanBytesAt(buf, offset, sig) {
+    if (offset + sig.length > buf.length) return false;
+    for (let i = 0; i < sig.length; i++) if (buf[offset + i] !== sig[i]) return false;
+    return true;
+}
+function scanAscii(s) { return Array.from(s, c => c.charCodeAt(0)); }
+function scanIndexOf(buf, sig, from = 0) {
+    outer: for (let i = from; i <= buf.length - sig.length; i++) {
+        for (let j = 0; j < sig.length; j++) if (buf[i + j] !== sig[j]) continue outer;
+        return i;
+    }
+    return -1;
+}
+// latin1 view of the bytes so string searches don't allocate a second copy
+// per pattern and don't choke on invalid utf-8
+function scanText(buf, limit) {
+    const n = Math.min(buf.length, limit || buf.length);
+    let out = '';
+    const CHUNK = 32768;
+    for (let i = 0; i < n; i += CHUNK) {
+        out += String.fromCharCode.apply(null, buf.subarray(i, Math.min(n, i + CHUNK)));
+    }
+    return out;
+}
+
+// the slices of a media file that legitimately carry human-readable text:
+// the leading tag block, the file's own header area, and the trailing tag.
+// a payload hidden anywhere else is not reachable as text by any reader —
+// and the trailing-data and signature checks cover that case instead.
+function scanTextRegions(buf) {
+    const head = Math.max(mp3Id3Size(buf), 0);
+    const end = Math.min(buf.length, Math.max(head, 64 * 1024));
+    const tailStart = Math.max(end, buf.length - 4096);
+    return scanText(buf.subarray(0, end)) + ' ' + scanText(buf.subarray(tailStart));
+}
+
+function scanEntropy(buf, start, end) {
+    const counts = new Uint32Array(256);
+    let n = 0;
+    for (let i = start; i < end && i < buf.length; i++) { counts[buf[i]]++; n++; }
+    if (!n) return 0;
+    let h = 0;
+    for (let i = 0; i < 256; i++) {
+        if (!counts[i]) continue;
+        const p = counts[i] / n;
+        h -= p * Math.log2(p);
+    }
+    return h;
+}
+
+// ===================================================================
+// signature tables
+// ===================================================================
+// a bare 2-4 byte magic number occurs by chance roughly once every few
+// megabytes of compressed audio, so every short signature carries a
+// `confirm` that reads the header fields *behind* it. without that, a scanner
+// that hunts for raw substrings rejects perfectly good music a fraction of a
+// percent of the time, which is worse than not scanning at all.
+const le16 = (b, i) => b[i] | (b[i + 1] << 8);
+const le32 = (b, i) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
+
+const EXECUTABLE_SIGS = [
+    {
+        name: 'Windows PE / DOS executable', sig: scanAscii('MZ'),
+        // a well-formed MZ points at its PE header through e_lfanew. packers
+        // routinely mangle that field, so a PE signature anywhere in the first
+        // few KB behind the MZ counts too — two independent signatures that
+        // close together do not co-occur by chance.
+        confirm: (b, at) => {
+            if (at === 0) return true;
+            if (at + 0x40 > b.length) return false;
+            const off = le32(b, at + 0x3c);
+            if (off > 0 && at + off + 4 <= b.length && scanBytesAt(b, at + off, [0x50, 0x45, 0x00, 0x00])) return true;
+            const near = scanIndexOf(b.subarray(at, Math.min(b.length, at + 4096)), [0x50, 0x45, 0x00, 0x00]);
+            return near >= 0;
+        }
+    },
+    {
+        name: 'Linux ELF executable', sig: [0x7f, 0x45, 0x4c, 0x46],
+        // EI_CLASS 1|2, EI_DATA 1|2, EI_VERSION 1
+        confirm: (b, at) => at + 7 <= b.length && (b[at + 4] === 1 || b[at + 4] === 2) && (b[at + 5] === 1 || b[at + 5] === 2) && b[at + 6] === 1
+    },
+    { name: 'Mach-O executable', sig: [0xcf, 0xfa, 0xed, 0xfe], atStart: true },
+    { name: 'Mach-O executable (32-bit)', sig: [0xce, 0xfa, 0xed, 0xfe], atStart: true },
+    { name: 'Java class / fat binary', sig: [0xca, 0xfe, 0xba, 0xbe], atStart: true },
+    { name: 'Windows shortcut (.lnk)', sig: [0x4c, 0x00, 0x00, 0x00, 0x01, 0x14, 0x02, 0x00] },
+    { name: 'OLE compound file (legacy office macro doc)', sig: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] },
+    { name: 'shell script shebang', sig: scanAscii('#!/'), atStart: true }
+];
+
+// archives embedded *inside* an audio file are the classic polyglot trick:
+// the player sees audio, an archiver sees a payload
+const ZIP_METHODS = new Set([0, 1, 6, 8, 9, 12, 14, 93, 94, 95, 96, 97, 98]);
+const ARCHIVE_SIGS = [
+    {
+        name: 'ZIP archive', sig: [0x50, 0x4b, 0x03, 0x04],
+        // local file header: sane version, known compression method, plausible name length
+        confirm: (b, at) => {
+            if (at + 30 > b.length) return false;
+            const nameLen = le16(b, at + 26);
+            return b[at + 5] <= 6 && b[at + 4] <= 63 && ZIP_METHODS.has(le16(b, at + 8)) && nameLen > 0 && nameLen < 512;
+        }
+    },
+    { name: 'RAR archive', sig: scanAscii('Rar!'), confirm: (b, at) => scanBytesAt(b, at + 4, [0x1a, 0x07]) },
+    { name: '7-Zip archive', sig: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c] },
+    { name: 'CAB archive', sig: scanAscii('MSCF'), confirm: (b, at) => at + 8 <= b.length && le32(b, at + 4) === 0 },
+    { name: 'PDF document', sig: scanAscii('%PDF-'), confirm: (b, at) => at + 6 <= b.length && b[at + 5] >= 0x30 && b[at + 5] <= 0x39 }
+];
+
+// `binarySafe` marks a pattern whose shortest possible match is long enough
+// that a chance hit in megabytes of compressed audio is not a real concern.
+// the rest only run over the parts of a file that legitimately hold text —
+// tags and headers — where an injected string could actually be read by
+// something. mixing the two up is exactly how the ASP `<%` pattern started
+// rejecting real mp3s.
+const SCRIPT_PATTERNS = [
+    { name: 'inline <script> tag', re: /<\s*script[\s>]/i, binarySafe: true },
+    { name: 'PHP open tag', re: /<\?php/i },
+    { name: 'ASP open tag', re: /<%[@=\s]/ },
+    { name: 'javascript: URI', re: /javascript\s*:/i, binarySafe: true },
+    { name: 'vbscript: URI', re: /vbscript\s*:/i, binarySafe: true },
+    { name: 'data:text/html URI', re: /data\s*:\s*text\/html/i, binarySafe: true },
+    { name: 'ActiveXObject / WScript.Shell', re: /(ActiveXObject|WScript\.Shell|Scripting\.FileSystemObject)/i, binarySafe: true },
+    { name: 'powershell invocation', re: /powershell(\.exe)?\s+-(enc|e|nop|w\s|windowstyle)/i, binarySafe: true },
+    { name: 'obfuscated eval(atob(...))', re: /eval\s*\(\s*(atob|unescape|decodeURIComponent|Function)\s*\(/i, binarySafe: true },
+    { name: 'svg onload handler', re: /<\s*svg[^>]*\son\w+\s*=/i },
+    { name: 'iframe injection', re: /<\s*iframe[^>]*src\s*=/i }
+];
+
+function scanSigHit(bytes, s) {
+    if (s.atStart) return (scanBytesAt(bytes, 0, s.sig) && (!s.confirm || s.confirm(bytes, 0))) ? 0 : -1;
+    let from = 0;
+    for (; ;) {
+        const at = scanIndexOf(bytes, s.sig, from);
+        if (at < 0) return -1;
+        if (!s.confirm || s.confirm(bytes, at)) return at;
+        from = at + 1;
+    }
+}
+
+// the industry-standard harmless test file. any scanner that cannot find
+// this one cannot be trusted to find anything, so it is checked explicitly.
+const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
+
+// known-bad hashes. small on purpose — the authoritative reputation check
+// is virustotal in CI. this exists so an already-rejected file cannot be
+// resubmitted, and so the check is testable offline.
+const SCAN_HASH_DENYLIST = new Set([
+    // sha-256 of the eicar test string, the one hash every scanner knows
+    '275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f'
+]);
+
+const AUDIO_CONTAINERS = [
+    { id: 'mp3', name: 'MPEG audio (ID3v2)', ext: ['mp3'], test: b => scanBytesAt(b, 0, scanAscii('ID3')) },
+    { id: 'mp3', name: 'MPEG audio (raw frame)', ext: ['mp3'], test: b => b.length > 2 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0 },
+    { id: 'ogg', name: 'Ogg', ext: ['ogg', 'oga'], test: b => scanBytesAt(b, 0, scanAscii('OggS')) },
+    { id: 'wav', name: 'RIFF WAVE', ext: ['wav'], test: b => scanBytesAt(b, 0, scanAscii('RIFF')) && scanBytesAt(b, 8, scanAscii('WAVE')) },
+    { id: 'flac', name: 'FLAC', ext: ['flac'], test: b => scanBytesAt(b, 0, scanAscii('fLaC')) },
+    { id: 'm4a', name: 'MPEG-4 audio', ext: ['m4a', 'mp4'], test: b => scanBytesAt(b, 4, scanAscii('ftyp')) }
+];
+
+// ===================================================================
+// mp3 structure walker
+//
+// a real mp3 is a chain of frames whose headers agree with each other.
+// walking that chain tells us two things nothing else can: that the file
+// really is audio all the way through, and exactly where the audio stops —
+// which is where an appended payload would begin.
+// ===================================================================
+const MP3_BITRATES = {
+    // [version][layer] -> table. version 1 = MPEG1, 2 = MPEG2/2.5
+    1: { 1: [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448], 2: [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384], 3: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320] },
+    2: { 1: [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256], 2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160], 3: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160] }
+};
+const MP3_RATES = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
+
+function mp3Id3Size(buf) {
+    if (!scanBytesAt(buf, 0, scanAscii('ID3'))) return 0;
+    // syncsafe 28-bit integer, plus the 10 byte header
+    const size = ((buf[6] & 0x7f) << 21) | ((buf[7] & 0x7f) << 14) | ((buf[8] & 0x7f) << 7) | (buf[9] & 0x7f);
+    return size + 10;
+}
+
+function mp3Walk(buf) {
+    let pos = mp3Id3Size(buf);
+    const id3Size = pos;
+    let frames = 0, bytes = 0, lastEnd = pos, sampleRate = 0, resyncs = 0;
+
+    while (pos + 4 <= buf.length) {
+        if (buf[pos] !== 0xff || (buf[pos + 1] & 0xe0) !== 0xe0) {
+            // lost sync. scan forward a little for the next frame; a couple of
+            // resyncs is normal (embedded art, padding), a lot is not.
+            const next = scanIndexOf(buf, [0xff], pos + 1);
+            if (next < 0 || next - pos > 65536) break;
+            resyncs++;
+            if (resyncs > 64) break;
+            pos = next;
+            continue;
+        }
+        const verBits = (buf[pos + 1] >> 3) & 0x03;   // 3=MPEG1, 2=MPEG2, 0=MPEG2.5
+        const layerBits = (buf[pos + 1] >> 1) & 0x03; // 3=LayerI, 2=LayerII, 1=LayerIII
+        const brIndex = (buf[pos + 2] >> 4) & 0x0f;
+        const srIndex = (buf[pos + 2] >> 2) & 0x03;
+        const padding = (buf[pos + 2] >> 1) & 0x01;
+        if (verBits === 1 || layerBits === 0 || brIndex === 0 || brIndex === 15 || srIndex === 3) { pos++; continue; }
+
+        const version = verBits === 3 ? 1 : 2;
+        const layer = 4 - layerBits;
+        const bitrate = (MP3_BITRATES[version][layer] || [])[brIndex];
+        const rate = (MP3_RATES[verBits] || MP3_RATES[0])[srIndex];
+        if (!bitrate || !rate) { pos++; continue; }
+
+        const samples = layer === 1 ? 384 : (layer === 3 && version === 2 ? 576 : 1152);
+        const len = layer === 1
+            ? (Math.floor(12 * bitrate * 1000 / rate) + padding) * 4
+            : Math.floor(samples / 8 * bitrate * 1000 / rate) + padding;
+        if (len < 8 || pos + len > buf.length) break;
+
+        frames++;
+        bytes += len;
+        sampleRate = rate;
+        pos += len;
+        lastEnd = pos;
+    }
+    return { frames, id3Size, audioEnd: lastEnd, sampleRate, resyncs };
+}
+
+// tags that legitimately live after the audio
+function mp3TrailingIsTag(buf, start) {
+    if (scanBytesAt(buf, start, scanAscii('TAG'))) return 128;              // ID3v1
+    if (scanBytesAt(buf, start, scanAscii('APETAGEX'))) return buf.length - start;
+    if (scanBytesAt(buf, start, scanAscii('LYRICSBEGIN'))) return buf.length - start;
+    if (scanBytesAt(buf, start, scanAscii('ID3'))) return buf.length - start; // ID3v2.4 footer
+    return 0;
+}
+
+// ===================================================================
+// hashing
+// ===================================================================
+async function scanSha256(bytes) {
+    if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
+        const buf = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    // node
+    const { createHash } = await import('node:crypto');
+    return createHash('sha256').update(bytes).digest('hex');
+}
+
+// ===================================================================
+// the checks
+// ===================================================================
+function scanCheck(id, name, status, detail) { return { id, name, status, detail }; }
+
+function scanStructuralChecks(bytes, meta) {
+    const checks = [];
+    const name = meta.name || 'file';
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    const isAudio = meta.kind === 'audio';
+    const limit = isAudio ? SCAN_LIMITS.audioBytes : SCAN_LIMITS.themeBytes;
+
+    // 1. size
+    if (bytes.length > limit) {
+        checks.push(scanCheck('size', 'file size', 'fail', `${(bytes.length / 1048576).toFixed(1)} MB exceeds the ${(limit / 1048576).toFixed(1)} MB limit`));
+    } else if (isAudio && bytes.length < SCAN_LIMITS.minAudioBytes) {
+        checks.push(scanCheck('size', 'file size', 'fail', 'too small to be real audio'));
+    } else {
+        checks.push(scanCheck('size', 'file size', 'pass', `${(bytes.length / 1024).toFixed(0)} KB, within limits`));
+    }
+
+    // 2. filename sanity — path traversal and the right-to-left override trick
+    //    that makes "evil‮gpm.exe" render as "evilexe.mpg"
+    const nameIssues = [];
+    if (/[\\/]|\.\./.test(name)) nameIssues.push('path separators or ".."');
+    if (/[\u202A-\u202E\u2066-\u2069]/.test(name)) nameIssues.push('bidirectional override characters (filename spoofing)');
+    if (/[\x00-\x1f]/.test(name)) nameIssues.push('control characters');
+    if ((name.match(/\./g) || []).length > 3) nameIssues.push('suspicious double extension');
+    checks.push(nameIssues.length
+        ? scanCheck('name', 'file name', 'fail', nameIssues.join(', '))
+        : scanCheck('name', 'file name', 'pass', 'plain, no traversal or spoofing'));
+
+    // 3. container sniff — what the bytes say it is, not what the name claims
+    let container = null;
+    if (isAudio) {
+        container = AUDIO_CONTAINERS.find(c => { try { return c.test(bytes); } catch (e) { return false; } }) || null;
+        if (!container) {
+            checks.push(scanCheck('magic', 'container signature', 'fail', 'no recognised audio container header'));
+        } else if (!container.ext.includes(ext)) {
+            checks.push(scanCheck('magic', 'container signature', 'fail', `contents are ${container.name} but the name says .${ext} — extension does not match the bytes`));
+        } else {
+            checks.push(scanCheck('magic', 'container signature', 'pass', `${container.name}, matches the .${ext} extension`));
+        }
+    }
+
+    // 4. executable signatures, each confirmed against its own header fields
+    const foundExe = EXECUTABLE_SIGS
+        .map(s => ({ s, at: scanSigHit(bytes, s) }))
+        .filter(x => x.at >= 0)
+        .map(x => `${x.s.name} @ 0x${x.at.toString(16)}`);
+    checks.push(foundExe.length
+        ? scanCheck('exe', 'executable code', 'fail', foundExe.join('; '))
+        : scanCheck('exe', 'executable code', 'pass', 'no executable headers found'));
+
+    // 5. embedded archives / polyglots
+    const foundArc = ARCHIVE_SIGS
+        .map(s => ({ s, at: scanSigHit(bytes, s) }))
+        .filter(x => x.at >= 0)
+        .map(x => `${x.s.name} @ 0x${x.at.toString(16)}`);
+    checks.push(foundArc.length
+        ? scanCheck('polyglot', 'embedded archive', 'fail', `${foundArc.join('; ')} — a file that is both audio and an archive is a polyglot`)
+        : scanCheck('polyglot', 'embedded archive', 'pass', 'no archive or document payload embedded'));
+
+    // 6. script / markup payloads.
+    //    long, unmistakable patterns sweep the whole file; the short ones only
+    //    look where text actually lives, so compressed audio cannot trip them
+    //    by coincidence.
+    const whole = scanText(bytes, 4 * 1024 * 1024);
+    const textRegions = isAudio ? scanTextRegions(bytes) : whole;
+    const foundScript = SCRIPT_PATTERNS
+        .filter(p => (p.binarySafe || !isAudio) ? p.re.test(whole) : p.re.test(textRegions))
+        .map(p => p.name);
+    checks.push(foundScript.length
+        ? scanCheck('script', 'script payload', 'fail', foundScript.join(', '))
+        : scanCheck('script', 'script payload', 'pass', 'no scripts, markup or shell invocations'));
+
+    // 7. eicar
+    checks.push(whole.includes(EICAR)
+        ? scanCheck('eicar', 'EICAR test signature', 'fail', 'this is the standard antivirus test file')
+        : scanCheck('eicar', 'EICAR test signature', 'pass', 'not the test file'));
+
+    // 8. mp3 structure + appended payload
+    if (isAudio && container && container.id === 'mp3') {
+        const w = mp3Walk(bytes);
+        if (w.frames < 20) {
+            checks.push(scanCheck('frames', 'audio stream', 'fail', `only ${w.frames} valid MPEG frames — this is not a playable mp3`));
+        } else {
+            const seconds = w.sampleRate ? Math.round(w.frames * 1152 / w.sampleRate) : 0;
+            checks.push(scanCheck('frames', 'audio stream', 'pass', `${w.frames.toLocaleString()} valid MPEG frames${seconds ? `, about ${Math.floor(seconds / 60)}m ${seconds % 60}s` : ''}`));
+
+            const trailing = bytes.length - w.audioEnd;
+            const tagLen = mp3TrailingIsTag(bytes, w.audioEnd);
+            const junk = Math.max(0, trailing - tagLen);
+            if (junk > SCAN_LIMITS.maxTrailingBytes) {
+                const h = scanEntropy(bytes, w.audioEnd + tagLen, bytes.length);
+                checks.push(scanCheck('trailing', 'appended data', 'fail',
+                    `${junk.toLocaleString()} bytes after the last audio frame (entropy ${h.toFixed(2)}) — something is riding along behind the music`));
+            } else {
+                checks.push(scanCheck('trailing', 'appended data', 'pass',
+                    junk ? `${junk} bytes of tag padding, normal` : 'nothing appended after the audio'));
+            }
+            if (w.resyncs > 16) {
+                checks.push(scanCheck('resync', 'stream integrity', 'warn', `${w.resyncs} resyncs while walking the stream — the file may be damaged`));
+            }
+        }
+    }
+
+    // 9. id3 tag sanity
+    if (isAudio && bytes.length > 10 && scanBytesAt(bytes, 0, scanAscii('ID3'))) {
+        const id3 = mp3Id3Size(bytes);
+        if (id3 > bytes.length) {
+            checks.push(scanCheck('id3', 'ID3 tag', 'fail', 'tag claims to be larger than the file'));
+        } else if (id3 > 1024 * 1024) {
+            checks.push(scanCheck('id3', 'ID3 tag', 'warn', `${(id3 / 1024).toFixed(0)} KB of tag data — probably embedded artwork, but it is a lot`));
+        } else {
+            checks.push(scanCheck('id3', 'ID3 tag', 'pass', `${id3} byte tag, sane`));
+        }
+    }
+
+    return checks;
+}
+
+// browser-only: ask the audio engine to actually decode it. nothing proves a
+// file is audio like the audio decoder accepting it.
+async function scanDecodeAudio(bytes) {
+    if (typeof AudioContext === 'undefined' && typeof webkitAudioContext === 'undefined') return null;
+    const Ctx = typeof AudioContext !== 'undefined' ? AudioContext : webkitAudioContext;
+    let ctx;
+    try {
+        ctx = new Ctx();
+        // decodeAudioData detaches the buffer, so hand it a copy
+        const copy = bytes.slice().buffer;
+        const audio = await ctx.decodeAudioData(copy);
+        const dur = audio.duration;
+        await ctx.close();
+        if (!isFinite(dur) || dur < 1) return scanCheck('decode', 'audio decode', 'fail', 'decoded to less than a second of audio');
+        if (dur > 900) return scanCheck('decode', 'audio decode', 'fail', `${Math.round(dur)}s is longer than the 15 minute ceiling`);
+        return Object.assign(scanCheck('decode', 'audio decode', 'pass', `decoded cleanly — ${Math.floor(dur / 60)}m ${Math.round(dur % 60)}s, ${audio.numberOfChannels}ch @ ${audio.sampleRate}Hz`), { duration: dur });
+    } catch (e) {
+        try { if (ctx) await ctx.close(); } catch (_) { }
+        return scanCheck('decode', 'audio decode', 'fail', 'the browser audio engine refused to decode this file');
+    }
+}
+
+// ===================================================================
+// the public entry point
+// ===================================================================
+async function scanFile(bytes, meta = {}) {
+    const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const checks = scanStructuralChecks(bytes, meta);
+
+    const sha256 = await scanSha256(bytes);
+    checks.push(SCAN_HASH_DENYLIST.has(sha256)
+        ? scanCheck('hash', 'reputation', 'fail', 'this exact file is on the denylist')
+        : scanCheck('hash', 'reputation', 'pass', `sha-256 ${sha256.slice(0, 16)}… not on the denylist`));
+
+    let duration = 0;
+    if (meta.kind === 'audio' && meta.decode !== false) {
+        const d = await scanDecodeAudio(bytes);
+        if (d) { checks.push(d); duration = d.duration || 0; }
+    }
+
+    const failed = checks.filter(c => c.status === 'fail');
+    const warned = checks.filter(c => c.status === 'warn');
+    return {
+        verdict: failed.length ? 'blocked' : warned.length ? 'suspicious' : 'clean',
+        sha256,
+        bytes: bytes.length,
+        duration,
+        checks,
+        failed: failed.length,
+        warned: warned.length,
+        passed: checks.length - failed.length - warned.length,
+        ms: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0)
+    };
+}
+
+// themes are json, so they get a text-shaped pass instead of a byte-shaped one
+function scanThemeJson(text) {
+    const checks = [];
+    const bytes = typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(text) : Buffer.from(text, 'utf8');
+
+    checks.push(bytes.length > SCAN_LIMITS.themeBytes
+        ? scanCheck('size', 'file size', 'fail', `${(bytes.length / 1024).toFixed(0)} KB exceeds the ${SCAN_LIMITS.themeBytes / 1024} KB limit`)
+        : scanCheck('size', 'file size', 'pass', `${(bytes.length / 1024).toFixed(1)} KB`));
+
+    let parsed = null;
+    try { parsed = JSON.parse(text); checks.push(scanCheck('json', 'json syntax', 'pass', 'parses cleanly')); }
+    catch (e) { checks.push(scanCheck('json', 'json syntax', 'fail', String(e.message).slice(0, 120))); }
+
+    const found = SCRIPT_PATTERNS.filter(p => p.re.test(text)).map(p => p.name);
+    checks.push(found.length
+        ? scanCheck('script', 'script payload', 'fail', found.join(', '))
+        : scanCheck('script', 'script payload', 'pass', 'no scripts or markup in any string'));
+
+    if (/[\u202A-\u202E\u2066-\u2069]/.test(text)) {
+        checks.push(scanCheck('bidi', 'text direction', 'fail', 'bidirectional override characters — text can be made to display as something it is not'));
+    } else {
+        checks.push(scanCheck('bidi', 'text direction', 'pass', 'no direction-override characters'));
+    }
+
+    if (parsed) {
+        // themeValidate is the schema authority; anything it strips is reported
+        const validate = (typeof themeValidate === 'function') ? themeValidate : null;
+        if (validate) {
+            const res = validate(parsed);
+            if (!res.ok) {
+                checks.push(scanCheck('schema', 'theme schema', 'fail', res.errors.join('; ')));
+            } else if (res.warnings.length) {
+                checks.push(scanCheck('schema', 'theme schema', 'warn', `${res.warnings.length} field(s) stripped: ${res.warnings.slice(0, 3).join('; ')}`));
+            } else {
+                const n = Object.keys(res.theme.nodes).length;
+                checks.push(scanCheck('schema', 'theme schema', 'pass', `${n} node(s), ${res.theme.events.length} event(s), everything recognised`));
+            }
+        }
+    }
+
+    const failed = checks.filter(c => c.status === 'fail');
+    const warned = checks.filter(c => c.status === 'warn');
+    return {
+        verdict: failed.length ? 'blocked' : warned.length ? 'suspicious' : 'clean',
+        bytes: bytes.length, checks,
+        failed: failed.length, warned: warned.length, passed: checks.length - failed.length - warned.length
+    };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        SCAN_LIMITS, EICAR, scanFile, scanThemeJson, scanSha256, scanStructuralChecks,
+        mp3Walk, scanEntropy, SCAN_HASH_DENYLIST
+    };
+}

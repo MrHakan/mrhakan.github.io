@@ -2,6 +2,30 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
+            "id": "theme-maker",
+            "title": "make your own theme, publish it, and bring a song",
+            "date": "2026-08-13",
+            "tags": [
+                "update",
+                "big one",
+                "indieweb"
+            ],
+            "body": [
+                "the site had seven wallpapers. that was the whole customisation story. now there is a theme maker in start → settings, and it goes considerably further than seven wallpapers.",
+                "the desktop is broken into 29 named nodes — the taskbar, the start button, the title bar, the title bar's text, the raised bevel, the sunken bevel, the scrollbar thumb, the marquee, the visitor counter, the toast balloon, the crt overlay, the cursor. you pick a node from the tree on the left and set whatever you want on it: colour, background, gradient, font, size, letter spacing, glow, corner radius, shadow, opacity, filter. live preview is on by default and it paints the actual site, not a little mockup, so you are always looking at the real thing at real size.",
+                "if starting from nothing sounds like work, there is a box on the colours tab where you pick one colour and a mood — dark, light, neon, paper — and it builds an entire coherent theme out of it in one click. then you pull it apart.",
+                "the part i had the most fun with is events. a theme can do things on a schedule. eight triggers: when it turns on, once after a delay, every n seconds, daily at a set time, on a date every year, on a weekday, after n seconds of you not touching anything, and — the good one — only between two times, which fires on the way in and undoes itself on the way out. the bundled 'after dark' theme uses that to dim the whole desktop at 20:00 and bring it back at 06:00 without anybody clicking anything.",
+                "the actions are a fixed list: set a variable, restyle a node, pop a toast, open a dialog, rewrite the marquee, swap the wallpaper, run a screen effect for n seconds, play a system sound, change the tab title, or undo everything the events have done. that list is the whole vocabulary. there is no field anywhere in a theme file that can hold javascript, and css values go through a denylist that kills @import, expression(), javascript: urls, comment escapes, and url() of any kind. a theme cannot reference an external resource at all, which means a published theme cannot phone home or count who is wearing it.",
+                "themes can also bring one song. attach an mp3, it joins the winamp playlist while the theme is active, and if you publish the theme it becomes a permanent track on the site.",
+                "which brings us to the part i actually had to think about. letting strangers upload binaries to my website is how you end up hosting somebody's malware. so everything gets scanned.",
+                "the scanner is one engine that runs in two places. in your browser it checks the file the instant you drop it in — size, filename sanity (path traversal, the right-to-left override trick that makes evil.exe render as a .mpg, double extensions), the container's magic bytes against the extension you claim, embedded executable headers for windows, linux and macos, embedded archives and polyglots, script and markup payloads, the eicar test signature, a hash denylist, and then it walks the mp3 frame chain end to end to prove the whole file is really audio and to find exactly where the audio stops — because that is where an appended payload would start. finally it hands the bytes to the browser's own audio decoder, which is the least foolable test there is.",
+                "then the same engine runs again in CI on your pull request, which is the pass that actually counts, and it does two things the browser cannot. it verifies the uploaded file hashes to the sha-256 your theme recorded, so swapping the file after it was scanned does not work. and it asks virustotal about that hash. that lookup can only happen server-side — a static site cannot hold an api key without publishing it to everyone — so the browser computes the hash and the server does the asking.",
+                "getting the scanner right was more interesting than i expected. my first version searched the raw bytes for an asp open tag, which is three characters. three characters turn up by chance in eight megabytes of compressed audio essentially every time, so it rejected every real song on the site. a scanner that cries wolf on genuine files is worse than no scanner. now the long unmistakable patterns sweep the whole file and the short ones only look where text legitimately lives, and every short magic number carries a confirmation that reads the header fields behind it — a zip signature has to be followed by a plausible compression method and filename length before it counts.",
+                "publishing works exactly like the guestbook: it opens github with your theme file filled in, you click create pull request, CI comments the scan report on it, and once it is merged your theme is in the gallery for everybody. remix anyone else's from that same gallery.",
+                "five presets ship with it. hot dog stand is in there, obviously."
+            ]
+        },
+        {
             "id": "troll-problem-td",
             "title": "the troll problem was not, in fact, a tower defense",
             "date": "2026-08-12",

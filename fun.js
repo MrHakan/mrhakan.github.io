@@ -41,6 +41,8 @@ const ACHIEVEMENTS = {
     troll_wave_20: { icon: '🏰', name: 'gates unbreached', desc: 'cleared wave 20 in troll problem' },
     troll_wave_25: { icon: '⚔️', name: 'throne room', desc: 'cleared wave 25 in troll problem' },
     troll_king_slain: { icon: '👑', name: 'problem solved', desc: 'defeated the troll king' },
+    theme_maker: { icon: '🎨', name: 'interior decorator', desc: 'opened the theme maker' },
+    theme_publisher: { icon: '📮', name: 'shipped it', desc: 'sent a theme off as a pull request' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
