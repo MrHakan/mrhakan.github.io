@@ -388,6 +388,38 @@ function openTrollProblem() {
 }
 
 // ===================================================================
+// theme maker — the editor is only useful once, so it loads on demand.
+// the engine itself (themes.js) is not lazy: it has to run at boot to put
+// the visitor's active theme back on the desktop.
+// ===================================================================
+let tmLoading = null;
+function tmLoadScripts() {
+    if (window.openThemeMaker) return Promise.resolve();
+    if (tmLoading) return tmLoading;
+    const load = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = res;
+        s.onerror = () => rej(new Error(src));
+        document.head.appendChild(s);
+    });
+    tmLoading = load('theme-scan.js').then(() => load('theme-maker.js'));
+    return tmLoading;
+}
+
+function launchThemeMaker() {
+    if (window.openThemeMaker) { openThemeMaker(); return; }
+    const { body, win } = createAppWindow('theme maker', { icon: 'palette', width: 320 });
+    body.innerHTML = '<div class="bj-loading">mixing paint...</div>';
+    tmLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        openThemeMaker();
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">could not load the theme maker bradar</div>';
+    });
+}
+
+// ===================================================================
 // screensavers — five of them, picked in display properties
 // ===================================================================
 const SCREENSAVERS = {
@@ -821,6 +853,7 @@ function siteSearchIndex() {
         ['task manager', 'program', () => openTaskManager(), 'processes kill ctrl alt del'],
         ['defrag.exe', 'program', () => openDefrag(), 'disk defragmenter drive c blocks'],
         ['display properties', 'settings', () => openControlPanel(), 'wallpaper theme screensaver background'],
+        ['theme maker', 'settings', () => launchThemeMaker(), 'theme editor customize colours css skin publish share events schedule music upload scanner'],
         ['system properties', 'settings', () => openSystemProperties(), 'specs about pc'],
         ['equalizer', 'settings', () => openEqualizer(), 'audio bands sound'],
         ['oscilloscope', 'settings', () => openOscilloscope(), 'waveform visualiser'],

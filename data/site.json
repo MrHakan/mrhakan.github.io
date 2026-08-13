@@ -88,6 +88,8 @@
             "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
             "its sound effects and music are synthesized in-browser — zero audio files, zero licensing to think about",
             "sir, we have a troll problem reuses the site's own emoji art as monster sprites, no new art needed — each one is composited onto a colour-coded disc so the sprites read as units",
+            "themes are data, never code — a node registry decides what is customisable and everything else is stripped on load",
+            "uploads are scanned by one engine that runs in your browser and again in CI, so a file cannot pass locally and be judged differently on the server",
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
@@ -159,6 +161,18 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "7.0",
+            "date": "2026-08-13",
+            "changes": [
+                "theme maker — customise 29 named parts of the desktop, one property at a time, with the whole site repainting as you type",
+                "themes can carry scheduled events: fire on a clock, an interval, a date, a weekday, an idle timer, or only inside a time window",
+                "themes can bring a song, which joins the winamp playlist while the theme is on",
+                "publish sends a theme off as a pull request, the same way the guestbook works — merged ones show up in everyone's gallery",
+                "every uploaded file is scanned in the browser and again in CI, with a virustotal reputation lookup on the server side",
+                "5 built-in presets to start from, plus a one-click generator that builds a whole palette from a single colour"
+            ]
+        },
         {
             "version": "6.5",
             "date": "2026-08-12",

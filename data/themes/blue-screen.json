@@ -1,0 +1,182 @@
+{
+    "format": "mrhakan-theme/1",
+    "id": "blue-screen",
+    "name": "blue screen of life",
+    "author": "mrhakan",
+    "authorUrl": "https://mrhakan.github.io/",
+    "description": "the crash screen, but as a place you actually want to be. goes full stop-error every five minutes.",
+    "created": "2026-08-13",
+    "vars": {
+        "--primary-color": "#c8d8ff",
+        "--accent-color": "#0000aa"
+    },
+    "nodes": {
+        "desktop": {
+            "bg": "#0000aa",
+            "bgImage": "none",
+            "color": "#dce6ff",
+            "font": "Consolas, \"Lucida Console\", monospace"
+        },
+        "window": {
+            "bg": "#0000aa",
+            "shadow": "0 0 0 2px #dce6ff"
+        },
+        "windowBody": {
+            "bg": "#0000aa",
+            "color": "#dce6ff",
+            "font": "Consolas, \"Lucida Console\", monospace"
+        },
+        "titleBar": {
+            "bg": "#dce6ff",
+            "bgImage": "none"
+        },
+        "titleText": {
+            "color": "#0000aa",
+            "font": "Consolas, \"Lucida Console\", monospace",
+            "transform": "uppercase",
+            "spacing": "1"
+        },
+        "taskbar": {
+            "bg": "#000088",
+            "color": "#dce6ff"
+        },
+        "taskbarBtn": {
+            "bg": "#0000aa",
+            "color": "#dce6ff"
+        },
+        "clock": {
+            "color": "#dce6ff",
+            "font": "Consolas, \"Lucida Console\", monospace"
+        },
+        "startButton": {
+            "bg": "#dce6ff",
+            "color": "#0000aa",
+            "font": "Consolas, \"Lucida Console\", monospace"
+        },
+        "startMenu": {
+            "bg": "#0000aa"
+        },
+        "startItem": {
+            "color": "#dce6ff",
+            "font": "Consolas, \"Lucida Console\", monospace"
+        },
+        "startItemHover": {
+            "bg": "#dce6ff",
+            "color": "#0000aa"
+        },
+        "bevelOut": {
+            "bevelLight": "#6f8fd0",
+            "bevelDark": "#000055"
+        },
+        "bevelIn": {
+            "bevelLight": "#000055",
+            "bevelDark": "#6f8fd0"
+        },
+        "heading": {
+            "color": "#ffffff",
+            "font": "Consolas, \"Lucida Console\", monospace",
+            "transform": "uppercase"
+        },
+        "marquee": {
+            "color": "#dce6ff",
+            "font": "Consolas, \"Lucida Console\", monospace"
+        },
+        "counter": {
+            "bg": "#000055",
+            "color": "#dce6ff",
+            "textShadow": "0 0 6px #6f8fd0"
+        },
+        "link": {
+            "color": "#ffffff"
+        },
+        "selection": {
+            "bg": "#dce6ff",
+            "color": "#0000aa"
+        },
+        "icons": {
+            "color": "#dce6ff"
+        },
+        "scrollThumb": {
+            "bg": "#000088"
+        },
+        "scrollTrack": {
+            "bg": "#000055",
+            "bgImage": "none"
+        },
+        "crt": {
+            "opacity": "0.4"
+        }
+    },
+    "events": [
+        {
+            "id": "ev1",
+            "name": "boot message",
+            "trigger": {
+                "type": "activate"
+            },
+            "actions": [
+                {
+                    "type": "marquee",
+                    "text": "::: A PROBLEM HAS BEEN DETECTED AND THE DESKTOP HAS BEEN SHUT DOWN TO PREVENT DAMAGE TO YOUR VIBES :::"
+                },
+                {
+                    "type": "sound",
+                    "id": "error"
+                }
+            ]
+        },
+        {
+            "id": "ev2",
+            "name": "stop error every five minutes",
+            "trigger": {
+                "type": "interval",
+                "seconds": 300
+            },
+            "actions": [
+                {
+                    "type": "setNode",
+                    "node": "desktop",
+                    "prop": "bg",
+                    "value": "#000000"
+                },
+                {
+                    "type": "toast",
+                    "title": "STOP: 0x0000007B",
+                    "text": "INACCESSIBLE_VIBES_DEVICE"
+                },
+                {
+                    "type": "sound",
+                    "id": "error"
+                }
+            ]
+        },
+        {
+            "id": "ev3",
+            "name": "recover from the stop error",
+            "trigger": {
+                "type": "interval",
+                "seconds": 308
+            },
+            "actions": [
+                {
+                    "type": "reset"
+                }
+            ]
+        },
+        {
+            "id": "ev4",
+            "name": "idle screen burn",
+            "trigger": {
+                "type": "idle",
+                "seconds": 120
+            },
+            "actions": [
+                {
+                    "type": "effect",
+                    "id": "blur-mode",
+                    "seconds": 3
+                }
+            ]
+        }
+    ]
+}

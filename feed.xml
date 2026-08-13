@@ -8,6 +8,36 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v7.0 — theme maker</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v7.0</guid>
+      <pubDate>Thu, 13 Aug 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[
+        Build your own theme and publish it. The desktop is split into 29 named
+        nodes — taskbar, start button, title bar, bevels, scrollbar, marquee,
+        counter, cursor — and each one takes colour, background, gradient, font,
+        size, spacing, glow, radius, shadow, opacity and filter. Live preview
+        paints the real site as you type. A one-click generator builds a whole
+        coherent palette from a single colour.
+        Themes can also run on a schedule: eight triggers including a time
+        window that applies on the way in and undoes itself on the way out, plus
+        a fixed vocabulary of actions. A theme is data, never code — no field in
+        the format can carry JavaScript, and CSS values are checked against a
+        denylist that blocks @import, expression(), javascript: URLs and url() of
+        any kind, so a published theme cannot reference anything external.
+        A theme can bring one song, which joins the Winamp playlist while it is
+        active. Every upload is scanned by one engine that runs in the browser
+        and again in CI: magic bytes vs. claimed extension, embedded executables
+        and archives, script payloads, filename spoofing, the EICAR signature,
+        full MP3 frame-chain integrity, appended-data detection, and the
+        browser's own audio decoder. CI additionally verifies the uploaded file
+        hashes to the value the theme recorded and asks VirusTotal about it.
+        Publishing opens a pull request, same as the guestbook. Five presets
+        ship with it, hot dog stand included.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v6.5 — the troll problem is an actual tower defense now</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v6.5</guid>

@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             tracks = data;
             initPlaylist();
+            // this replaced the array, so an active theme has to put its own
+            // track back on the end
+            if (typeof themeOnTracksLoaded === 'function') themeOnTracksLoaded();
         })
         .catch(err => console.error('Error loading music:', err));
 
@@ -245,6 +248,7 @@ function appActions() {
         snow: toggleSnow,
         confetti: () => { launchConfetti(); playSound('ding'); },
         control: openControlPanel,
+        thememaker: launchThemeMaker,
         sysprops: openSystemProperties,
         equalizer: openEqualizer,
         scope: openOscilloscope,
@@ -355,6 +359,9 @@ function execRunCommand() {
         'bin': openRecycleBin,
         'trash': openRecycleBin,
         'wallpaper': openControlPanel,
+        'theme': launchThemeMaker,
+        'themes': launchThemeMaker,
+        'skin': launchThemeMaker,
         'eq': openEqualizer,
         'scope': openOscilloscope,
         'achievements': openAchievements,
