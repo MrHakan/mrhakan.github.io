@@ -1,8 +1,8 @@
 {
     "status": {
-        "text": "lost another evening to my own poker game",
+        "text": "drawing sigils at a stranger on the internet",
         "emoji": "🛠️",
-        "updated": "2026-08-08"
+        "updated": "2026-08-13"
     },
     "now": {
         "updated": "2026-08-07",
@@ -163,6 +163,20 @@
     ],
     "changelog": [
         {
+            "version": "8.0",
+            "date": "2026-08-13",
+            "changes": [
+                "multiplayer — lobbies with five letter invite codes, an invite link, chat and a ready check, running peer to peer over webrtc so it works straight off github pages with no server",
+                "wizardz 98 — a 1v1 wizard duel where the only way to cast anything is to draw its sigil on the arena",
+                "50 spells across 10 elements, each with its own sigil, checked in CI so no two of them look alike to the recogniser",
+                "customisable wizards: hats, beards, robes, staffs, familiars, auras and titles, all drawn in code and carried into the duel with you",
+                "a grimoire with every sigil, a practice pad that scores your drawing, and an eight slot quick reference strip",
+                "practice mode against a machine wizard on three difficulties, down the same code path as a real match",
+                "the netplay layer is generic — future games register themselves and get the lobby for free",
+                "an optional self-hosted websocket relay for networks that block p2p (server/relay.js, no dependencies)"
+            ]
+        },
+        {
             "version": "7.1",
             "date": "2026-08-13",
             "changes": [
@@ -282,5 +296,9 @@
                 "the shithole opens its doors"
             ]
         }
-    ]
+    ],
+    "multiplayer": {
+        "relay": "",
+        "note": "optional websocket relay for the lobby, see server/relay.js. empty means peer to peer only."
+    }
 }

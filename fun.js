@@ -521,6 +521,8 @@ const SHORTCUTS = [
     ['type: solitaire, defrag', 'the good windows programs'],
     ['type: jokerz or balatro', 'the poker roguelike'],
     ['type: troll or orcs', 'sir, we have a troll problem'],
+    ['type: wizardz or duel', 'draw spells at another wizard'],
+    ['type: lobby', 'the multiplayer lobby'],
     ['right-click desktop', 'context menu']
 ];
 function showShortcuts() {
@@ -572,6 +574,9 @@ function initExtraSecrets() {
         balatro: () => openBalatro(),
         troll: () => openTrollProblem(),
         orcs: () => openTrollProblem(),
+        wizardz: () => openWizardz(),
+        duel: () => openWizardz(),
+        lobby: () => openNetplay(),
         defrag: () => openDefrag(),
         roast: roastMe,
         fortune: showFortune,

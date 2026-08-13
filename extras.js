@@ -418,6 +418,55 @@ function openBecomeUser() {
 }
 
 // ===================================================================
+// wizardz 98 + netplay — the multiplayer half of the site, loaded on
+// demand like every other game. netplay.js comes first: the lobby owns
+// the game catalogue, and wizardz registers itself into it on arrival.
+// ===================================================================
+let npLoading = null;
+function npLoadScripts() {
+    if (window.Netplay) return Promise.resolve();
+    if (npLoading) return npLoading;
+    npLoading = new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'games/netplay.js';
+        s.onload = res;
+        s.onerror = () => rej(new Error('games/netplay.js'));
+        document.head.appendChild(s);
+    });
+    return npLoading;
+}
+
+// the lobby on its own — pick a game, make a code, hand it to a friend
+function openNetplay(opts) {
+    if (window.Netplay) { Netplay.openLobby(opts || {}); return; }
+    const { body, win } = createAppWindow('multiplayer lobby', { icon: 'group', width: 320 });
+    body.innerHTML = '<div class="bj-loading">dialling up...</div>';
+    npLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        Netplay.openLobby(opts || {});
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">could not load the netplay files bradar</div>';
+    });
+}
+
+function wzLoadScripts() {
+    if (window.startWizardz) return Promise.resolve();
+    return npLoadScripts().then(() => Netplay.loadGame('wizardz'));
+}
+
+function openWizardz(mode) {
+    if (window.startWizardz) { startWizardz(mode); return; }
+    const { body, win } = createAppWindow('wizardz 98', { icon: 'auto_fix_high', width: 320 });
+    body.innerHTML = '<div class="bj-loading">sharpening quills...</div>';
+    wzLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        startWizardz(mode);
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">could not load the spellbook bradar</div>';
+    });
+}
+
+// ===================================================================
 // theme maker — the editor is only useful once, so it loads on demand.
 // the engine itself (themes.js) is not lazy: it has to run at boot to put
 // the visitor's active theme back on the desktop.
@@ -863,6 +912,8 @@ function siteSearchIndex() {
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
         ['become user', 'game', () => openBecomeUser(), 'interactive drama story branching choices adventure narrative visual novel qte flowchart endings 1999 y2k androids'],
+        ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire'],
+        ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],
         ['snake', 'game', () => openSnake(), 'nokia arcade'],

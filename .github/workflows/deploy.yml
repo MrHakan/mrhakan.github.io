@@ -1,5 +1,10 @@
 name: Deploy to GitHub Pages
 
+# The site is plain files, so "build" is really just "upload the folder".
+# The checks in games-ci.yml run first: the multiplayer games are the one
+# part of this site that can break silently, and a broken sigil is not
+# something you want to find out about from a stranger in the guestbook.
+
 on:
     push:
         branches: [main]
@@ -15,8 +20,12 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
+    verify:
+        uses: ./.github/workflows/games-ci.yml
+
     build:
         runs-on: ubuntu-latest
+        needs: verify
         steps:
             - name: Checkout
               uses: actions/checkout@v4
