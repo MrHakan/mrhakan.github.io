@@ -26,6 +26,8 @@ const PRECACHE = [
     '/games/balatro.js',
     '/games/troll-problem-data.js',
     '/games/troll-problem.js',
+    '/games/become-user-data.js',
+    '/games/become-user.js',
     '/links.html',
     '/guestbook.html',
     '/404.html',

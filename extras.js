@@ -388,6 +388,36 @@ function openTrollProblem() {
 }
 
 // ===================================================================
+// become user — branching interactive drama, lazy-loaded like the rest
+// ===================================================================
+let buLoading = null;
+function buLoadScripts() {
+    if (window.startBecomeUser) return Promise.resolve();
+    if (buLoading) return buLoading;
+    const load = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = res;
+        s.onerror = () => rej(new Error(src));
+        document.head.appendChild(s);
+    });
+    buLoading = load('games/become-user-data.js').then(() => load('games/become-user.js'));
+    return buLoading;
+}
+
+function openBecomeUser() {
+    if (window.startBecomeUser) { startBecomeUser(); return; }
+    const { body, win } = createAppWindow('become user', { icon: 'movie', width: 320 });
+    body.innerHTML = '<div class="bj-loading">booting 1999...</div>';
+    buLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        startBecomeUser();
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">could not load the story files bradar</div>';
+    });
+}
+
+// ===================================================================
 // theme maker — the editor is only useful once, so it loads on demand.
 // the engine itself (themes.js) is not lazy: it has to run at boot to put
 // the visitor's active theme back on the desktop.
@@ -832,6 +862,7 @@ function siteSearchIndex() {
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
+        ['become user', 'game', () => openBecomeUser(), 'interactive drama story branching choices adventure narrative visual novel qte flowchart endings 1999 y2k androids'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],
         ['snake', 'game', () => openSnake(), 'nokia arcade'],

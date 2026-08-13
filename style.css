@@ -5705,3 +5705,770 @@ body.disco-floor::after {
 .tm-window .tm-c-name {
     color: #000 !important;
 }
+
+/* ===================================================================
+   fullscreen windows
+   =================================================================== */
+.fs-btn .material-symbols-outlined {
+    font-size: 14px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* :fullscreen paints its own black backdrop and ignores the window's
+   position, so the frame has to be rebuilt as a plain full-viewport column */
+.app-window.fs-active {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    display: flex !important;
+    flex-direction: column;
+    z-index: 2147483647;
+}
+
+.app-window.fs-active .app-window-header {
+    flex: 0 0 auto;
+    cursor: default;
+}
+
+.app-window.fs-active .app-window-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* the canvas is sized in js so it keeps its aspect ratio; these just stop the
+   inherited max-width from fighting the computed size */
+.app-window.fs-active canvas {
+    max-width: none;
+    margin: 0 auto;
+    flex: 0 0 auto;
+}
+
+/* dom-based games (jokerz 98, solitaire) just get the extra room, but capped
+   and centred so they do not stretch into something unrecognisable on a wide
+   monitor. the games tag their own window body with these classes. */
+.app-window.fs-active .app-window-body.bj-body,
+.app-window.fs-active .app-window-body.sol-body,
+.app-window.fs-active .app-window-body.tg-body,
+.app-window.fs-active .app-window-body.bu-body {
+    align-items: center;
+}
+
+.app-window.fs-active .bj-body>*,
+.app-window.fs-active .sol-body>*,
+.app-window.fs-active .tg-body>*,
+.app-window.fs-active .bu-body>* {
+    width: 100%;
+    max-width: 1500px;
+    flex-shrink: 0;
+}
+
+.app-window.fs-active .tg-body>* {
+    max-width: 1150px;
+}
+
+@media (max-width: 767px) {
+    .app-window.fs-active {
+        width: 100vw !important;
+    }
+}
+
+/* ===================================================================
+   become user — interactive drama
+   =================================================================== */
+.bu-body {
+    background: #0d0d14;
+    color: #d8dde6;
+    font-family: "MS Sans Serif", Tahoma, sans-serif;
+    padding: 6px;
+}
+
+.bu-canvas {
+    display: block;
+    margin: 0 auto;
+    background: #000;
+    max-width: 100%;
+    cursor: pointer;
+}
+
+/* ---- hud ---- */
+.bu-hud {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 3px 4px 5px;
+    font-size: 10px;
+    color: #9aa4b2;
+}
+
+.bu-ch {
+    font-weight: bold;
+    color: #d8dde6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bu-date {
+    font-family: "Courier New", monospace;
+    color: #7c8798;
+}
+
+.bu-pov {
+    font-weight: bold;
+    margin-left: auto;
+}
+
+.bu-stats {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.bu-stat {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.bu-stat-label {
+    font-size: 8px;
+    color: #7c8798;
+    letter-spacing: 0.4px;
+}
+
+.bu-stat-bar {
+    display: inline-block;
+    width: 42px;
+    height: 6px;
+    background: #23283a;
+    border: 1px solid #3a4157;
+}
+
+.bu-stat-bar>span {
+    display: block;
+    height: 100%;
+    transition: width .35s;
+}
+
+/* ---- dialogue ---- */
+.bu-stage {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bu-box {
+    background: #14161f;
+    border-color: #2a3042;
+    padding: 8px 10px;
+    min-height: 62px;
+    cursor: pointer;
+}
+
+.bu-speaker {
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+}
+
+.bu-text,
+.bu-prompt {
+    font-size: 12px;
+    line-height: 1.55;
+    color: #e2e7f0;
+}
+
+.bu-prompt {
+    color: #ffd76a;
+}
+
+.bu-text.typing::after,
+.bu-prompt.typing::after {
+    content: '▌';
+    opacity: .7;
+}
+
+.bu-next {
+    text-align: right;
+    font-size: 9px;
+    color: #6c7688;
+    margin-top: 4px;
+}
+
+/* ---- choices ---- */
+.bu-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bu-choice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    background: #1b1f2c;
+    color: #dfe5ef;
+    padding: 6px 8px;
+    font-family: "MS Sans Serif", Tahoma, sans-serif;
+    font-size: 11.5px;
+    border-top: 2px solid #3d4459;
+    border-left: 2px solid #3d4459;
+    border-right: 2px solid #0a0c12;
+    border-bottom: 2px solid #0a0c12;
+    box-shadow: none;
+}
+
+.bu-choice:hover {
+    background: #262c3d;
+}
+
+.bu-choice:active {
+    transform: translateY(1px);
+}
+
+.bu-key {
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+    line-height: 15px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: bold;
+    color: #0d0d14;
+    background: #ffd76a;
+}
+
+.bu-ctext {
+    flex: 1;
+}
+
+.bu-tag {
+    flex: 0 0 auto;
+    font-size: 9px;
+    color: #7c8798;
+    font-style: italic;
+}
+
+/* ---- qte ---- */
+.bu-qte {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: 4px;
+}
+
+.bu-qkey {
+    min-width: 34px;
+    padding: 6px 8px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: bold;
+    background: #1b1f2c;
+    border: 2px solid #3d4459;
+    color: #7c8798;
+}
+
+.bu-qkey.now {
+    background: #ffd76a;
+    color: #0d0d14;
+    border-color: #fff;
+    transform: scale(1.14);
+}
+
+.bu-qkey.hit {
+    background: #2b5c33;
+    color: #9df0b0;
+    border-color: #4c8f57;
+}
+
+.bu-qte-hint {
+    text-align: center;
+    font-size: 9px;
+    color: #6c7688;
+}
+
+.bu-qte-touch {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.bu-qbtn {
+    background: #1b1f2c;
+    color: #dfe5ef;
+    padding: 6px 12px;
+    font-size: 14px;
+    border-top: 2px solid #3d4459;
+    border-left: 2px solid #3d4459;
+    border-right: 2px solid #0a0c12;
+    border-bottom: 2px solid #0a0c12;
+}
+
+/* ---- inspect ---- */
+.bu-found {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: #101a14;
+    border-left: 3px solid #4c8f57;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #cfe6d6;
+}
+
+.bu-inspect-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 10px;
+    color: #9aa4b2;
+}
+
+/* ---- buttons ---- */
+.bu-btn {
+    background: #1b1f2c;
+    color: #dfe5ef;
+    padding: 6px 12px;
+    font-family: "MS Sans Serif", Tahoma, sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    border-top: 2px solid #3d4459;
+    border-left: 2px solid #3d4459;
+    border-right: 2px solid #0a0c12;
+    border-bottom: 2px solid #0a0c12;
+}
+
+.bu-btn:hover:not([disabled]) {
+    background: #262c3d;
+}
+
+.bu-btn[disabled] {
+    color: #5a6172;
+}
+
+.bu-btn.bu-primary {
+    background: #ffd76a;
+    color: #14161f;
+}
+
+.bu-btn.bu-primary:hover {
+    background: #ffe490;
+}
+
+.bu-mini {
+    background: #1b1f2c;
+    color: #dfe5ef;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-top: 1px solid #3d4459;
+    border-left: 1px solid #3d4459;
+    border-right: 1px solid #0a0c12;
+    border-bottom: 1px solid #0a0c12;
+}
+
+/* ---- menu ---- */
+.bu-menu {
+    padding: 10px 8px;
+    text-align: center;
+}
+
+.bu-title {
+    font-family: "Courier New", monospace;
+    font-size: 30px;
+    font-weight: bold;
+    letter-spacing: 5px;
+    color: #ffd76a;
+    text-shadow: 0 0 18px rgba(255, 215, 106, .35);
+}
+
+.bu-sub {
+    font-size: 10px;
+    color: #7c8798;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.bu-pitch {
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #b9c2d0;
+    max-width: 520px;
+    margin: 0 auto 12px;
+}
+
+.bu-cast {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.bu-cast-card {
+    flex: 1 1 170px;
+    max-width: 200px;
+    background: #14161f;
+    border: 1px solid #2a3042;
+    border-top: 3px solid var(--c);
+    padding: 7px;
+    text-align: left;
+}
+
+.bu-cast-name {
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--c);
+    font-family: "Courier New", monospace;
+}
+
+.bu-cast-role {
+    font-size: 9.5px;
+    color: #8b95a6;
+    margin-bottom: 4px;
+}
+
+.bu-cast-blurb {
+    font-size: 10px;
+    line-height: 1.45;
+    color: #aab4c4;
+}
+
+.bu-menu-btns {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.bu-legal {
+    font-size: 9px;
+    color: #5f6879;
+    margin-top: 12px;
+}
+
+/* ---- pages ---- */
+.bu-page {
+    padding: 8px;
+}
+
+.bu-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #e2e7f0;
+    margin-bottom: 5px;
+}
+
+.bu-hint {
+    font-size: 10.5px;
+    color: #8b95a6;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.bu-chlist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bu-chcard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    background: #171a26;
+    color: #dfe5ef;
+    padding: 6px 9px;
+    font-size: 11px;
+    border-top: 2px solid #3d4459;
+    border-left: 2px solid #3d4459;
+    border-right: 2px solid #0a0c12;
+    border-bottom: 2px solid #0a0c12;
+}
+
+.bu-chcard.locked {
+    color: #5a6172;
+}
+
+.bu-chn {
+    font-family: "Courier New", monospace;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--c);
+    width: 20px;
+}
+
+.bu-chcard.locked .bu-chn {
+    color: #3d4459;
+}
+
+.bu-chtitle {
+    flex: 1;
+    font-weight: bold;
+}
+
+.bu-chwho {
+    font-size: 9.5px;
+    color: #8b95a6;
+    font-family: "Courier New", monospace;
+}
+
+.bu-chdate {
+    font-size: 9px;
+    color: #6c7688;
+    font-family: "Courier New", monospace;
+}
+
+/* ---- chapter end + flowchart ---- */
+.bu-chend {
+    text-align: center;
+}
+
+.bu-chend-title {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #7c8798;
+}
+
+.bu-chend-name {
+    font-family: "Courier New", monospace;
+    font-size: 21px;
+    color: #ffd76a;
+    margin-bottom: 6px;
+}
+
+.bu-chend-text {
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #b9c2d0;
+    max-width: 520px;
+    margin: 0 auto 12px;
+}
+
+.bu-flow-head {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #6c7688;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.bu-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    text-align: left;
+    max-height: 250px;
+    overflow: auto;
+    margin-bottom: 10px;
+}
+
+.bu-flownode {
+    background: #14161f;
+    border-left: 3px solid #3d4459;
+    padding: 5px 8px;
+}
+
+.bu-flowq {
+    font-size: 10px;
+    color: #9aa4b2;
+    margin-bottom: 3px;
+}
+
+.bu-flowopts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bu-flowopt {
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border-left: 2px solid transparent;
+}
+
+.bu-flowopt.took {
+    color: #ffd76a;
+    border-left-color: #ffd76a;
+    background: rgba(255, 215, 106, .07);
+    font-weight: bold;
+}
+
+.bu-flowopt.known {
+    color: #8b95a6;
+    border-left-color: #3d4459;
+}
+
+.bu-flowopt.missed {
+    color: #4a5162;
+    border-left-color: #262c3d;
+    font-family: "Courier New", monospace;
+    letter-spacing: 2px;
+}
+
+.bu-chend-btns {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* ---- endings ---- */
+.bu-endlist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bu-endcard {
+    background: #14161f;
+    border-color: #2a3042;
+    padding: 6px 9px;
+}
+
+.bu-endcard.locked .bu-endname {
+    color: #4a5162;
+}
+
+.bu-endname {
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    font-weight: bold;
+    color: #ffd76a;
+    letter-spacing: 1px;
+}
+
+.bu-endcard.tone-good .bu-endname {
+    color: #9df0b0;
+}
+
+.bu-endcard.tone-bad .bu-endname {
+    color: #ff8a8a;
+}
+
+.bu-endcard.tone-bittersweet .bu-endname {
+    color: #c08aff;
+}
+
+.bu-endtext {
+    font-size: 10.5px;
+    color: #8b95a6;
+    line-height: 1.45;
+}
+
+.bu-endpage {
+    text-align: center;
+}
+
+.bu-endlabel {
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: #6c7688;
+}
+
+.bu-endtitle {
+    font-family: "Courier New", monospace;
+    font-size: 27px;
+    font-weight: bold;
+    letter-spacing: 3px;
+    color: #ffd76a;
+    margin-bottom: 10px;
+}
+
+.bu-endpage.tone-good .bu-endtitle {
+    color: #9df0b0;
+    text-shadow: 0 0 18px rgba(157, 240, 176, .3);
+}
+
+.bu-endpage.tone-bad .bu-endtitle {
+    color: #ff8a8a;
+    text-shadow: 0 0 18px rgba(255, 138, 138, .3);
+}
+
+.bu-endpage.tone-bittersweet .bu-endtitle {
+    color: #c08aff;
+    text-shadow: 0 0 18px rgba(192, 138, 255, .3);
+}
+
+.bu-endbody {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #c6cede;
+    max-width: 540px;
+    margin: 0 auto 12px;
+    text-align: left;
+}
+
+.bu-endstats {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 9.5px;
+    color: #8b95a6;
+    margin-bottom: 6px;
+}
+
+.bu-endstats b {
+    color: #6c7688;
+    letter-spacing: 0.5px;
+}
+
+.bu-survivors {
+    font-size: 10.5px;
+    color: #9aa4b2;
+    margin-bottom: 12px;
+    font-family: "Courier New", monospace;
+}
+
+@media (max-width: 767px) {
+    .bu-title {
+        font-size: 22px;
+        letter-spacing: 3px;
+    }
+
+    .bu-endtitle {
+        font-size: 20px;
+    }
+
+    .bu-hud {
+        font-size: 9px;
+    }
+
+    .bu-pov {
+        margin-left: 0;
+    }
+
+    .bu-choice {
+        font-size: 11px;
+    }
+
+    .bu-tag {
+        display: none;
+    }
+
+    .bu-cast-card {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+}

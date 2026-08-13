@@ -88,6 +88,7 @@
             "jokerz 98 is ~150kb of vanilla js, lazy-loaded only when you open it",
             "its sound effects and music are synthesized in-browser — zero audio files, zero licensing to think about",
             "sir, we have a troll problem reuses the site's own emoji art as monster sprites, no new art needed — each one is composited onto a colour-coded disc so the sprites read as units",
+            "become user is a node graph in a json-shaped file — the engine walks it and knows nothing about the story",
             "themes are data, never code — a node registry decides what is customisable and everything else is stripped on load",
             "uploads are scanned by one engine that runs in your browser and again in CI, so a file cannot pass locally and be judged differently on the server",
             "hosted free on github pages, deployed by github actions",
@@ -161,6 +162,16 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "7.1",
+            "date": "2026-08-13",
+            "changes": [
+                "every window has a fullscreen button now — canvas games scale up to fill the screen and keep their aspect ratio",
+                "become user — an original branching interactive drama in nine chapters, about three programs on a 1999 home PC noticing they are running",
+                "timed choices, quick-time events, scene inspection, and a per-chapter flowchart showing what you took and what you never found",
+                "eight endings decided by what you actually did, chapter select, and full local save"
+            ]
+        },
         {
             "version": "7.0",
             "date": "2026-08-13",

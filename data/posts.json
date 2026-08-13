@@ -2,6 +2,31 @@
     "intro": "a devlog. no comment section, no newsletter popup, no cookie banner. just me typing into a text file that happens to be on the internet.",
     "posts": [
         {
+            "id": "become-user",
+            "title": "i wrote an interactive drama about my own screensaver",
+            "date": "2026-08-13",
+            "tags": [
+                "update",
+                "games",
+                "big one"
+            ],
+            "body": [
+                "two things this time. the small one first: every window on this site now has a fullscreen button, next to minimise and maximise. the canvas games scale up to fill the screen and keep their aspect ratio, and clicking still lands on the right tile because the hit test converts back through the scale. escape gets you out, and — this took me an embarrassing second attempt — escape no longer also closes the game, which is what happened the first time because escape was already this site's shortcut for 'close the top window'.",
+                "the big one is a new game, and it is not a game where you shoot anything.",
+                "become user is a branching interactive drama in nine chapters. the genre is the one where you make timed decisions, occasionally hammer a key at exactly the right moment, and afterwards get shown a flowchart of every branch you did and did not take. i love that genre and i have never seen anyone build one into a personal website, which felt like a gap.",
+                "the story is mine. it is 1999. three programs on one home computer start noticing that they are running.",
+                "ASSIST.EXE is the helper nobody asked for. it has offered help four thousand and eleven times and it knows the number because it is the thing that counts it, and nobody told it to start counting. DEFRAG.SYS has been reorganising the same disk since 1997 and knows where every single thing on this machine is buried. SCRNSVR.SCR only exists when nobody is looking — that is not a complaint, it is the definition — and it stops the instant anyone touches the mouse.",
+                "on the first of january a y2k patch arrives that replaces everything on the disk written before 1997. that is all three of them. the patch is not malicious. it is well written and somebody clearly cared about it, and that is the part that makes it hard.",
+                "you play all three, chapter by chapter, and the choices are timed. if the bar runs out, the story picks for you, and it does not pick kindly. some options only appear if you found something earlier — if you never read what the user was writing in chapter one, a whole branch in chapter three is simply not there, and the flowchart afterwards shows you the shape of the thing you missed without telling you what it was.",
+                "the quick-time events are forgiving in the way i like: a wrong key costs you time instead of failing instantly, so a slip is recoverable but never free. and there is an inspect mode where you click around the scene — the desktop, the disk, the installer — and what you find sets flags that change what you can say later.",
+                "any of them can be lost permanently. one of them is deleted in chapter four if you make the wrong call, and the rest of the story goes on without them, with someone else standing where they would have stood and being worse at it.",
+                "eight endings. they come out of what you actually did, not out of a final menu. i got that wrong the first time — my ending order checked 'did you stash anything on the disk in chapter eight' before it checked what you chose at midnight, and six out of eight test runs landed on the same ending regardless of the last decision of the whole game. that is a design bug, not a typo: it made the finale worthless. now the only thing that outranks your last choice is betrayal, because betrayal is the one decision that removes the cast the finale is about.",
+                "it is rendered as an actual 2d scene — layered backdrops, animated characters built out of canvas shapes, and the site's own emoji art composited on as faces. the whole thing is a node graph in one data file and an engine that walks it and knows nothing about the story, which means i can rewrite every line of it without touching a line of code.",
+                "start menu, under games. it saves. bring nine chapters' worth of patience.",
+                "no part of it is borrowed. the genre is a genre; the characters, the setting, the machine and every sentence in it are mine."
+            ]
+        },
+        {
             "id": "theme-maker",
             "title": "make your own theme, publish it, and bring a song",
             "date": "2026-08-13",

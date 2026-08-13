@@ -41,6 +41,9 @@ const ACHIEVEMENTS = {
     troll_wave_20: { icon: '🏰', name: 'gates unbreached', desc: 'cleared wave 20 in troll problem' },
     troll_wave_25: { icon: '⚔️', name: 'throne room', desc: 'cleared wave 25 in troll problem' },
     troll_king_slain: { icon: '👑', name: 'problem solved', desc: 'defeated the troll king' },
+    become_user: { icon: '🖥️', name: 'still running', desc: 'started become user' },
+    become_user_end: { icon: '🕛', name: 'y2k compliant', desc: 'reached an ending in become user' },
+    become_user_all: { icon: '🌿', name: 'every branch', desc: 'found 4 endings in become user' },
     theme_maker: { icon: '🎨', name: 'interior decorator', desc: 'opened the theme maker' },
     theme_publisher: { icon: '📮', name: 'shipped it', desc: 'sent a theme off as a pull request' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
@@ -539,6 +542,9 @@ function initShortcuts() {
         else if (e.key === 'F4') { e.preventDefault(); openTerminal(); }
         else if (e.key === '?') { e.preventDefault(); showShortcuts(); }
         else if (e.key === 'Escape') {
+            // in fullscreen, escape belongs to the browser — closing the window
+            // as well would yank the game out from under you
+            if (typeof fullscreenSwallowsEscape === 'function' && fullscreenSwallowsEscape()) return;
             const wins = document.querySelectorAll('.app-window, .ie-window');
             if (wins.length) closeAppWindow(wins[wins.length - 1].id) || wins[wins.length - 1].remove();
         }
