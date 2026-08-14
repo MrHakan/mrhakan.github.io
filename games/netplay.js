@@ -7,12 +7,16 @@
 // other. The only thing a "server" is needed for is introducing them,
 // and that is what the invite code does.
 //
-// Three transports, same interface, picked in the lobby:
+// Four transports, same interface, picked in the lobby:
 //
 //   peer   webrtc through the public peerjs broker. real internet play,
-//          no server of mine involved. the default.
+//          no server of mine involved. lowest latency, and the default.
+//   bus    the same duel posted through public nostr relays on port 443,
+//          encrypted with the invite code. no p2p at all, which is the
+//          point: it gets through the networks that block webrtc. still
+//          nothing to sign up for and nothing to deploy.
 //   relay  a websocket relay you host yourself (server/relay.js). for
-//          networks that block p2p, or if the public broker is down.
+//          when you would rather own the thing.
 //   local  broadcastchannel between two tabs of the same browser. costs
 //          nothing, works offline, and is how you test a game at 3am
 //          when nobody is awake to play with you.
@@ -111,6 +115,9 @@
         if (typeof fetch === 'function' && typeof location !== 'undefined') {
             fetch('data/site.json').then(r => r.json()).then(j => {
                 if (j && j.multiplayer && j.multiplayer.relay) NP._siteRelay = j.multiplayer.relay;
+                if (j && j.multiplayer && Array.isArray(j.multiplayer.nostrRelays) && j.multiplayer.nostrRelays.length) {
+                    NP._siteNostr = j.multiplayer.nostrRelays;
+                }
             }).catch(() => { });
         }
     } catch (e) { /* no network, no config, no problem */ }
@@ -283,6 +290,283 @@
         return t;
     }
 
+    // ===============================================================
+    // bus: public nostr relays
+    //
+    // The other way to play over the internet without owning a server.
+    // Instead of introducing two browsers and getting out of the way,
+    // this posts every message to a handful of public relays and reads
+    // the room back off them — no p2p, no signup, no account, nothing to
+    // deploy. It exists because webrtc is the first thing a corporate or
+    // campus network blocks, and these relays are plain wss on port 443,
+    // which is the last thing anyone blocks.
+    //
+    // Relays only accept signed events, so there is a small BIP-340
+    // schnorr implementation below (checked against the official test
+    // vectors in CI). The key is thrown away when you close the tab.
+    // The room is a hash of the invite code and the payload inside each
+    // event is encrypted with a key derived from that code, so a public
+    // relay carries opaque blobs rather than your duel.
+    // ===============================================================
+    // Four, because one of them will always be rate limiting, down, or
+    // asking for an account this week. Every message goes to all of them
+    // and arrives once — duplicates are dropped by event id.
+    const NOSTR_DEFAULTS = [
+        'wss://nos.lol',
+        'wss://relay.snort.social',
+        'wss://nostr.mom',
+        'wss://relay.damus.io'
+    ];
+    const NOSTR_KEY = 'mrhakan98-netplay-relays';
+    NP.nostrRelays = function () {
+        try {
+            const custom = (localStorage.getItem(NOSTR_KEY) || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (custom.length) return custom;
+        } catch (e) { }
+        return (NP._siteNostr && NP._siteNostr.length) ? NP._siteNostr : NOSTR_DEFAULTS;
+    };
+    NP.setNostrRelays = function (list) {
+        try {
+            const v = Array.isArray(list) ? list.join(',') : String(list || '');
+            v ? localStorage.setItem(NOSTR_KEY, v) : localStorage.removeItem(NOSTR_KEY);
+        } catch (e) { }
+    };
+    const NOSTR_KIND = 21998;      // 20000-29999 is ephemeral: relays pass it on and forget it
+    const BATCH_MS = 90;           // messages are pooled into one signed event
+
+    // ---------- BIP-340 schnorr over secp256k1 ----------
+    // one signature per batched event, about five milliseconds each
+    const bip340 = (function () {
+        const P = 2n ** 256n - 2n ** 32n - 977n;
+        const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+        const Gx = 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n;
+        const Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n;
+        const mod = (a, m = P) => ((a % m) + m) % m;
+        function pow(b, e, m = P) {
+            let r = 1n; b = mod(b, m);
+            while (e > 0n) { if (e & 1n) r = mod(r * b, m); b = mod(b * b, m); e >>= 1n; }
+            return r;
+        }
+        const inv = (a, m = P) => pow(mod(a, m), m - 2n, m);
+        // jacobian coordinates, so a scalar multiply needs no inversions
+        function dbl(p) {
+            const [x, y, z] = p;
+            if (y === 0n) return [0n, 1n, 0n];
+            const a = mod(x * x), b = mod(y * y), c = mod(b * b);
+            const d = mod(2n * (mod((x + b) * (x + b)) - a - c));
+            const e = mod(3n * a), f = mod(e * e);
+            const X = mod(f - 2n * d);
+            return [X, mod(e * (d - X) - 8n * c), mod(2n * y * z)];
+        }
+        function add(p, q) {
+            const [x1, y1, z1] = p, [x2, y2, z2] = q;
+            if (z1 === 0n) return q;
+            if (z2 === 0n) return p;
+            const z1z1 = mod(z1 * z1), z2z2 = mod(z2 * z2);
+            const u1 = mod(x1 * z2z2), u2 = mod(x2 * z1z1);
+            const s1 = mod(y1 * z2 * z2z2), s2 = mod(y2 * z1 * z1z1);
+            const h = mod(u2 - u1), r = mod(2n * (s2 - s1));
+            if (h === 0n) return r === 0n ? dbl(p) : [0n, 1n, 0n];
+            const i = mod(mod(2n * h) * mod(2n * h)), j = mod(h * i), v = mod(u1 * i);
+            const X = mod(r * r - j - 2n * v);
+            return [X, mod(r * (v - X) - 2n * s1 * j), mod((mod((z1 + z2) * (z1 + z2)) - z1z1 - z2z2) * h)];
+        }
+        function mul(k, p) {
+            let r = [0n, 1n, 0n], acc = p;
+            while (k > 0n) { if (k & 1n) r = add(r, acc); acc = dbl(acc); k >>= 1n; }
+            return r;
+        }
+        function affine(p) {
+            const [x, y, z] = p;
+            if (z === 0n) return [0n, 0n];
+            const zi = inv(z), zi2 = mod(zi * zi);
+            return [mod(x * zi2), mod(y * zi2 * zi)];
+        }
+        const G = [Gx, Gy, 1n];
+        const toHex = b => Array.from(b).map(v => v.toString(16).padStart(2, '0')).join('');
+        const fromHex = h => new Uint8Array(h.match(/.{2}/g).map(v => parseInt(v, 16)));
+        const bytesToBig = b => BigInt('0x' + (toHex(b) || '0'));
+        const bigTo32 = n => fromHex(n.toString(16).padStart(64, '0'));
+        const cat = (...a) => {
+            const out = new Uint8Array(a.reduce((n, x) => n + x.length, 0));
+            let o = 0;
+            a.forEach(x => { out.set(x, o); o += x.length; });
+            return out;
+        };
+        const sha256 = async (...parts) => new Uint8Array(await crypto.subtle.digest('SHA-256', cat(...parts)));
+        async function tagged(tag, ...parts) {
+            const t = await sha256(new TextEncoder().encode(tag));
+            return sha256(t, t, cat(...parts));
+        }
+        return {
+            toHex, fromHex, sha256, cat,
+            newKey() {
+                const sk = new Uint8Array(32);
+                crypto.getRandomValues(sk);
+                return sk;
+            },
+            async pubkey(sk) {
+                const [x] = affine(mul(mod(bytesToBig(sk), N), G));
+                return bigTo32(x);
+            },
+            // auxRand is a parameter only so the test suite can replay the
+            // official BIP-340 vectors; real signing always uses fresh
+            // randomness
+            async sign(msg32, sk32, auxRand) {
+                const d0 = mod(bytesToBig(sk32), N);
+                const [px, py] = affine(mul(d0, G));
+                const d = (py % 2n === 0n) ? d0 : N - d0;
+                let aux = auxRand;
+                if (!aux) { aux = new Uint8Array(32); crypto.getRandomValues(aux); }
+                const t = bigTo32(d ^ bytesToBig(await tagged('BIP0340/aux', aux)));
+                const rand = await tagged('BIP0340/nonce', t, bigTo32(px), msg32);
+                const k0 = mod(bytesToBig(rand), N);
+                const [rx, ry] = affine(mul(k0, G));
+                const k = (ry % 2n === 0n) ? k0 : N - k0;
+                const e = mod(bytesToBig(await tagged('BIP0340/challenge', bigTo32(rx), bigTo32(px), msg32)), N);
+                return cat(bigTo32(rx), bigTo32(mod(k + e * d, N)));
+            }
+        };
+    })();
+    NP.bip340 = bip340;   // exported so CI can hold it to the official vectors
+
+    // the invite code is the shared secret: it names the room and it
+    // encrypts what goes in it
+    async function roomFromCode(code) {
+        const enc = new TextEncoder();
+        const tagHash = await bip340.sha256(enc.encode('mrhakan98-room|' + code));
+        const keyHash = await bip340.sha256(enc.encode('mrhakan98-key|' + code));
+        const key = await crypto.subtle.importKey('raw', keyHash, 'AES-GCM', false, ['encrypt', 'decrypt']);
+        return { tag: 'mrh98-' + bip340.toHex(tagHash).slice(0, 16), key };
+    }
+    const b64 = bytes => btoa(String.fromCharCode.apply(null, Array.from(bytes)));
+    const unb64 = s => new Uint8Array(atob(s).split('').map(c => c.charCodeAt(0)));
+    async function seal(key, obj) {
+        const iv = new Uint8Array(12);
+        crypto.getRandomValues(iv);
+        const data = new TextEncoder().encode(JSON.stringify(obj));
+        const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data));
+        return b64(bip340.cat(iv, ct));
+    }
+    async function unseal(key, text) {
+        const raw = unb64(text);
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, key, raw.slice(12));
+        return JSON.parse(new TextDecoder().decode(pt));
+    }
+
+    function NostrTransport(code, isHost) {
+        const t = { kind: 'bus', id: null, h: {}, code };
+        const sockets = [];
+        const seen = new Set();          // event ids already handled
+        const known = new Set();         // peers we have told the session about
+        let room = null, sk = null, queue = [], flushTimer = null, closed = false;
+
+        function publish(text) {
+            sockets.forEach(ws => { if (ws.readyState === 1) { try { ws.send(text); } catch (e) { } } });
+        }
+        async function flush() {
+            flushTimer = null;
+            if (closed || !queue.length) return;
+            const batch = queue;
+            queue = [];
+            try {
+                const content = await seal(room.key, batch);
+                const created = Math.floor(Date.now() / 1000);
+                const tags = [['d', room.tag]];
+                const pub = bip340.toHex(await bip340.pubkey(sk));
+                const ser = JSON.stringify([0, pub, created, NOSTR_KIND, tags, content]);
+                const id = await bip340.sha256(new TextEncoder().encode(ser));
+                const sig = await bip340.sign(id, sk);
+                const ev = {
+                    id: bip340.toHex(id), pubkey: pub, created_at: created,
+                    kind: NOSTR_KIND, tags, content, sig: bip340.toHex(sig)
+                };
+                seen.add(ev.id);
+                publish(JSON.stringify(['EVENT', ev]));
+            } catch (e) {
+                t.h.error && t.h.error('could not post to the relays');
+            }
+        }
+        function enqueue(to, msg) {
+            queue.push({ to: to || '*', msg });
+            // one signature per batch instead of one per message, which
+            // also keeps the relays from calling it flooding
+            if (!flushTimer) flushTimer = setTimeout(flush, BATCH_MS);
+        }
+        async function onEvent(ev) {
+            if (!ev || ev.kind !== NOSTR_KIND || seen.has(ev.id)) return;
+            seen.add(ev.id);
+            if (seen.size > 400) seen.clear();
+            if (ev.pubkey === t.id) return;
+            let batch = null;
+            try { batch = await unseal(room.key, ev.content); } catch (e) { return; }  // someone else's room
+            if (!Array.isArray(batch)) return;
+            if (!known.has(ev.pubkey)) {
+                known.add(ev.pubkey);
+                t.h.peer && t.h.peer(ev.pubkey);
+            }
+            batch.forEach(item => {
+                if (!item || (item.to !== '*' && item.to !== t.id)) return;
+                t.h.data && t.h.data(ev.pubkey, item.msg);
+            });
+        }
+
+        t.open = function () {
+            return new Promise((resolve, reject) => {
+                if (!window.crypto || !crypto.subtle) return reject(new Error('this browser has no webcrypto'));
+                t.h.status && t.h.status('signing in to the public relays...');
+                roomFromCode(code).then(r => {
+                    room = r;
+                    sk = bip340.newKey();
+                    return bip340.pubkey(sk);
+                }).then(pub => {
+                    t.id = bip340.toHex(pub);
+                    t.hostId = null;                 // a bus has no host to address
+                    const relays = NP.nostrRelays();
+                    let opened = 0, failed = 0, settled = false;
+                    relays.forEach(url => {
+                        let ws;
+                        try { ws = new WebSocket(url); } catch (e) { failed++; return; }
+                        sockets.push(ws);
+                        ws.onopen = () => {
+                            opened++;
+                            ws.send(JSON.stringify(['REQ', 'np', { kinds: [NOSTR_KIND], '#d': [room.tag], since: Math.floor(Date.now() / 1000) - 20 }]));
+                            if (!settled) {
+                                settled = true;
+                                t.h.status && t.h.status('on the public relays');
+                                resolve();
+                            }
+                        };
+                        ws.onmessage = (e) => {
+                            let m = null;
+                            try { m = JSON.parse(e.data); } catch (err) { return; }
+                            if (m[0] === 'EVENT') onEvent(m[2]);
+                        };
+                        ws.onerror = () => { };
+                        ws.onclose = () => {
+                            failed++;
+                            // one relay dropping is fine, all of them is not
+                            if (failed >= relays.length && !closed) t.h.error && t.h.error('lost every public relay');
+                        };
+                    });
+                    setTimeout(() => {
+                        if (!settled) {
+                            settled = true;
+                            reject(new Error('no public relay would answer — try p2p, or your own relay'));
+                        }
+                    }, 12000);
+                }).catch(err => reject(err));
+            });
+        };
+        t.send = function (to, msg) { enqueue(to, msg); };
+        t.close = function () {
+            closed = true;
+            if (flushTimer) clearTimeout(flushTimer);
+            sockets.forEach(ws => { try { ws.close(); } catch (e) { } });
+        };
+        return t;
+    }
+
     // ---------- relay: your own websocket server ----------
     function RelayTransport(code, isHost) {
         const t = { kind: 'relay', id: randId(), h: {}, code };
@@ -325,7 +609,8 @@
     }
 
     NP.TRANSPORTS = {
-        peer: { make: PeerTransport, label: 'internet (p2p)', note: 'webrtc via the public broker. share the code with anyone, anywhere.' },
+        peer: { make: PeerTransport, label: 'internet (p2p)', note: 'webrtc straight between the two of you. lowest latency, and the first thing a school or office network blocks.' },
+        bus: { make: NostrTransport, label: 'public relays (no p2p)', note: 'posts the duel through public nostr relays on port 443. slower than p2p, but it gets through networks that block it. no server, no signup, encrypted with your invite code.' },
         relay: { make: RelayTransport, label: 'my relay server', note: 'a websocket relay you host yourself. see server/relay.js.' },
         local: { make: LocalTransport, label: 'same browser', note: 'two tabs on this machine. no network at all — good for testing.' }
     };
@@ -429,12 +714,14 @@
             return;
         }
         // host is the switchboard: anything not addressed to it moves on
-        if (this.isHost && env.to && env.to !== '*' && env.to !== this.id) {
+        if (this.isHost && this.transport.kind !== 'bus' && env.to && env.to !== '*' && env.to !== this.id) {
             this.transport.send(this._peerFor(env.to), env);
             return;
         }
-        if (this.isHost && env.to === '*' && env.f !== this.id) {
-            // fan a guest broadcast out to the other guests
+        const isBus = this.transport && this.transport.kind === 'bus';
+        if (this.isHost && !isBus && env.to === '*' && env.f !== this.id) {
+            // fan a guest broadcast out to the other guests. a bus needs
+            // no help with this — everyone in the room already has it
             this.players.forEach(p => {
                 if (p.id !== env.f && p.id !== this.id) this.transport.send(this._peerFor(p.id), env);
             });

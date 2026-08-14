@@ -1871,7 +1871,10 @@
                 if (G.solo) botStep(G, dt);
                 step(G, dt);
                 G.snapAcc += dt;
-                if (!G.solo && G.snapAcc >= 1 / A.snapshotHz) {
+                // a public relay is a shared resource and a slower road:
+                // fewer, fatter snapshots, and the guest smooths the gap
+                const hz = (G.session && G.session.transport && G.session.transport.kind === 'bus') ? 8 : A.snapshotHz;
+                if (!G.solo && G.snapAcc >= 1 / hz) {
                     G.snapAcc = 0;
                     sendNet(G, 'wz:snap', snapshot(G));
                 }

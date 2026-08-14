@@ -175,7 +175,8 @@
                 "1 v bot — six named opponents with their own spell tastes and hands: bogwart throws whatever he can spell, old gary hides behind a wall, nyx makes everything stick, and the tax collector takes your mana first",
                 "each bot runs the same simulation a human opponent does, on three difficulties, and has opinions about how the round went",
                 "the netplay layer is generic — future games register themselves and get the lobby for free",
-                "an optional self-hosted websocket relay for networks that block p2p (server/relay.js, no dependencies)"
+                "a second way online that is not p2p at all: the duel is posted through public nostr relays on port 443, encrypted with the invite code, for the school and office networks that block webrtc — still no server and no signup",
+                "an optional self-hosted websocket relay as the third option (server/relay.js, no dependencies)"
             ]
         },
         {
@@ -301,6 +302,7 @@
     ],
     "multiplayer": {
         "relay": "",
-        "note": "optional websocket relay for the lobby, see server/relay.js. empty means peer to peer only."
+        "nostrRelays": [],
+        "note": "relay: optional websocket relay you host, see server/relay.js. nostrRelays: override the public relays the no-p2p mode posts through. both empty means the built-in defaults."
     }
 }
