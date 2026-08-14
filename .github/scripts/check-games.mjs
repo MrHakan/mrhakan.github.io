@@ -331,6 +331,60 @@ expect(Object.keys(WZ.BOT_DIFFICULTY).length === 3, 'the difficulty dropdown has
 console.log('        roster: ' + B.map(b => `${b.name} (${b.tier}, ${b.skill.react}s)`).join(', '));
 
 // ===================================================================
+section('the public relay transport');
+//
+// The "public relays" mode posts the duel through nostr relays, which
+// only accept signed events, so the site carries its own BIP-340
+// schnorr. These are the official test vectors — if this drifts, real
+// relays start rejecting everything and the mode silently dies.
+// ===================================================================
+{
+    const hexToBytes = h => new Uint8Array(h.match(/.{2}/g).map(v => parseInt(v, 16)));
+    const B = NP.bip340;
+    expect(!!B && typeof B.sign === 'function', 'netplay ships a signer');
+    const VECTORS = [
+        ['0000000000000000000000000000000000000000000000000000000000000003',
+            'F9308A019258C31049344F85F89D5229B531C845836F99B08601F113BCE036F9',
+            '0000000000000000000000000000000000000000000000000000000000000000',
+            '0000000000000000000000000000000000000000000000000000000000000000',
+            'E907831F80848D1069A5371B402410364BDF1C5F8307B0084C55F1CE2DCA821525F66A4A85EA8B71E482A74F382D2CE5EBEEE8FDB2172F477DF4900D310536C0'],
+        ['B7E151628AED2A6ABF7158809CF4F3C762E7160F38B4DA56A784D9045190CFEF',
+            'DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659',
+            '0000000000000000000000000000000000000000000000000000000000000001',
+            '243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89',
+            '6896BD60EEAE296DB48A229FF71DFE071BDE413E6D43F917DC8DCF8C78DE33418906D11AC976ABCCB20B091292BFF4EA897EFCB639EA871CFA95F6DE339E4B0A'],
+        ['C90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B14E5C9',
+            'DD308AFEC5777E13121FA72B9CC1B7CC0139715309B086C960E18FD969774EB8',
+            'C87AA53824B4D7AE2EB035A2B5BBBCCC080E76CDC6D1692C4B0B62D798E6D906',
+            '7E2D58D8B3BCDF1ABADEC7829054F90DDA9805AAB56C77333024B9D0A508B75C',
+            '5831AAEED7B44BB74E5EAB94BA9D4294C49BCF2A60728D8B4C200F50DD313C1BAB745879A5AD954A72C45A91C3A51D3C7ADEA98D82F8481E0E1E03674A6F3FB7'],
+        ['0B432B2677937381AEF05BB02A66ECD012773062CF3FA2549E44F58ED2401710',
+            '25D1DFF95105F5253C4022F628A996AD3A0D95FBF21D468A1B33F8C160D8F517',
+            'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+            'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+            '7EB0509757E246F19449885651611CB965ECC1A187DD51B64FDA1EDC9637D5EC97582B9CB13DB3933705B32BA982AF5AF25FD78881EBB32771FC5922EFC66EA3']
+    ];
+    const wrong = [];
+    for (const [sk, pk, aux, msg, sig] of VECTORS) {
+        const gotPk = B.toHex(await B.pubkey(hexToBytes(sk))).toUpperCase();
+        const gotSig = B.toHex(await B.sign(hexToBytes(msg), hexToBytes(sk), hexToBytes(aux))).toUpperCase();
+        if (gotPk !== pk) wrong.push('pubkey for ' + sk.slice(0, 8) + ' came out ' + gotPk.slice(0, 16));
+        if (gotSig !== sig) wrong.push('signature for ' + msg.slice(0, 8) + ' came out ' + gotSig.slice(0, 16));
+    }
+    expect(!wrong.length, 'schnorr matches all four official BIP-340 vectors', wrong.join('\n        '));
+    const t0 = Date.now();
+    const sk = B.newKey();
+    for (let i = 0; i < 10; i++) await B.sign(await B.sha256(new TextEncoder().encode('x' + i)), sk);
+    const ms = (Date.now() - t0) / 10;
+    expect(ms < 60, 'signing is fast enough to batch at ten a second', ms.toFixed(1) + 'ms per signature');
+    console.log('        ' + ms.toFixed(1) + 'ms per signature');
+
+    expect(NP.nostrRelays().length >= 3, 'more than one public relay is configured, since one is always down',
+        NP.nostrRelays().join(', '));
+    expect(NP.TRANSPORTS.bus && NP.TRANSPORTS.bus.make, 'the lobby offers a non-p2p way online');
+}
+
+// ===================================================================
 section('netplay');
 // ===================================================================
 expect(Array.isArray(NP.CATALOG) && NP.CATALOG.length >= 1, 'the lobby lists at least one game');

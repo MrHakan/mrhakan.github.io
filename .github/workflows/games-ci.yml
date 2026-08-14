@@ -62,9 +62,14 @@ jobs:
             - name: Install playwright chromium
               run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 
-            - name: Boot the site, open the game, draw a sigil, run a lobby
+            - name: Boot the site, open the game, draw a sigil, run two lobbies
+              env:
+                  # the "public relays" transport is exercised against our own
+                  # stand-in relay, so CI does not lean on strangers' servers
+                  NOSTR_TEST_RELAY: ws://127.0.0.1:8790
               run: |
                   python3 -m http.server 8099 &
+                  node server/nostr-test-relay.mjs &
                   sleep 2
                   node .github/scripts/browser-check.mjs
 

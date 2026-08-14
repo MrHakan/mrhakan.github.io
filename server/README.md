@@ -6,7 +6,15 @@ straight to each other, with the public PeerJS broker doing nothing but
 introducing them. That is why an invite code works from a plain GitHub
 Pages site with nothing running anywhere.
 
-This folder is the fallback for when that is not good enough:
+There is a second way online that needs nothing from you either: the
+lobby's **public relays** mode posts the duel through public nostr relays
+on port 443, encrypted with the invite code. No p2p, no signup, nothing
+deployed — see `games/README.md`. `nostr-test-relay.mjs` in this folder
+is a tiny stand-in for those relays so the browser tests do not depend on
+strangers' servers.
+
+This folder is mostly the *third* option, for when neither of those is
+good enough:
 
 - corporate / campus networks that block the STUN traffic WebRTC needs
 - the public broker having a bad day

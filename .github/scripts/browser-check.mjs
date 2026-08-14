@@ -262,6 +262,61 @@ try {
     await host.screenshot({ path: SHOTS + '/6-duel-host.png' });
     await guest.screenshot({ path: SHOTS + '/7-duel-guest.png' });
 
+    // ---------------------------------------------------------------
+    // the same duel again, but with no p2p anywhere in it
+    //
+    // The "public relays" transport posts everything through nostr
+    // relays. In CI that runs against server/nostr-test-relay.mjs so the
+    // test does not depend on strangers' servers, but the client path is
+    // the real one: signed events, encrypted payloads, room tags.
+    // ---------------------------------------------------------------
+    if (process.env.NOSTR_TEST_RELAY) {
+        section('two players, no p2p');
+        const useRelay = p => p.evaluate(u => localStorage.setItem('mrhakan98-netplay-relays', u), process.env.NOSTR_TEST_RELAY);
+        const bHost = await boot('bus-host'), bGuest = await boot('bus-guest');
+        for (const [p, name] of [[bHost, 'buswiz1'], [bGuest, 'buswiz2']]) {
+            await useRelay(p);
+            await p.evaluate(() => openNetplay());
+            await p.waitForSelector('#np-mode', { timeout: 30000 });
+            await p.selectOption('#np-mode', 'bus');
+            await p.evaluate(n => Netplay.setName(n), name);
+        }
+        await bHost.click('#np-host');
+        await bHost.waitForSelector('.np-code', { timeout: 40000 });
+        const busCode = (await bHost.textContent('.np-code')).trim();
+        ok('a room opens on the relays (' + busCode + ')');
+        await bGuest.fill('#np-code', busCode);
+        await bGuest.click('#np-join');
+        await bGuest.waitForSelector('.np-code', { timeout: 40000 });
+        await bHost.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 40000 });
+        ok('both wizards found each other without a peer connection');
+        await bGuest.click('#np-ready');
+        await bHost.waitForTimeout(600);
+        await bHost.click('#np-ready');
+        await bHost.waitForTimeout(400);
+        await bHost.click('#np-start');
+        await Promise.all([
+            bHost.waitForSelector('#wz-canvas', { timeout: 40000 }),
+            bGuest.waitForSelector('#wz-canvas', { timeout: 40000 })
+        ]);
+        await Promise.all([waitLive(bHost), waitLive(bGuest)]);
+        await draw(bGuest, TRIANGLE);
+        await draw(bHost, ZBOLT);
+        await bHost.waitForTimeout(2500);
+        const bh = await bHost.evaluate(() => { const g = WZ_ENGINE.state(); return { kind: g.session.transport.kind, hp: g.wiz.map(w => Math.round(w.hp)) }; });
+        const bg = await bGuest.evaluate(() => { const g = WZ_ENGINE.state(); return { kind: g.session.transport.kind, hp: g.wiz.map(w => Math.round(w.hp)) }; });
+        expect(bh.kind === 'bus' && bg.kind === 'bus', 'the duel really is running on the relay transport', JSON.stringify([bh.kind, bg.kind]));
+        expect(bh.hp[0] < 100 && bh.hp[1] < 100, 'spells drawn on both sides crossed the relays', JSON.stringify(bh));
+        expect(Math.abs(bh.hp[0] - bg.hp[0]) <= 8 && Math.abs(bh.hp[1] - bg.hp[1]) <= 8,
+            'both screens still agree', JSON.stringify([bh.hp, bg.hp]));
+        console.log('        host sees ' + JSON.stringify(bh.hp) + ', guest sees ' + JSON.stringify(bg.hp));
+        await bHost.screenshot({ path: SHOTS + '/8-bus.png' });
+        await bHost.close();
+        await bGuest.close();
+    } else {
+        console.log('\n(skipping the no-p2p duel: set NOSTR_TEST_RELAY to run it)');
+    }
+
     // leaving is noticed. a closed tab sends nothing on some transports,
     // so this is really a test of the lobby's heartbeat.
     await guest.close();

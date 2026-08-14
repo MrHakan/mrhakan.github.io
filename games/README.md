@@ -99,11 +99,34 @@ roster of opponents (`WZ.BOTS`) rather than picking one at random.
 Picked in the lobby, identical interface, no game code is aware of which
 one is in use:
 
-| mode    | what it is                                 | needs                 |
-| ------- | ------------------------------------------ | --------------------- |
-| `peer`  | WebRTC data channel via the PeerJS broker  | nothing (the default) |
-| `relay` | WebSocket relay you host                   | `server/relay.js`     |
-| `local` | BroadcastChannel between two tabs          | nothing, offline      |
+| mode    | what it is                                    | needs                 |
+| ------- | --------------------------------------------- | --------------------- |
+| `peer`  | WebRTC data channel via the PeerJS broker     | nothing (the default) |
+| `bus`   | posted through public nostr relays, no p2p    | nothing               |
+| `relay` | WebSocket relay you host                      | `server/relay.js`     |
+| `local` | BroadcastChannel between two tabs             | nothing, offline      |
+
+`bus` exists because WebRTC is the first thing a school or office network
+blocks. It posts every message to four public nostr relays on port 443 —
+no signup, no account, nothing deployed — and reads the room back off
+them. The room is a hash of the invite code and the payload is AES-GCM
+encrypted with a key derived from the same code, so the relays carry
+opaque blobs. Relays only take signed events, so `netplay.js` carries a
+small BIP-340 schnorr signer (about 7ms a signature, checked against the
+official test vectors in CI); messages are batched every 90ms so that is
+one signature per batch rather than per message.
+
+It is slower than `peer` — a relay hop is roughly 150ms each way instead
+of a direct connection — so a game should ease off when it sees it:
+
+```js
+const slow = session.transport.kind === 'bus';
+const snapshotHz = slow ? 8 : 15;
+```
+
+Override the relay list with `Netplay.setNostrRelays([...])`, or in
+`data/site.json` under `multiplayer.nostrRelays`. `server/nostr-test-relay.mjs`
+is a stand-in for tests.
 
 `local` is how you test a multiplayer game at 3am with nobody awake to
 play against: open the site twice, host in one tab, join in the other.
