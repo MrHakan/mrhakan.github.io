@@ -450,7 +450,7 @@
             cost: 22, cd: 10, dmg: 0,
             blurb: 'sixty points of rock between you and whatever is coming.',
             p: { hp: 60, dur: 12, h: 150 },
-            glyph: [CLOSED([[32, 6], [68, 6], [68, 94], [32, 94]])]
+            glyph: [LINE(22, 8, 22, 88), LINE(22, 88, 90, 88)]
         },
 
         // ---------------- blood ----------------
