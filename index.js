@@ -1432,8 +1432,10 @@ function nameHash(s) {
     return h;
 }
 
-// guestbook + shoutbox entries live as json files in the repo (data/guestbook, data/shouts).
-// visitors add entries by opening a pre-filled issue; a workflow commits it.
+// the boards (guestbook, shoutbox) are the comment threads of two public
+// gists — signing is a comment, nothing is committed here. these json
+// files are what was signed before the move; they still show up on the
+// wall, they just cannot grow any more.
 async function fetchEntriesFromRepo(kind) {
     const cacheKey = `repo-${kind}-cache`;
     try {
@@ -1457,47 +1459,122 @@ async function fetchEntriesFromRepo(kind) {
     }
 }
 
-// This used to open a pull request, which quietly asked every visitor to
-// fork the repo before they could say hello. Nobody does that. An issue
-// is one button for anyone with a github account, and
-// .github/workflows/guestbook.yml commits the entry and closes it.
-function submitViaIssue(kind, entry) {
-    const value = JSON.stringify(entry, null, 4) + '\n';
+// which gist each board points at, out of data/site.json. read once and
+// kept — the boards ask for it on every load.
+let boardsCache = null;
+async function boardConfig() {
+    if (boardsCache) return boardsCache;
+    let site = {};
+    try {
+        // pages.js already caches site.json when it is on the page;
+        // guestbook.html loads index.js on its own, so fall back to fetching
+        site = (typeof loadSiteData === 'function')
+            ? await loadSiteData()
+            : await (await fetch('data/site.json')).json();
+    } catch (e) { /* no config, no gist — handled below */ }
+    boardsCache = GUESTBOOK.boardConfig(site);
+    return boardsCache;
+}
+
+// one request for the whole board: the gist's comment thread
+async function fetchGistEntries(kind) {
+    const cfg = await boardConfig();
+    const url = GUESTBOOK.gistCommentsUrl(cfg, kind);
+    if (!url) return [];
+    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+    const comments = await res.json();
+    if (!Array.isArray(comments)) throw new Error((comments && comments.message) || 'unexpected response');
+    return comments.map(c => GUESTBOOK.entryFromComment(kind, c)).filter(Boolean);
+}
+
+// the gist comments and the old json files, newest first. either half can
+// fail on its own (rate limit, deleted gist) without taking the board
+// down, and the last good result is kept for when github says no.
+async function fetchBoard(kind) {
+    const cacheKey = `board-${kind}-cache`;
+    const [gist, archive] = await Promise.all([
+        fetchGistEntries(kind).catch(() => null),
+        fetchEntriesFromRepo(kind).catch(() => null)
+    ]);
+    if (gist === null && archive === null) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) return JSON.parse(cached);
+        throw new Error('the board would not load');
+    }
+    const entries = GUESTBOOK.mergeEntries([gist || [], archive || []], 60);
+    try { localStorage.setItem(cacheKey, JSON.stringify(entries)); } catch (e) { }
+    return entries;
+}
+
+// Signing used to open a pull request (fork the repo to say hello), then
+// a pre-filled issue (a robot with write access committing a stranger's
+// text). Both were more machinery than a guestbook deserves. Now the
+// guestbook *is* a public gist's comment thread: we write the comment,
+// copy it, and open the gist with the box waiting.
+async function signViaGist(kind, entry) {
+    const cfg = await boardConfig();
+    const page = GUESTBOOK.gistPage(cfg, kind);
+    const comment = GUESTBOOK.composeSignature(kind, entry);
     const isShout = kind === 'shouts';
-    const title = `${isShout ? 'shout' : 'guestbook'}: ${entry.name}`;
-    const body = [
-        isShout ? 'a shout for the shoutbox:' : 'signing the guestbook:',
-        '',
-        '```json',
-        value.trimEnd(),
-        '```',
-        '',
-        'submit this issue as it is — the bot picks it up, adds the entry and closes it.',
-        'edit the json if you like, but keep the fence.'
-    ].join('\n');
-    const url = `https://github.com/${GH_REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    if (!page) {
+        showRetroDialog({
+            title: 'not wired up yet',
+            lines: [
+                `this board lives on a github gist and no gist id is set in data/site.json yet.`,
+                'copying what you wrote — poke me on discord and it goes up by hand bradar.'
+            ],
+            preview: comment,
+            okLabel: 'copy it',
+            cancelLabel: 'nevermind',
+            onOk: () => {
+                copyText(comment);
+                showToast('clipboard.exe', 'copied. sorry about the manual bit.');
+            }
+        });
+        return;
+    }
     showRetroDialog({
-        title: isShout ? 'shout via github' : 'sign via github',
+        title: isShout ? 'shout on the gist' : 'sign the gist',
         lines: [
-            'your entry gets added by opening an issue:',
-            '1. github opens with your entry already written',
-            '2. hit "create" — that is the whole job',
-            '3. a robot adds it within a minute and closes the issue',
-            'no forking, no pull request. no github account? discord me instead bradar.'
+            'the guestbook is a github gist, and signing it is a comment on it:',
+            '1. this gets copied to your clipboard',
+            '2. the gist opens — scroll down to the comment box',
+            '3. paste, hit "comment". that is the whole job.',
+            'no fork, no pull request, nothing lands in my repo. it shows up here on the next load.'
         ],
-        okLabel: 'open github',
+        preview: comment,
+        okLabel: 'copy + open the gist',
         cancelLabel: 'nevermind',
         onOk: () => {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(value).catch(() => { });
-            }
-            window.open(url, '_blank', 'noopener');
-            showToast('github.exe', 'entry copied as backup. hit create and the robot does the rest.');
+            copyText(comment);
+            window.open(page + '#comments', '_blank', 'noopener');
+            showToast('github.exe', 'copied — paste it in the comment box and hit comment.');
         }
     });
 }
 
-function showRetroDialog({ title, lines, okLabel, cancelLabel, onOk }) {
+// clipboard api first, the old textarea trick when it is not allowed
+// (http, an old browser, permissions) — the dialog shows the text either
+// way, so nobody is stuck
+function copyText(value) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(value).catch(() => fallbackCopy(value));
+    }
+    return Promise.resolve(fallbackCopy(value));
+}
+function fallbackCopy(value) {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { }
+    ta.remove();
+}
+
+function showRetroDialog({ title, lines, preview, okLabel, cancelLabel, onOk }) {
     document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
     const overlay = document.createElement('div');
     overlay.className = 'retro-dialog-overlay';
@@ -1518,6 +1595,14 @@ function showRetroDialog({ title, lines, okLabel, cancelLabel, onOk }) {
         p.textContent = line;
         body.appendChild(p);
     });
+    // for the guestbook: show exactly what is going on the clipboard, so
+    // it can be read (and selected by hand) before it goes anywhere
+    if (preview) {
+        const pre = document.createElement('pre');
+        pre.className = 'retro-dialog-pre bevel-in';
+        pre.textContent = preview;
+        body.appendChild(pre);
+    }
     const buttons = document.createElement('div');
     buttons.className = 'retro-dialog-buttons';
     const ok = document.createElement('button');
@@ -1546,16 +1631,16 @@ async function fetchShoutbox() {
     if (!container) return;
     container.innerHTML = '<div class="text-center text-gray-500">loading shouts...</div>';
     try {
-        const messages = await fetchEntriesFromRepo('shouts');
+        const messages = await fetchBoard('shouts');
         if (!messages.length) {
             container.innerHTML = '<div class="text-center text-gray-500">no shouts yet - be the first!</div>';
             return;
         }
         container.innerHTML = messages.map(msg => `
             <div class="border-b border-dashed border-gray-300 pb-1 flex gap-2">
-                <img src="${shoutboxAvatars[nameHash(msg.name) % shoutboxAvatars.length]}" alt="" class="w-6 h-6 rounded-full bg-black flex-shrink-0">
+                <img src="${escapeHtml(avatarFor(msg))}" alt="" class="w-6 h-6 rounded-full bg-black flex-shrink-0">
                 <div>
-                    <p class="font-bold text-blue-600">${escapeHtml(msg.name)} <span
+                    <p class="font-bold text-blue-600">${escapeHtml(msg.name)}${byBadge(msg)} <span
                             class="text-gray-400 font-normal text-[10px]">${formatEntryTime(msg)}</span></p>
                     <p class="text-black">${escapeHtml(msg.message)}</p>
                 </div>
@@ -1565,6 +1650,21 @@ async function fetchShoutbox() {
         container.innerHTML = '<div class="text-center text-gray-500">couldnt load shouts... (github api limit? try later)</div>';
     }
 }
+// a shout off the gist comes with the commenter's github avatar; the old
+// json entries get one of the cursed ones, picked from the name
+function avatarFor(entry) {
+    return safeUrl(entry.avatar || '') || shoutboxAvatars[nameHash(entry.name) % shoutboxAvatars.length];
+}
+// the display name is whatever somebody typed, so the github account that
+// actually wrote it is always shown next to it
+function byBadge(entry) {
+    if (!entry.by) return '';
+    const at = '@' + escapeHtml(entry.by);
+    const link = safeUrl(entry.url || '');
+    return link
+        ? ` <a href="${escapeHtml(link)}" target="_blank" rel="noopener nofollow" class="text-gray-500 font-normal text-[10px] underline">${at}</a>`
+        : ` <span class="text-gray-500 font-normal text-[10px]">${at}</span>`;
+}
 function postShout() {
     const name = document.getElementById('shout-name')?.value?.trim();
     const message = document.getElementById('shout-message')?.value?.trim();
@@ -1572,13 +1672,7 @@ function postShout() {
         showToast('shoutbox.exe', 'please fill in name and message!');
         return;
     }
-    const now = new Date();
-    submitViaIssue('shouts', {
-        name: name.substring(0, 20),
-        message: message.substring(0, 140),
-        date: now.toISOString().slice(0, 10),
-        timestamp: now.toISOString()
-    });
+    signViaGist('shouts', { name: name, message: message });
 }
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -1609,7 +1703,7 @@ async function loadGuestbook() {
     if (!container) return;
     container.innerHTML = '<div class="text-center text-gray-500 font-pixel">loading entries...</div>';
     try {
-        const entries = await fetchEntriesFromRepo('guestbook');
+        const entries = await fetchBoard('guestbook');
         if (entries.length === 0) {
             container.innerHTML = '<div class="text-center text-gray-500 font-pixel">no entries yet - be the first!</div>';
             return;
@@ -1619,7 +1713,7 @@ async function loadGuestbook() {
             return `
             <div class="p-3 bg-[#f0f0f0] border border-gray-400">
                 <div class="flex justify-between items-start mb-1">
-                    <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}</span>
+                    <span class="font-bold text-blue-600 font-header">${escapeHtml(entry.name)}${byBadge(entry)}</span>
                     <span class="text-[10px] text-gray-500">${formatEntryTime(entry)}</span>
                 </div>
                 ${website ? `<a href="${escapeHtml(website)}" target="_blank" rel="noopener nofollow" class="text-xs text-purple-600 underline">${escapeHtml(website)}</a>` : ''}
@@ -1640,18 +1734,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const website = document.getElementById('gb-website')?.value?.trim();
             const message = document.getElementById('gb-message')?.value?.trim();
             if (!name || !message) return;
-            const now = new Date();
-            const entry = {
-                name: name.substring(0, 30),
-                message: message.substring(0, 500),
-                date: now.toISOString().slice(0, 10),
-                timestamp: now.toISOString()
-            };
-            const cleanSite = website ? safeUrl(website.substring(0, 100)) : '';
-            if (cleanSite) entry.website = cleanSite;
             playSound('ding');
             if (typeof unlockAchievement === 'function') unlockAchievement('signer');
-            submitViaIssue('guestbook', entry);
+            signViaGist('guestbook', { name: name, message: message, website: website });
         });
     }
 });

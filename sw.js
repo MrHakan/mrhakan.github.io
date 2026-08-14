@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v5';
+const CACHE = 'mrhakan98-v6';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -15,6 +15,7 @@ const PRECACHE = [
     '/index.html',
     '/style.css',
     '/index.js',
+    '/guestbook.js',
     '/apps.js',
     '/fun.js',
     '/pages.js',

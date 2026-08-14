@@ -14,9 +14,12 @@ on:
             - "server/**"
             - "index.html"
             - "index.js"
+            - "guestbook.html"
+            - "guestbook.js"
             - "extras.js"
             - "style.css"
             - "sw.js"
+            - "data/site.json"
             - ".github/scripts/**"
             - ".github/workflows/games-ci.yml"
     pull_request:
@@ -47,9 +50,9 @@ jobs:
             - name: Smoke test the netplay relay
               run: node server/relay-smoke.mjs
 
-            # the guestbook is the one place a stranger's writing gets
-            # committed to this repo by a robot, so it gets its own tests
-            - name: Check the guestbook automation
+            # the guestbook is a gist's comment thread, so it is the one
+            # place a stranger's writing lands on the page. own tests.
+            - name: Check the guestbook
               run: node .github/scripts/check-guestbook.mjs
 
     browser:

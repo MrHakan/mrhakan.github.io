@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="style.css" rel="stylesheet" />
+    <script src="guestbook.js" defer></script>
     <script src="index.js" defer></script>
 </head>
 
@@ -29,6 +30,12 @@
                 <h1 class="text-2xl font-bold text-black font-header mb-4 border-b-2 border-black pb-2">
                     sign my guestbook!
                 </h1>
+
+                <p class="text-black font-pixel text-xs mb-3 bg-[#ffffe1] border border-gray-500 p-2">
+                    ⓘ this guestbook is a github gist and signing it is a comment on it — hit
+                    "sign it!", your entry gets copied, the gist opens, you paste it in the
+                    comment box. no fork, no pull request, nothing gets committed anywhere.
+                </p>
 
                 <form id="guestbook-form" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
                     <div class="mb-2">
@@ -68,9 +75,9 @@
     </div>
 
     <script>
-        // entries + signing are handled by index.js (loaded above):
-        // the guestbook lives in the repo as json files; signing opens a pre-filled
-        // github issue and a workflow commits it (.github/workflows/guestbook.yml).
+        // entries + signing are handled by guestbook.js + index.js (loaded above):
+        // the guestbook is a public gist's comment thread, read straight off the
+        // gist api. signing is a comment on it — see data/README.md.
         document.addEventListener('DOMContentLoaded', () => loadGuestbook());
     </script>
 </body>
