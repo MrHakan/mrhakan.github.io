@@ -163,6 +163,17 @@
     ],
     "changelog": [
         {
+            "version": "8.2",
+            "date": "2026-08-14",
+            "changes": [
+                "wizardz reads your drawing better \u2014 the tilt search reaches \u00b130\u00b0 instead of \u00b118\u00b0, so a sigil drawn at a real-world lean stops falling off the end of it (89% of them cast now, up from 67%)",
+                "and it is twice as fast doing it: the ink grid picks which lean each spell is judged at, so thirty point-cloud matches run instead of five hundred and fifty",
+                "the score now charges you for wandering \u2014 how much line you used and how much your hand turned, both measured against the sigil you were aiming for, so a doodle that crosses the right area no longer scores like a spell",
+                "casting bar lowered to 60%: a drawing only has to be recognisably the thing, and power is measured from there up \u2014 scrape in and the spell is weak, draw it clean and it hits full",
+                "fizzles say which failure it was: \"half fireball, half frostbolt\" is a different problem from \"too rough\", and the practice pad now shows the bar and the power"
+            ]
+        },
+        {
             "version": "8.1",
             "date": "2026-08-14",
             "changes": [

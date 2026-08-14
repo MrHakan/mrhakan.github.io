@@ -94,6 +94,48 @@ cannot rot separately. If you register a `startSolo()` the lobby's
 "play a bot" buttons call that instead — wizardz uses it to show its
 roster of opponents (`WZ.BOTS`) rather than picking one at random.
 
+## how a drawing is read
+
+`wizardz.js` carries its own recogniser — a $P-style point cloud match
+with two extra opinions. It runs on every sigil you draw, in about ten
+milliseconds, and its whole job is to be generous to a shaky hand
+without ever casting a spell you did not ask for.
+
+1. **normalise** — the strokes are smoothed, resampled to 32 points,
+   scaled into a box (uniformly, so a wide rectangle stays wide) and
+   centred.
+2. **lean** — nobody draws upright, so the gesture is re-cut at eleven
+   angles from -30° to +30°. The cap is on purpose: at ninety degrees an
+   arrow up is an arrow right, and at a hundred and eighty fireball is
+   frostbolt.
+3. **shortlist** — the ink grid (a 10x10 blurred picture of where the
+   ink sits) is a hundred multiplications, cheap enough to ask all fifty
+   templates at all eleven leans. It answers two questions at once: the
+   ten templates worth a proper look, and which way each of them thinks
+   your hand was leaning.
+4. **match** — the expensive point-cloud match runs on those ten, at
+   their three best leans each. Thirty matches instead of five hundred
+   and fifty.
+5. **charge for wandering** — the cloud and the grid only care *where*
+   the ink is, never how it got there, so a doodle that crosses the
+   right area used to score like a spell. Two comparisons against the
+   template fix that: how much line it took, and how much the hand
+   turned getting there (measured every third point, so a wobble is not
+   a corner). Both are relative, so a lance may be perfectly straight
+   and a spiral may still spin.
+
+A sigil casts if it scores **0.60** and beats the runner-up by 0.05 —
+a deliberately generous door, because power is measured from there up:
+scraping in casts a weak spell, and a clean drawing casts at full
+strength. Miss by the margin instead of the floor and the game says so:
+"half fireball, half frostbolt" is a different problem from "too rough".
+
+The numbers all come from sweeping them against thousands of generated
+drawings — tidy, sloppy, and leaning up to forty degrees — plus
+scribbles and idle doodles that must *not* fire. That sweep is
+`check-games.mjs`, so the thresholds cannot be tuned by feel without CI
+noticing.
+
 ## transports
 
 Picked in the lobby, identical interface, no game code is aware of which

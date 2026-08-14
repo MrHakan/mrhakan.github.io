@@ -144,20 +144,64 @@
         }
         return d;
     }
+    // how much the hand turned on its way round, in radians, added up
+    // without sign. a straight lance is 0, a triangle about 2π, a panic
+    // scribble thirty. segments shorter than a rounding error are skipped
+    // — resampling pads the tail with duplicate points, and atan2(0,0)
+    // would invent corners out of them.
+    // measured across every third point on purpose: a shaky hand turns
+    // left and right a dozen times a second and that is not a shape, so
+    // reading the corners at arm's length keeps a wobbly triangle a
+    // triangle while a doodle still reads as one long wander.
+    const TURN_STRIDE = 4;
+    function turning(pts) {
+        let total = 0, a1 = null, prev = null;
+        for (let i = 0; i < pts.length; i++) {
+            const last = i === pts.length - 1 || pts[i + 1].id !== pts[i].id;
+            if (prev && pts[i].id !== prev.id) { a1 = null; prev = null; }
+            if (!prev) { prev = pts[i]; continue; }
+            if (i % TURN_STRIDE && !last) continue;
+            const dx = pts[i].x - prev.x, dy = pts[i].y - prev.y;
+            if (Math.hypot(dx, dy) < 1e-6) continue;
+            const a2 = Math.atan2(dy, dx);
+            if (a1 !== null) {
+                let d = a2 - a1;
+                while (d > Math.PI) d -= 2 * Math.PI;
+                while (d < -Math.PI) d += 2 * Math.PI;
+                total += Math.abs(d);
+            }
+            a1 = a2;
+            prev = pts[i];
+        }
+        return total;
+    }
     function featuresOf(strokes) {
         const c = normalize(strokes);
-        return { cloud: c, grid: inkGrid(c), len: inkLength(c) };
+        return { cloud: c, grid: inkGrid(c), len: inkLength(c), turn: turning(c) };
+    }
+    // The point cloud and the ink grid both only care *where* the ink is,
+    // never how it got there — which is why a doodle that happens to
+    // wander across the right area used to score like a spell. These two
+    // ask the other question: did the hand use the same amount of line,
+    // and did it turn the same amount doing it? Both are comparisons
+    // against the template rather than absolutes, so a lance is still
+    // allowed to be perfectly straight and a spiral is still allowed to
+    // spin.
+    const LEN_SLACK = 0.22, LEN_COST = 0.5, LEN_CAP = 0.3;
+    const TURN_SLACK = 0.70, TURN_COST = 0.34, TURN_CAP = 0.28;
+    function shapeCost(a, b) {
+        const lenOff = Math.abs(Math.log((a.len || 0.001) / (b.len || 0.001)));
+        const overdrawn = Math.min(LEN_CAP, Math.max(0, lenOff - LEN_SLACK) * LEN_COST);
+        // log1p keeps a straight line (0) and a scribble (30) on a scale
+        // where the interesting difference is not swamped by the tail
+        const turnOff = Math.abs(Math.log1p(a.turn || 0) - Math.log1p(b.turn || 0));
+        const wandered = Math.min(TURN_CAP, Math.max(0, turnOff - TURN_SLACK) * TURN_COST);
+        return overdrawn + wandered;
     }
     function similarity(a, b) {
         const p = cloudScore(greedyMatch(a.cloud, b.cloud));
         const q = gridSim(a.grid, b.grid);
-        // the point cloud and the ink grid both only care where the ink
-        // is, not how much of it there is, so a scribble that happens to
-        // cover the right area scores well. this notices that it used
-        // three times the line to get there.
-        const ratio = Math.abs(Math.log((a.len || 0.001) / (b.len || 0.001)));
-        const overdrawn = Math.min(0.3, Math.max(0, ratio - 0.22) * 0.5);
-        return 0.5 * p + 0.5 * q * q - overdrawn;
+        return 0.5 * p + 0.5 * q * q - shapeCost(a, b);
     }
 
     let TEMPLATES = null;
@@ -176,8 +220,13 @@
     // degrees an arrow up is an arrow right, and at a hundred and eighty
     // fireball is frostbolt.
     // ---------------------------------------------------------------
-    const TILTS = [-18, -9, 0, 9, 18];   // degrees searched
-    const SHORTLIST = 12;                 // templates that get the expensive match
+    // ±30° in 6° steps. The old search was ±18° in 9° steps and simply
+    // ran out of room: a sigil drawn at a twenty-five degree lean fell off
+    // the end of it. Widening it costs nothing here because of how it is
+    // searched — see recognize().
+    const TILTS = [-30, -24, -18, -12, -6, 0, 6, 12, 18, 24, 30];
+    const SHORTLIST = 10;                 // templates that get the expensive match
+    const TILT_TRIES = 3;                 // leans per template that get it
     const TILT_COST = 0.022;              // per 9°, so upright still wins ties
 
     // a trackpad emits a shaky line and a touchscreen emits a shakier
@@ -212,11 +261,13 @@
 
     // A sigil has to beat this to go off, and beat the runner up by the
     // margin, or you get a fizzle and a note about what it looked like.
-    // Both numbers come from sweeping them against six hundred drawn
-    // sigils and three hundred scribbles: this pair casts 97% of real
-    // drawings, never once cast the *wrong* spell, and turns away all
-    // but a few percent of panic scribbling.
-    const CAST_FLOOR = 0.66;
+    // Sixty percent is a deliberately generous door: a drawing only has
+    // to be recognisably the thing. What stops that from turning into a
+    // slot machine is that the score now costs you for wandering off the
+    // template's shape, so junk lands well below the door rather than
+    // just under the old one — and a weak drawing casts a weak spell,
+    // because power is measured from here up.
+    const CAST_FLOOR = 0.60;
     const CAST_MARGIN = 0.05;
     function recognize(strokes, pool) {
         if (!strokes.length || flattenStrokes(strokes).length < 4) return [];
@@ -227,24 +278,29 @@
             f: featuresOf(rotateStrokes(clean, deg)),
             penalty: Math.abs(deg) / 9 * TILT_COST
         }));
-        // stage one: the ink grid is a hundred multiplications, so it is
-        // cheap enough to ask all fifty templates which are worth a
-        // proper look
-        const shortlist = list.map(t => {
-            let g = 0;
-            for (const v of variants) g = Math.max(g, gridSim(v.f.grid, t.f.grid));
-            return { t, g };
+        // stage one: the ink grid is a hundred multiplications, so all
+        // fifty templates can be asked at every lean — and the answer
+        // says two things at once: which templates are worth a proper
+        // look, and which way each of them thinks your hand was leaning
+        const ranked = list.map(t => {
+            const leans = variants.map((v, i) => ({ i, g: gridSim(v.f.grid, t.f.grid) - v.penalty }))
+                .sort((a, b) => b.g - a.g);
+            return { t, g: leans[0].g, tilts: leans.slice(0, TILT_TRIES).map(l => l.i) };
         }).sort((a, b) => b.g - a.g).slice(0, SHORTLIST);
-        // stage two: full point-cloud matching, but only on the few that
-        // could plausibly win
-        return shortlist.map(({ t }) => {
+        // stage two: full point-cloud matching, on the few that could
+        // plausibly win, at the couple of leans that suit each of them.
+        // that is twenty-four expensive matches rather than sixty, which
+        // is what pays for the wider search above.
+        return ranked.map(({ t, tilts }) => {
             let best = 0;
-            for (const v of variants) best = Math.max(best, similarity(v.f, t.f) - v.penalty);
+            for (const i of tilts) best = Math.max(best, similarity(variants[i].f, t.f) - variants[i].penalty);
             return { id: t.id, spell: t.spell, score: best };
         }).sort((a, b) => b.score - a.score).slice(0, 4);
     }
-    // how well you drew it, 0..1, feeds straight into spell power
-    const qualityOf = score => Math.max(0, Math.min(1, (score - CAST_FLOOR) / 0.22));
+    // how well you drew it, 0..1, feeds straight into spell power. the
+    // span is set so full power still means what it did before the door
+    // was lowered: a clean drawing scores around 0.85.
+    const qualityOf = score => Math.max(0, Math.min(1, (score - CAST_FLOOR) / 0.26));
 
     // ===============================================================
     // 2. THE WIZARD — everything drawn in code
@@ -1503,7 +1559,15 @@
         if (!results.length) return;
         const best = results[0];
         if (best.score < CAST_FLOOR || (results[1] && best.score - results[1].score < CAST_MARGIN)) {
-            g.hint = { text: 'fizzled — that looked like ' + best.spell.name, bad: true };
+            // two different failures, and knowing which one it was is the
+            // difference between "draw it better" and "draw it bigger"
+            const split = best.score >= CAST_FLOOR && results[1];
+            g.hint = {
+                text: split
+                    ? 'fizzled — half ' + best.spell.name + ', half ' + results[1].spell.name
+                    : 'fizzled — that looked like ' + best.spell.name,
+                bad: true
+            };
             g.hintT = 1.6;
             SFX.fizzle();
             return;
@@ -2248,10 +2312,17 @@
             const mine = res.find(r => r.id === spell.id);
             const best = res[0];
             const pct = Math.round((mine ? mine.score : 0) * 100);
-            if (best.id === spell.id && best.score >= CAST_FLOOR) {
-                el.innerHTML = `<b style="color:#0df259">${pct}% — that would cast</b>`;
+            const bar = Math.round(CAST_FLOOR * 100);
+            // the duel also refuses a drawing that sits between two
+            // spells, so the practice pad has to refuse it too — saying
+            // "that would cast" and then fizzling is worse than useless
+            const tooClose = res[1] && best.score - res[1].score < CAST_MARGIN;
+            if (best.id === spell.id && best.score >= CAST_FLOOR && !tooClose) {
+                el.innerHTML = `<b style="color:#0df259">${pct}% — that would cast, at ${Math.round(qualityOf(best.score) * 100)}% power</b>`;
+            } else if (best.id === spell.id && tooClose) {
+                el.innerHTML = `<b style="color:#ffe14d">${pct}% — half ${escapeHtml(spell.name)}, half ${escapeHtml(res[1].spell.name)}</b>`;
             } else if (best.id === spell.id) {
-                el.innerHTML = `<b style="color:#ffe14d">${pct}% — closest match, but too rough to fire</b>`;
+                el.innerHTML = `<b style="color:#ffe14d">${pct}% — closest match, but ${bar}% is the bar</b>`;
             } else {
                 el.innerHTML = `<b style="color:#ff9aa8">${pct}% — the game read that as ${escapeHtml(best.spell.name)}</b>`;
             }
@@ -2409,6 +2480,6 @@
     // the live duel so a test can ask whether that fireball landed.
     window.WZ_ENGINE = {
         recognize, featuresOf, similarity, templates, paintSigil, drawWizard,
-        CAST_FLOOR, CAST_MARGIN, state: () => G
+        CAST_FLOOR, CAST_MARGIN, qualityOf, TILTS, state: () => G
     };
 })();

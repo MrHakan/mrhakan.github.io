@@ -211,7 +211,7 @@ function shaky(strokes, rnd, level, tiltDeg) {
 }
 function trial(level, per, seed, tiltDeg) {
     const rnd = mulberry(seed);
-    const misses = [];
+    const misses = [], wrong = [];
     let n = 0, selfSum = 0, castable = 0;
     for (const s of S) {
         for (let k = 0; k < per; k++) {
@@ -219,12 +219,16 @@ function trial(level, per, seed, tiltDeg) {
             n++;
             const self = res.find(r => r.id === s.id);
             selfSum += self ? self.score : 0;
-            if (self && self.score >= ENGINE.CAST_FLOOR && res[0].id === s.id &&
-                (!res[1] || self.score - res[1].score >= ENGINE.CAST_MARGIN)) castable++;
+            const fires = res.length && res[0].score >= ENGINE.CAST_FLOOR &&
+                (!res[1] || res[0].score - res[1].score >= ENGINE.CAST_MARGIN);
+            if (fires && res[0].id === s.id) castable++;
+            // a fizzle costs you a moment; a spell you did not ask for
+            // costs you the mana and the exchange
+            if (fires && res[0].id !== s.id) wrong.push(s.id + '->' + res[0].id);
             if (!res.length || res[0].id !== s.id) misses.push(s.id + '->' + (res[0] ? res[0].id : 'nothing'));
         }
     }
-    return { n, misses, mean: selfSum / n, castable };
+    return { n, misses, wrong, mean: selfSum / n, castable };
 }
 const tidy = trial(0.55, 8, 20260813);
 const sloppy = trial(0.8, 8, 424242);
@@ -248,6 +252,37 @@ expect(tilted.misses.length / tilted.n <= 0.03, 'a sigil drawn at a lean is righ
 expect(tilted.castable / tilted.n >= 0.9, 'and nine out of ten of those still cast',
     `${tilted.castable}/${tilted.n}`);
 
+// the tilt search used to stop at ±18°, so a sigil drawn at thirty
+// degrees fell off the end of it: two thirds of them cast, and the ones
+// that did not were the ones firing the *wrong* spell. it reaches ±30°
+// now, and this is the case that says so.
+const leaning = trial(0.6, 8, 2718, 30);
+console.log(`        tilted ±30° ${leaning.n - leaning.misses.length}/${leaning.n} right, ${leaning.castable} would cast`);
+expect(leaning.misses.length / leaning.n <= 0.04, 'a sigil drawn at a heavy lean is still right 96% of the time',
+    leaning.misses.slice(0, 8).join(', '));
+expect(leaning.castable / leaning.n >= 0.93, 'and it casts rather than fizzling',
+    `${leaning.castable}/${leaning.n}`);
+
+// the unforgivable failure is not a fizzle, it is casting something
+// nobody asked for — you lose the mana and the duel argues with you
+{
+    const misfires = [];
+    for (const [name, t] of [['tidy', tidy], ['sloppy', sloppy], ['awful', awful], ['±22°', tilted], ['±30°', leaning]]) {
+        if (t.wrong.length) misfires.push(`${name}: ${t.wrong.slice(0, 4).join(', ')}`);
+    }
+    const total = [tidy, sloppy, awful, tilted, leaning].reduce((a, t) => a + t.wrong.length, 0);
+    const n = [tidy, sloppy, awful, tilted, leaning].reduce((a, t) => a + t.n, 0);
+    console.log(`        wrong spell cast: ${total}/${n}`);
+    expect(total / n <= 0.005, 'a drawn sigil almost never casts the wrong spell', misfires.join(' | '));
+}
+
+// how well you drew it decides how hard it hits, and the scale is
+// anchored: scraping through the door is a weak spell, not a free one
+expect(ENGINE.qualityOf(ENGINE.CAST_FLOOR) === 0 && ENGINE.qualityOf(ENGINE.CAST_FLOOR - 0.1) === 0,
+    'a drawing at the threshold casts at zero power');
+expect(ENGINE.qualityOf(0.86) === 1 && ENGINE.qualityOf(ENGINE.CAST_FLOOR + 0.13) > 0.45,
+    'and a clean one at full', String(ENGINE.qualityOf(0.86)));
+
 // and the other half of the job: a panic scribble must not fire a spell
 function scribble(rnd) {
     const strokes = [];
@@ -263,17 +298,50 @@ function scribble(rnd) {
     }
     return strokes;
 }
-{
-    const rnd = mulberry(1234);
+// a slower hand: one long wandering line rather than a panic scrub. this
+// is the junk that looks most like a real gesture, and the one the lower
+// casting threshold lets closest to the door.
+function doodle(rnd) {
+    const pts = [];
+    let x = 20 + rnd() * 60, y = 20 + rnd() * 60, a = rnd() * Math.PI * 2;
+    for (let i = 0; i < 20 + Math.floor(rnd() * 25); i++) {
+        a += (rnd() - 0.5) * 1.2;
+        x = Math.max(2, Math.min(98, x + Math.cos(a) * 9));
+        y = Math.max(2, Math.min(98, y + Math.sin(a) * 9));
+        pts.push({ x, y });
+    }
+    return [pts];
+}
+function junkRate(gen, n, seed) {
+    const rnd = mulberry(seed);
     let fired = 0;
-    const N = 200;
-    for (let i = 0; i < N; i++) {
-        const res = ENGINE.recognize(scribble(rnd));
+    for (let i = 0; i < n; i++) {
+        const res = ENGINE.recognize(gen(rnd));
         if (res.length && res[0].score >= ENGINE.CAST_FLOOR &&
             (!res[1] || res[0].score - res[1].score >= ENGINE.CAST_MARGIN)) fired++;
     }
+    return fired;
+}
+{
+    const N = 200, fired = junkRate(scribble, N, 1234);
     console.log(`        scribbles that would cast: ${fired}/${N}`);
-    expect(fired / N <= 0.05, 'a scribble almost never casts anything', fired + '/' + N + ' fired');
+    expect(fired / N <= 0.04, 'a scribble almost never casts anything', fired + '/' + N + ' fired');
+
+    const M = 150, wandered = junkRate(doodle, M, 5678);
+    console.log(`        idle doodles that would cast: ${wandered}/${M}`);
+    expect(wandered / M <= 0.22, 'and an idle doodle usually does not either', wandered + '/' + M + ' fired');
+}
+// what stops junk at a 0.60 door is that the score now costs you for
+// wandering: a scribble turns a corner every few points, a sigil does not
+{
+    const rnd = mulberry(31337);
+    const turns = S.map(s => ENGINE.featuresOf(s.glyph).turn).sort((a, b) => a - b);
+    const junk = [];
+    for (let i = 0; i < 40; i++) junk.push(ENGINE.featuresOf(scribble(rnd)).turn);
+    junk.sort((a, b) => a - b);
+    console.log(`        turning: sigils ${turns[0].toFixed(1)}..${turns[turns.length - 1].toFixed(1)}, scribbles median ${junk[20].toFixed(1)}`);
+    expect(junk[20] > turns[Math.floor(turns.length * 0.9)],
+        'a scribble turns more than nine out of ten real sigils', `${junk[20].toFixed(1)} vs ${turns[Math.floor(turns.length * 0.9)].toFixed(1)}`);
 }
 
 // ===================================================================
