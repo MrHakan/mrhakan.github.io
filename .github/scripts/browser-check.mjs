@@ -398,7 +398,16 @@ try {
         await Promise.all([waitLive(bHost), waitLive(bGuest)]);
         await draw(bGuest, TRIANGLE);
         await draw(bHost, ZBOLT);
-        await bHost.waitForTimeout(2500);
+        // the simulation is frame driven, and by now there are four pages
+        // fighting over the cpu — so a couple of seconds of wall clock is
+        // not a fixed number of frames. wait for the spells to land rather
+        // than guessing at how long they take; if they never do, the
+        // assertion below is the one that should say so.
+        await bHost.waitForFunction(() => {
+            const g = WZ_ENGINE.state();
+            return g.wiz[0].hp < 100 && g.wiz[1].hp < 100;
+        }, null, { timeout: 30000 }).catch(() => { });
+        await bHost.waitForTimeout(600);      // and for the next snapshot to reach the guest
         const bh = await bHost.evaluate(() => { const g = WZ_ENGINE.state(); return { kind: g.session.transport.kind, hp: g.wiz.map(w => Math.round(w.hp)) }; });
         const bg = await bGuest.evaluate(() => { const g = WZ_ENGINE.state(); return { kind: g.session.transport.kind, hp: g.wiz.map(w => Math.round(w.hp)) }; });
         expect(bh.kind === 'bus' && bg.kind === 'bus', 'the duel really is running on the relay transport', JSON.stringify([bh.kind, bg.kind]));
