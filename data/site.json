@@ -163,6 +163,16 @@
     ],
     "changelog": [
         {
+            "version": "8.1",
+            "date": "2026-08-14",
+            "changes": [
+                "signing the guestbook no longer opens a pull request — it opens a pre-filled issue, and a workflow commits the entry and closes it, usually inside a minute",
+                "that removes the daft bit nobody thought about: a pull request meant forking the whole repo just to say hello",
+                "the same for the shoutbox, and nothing a visitor writes is trusted — html, control characters and non-http links are stripped, every field is capped, and the filename is built from a sanitised slug",
+                "49 checks around it, including the bot itself run against a stub github, because this is the one place someone else's writing lands in the repo"
+            ]
+        },
+        {
             "version": "8.0",
             "date": "2026-08-13",
             "changes": [

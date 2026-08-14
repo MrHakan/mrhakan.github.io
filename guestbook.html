@@ -69,7 +69,8 @@
 
     <script>
         // entries + signing are handled by index.js (loaded above):
-        // the guestbook lives in the repo as json files and is signed via github pull request.
+        // the guestbook lives in the repo as json files; signing opens a pre-filled
+        // github issue and a workflow commits it (.github/workflows/guestbook.yml).
         document.addEventListener('DOMContentLoaded', () => loadGuestbook());
     </script>
 </body>

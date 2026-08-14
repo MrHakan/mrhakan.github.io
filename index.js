@@ -1433,7 +1433,7 @@ function nameHash(s) {
 }
 
 // guestbook + shoutbox entries live as json files in the repo (data/guestbook, data/shouts).
-// visitors add entries by opening a pull request from their own github account.
+// visitors add entries by opening a pre-filled issue; a workflow commits it.
 async function fetchEntriesFromRepo(kind) {
     const cacheKey = `repo-${kind}-cache`;
     try {
@@ -1457,19 +1457,33 @@ async function fetchEntriesFromRepo(kind) {
     }
 }
 
-function submitViaPullRequest(kind, entry) {
-    const slug = entry.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'anon';
-    const filename = `data/${kind}/${Date.now()}-${slug}.json`;
+// This used to open a pull request, which quietly asked every visitor to
+// fork the repo before they could say hello. Nobody does that. An issue
+// is one button for anyone with a github account, and
+// .github/workflows/guestbook.yml commits the entry and closes it.
+function submitViaIssue(kind, entry) {
     const value = JSON.stringify(entry, null, 4) + '\n';
-    const url = `https://github.com/${GH_REPO}/new/${GH_BRANCH}?filename=${encodeURIComponent(filename)}&value=${encodeURIComponent(value)}`;
+    const isShout = kind === 'shouts';
+    const title = `${isShout ? 'shout' : 'guestbook'}: ${entry.name}`;
+    const body = [
+        isShout ? 'a shout for the shoutbox:' : 'signing the guestbook:',
+        '',
+        '```json',
+        value.trimEnd(),
+        '```',
+        '',
+        'submit this issue as it is — the bot picks it up, adds the entry and closes it.',
+        'edit the json if you like, but keep the fence.'
+    ].join('\n');
+    const url = `https://github.com/${GH_REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
     showRetroDialog({
-        title: kind === 'shouts' ? 'shout via github' : 'sign via github',
+        title: isShout ? 'shout via github' : 'sign via github',
         lines: [
-            'your entry gets added through a github pull request:',
-            '1. github opens with your entry pre-filled',
-            '2. click "propose changes" then "create pull request"',
-            '3. once mrhakan approves it, you are on the wall!',
-            'no github account? discord me instead bradar.'
+            'your entry gets added by opening an issue:',
+            '1. github opens with your entry already written',
+            '2. hit "create" — that is the whole job',
+            '3. a robot adds it within a minute and closes the issue',
+            'no forking, no pull request. no github account? discord me instead bradar.'
         ],
         okLabel: 'open github',
         cancelLabel: 'nevermind',
@@ -1478,7 +1492,7 @@ function submitViaPullRequest(kind, entry) {
                 navigator.clipboard.writeText(value).catch(() => { });
             }
             window.open(url, '_blank', 'noopener');
-            showToast('github.exe', 'entry copied to clipboard as backup. waiting for your PR!');
+            showToast('github.exe', 'entry copied as backup. hit create and the robot does the rest.');
         }
     });
 }
@@ -1559,7 +1573,7 @@ function postShout() {
         return;
     }
     const now = new Date();
-    submitViaPullRequest('shouts', {
+    submitViaIssue('shouts', {
         name: name.substring(0, 20),
         message: message.substring(0, 140),
         date: now.toISOString().slice(0, 10),
@@ -1637,7 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cleanSite) entry.website = cleanSite;
             playSound('ding');
             if (typeof unlockAchievement === 'function') unlockAchievement('signer');
-            submitViaPullRequest('guestbook', entry);
+            submitViaIssue('guestbook', entry);
         });
     }
 });
