@@ -649,6 +649,23 @@ body {
     margin-bottom: 6px;
 }
 
+/* the guestbook shows the comment it is about to put on your clipboard,
+   so you can read it (and select it by hand) before it goes anywhere */
+.retro-dialog-pre {
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 6px 8px;
+    margin: 8px 0 2px;
+    max-height: 140px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+}
+
 .retro-dialog-buttons {
     display: flex;
     justify-content: center;

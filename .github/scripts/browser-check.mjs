@@ -26,6 +26,10 @@ const section = n => console.log('\n== ' + n + ' ==');
 // PW_CHROMIUM lets a machine that already has a chromium skip the download
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
+// the welcome popup fires 1.4s after every boot and, being a retro dialog,
+// evicts whatever dialog is already on screen — including one a test just
+// opened. mark the session as welcomed before any page script runs.
+await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 const errors = [];
 
 async function boot(tag) {
@@ -152,41 +156,104 @@ try {
     // ---------------------------------------------------------------
     section('signing the guestbook');
     //
-    // It used to open a pull request, which meant forking the repo. This
-    // checks the button now points at a pre-filled issue instead — the
-    // workflow that reads it is tested in check-guestbook.mjs.
+    // The guestbook is a public gist and signing it is a comment on
+    // that gist. This is the real thing: a stubbed gist api hands the
+    // page a comment thread (including one written by somebody with
+    // bad intentions), and then the form is filled in and "sign it!"
+    // pressed to see what ends up on the clipboard.
     // ---------------------------------------------------------------
     const gb = await boot('guestbook');
+    const board = await gb.evaluate(async () => {
+        const GIST = 'a7fa4c89c27fc3adedf1ff96b0514472';
+        const comments = [
+            {
+                id: 1, created_at: '2026-08-14T09:00:00Z',
+                html_url: 'https://gist.github.com/MrHakan/' + GIST + '#gistcomment-1',
+                user: { login: 'visitor', avatar_url: 'https://avatars.githubusercontent.com/u/1?v=4' },
+                body: 'name: a stranger\nsite: example.com\n\nsigned from a gist comment'
+            },
+            {
+                id: 2, created_at: '2026-08-14T09:30:00Z',
+                html_url: 'https://gist.github.com/MrHakan/' + GIST + '#gistcomment-2',
+                user: { login: 'hax', avatar_url: 'https://avatars.githubusercontent.com/u/2?v=4' },
+                body: 'name: <img src=x onerror="window.__pwned=1">\n\n<script>window.__pwned=1<\/script> hello'
+            }
+        ];
+        // the gist api and site.json both stubbed; everything else on the
+        // page keeps its normal fetch
+        const real = window.fetch.bind(window);
+        window.fetch = (url, opts) => {
+            const u = String(url && url.url ? url.url : url);
+            if (u.indexOf('api.github.com/gists/') >= 0) {
+                return Promise.resolve(new Response(JSON.stringify(comments), { headers: { 'content-type': 'application/json' } }));
+            }
+            if (u.indexOf('api.github.com/repos/') >= 0) {
+                return Promise.resolve(new Response('[]', { headers: { 'content-type': 'application/json' } }));
+            }
+            if (/data\/site\.json/.test(u)) {
+                return Promise.resolve(new Response(JSON.stringify({ boards: { owner: 'MrHakan', guestbook: GIST, shouts: GIST } }),
+                    { headers: { 'content-type': 'application/json' } }));
+            }
+            return real(url, opts);
+        };
+        // the tray status widget already read the real site.json; drop
+        // both caches so the stub above is what the boards see
+        siteData = null;
+        boardsCache = null;
+        showSection('guestbook');
+        await loadGuestbook();
+        const wall = document.getElementById('guestbook-entries');
+        return {
+            html: wall.innerHTML,
+            text: wall.textContent,
+            injected: !!document.querySelector('#guestbook-entries script, #guestbook-entries img[onerror]'),
+            pwned: !!window.__pwned
+        };
+    });
+    expect(/signed from a gist comment/.test(board.text), 'the wall is the gist comment thread', board.text.slice(0, 200));
+    expect(/@visitor/.test(board.text), 'each entry carries the github account that wrote it', board.text.slice(0, 200));
+    expect(/gistcomment-1/.test(board.html), 'and links back to the comment', board.html.slice(0, 200));
+    expect(!board.injected && !board.pwned, 'a comment full of markup renders as text and runs nothing',
+        board.html.slice(0, 200));
+
     const opened = await gb.evaluate(async () => {
         window.__opened = null;
         window.open = (url) => { window.__opened = url; return null; };
-        showSection('guestbook');
+        window.__copied = null;
+        // headless chromium has no clipboard permission; catch what it tried
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText: v => { window.__copied = v; return Promise.resolve(); } }
+        });
         document.getElementById('gb-name').value = 'test visitor';
         document.getElementById('gb-website').value = 'example.com';
         document.getElementById('gb-message').value = 'hello from the browser test';
         document.getElementById('guestbook-form').dispatchEvent(new Event('submit', { cancelable: true }));
-        await new Promise(r => setTimeout(r, 300));
+        // signing reads the config before it can name the gist, so the
+        // dialog arrives a tick later — wait for the one it opens rather
+        // than for whatever dialog happens to be on screen
+        for (let i = 0; i < 60; i++) {
+            const t = document.querySelector('.retro-dialog-title');
+            if (t && /gist/i.test(t.textContent)) break;
+            await new Promise(r => setTimeout(r, 100));
+        }
         const dialog = document.querySelector('.retro-dialog');
         const text = dialog ? dialog.textContent : '';
-        const okBtn = dialog && [...dialog.querySelectorAll('button')].find(b => /open github/i.test(b.textContent));
+        const preview = dialog && dialog.querySelector('.retro-dialog-pre');
+        const okBtn = dialog && [...dialog.querySelectorAll('button')].find(b => /copy \+ open/i.test(b.textContent));
         if (okBtn) okBtn.click();
         await new Promise(r => setTimeout(r, 200));
-        return { text, url: window.__opened };
+        return { text, preview: preview ? preview.textContent : '', url: window.__opened, copied: window.__copied };
     });
-    expect(/issue/i.test(opened.text) && !/pull request:|propose changes/i.test(opened.text),
-        'the dialog explains the issue flow, not a fork', opened.text.slice(0, 160));
-    expect(!!opened.url && opened.url.includes('/issues/new?'), 'signing opens a pre-filled issue', opened.url);
-    {
-        const u = new URL(opened.url);
-        const title = u.searchParams.get('title') || '';
-        const body = u.searchParams.get('body') || '';
-        expect(/^guestbook: /.test(title), 'the title carries the prefix the workflow looks for', title);
-        const json = (body.match(/```json\s*([\s\S]*?)```/) || [])[1];
-        let parsed = null;
-        try { parsed = JSON.parse(json); } catch (e) { }
-        expect(parsed && parsed.name === 'test visitor' && /hello from the browser test/.test(parsed.message),
-            'and the body carries the entry the bot will read', json && json.slice(0, 120));
-    }
+    // saying "no pull request" is fine; promising one is not
+    expect(/gist/i.test(opened.text) && /comment/i.test(opened.text)
+        && !/(opens?|via|through) (a )?(github )?(pull request|issue)/i.test(opened.text),
+        'the dialog explains the gist comment, not a fork or an issue', opened.text.slice(0, 200));
+    expect(/^name: test visitor\nsite: https:\/\/example\.com\/\n\nhello from the browser test/.test(opened.preview),
+        'it shows exactly what is going on the clipboard', JSON.stringify(opened.preview));
+    expect(opened.copied === opened.preview, 'and that is what it copies', JSON.stringify(opened.copied));
+    expect(opened.url === 'https://gist.github.com/MrHakan/a7fa4c89c27fc3adedf1ff96b0514472#comments',
+        'then opens the gist at the comment box', opened.url);
     await gb.close();
 
     // ---------------------------------------------------------------
@@ -342,7 +409,16 @@ try {
         await Promise.all([waitLive(bHost), waitLive(bGuest)]);
         await draw(bGuest, TRIANGLE);
         await draw(bHost, ZBOLT);
-        await bHost.waitForTimeout(2500);
+        // the simulation is frame driven, and by now there are four pages
+        // fighting over the cpu — so a couple of seconds of wall clock is
+        // not a fixed number of frames. wait for the spells to land rather
+        // than guessing at how long they take; if they never do, the
+        // assertion below is the one that should say so.
+        await bHost.waitForFunction(() => {
+            const g = WZ_ENGINE.state();
+            return g.wiz[0].hp < 100 && g.wiz[1].hp < 100;
+        }, null, { timeout: 30000 }).catch(() => { });
+        await bHost.waitForTimeout(600);      // and for the next snapshot to reach the guest
         const bh = await bHost.evaluate(() => { const g = WZ_ENGINE.state(); return { kind: g.session.transport.kind, hp: g.wiz.map(w => Math.round(w.hp)) }; });
         const bg = await bGuest.evaluate(() => { const g = WZ_ENGINE.state(); return { kind: g.session.transport.kind, hp: g.wiz.map(w => Math.round(w.hp)) }; });
         expect(bh.kind === 'bus' && bg.kind === 'bus', 'the duel really is running on the relay transport', JSON.stringify([bh.kind, bg.kind]));

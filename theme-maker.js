@@ -834,7 +834,7 @@ function tmRenderPublish(panel) {
     }
 
     panel.innerHTML = `
-        <p class="tm-hint">publishing opens a pull request against the site's repo, exactly like signing the guestbook. mrhakan reviews it, CI scans everything again on the server, and once it is merged your theme shows up in everyone's gallery.</p>
+        <p class="tm-hint">publishing opens a pull request against the site's repo — a theme is a file in here, so unlike signing the guestbook this one really does need one. mrhakan reviews it, CI scans everything again on the server, and once it is merged your theme shows up in everyone's gallery.</p>
 
         <div class="tm-summary bevel-in">
             <div><strong>${escapeHtml(t.name)}</strong> by ${escapeHtml(t.author || '—')}</div>
