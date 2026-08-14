@@ -7159,3 +7159,67 @@ body.disco-floor::after {
         letter-spacing: 4px;
     }
 }
+
+/* ---------- 1 v bot roster ---------- */
+.wz-bots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.wz-bot {
+    flex: 1 1 150px;
+    max-width: 190px;
+    background: #160a2b;
+    border: 1px solid #4b2d7a;
+    padding: 6px 5px;
+    color: #e8e2ff;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+}
+
+.wz-bot:hover {
+    border-color: #0df259;
+    background: #1b1030;
+}
+
+.wz-bot:active {
+    transform: translateY(1px);
+}
+
+.wz-bot canvas {
+    display: block;
+    margin: 0 auto;
+}
+
+.wz-bot-name {
+    font-weight: bold;
+    font-size: 13px;
+    color: #fff;
+}
+
+.wz-bot-title {
+    font-size: 10px;
+    color: #9a8ec4;
+}
+
+.wz-bot-tier {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 2px 0;
+}
+
+.wz-bot-blurb {
+    font-size: 10px;
+    line-height: 1.35;
+    color: #cfc4ee;
+    min-height: 40px;
+}
+
+.wz-bot-els {
+    font-size: 10px;
+    margin-top: 3px;
+}

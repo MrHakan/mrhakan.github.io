@@ -607,14 +607,156 @@
         };
     }
 
+    // ---------------------------------------------------------------
+    // THE BOTS
+    //
+    // Six opponents for 1 v bot, and they are not the same machine with
+    // a different number bolted on. Each one has a spell taste, a way of
+    // fighting, and its own hands: react is the seconds it waits between
+    // casts (a person needs about a second and a half to draw anything,
+    // so this is the real difficulty knob), dodge is how often it gets
+    // out of the way, quality is how well it "draws" — which feeds the
+    // same power scaling your own sigils get.
+    //
+    // The difficulty dropdown scales all three, so "old gary on hard" is
+    // still old gary: slow, patient, and behind a wall.
+    // ---------------------------------------------------------------
+    const BOTS = [
+        {
+            id: 'bogwart', name: 'bogwart', title: 'first year',
+            tier: 'easy',
+            blurb: 'has read one book and remembers about half of it. throws whatever he can spell.',
+            skill: { react: 3.0, dodge: 0.2, quality: 0.25 },
+            style: {
+                els: ['fire', 'nature'], aggression: 0.9, defence: 0.7, hexes: 0.4,
+                pool: ['spark', 'fireball', 'frostbolt', 'magicmissile', 'runeward', 'regrowth', 'vinewhip', 'stonespike']
+            },
+            avatar: {
+                skin: '#f0c9a0', hat: 'pointy', hatColor: '#0fa958', hair: 'short', hairColor: '#c8a06a',
+                beard: 'none', robe: 'plain', robeColor: '#0fa958', trimColor: '#ffb400',
+                staff: 'gnarled', familiar: 'frog', aura: 'none', eyes: 'tired', title: 'first year'
+            },
+            lines: {
+                start: ['right. i have definitely revised for this.', 'my mum says i am very talented.'],
+                win: ['i did that on purpose!', 'wait, that worked?'],
+                lose: ['that was not in the book.', 'best of nine?']
+            }
+        },
+        {
+            id: 'mildred', name: 'mildred', title: 'the unwise',
+            tier: 'easy',
+            blurb: 'builds a wall, hides behind it, and complains about the draught.',
+            skill: { react: 2.4, dodge: 0.4, quality: 0.45 },
+            style: {
+                els: ['ice', 'arcane'], aggression: 0.95, defence: 1.4, hexes: 0.8,
+                pool: ['frostbolt', 'icewall', 'hailstorm', 'deepfreeze', 'runeward', 'manawell', 'arcaneorb', 'blink', 'regrowth']
+            },
+            avatar: {
+                skin: '#d9a066', hat: 'wide', hatColor: '#2b8cff', hair: 'long', hairColor: '#e8e8e8',
+                beard: 'none', robe: 'layered', robeColor: '#6fd6ff', trimColor: '#e8e8e8',
+                staff: 'crystal', familiar: 'owl', aura: 'frost', eyes: 'normal', title: 'the unwise'
+            },
+            lines: {
+                start: ['do not scuff the ice, i only just laid it.', 'i have all afternoon, dear.'],
+                win: ['patience. you should try it.', 'the wall did most of it, honestly.'],
+                lose: ['you went straight through that?', 'well. rude.']
+            }
+        },
+        {
+            id: 'cinder', name: 'cinder', title: 'who is on fire',
+            tier: 'normal',
+            blurb: 'sets everything alight, including herself, and calls it a strategy.',
+            skill: { react: 1.9, dodge: 0.6, quality: 0.65 },
+            style: {
+                els: ['fire', 'storm'], aggression: 1.5, defence: 0.5, hexes: 0.9
+            },
+            avatar: {
+                skin: '#a86b3c', hat: 'horned', hatColor: '#ff6b2b', hair: 'mohawk', hairColor: '#ff6b2b',
+                beard: 'none', robe: 'ragged', robeColor: '#e4485f', trimColor: '#ffb400',
+                staff: 'orb', familiar: 'imp', aura: 'flames', eyes: 'angry', title: 'who is on fire'
+            },
+            lines: {
+                start: ['stand still. it is quicker for both of us.', 'i am going to enjoy this bit.'],
+                win: ['see? warmth.', 'ash. lovely.'],
+                lose: ['put me out. put me out!', 'fine. fine!']
+            }
+        },
+        {
+            id: 'gary', name: 'old gary', title: 'the caretaker',
+            tier: 'normal',
+            blurb: 'a wall, a ward, a heal, and one rock every eight seconds until you give up.',
+            skill: { react: 1.9, dodge: 0.55, quality: 0.6 },
+            style: {
+                els: ['earth', 'light'], aggression: 0.9, defence: 1.6, hexes: 0.6
+            },
+            avatar: {
+                skin: '#d9a066', hat: 'bald', hatColor: '#c8a06a', hair: 'none', hairColor: '#e8e8e8',
+                beard: 'huge', robe: 'patched', robeColor: '#3a3a4a', trimColor: '#c8a06a',
+                staff: 'broom', familiar: 'cat', aura: 'none', eyes: 'tired', title: 'the caretaker'
+            },
+            lines: {
+                start: ['i have been doing this since before you were a rumour.', 'go on then.'],
+                win: ['told you.', 'mind the floor on your way out.'],
+                lose: ['hm. i will be back tomorrow.', 'you got lucky, son.']
+            }
+        },
+        {
+            id: 'nyx', name: 'nyx', title: 'the quiet',
+            tier: 'hard',
+            blurb: 'never in the same place twice, and everything she casts sticks to you.',
+            skill: { react: 1.5, dodge: 0.85, quality: 0.85 },
+            style: {
+                els: ['shadow', 'blood'], aggression: 1.45, defence: 0.8, hexes: 1.4
+            },
+            avatar: {
+                skin: '#b9b6d6', hat: 'hood', hatColor: '#3a3a4a', hair: 'long', hairColor: '#b04dff',
+                beard: 'none', robe: 'cloak', robeColor: '#3a3a4a', trimColor: '#b04dff',
+                staff: 'skull', familiar: 'bat', aura: 'shadow', eyes: 'glowing', title: 'the quiet'
+            },
+            lines: {
+                start: ['you are already bleeding. you just have not noticed.', '...'],
+                win: ['quiet, wasn\'t it.', 'take your time getting up.'],
+                lose: ['interesting.', 'i will remember the shape of that.']
+            }
+        },
+        {
+            id: 'collector', name: 'the tax collector', title: 'void auditor',
+            tier: 'hard',
+            blurb: 'takes your mana first, your health second, and files the paperwork after.',
+            skill: { react: 1.25, dodge: 0.9, quality: 0.95 },
+            style: {
+                els: ['void', 'arcane', 'storm'], aggression: 1.5, defence: 0.9, hexes: 1.2
+            },
+            avatar: {
+                skin: '#7a4a24', hat: 'crown', hatColor: '#ffb400', hair: 'none', hairColor: '#3a3a4a',
+                beard: 'goatee', robe: 'trim', robeColor: '#3a3a4a', trimColor: '#b04dff',
+                staff: 'skull', familiar: 'none', aura: 'shadow', eyes: 'cyclops', title: 'void auditor'
+            },
+            lines: {
+                start: ['this will be quick, and it will be itemised.', 'your mana is due.'],
+                win: ['settled.', 'receipt attached.'],
+                lose: ['i shall be appealing this.', 'an accounting error.']
+            }
+        }
+    ];
+
+    // how the difficulty dropdown bends whichever bot you picked
+    const BOT_DIFFICULTY = {
+        easy: { react: 1.45, dodge: 0.6, quality: 0.7 },
+        normal: { react: 1, dodge: 1, quality: 1 },
+        hard: { react: 0.78, dodge: 1.18, quality: 1.18 }
+    };
+
     // starting loadout — the eight sigils shown on the quick reference
     const DEFAULT_LOADOUT = ['spark', 'fireball', 'frostbolt', 'magicmissile', 'runeward', 'regrowth', 'smite', 'icewall'];
 
     window.WZ = {
         EL, SPELLS, STATUS, ARENA, AVATAR,
+        BOTS, BOT_DIFFICULTY,
         DEFAULT_LOADOUT,
         randomAvatar,
         byId: (id) => SPELLS.find(s => s.id === id) || null,
+        botById: (id) => BOTS.find(b => b.id === id) || null,
         helpers: { LINE, PATH, CLOSED, ARC, CIRCLE, QUAD, POLY, STAR, ZIG, WAVE, SPIRAL, LEMNISCATE, RAYS }
     };
 })();

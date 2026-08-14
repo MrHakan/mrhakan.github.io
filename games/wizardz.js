@@ -610,12 +610,13 @@
 
     function makeDuel(session, opts) {
         const solo = !!(opts && opts.solo) || (session && session.solo);
+        const bot = solo ? (D.botById(opts && opts.botId) || randomBot()) : null;
         const players = solo
             ? [{ id: 'me', name: (window.Netplay ? Netplay.profile().name : 'you'), avatar: myAvatar() },
-            { id: 'bot', name: botName(), avatar: D.randomAvatar(), bot: true }]
+            { id: 'bot', name: bot.name, avatar: bot.avatar, bot: true }]
             : orderPlayers(session, opts);
         const g = {
-            session, solo,
+            session, solo, bot,
             isHost: solo ? true : !!session.isHost,
             me: 0,
             wiz: [newWizard(0, players[0]), newWizard(1, players[1])],
@@ -634,9 +635,8 @@
         if (!solo) g.me = players[0].id === session.id ? 0 : 1;
         return g;
     }
+    const randomBot = () => D.BOTS[Math.floor(Math.random() * D.BOTS.length)];
     // both sides must agree on who is on the left: the host is
-    const BOT_NAMES = ['grimbald', 'mildred the unwise', 'zorb', 'the tax collector', 'hexus', 'old gary'];
-    const botName = () => BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
     function orderPlayers(session, opts) {
         const list = (opts && opts.slots ? opts.slots.map(id => session.player(id)).filter(Boolean) : session.players.slice());
         const host = list.find(p => p.host) || list[0];
@@ -880,7 +880,7 @@
             g.phaseT -= dt;
             const was = Math.ceil(g.phaseT + dt), now = Math.ceil(g.phaseT);
             if (now !== was && now > 0) SFX.tick();
-            if (g.phaseT <= 0) { g.phase = 'live'; SFX.tick(); }
+            if (g.phaseT <= 0) { g.phase = 'live'; SFX.tick(); botSay(g, 'start'); }
             return;
         }
         if (g.phase === 'roundover') {
@@ -1099,6 +1099,7 @@
         g.lastWinner = winner;
         if (winner >= 0) g.wins[winner]++;
         if (winner === g.me) SFX.win();
+        if (winner >= 0) botSay(g, winner === 1 ? 'win' : 'lose');
         if (g.isHost) sendNet(g, 'wz:round', { wins: g.wins, winner, round: g.round });
     }
     function nextRound(g) {
@@ -1124,15 +1125,30 @@
     // ---------------------------------------------------------------
     // the machine opponent
     // ---------------------------------------------------------------
-    // a machine can draw a perfect sigil in zero seconds, so the only
-    // fair handicap is making it wait between casts like you have to
-    const BOT_TUNING = {
-        easy: { react: 2.8, pool: ['spark', 'fireball', 'frostbolt', 'runeward', 'regrowth', 'magicmissile', 'icewall'], dodge: 0.35, quality: 0.3 },
-        normal: { react: 1.9, pool: null, dodge: 0.65, quality: 0.6 },
-        hard: { react: 1.2, pool: null, dodge: 0.92, quality: 0.9 }
-    };
+    // A machine can draw a perfect sigil in zero seconds, so the only
+    // fair handicap is making it wait between casts like you have to.
+    // Each bot brings its own hands; the difficulty dropdown bends them.
+    function botSkill(bot) {
+        const d = D.BOT_DIFFICULTY[difficulty()] || D.BOT_DIFFICULTY.normal;
+        const s = bot.skill;
+        return {
+            react: s.react * d.react,
+            dodge: Math.min(0.95, s.dodge * d.dodge),
+            quality: Math.min(1, s.quality * d.quality)
+        };
+    }
+    // the bots have opinions, and they say them out loud
+    function botSay(g, kind) {
+        if (!g.solo || !g.bot) return;
+        const lines = (g.bot.lines || {})[kind];
+        if (!lines || !lines.length) return;
+        g.hint = { text: g.bot.name + ': ' + lines[Math.floor(Math.random() * lines.length)], bot: true };
+        g.hintT = 2.6;
+    }
     function botStep(g, dt) {
-        const cfg = BOT_TUNING[difficulty()] || BOT_TUNING.normal;
+        const bot = g.bot || D.BOTS[0];
+        const cfg = botSkill(bot);
+        const style = bot.style || {};
         const me = g.wiz[1], foe = g.wiz[0];
         // dodging: look for the nearest thing coming at us
         const inc = g.ents.filter(e => e.kind === 'bolt' && e.owner === 0 && (e.x - me.x) * (e.vx) > 0 === false)
@@ -1152,21 +1168,31 @@
         if (g.botAcc > 0 || g.phase !== 'live') return;
         g.botAcc = cfg.react * (0.85 + Math.random() * 0.3);
 
-        const pool = (cfg.pool ? cfg.pool.map(id => D.byId(id)) : D.SPELLS).filter(Boolean);
+        const pool = (style.pool ? style.pool.map(id => D.byId(id)) : D.SPELLS).filter(Boolean);
         const usable = pool.filter(s => !spellReady(g, 1, s));
         if (!usable.length) return;
+        const aggression = style.aggression === undefined ? 1 : style.aggression;
+        const defence = style.defence === undefined ? 1 : style.defence;
+        const hexLove = style.hexes === undefined ? 1 : style.hexes;
+        // everybody smells blood at the end
+        const closing = foe.hp < 35 ? 1.6 : 1;
         const score = (s) => {
-            let v = (s.dmg || 0) + (s.p && s.p.dps ? s.p.dps * 3 : 0);
-            if (s.kind === 'heal' && me.hp < 45) v += 45;
-            if (s.kind === 'heal' && me.hp > 80) v -= 40;
-            if (s.kind === 'ward' && me.ward <= 0) v += me.hp < 60 ? 26 : 10;
-            if (s.kind === 'ward' && me.ward > 0) v -= 30;
-            if (s.kind === 'wall' && g.ents.some(e => e.kind === 'wall' && e.owner === 1)) v -= 40;
-            if (s.kind === 'hex' && Object.keys(foe.st).length > 2) v -= 12;
+            let v = ((s.dmg || 0) + (s.p && s.p.dps ? s.p.dps * 3 : 0)) * aggression * closing;
+            // everyone has a favourite shelf of the spellbook
+            if ((style.els || []).includes(s.el)) v += 16;
+            else if (style.els) v -= 6;
+            if (s.kind === 'heal') v += (me.hp < 45 ? 45 : me.hp > 80 ? -40 : 8) * defence;
+            if (s.kind === 'ward') v += (me.ward > 0 ? -30 : (me.hp < 60 ? 26 : 10) * defence);
+            if (s.kind === 'wall') v = (g.ents.some(e => e.kind === 'wall' && e.owner === 1) ? v - 40 : v + 14 * defence);
+            if (s.kind === 'hex') v = v * hexLove + (Object.keys(foe.st).length > 2 ? -12 : 8 * hexLove);
             if (s.id === 'sacrifice') v = me.mana < 25 && me.hp > 55 ? 35 : -50;
             if (s.p && s.p.lowOnly && foe.y < A.floor - 90) v -= 40;
-            // do not blow the whole mana bar on the opening move
+            // do not blow the whole mana bar on the opening move, and keep
+            // enough back to answer with something. a bot that spends its
+            // last drop on a wall then stands there is not playing, it is
+            // waiting.
             v -= Math.max(0, (s.cost || 0) - me.mana * 0.55) * 1.2;
+            if ((s.cost || 0) > me.mana - 14 && (s.dmg || 0) < 20) v -= 22;
             if (s.hp) v -= s.hp * (me.hp < 55 ? 2.5 : 0.8);
             // the big nukes stay occasional. a person needs a second and a
             // half to draw anything, and a machine chaining meteor into
@@ -1689,7 +1715,7 @@
         // what the last sigil did
         if (g.hintT > 0 && g.hint) {
             ctx.globalAlpha = Math.min(1, g.hintT * 2);
-            ctx.fillStyle = g.hint.bad ? '#ff9aa8' : elGlow(g.hint.el);
+            ctx.fillStyle = g.hint.bad ? '#ff9aa8' : (g.hint.bot ? '#ffe14d' : elGlow(g.hint.el));
             ctx.font = 'bold 15px "Courier New", monospace';
             ctx.fillText(g.hint.text, w / 2, A.floor + 34);
             ctx.globalAlpha = 1;
@@ -1934,8 +1960,9 @@
                         <button class="wz-btn wz-wide" id="wz-edit">customise wizard</button>
                     </div>
                     <div class="wz-menu-main">
-                        <button class="wz-btn wz-go wz-wide" id="wz-mp">play someone (invite code)</button>
-                        <button class="wz-btn wz-wide" id="wz-solo">practise vs the machine</button>
+                        <button class="wz-btn wz-go wz-wide" id="wz-mp">1 v 1 — play someone (invite code)</button>
+                        <button class="wz-btn wz-go wz-wide" id="wz-solo">1 v bot — pick an opponent</button>
+                        <button class="wz-btn wz-wide" id="wz-quick">quick duel vs a random bot</button>
                         <div class="wz-row">
                             <label>difficulty</label>
                             <select id="wz-diff" class="wz-input">
@@ -1972,14 +1999,82 @@
         root.querySelector('#wz-edit').onclick = () => openAvatarEditor();
         root.querySelector('#wz-book2').onclick = () => openGrimoire();
         root.querySelector('#wz-load2').onclick = () => openLoadout();
-        root.querySelector('#wz-solo').onclick = () => {
-            const s = window.Netplay ? Netplay.soloSession('wizardz') : null;
-            startDuel(s, { solo: true });
-        };
+        root.querySelector('#wz-solo').onclick = () => openBotPicker();
+        root.querySelector('#wz-quick').onclick = () => startBotDuel();
         root.querySelector('#wz-mp').onclick = () => {
             if (window.Netplay) Netplay.openLobby({ gameId: 'wizardz' });
             else showToast('wizardz', 'netplay is not loaded');
         };
+    }
+
+    // ---------------------------------------------------------------
+    // 1 v bot — the roster
+    //
+    // Six opponents, each with its own hands and its own taste in
+    // spells. They run through exactly the same simulation a human
+    // opponent does; the only thing they skip is the drawing.
+    // ---------------------------------------------------------------
+    function startBotDuel(botId) {
+        const s = window.Netplay ? Netplay.soloSession('wizardz') : null;
+        ensureWindow('wizardz 98');
+        startDuel(s, { solo: true, botId: botId });
+    }
+
+    function openBotPicker() {
+        ensureWindow('wizardz 98');
+        stopLoop();
+        if (G && G._unbind) G._unbind();
+        if (G && G._chromeTimer) clearInterval(G._chromeTimer);
+        G = null; cv = null; ctx = null;
+        const tierColor = { easy: '#7ee06a', normal: '#ffe14d', hard: '#e4485f' };
+        root.innerHTML = `
+            <div class="wz-menu">
+                <div class="wz-title">1 v bot</div>
+                <div class="wz-sub">pick something to duel. they all cheat in different directions.</div>
+                <div class="wz-row">
+                    <label>difficulty</label>
+                    <select id="wz-diff3" class="wz-input">
+                        <option value="easy">easy — slower hands</option>
+                        <option value="normal">normal — as written</option>
+                        <option value="hard">hard — faster, dodgier, tidier sigils</option>
+                    </select>
+                </div>
+                <div class="wz-bots">
+                    ${D.BOTS.map(b => `
+                        <button class="wz-bot" data-bot="${escapeHtml(b.id)}">
+                            <canvas width="86" height="104" data-botav="${escapeHtml(b.id)}"></canvas>
+                            <div class="wz-bot-name">${escapeHtml(b.name)}</div>
+                            <div class="wz-bot-title">${escapeHtml(b.title)}</div>
+                            <div class="wz-bot-tier" style="color:${tierColor[b.tier] || '#fff'}">${escapeHtml(b.tier)}</div>
+                            <div class="wz-bot-blurb">${escapeHtml(b.blurb)}</div>
+                            <div class="wz-bot-els">${(b.style.els || []).map(e =>
+                                `<span style="color:${elColor(e)}">${escapeHtml(e)}</span>`).join(' · ')}</div>
+                        </button>`).join('')}
+                </div>
+                <div class="wz-foot">
+                    <button class="wz-btn" id="wz-bot-random">surprise me</button>
+                    <button class="wz-btn" id="wz-bot-back">back</button>
+                </div>
+            </div>`;
+        const diff = root.querySelector('#wz-diff3');
+        diff.value = difficulty();
+        diff.onchange = () => localStorage.setItem(LS.diff, diff.value);
+        const t0 = performance.now();
+        const cvs = [...root.querySelectorAll('canvas[data-botav]')];
+        const spin = () => {
+            if (!cvs.length || !document.body.contains(cvs[0])) return;
+            cvs.forEach(cv2 => {
+                const b = D.botById(cv2.dataset.botav);
+                const c = cv2.getContext('2d');
+                c.clearRect(0, 0, cv2.width, cv2.height);
+                drawWizard(c, b.avatar, cv2.width / 2, cv2.height - 6, 0.78, { time: (performance.now() - t0) / 1000, face: 1 });
+            });
+            requestAnimationFrame(spin);
+        };
+        spin();
+        root.querySelectorAll('.wz-bot').forEach(b => b.onclick = () => startBotDuel(b.dataset.bot));
+        root.querySelector('#wz-bot-random').onclick = () => startBotDuel();
+        root.querySelector('#wz-bot-back').onclick = () => openMenu();
     }
 
     // ---------------------------------------------------------------
@@ -2210,22 +2305,21 @@
             id: 'wizardz',
             name: 'wizardz 98',
             start: (session, opts) => startDuel(session, opts),
+            startSolo: () => openBotPicker(),
+            soloLabel: '1 v bot — pick an opponent',
             paintAvatar,
             editAvatar: openAvatarEditor
         });
     }
 
-    window.startWizardz = function (mode) {
-        if (mode === 'solo') {
-            const s = window.Netplay ? Netplay.soloSession('wizardz') : null;
-            ensureWindow('wizardz 98');
-            startDuel(s, { solo: true });
-            return;
-        }
+    window.startWizardz = function (mode, botId) {
+        if (mode === 'solo') { startBotDuel(botId); return; }
+        if (mode === 'bot' || mode === 'bots') { openBotPicker(); return; }
         openMenu();
     };
     window.wizardzGrimoire = openGrimoire;
     window.wizardzAvatar = openAvatarEditor;
+    window.wizardzBots = openBotPicker;
     // handy for the console, and for the check script. state() hands out
     // the live duel so a test can ask whether that fireball landed.
     window.WZ_ENGINE = {

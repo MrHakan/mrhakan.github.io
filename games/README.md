@@ -39,6 +39,7 @@ window.Netplay.registerGame({
     id: 'wizardz',
     name: 'wizardz 98',
     start(session, opts) { startDuel(session, opts); },
+    startSolo() { openBotPicker(); },   // optional: your own 1 v bot front door
     paintAvatar,        // optional: draws a player onto a lobby canvas
     editAvatar          // optional: opens your dress-up window
 });
@@ -89,7 +90,9 @@ yourGame.start(solo, { solo: true });
 
 `soloSession()` hands back the same object shape with no transport
 behind it, so single player runs down the same code path as a duel and
-cannot rot separately.
+cannot rot separately. If you register a `startSolo()` the lobby's
+"play a bot" buttons call that instead — wizardz uses it to show its
+roster of opponents (`WZ.BOTS`) rather than picking one at random.
 
 ## transports
 

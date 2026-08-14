@@ -777,7 +777,7 @@
                     </div>
                 </div>
                 <div class="np-solo">
-                    <button id="np-solo" class="np-btn np-small">or practise on your own vs the machine</button>
+                    <button id="np-solo" class="np-btn np-small">or play a bot — no code, no waiting</button>
                 </div>
                 <div id="np-status" class="np-status">not connected</div>`;
 
@@ -826,12 +826,7 @@
             body.querySelector('#np-code').addEventListener('input', e => {
                 e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
             });
-            body.querySelector('#np-solo').onclick = () => {
-                NP.loadGame(gameId).then(g => {
-                    close();
-                    g.start(NP.soloSession(gameId), { solo: true, seed: Math.floor(Math.random() * 1e9) });
-                }).catch(e => toast('netplay', e.message));
-            };
+            body.querySelector('#np-solo').onclick = () => startSolo(gameId);
         }
 
         function renderLobby() {
@@ -912,13 +907,38 @@
                     <div class="np-pname">${esc(p.name)}${p.host ? ' <span class="np-tag">host</span>' : ''}${p.me ? ' <span class="np-tag np-you">you</span>' : ''}</div>
                     <div class="np-pstate">${p.ready ? 'ready' : 'waiting'}${p.ping ? ' · ' + p.ping + 'ms' : ''}</div>
                 </div>`).join('') +
-                (session.players.length < 2 ? '<div class="np-player np-empty"><div class="np-slot">empty seat</div><div class="np-pstate">share the code</div></div>' : '');
+                (session.players.length < 2
+                    ? `<div class="np-player np-empty">
+                           <div class="np-slot">empty seat</div>
+                           <div class="np-pstate">share the code, or</div>
+                           <button id="np-botseat" class="np-btn np-small" data-always="1">play a bot</button>
+                       </div>`
+                    : '');
+            const seatBtn = box.querySelector('#np-botseat');
+            // leaving the lobby for a bot match is the honest version of
+            // "fill the seat": the code stops working the moment you go
+            if (seatBtn) seatBtn.onclick = () => {
+                const gid = session.gameId;
+                session.leave();
+                session = null;
+                startSolo(gid);
+            };
             if (painter) {
                 box.querySelectorAll('canvas.np-avatar').forEach(cv => {
                     const p = session.players.find(x => x.id === cv.dataset.pid);
                     try { painter(cv, p && p.avatar, { scale: 1 }); } catch (e) { }
                 });
             }
+        }
+
+        // a game may want its own single player front door (wizardz has a
+        // roster of opponents); otherwise just start it with a solo session
+        function startSolo(gameId) {
+            NP.loadGame(gameId).then(g => {
+                close();
+                if (g.startSolo) g.startSolo();
+                else g.start(NP.soloSession(gameId), { solo: true, seed: Math.floor(Math.random() * 1e9) });
+            }).catch(e => toast('netplay', e.message));
         }
 
         const chatLog = [];

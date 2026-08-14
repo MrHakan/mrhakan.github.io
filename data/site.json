@@ -171,7 +171,8 @@
                 "50 spells across 10 elements, each with its own sigil, checked in CI so no two of them look alike to the recogniser",
                 "customisable wizards: hats, beards, robes, staffs, familiars, auras and titles, all drawn in code and carried into the duel with you",
                 "a grimoire with every sigil, a practice pad that scores your drawing, and an eight slot quick reference strip",
-                "practice mode against a machine wizard on three difficulties, down the same code path as a real match",
+                "1 v bot — six named opponents with their own spell tastes and hands: bogwart throws whatever he can spell, old gary hides behind a wall, nyx makes everything stick, and the tax collector takes your mana first",
+                "each bot runs the same simulation a human opponent does, on three difficulties, and has opinions about how the round went",
                 "the netplay layer is generic — future games register themselves and get the lobby for free",
                 "an optional self-hosted websocket relay for networks that block p2p (server/relay.js, no dependencies)"
             ]

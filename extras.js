@@ -913,6 +913,7 @@ function siteSearchIndex() {
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
         ['become user', 'game', () => openBecomeUser(), 'interactive drama story branching choices adventure narrative visual novel qte flowchart endings 1999 y2k androids'],
         ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire'],
+        ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],

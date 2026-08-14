@@ -252,6 +252,48 @@ expect(combos > 100000, 'there are enough wizards to go round', combos.toLocaleS
 console.log('        ' + combos.toLocaleString() + ' visible combinations before colours are doubled up');
 
 // ===================================================================
+section('the bots');
+// ===================================================================
+const B = WZ.BOTS;
+expect(Array.isArray(B) && B.length >= 4, 'there is a roster to fight', 'found ' + (B || []).length);
+expect(new Set(B.map(b => b.id)).size === B.length, 'every bot id is unique');
+expect(new Set(B.map(b => b.name)).size === B.length, 'every bot has its own name');
+const botProblems = [];
+const TIERS = ['easy', 'normal', 'hard'];
+for (const b of B) {
+    if (!TIERS.includes(b.tier)) botProblems.push(b.id + ': unknown tier ' + b.tier);
+    if (!b.blurb || b.blurb.length < 15) botProblems.push(b.id + ': no blurb');
+    const s = b.skill || {};
+    // react is the real difficulty knob: a person needs about 1.5s to
+    // draw a sigil, so anything under 1s is a machine being unfair
+    if (!(s.react >= 1 && s.react <= 5)) botProblems.push(b.id + ': react ' + s.react + ' is outside 1..5s');
+    if (!(s.dodge >= 0 && s.dodge <= 1)) botProblems.push(b.id + ': dodge out of range');
+    if (!(s.quality >= 0 && s.quality <= 1)) botProblems.push(b.id + ': quality out of range');
+    (b.style && b.style.els || []).forEach(el => { if (!WZ.EL[el]) botProblems.push(b.id + ': unknown element ' + el); });
+    (b.style && b.style.pool || []).forEach(id => { if (!WZ.byId(id)) botProblems.push(b.id + ': pool has no spell ' + id); });
+    if (b.style && b.style.pool && b.style.pool.length < 5) botProblems.push(b.id + ': pool too small to fight with');
+    ['start', 'win', 'lose'].forEach(k => {
+        if (!(b.lines && Array.isArray(b.lines[k]) && b.lines[k].length)) botProblems.push(b.id + ': nothing to say on ' + k);
+    });
+    const av = b.avatar || {};
+    ['skin', 'hat', 'robe', 'staff', 'eyes'].forEach(k => { if (!av[k]) botProblems.push(b.id + ': avatar missing ' + k); });
+    if (av.hat && !WZ.AVATAR.hat.includes(av.hat)) botProblems.push(b.id + ': unknown hat ' + av.hat);
+    if (av.familiar && !WZ.AVATAR.familiar.includes(av.familiar)) botProblems.push(b.id + ': unknown familiar ' + av.familiar);
+}
+expect(!botProblems.length, 'every bot is playable and says something', botProblems.join('\n        '));
+expect(TIERS.every(t => B.some(b => b.tier === t)), 'the roster spans easy to hard',
+    B.map(b => b.tier).join(', '));
+// a bot with no spell pool draws on all fifty, so only the pooled ones
+// need checking — but every bot must be able to actually hurt someone
+const toothless = B.filter(b => {
+    const pool = (b.style.pool || []).map(id => WZ.byId(id));
+    return b.style.pool && !pool.some(s => s && s.dmg > 0);
+});
+expect(!toothless.length, 'every bot owns at least one spell that deals damage', toothless.map(b => b.id).join(', '));
+expect(Object.keys(WZ.BOT_DIFFICULTY).length === 3, 'the difficulty dropdown has three settings');
+console.log('        roster: ' + B.map(b => `${b.name} (${b.tier}, ${b.skill.react}s)`).join(', '));
+
+// ===================================================================
 section('netplay');
 // ===================================================================
 expect(Array.isArray(NP.CATALOG) && NP.CATALOG.length >= 1, 'the lobby lists at least one game');

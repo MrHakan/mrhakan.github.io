@@ -55,6 +55,15 @@ async function draw(page, strokes) {
     }
     await page.waitForTimeout(700);           // the recogniser waits for a pause
 }
+// the simulation is frame driven and headless chromium renders slowly,
+// so never guess at the countdown — wait for the round to actually start
+async function waitLive(page) {
+    const h = await page.waitForFunction(() => {
+        const g = window.WZ_ENGINE && WZ_ENGINE.state();
+        return g && g.phase === 'live' ? { bot: g.bot && g.bot.id, hint: g.hint && g.hint.text } : null;
+    }, null, { timeout: 30000 });
+    return h.jsonValue();
+}
 const TRIANGLE = [[[380, 120], [455, 255], [305, 255], [380, 120]]];   // fireball
 const ZBOLT = [[[430, 120], [340, 190], [400, 190], [320, 270]]];      // spark
 
@@ -72,10 +81,16 @@ try {
     const counts = await solo.evaluate(() => ({ spells: WZ.SPELLS.length, templates: WZ_ENGINE.templates().length }));
     expect(counts.spells === 50 && counts.templates === 50, 'fifty spells and fifty templates in the browser', JSON.stringify(counts));
 
-    await solo.evaluate(() => startWizardz('solo'));
+    await solo.evaluate(() => startWizardz('solo', 'cinder'));
     await solo.waitForSelector('#wz-canvas', { timeout: 10000 });
-    ok('a practice duel starts');
-    await solo.waitForTimeout(3400);          // countdown
+    ok('a 1 v bot duel starts');
+    const opponent = await solo.evaluate(() => {
+        const g = WZ_ENGINE.state();
+        return { name: g.wiz[1].name, bot: g.bot && g.bot.id, hat: g.wiz[1].avatar.hat };
+    });
+    expect(opponent.bot === 'cinder' && /cinder/.test(opponent.name),
+        'you fight the bot you picked, with its own face', JSON.stringify(opponent));
+    await waitLive(solo);
 
     await draw(solo, TRIANGLE);
     const afterDraw = await solo.evaluate(() => {
@@ -91,8 +106,9 @@ try {
     // does nothing at all should be losing after ten seconds, but not
     // dead. this is the check that caught a piercing bolt billing its
     // target sixty times a second.
-    await solo.evaluate(() => { localStorage.setItem('mrhakan98-wizardz-difficulty', 'normal'); startWizardz('solo'); });
-    await solo.waitForTimeout(3400 + 8000);
+    await solo.evaluate(() => { localStorage.setItem('mrhakan98-wizardz-difficulty', 'normal'); startWizardz('solo', 'cinder'); });
+    await waitLive(solo);
+    await solo.waitForTimeout(8000);
     const survived = await solo.evaluate(() => {
         const g = WZ_ENGINE.state();
         return { hp: Math.round(g.wiz[g.me].hp), round: g.round, wins: g.wins, phase: g.phase };
@@ -100,6 +116,27 @@ try {
     expect(survived.hp > 0 && survived.round === 1, 'a passive player survives eight seconds on normal', JSON.stringify(survived));
     expect(survived.hp < 100, 'but the machine is definitely trying', JSON.stringify(survived));
     console.log('        hp left after doing nothing for 8s: ' + survived.hp);
+
+    // the roster screen
+    await solo.evaluate(() => startWizardz('bot'));
+    await solo.waitForSelector('.wz-bot', { timeout: 8000 });
+    const cards = await solo.$$eval('.wz-bot', els => els.map(e => e.querySelector('.wz-bot-name').textContent.trim()));
+    const roster = await solo.evaluate(() => WZ.BOTS.map(b => b.name));
+    expect(cards.length === roster.length && roster.every(n => cards.includes(n)),
+        'the 1 v bot roster shows every opponent', JSON.stringify(cards));
+    await solo.screenshot({ path: SHOTS + '/2b-bots.png' });
+
+    // each bot has to be startable and has to open its mouth
+    const tried = [];
+    let allGreeted = true;
+    for (const id of await solo.evaluate(() => WZ.BOTS.map(b => b.id))) {
+        await solo.evaluate(bid => startWizardz('solo', bid), id);
+        const st = await waitLive(solo);       // the greeting lands as the round opens
+        tried.push(id + (st.hint ? ' ✓' : ' SAID NOTHING'));
+        if (st.bot !== id || !st.hint) { allGreeted = false; bad('bot ' + id + ' starts and greets you', JSON.stringify(st)); }
+    }
+    if (allGreeted) ok('every bot on the roster starts a duel and greets you');
+    console.log('        ' + tried.join(', '));
 
     // the other windows open without throwing
     await solo.evaluate(() => wizardzGrimoire());
@@ -152,7 +189,8 @@ try {
     await host.waitForTimeout(2000);
     const started = await Promise.all([host.$('#wz-canvas'), guest.$('#wz-canvas')]);
     expect(started[0] && started[1], 'the host starting the match starts it for both');
-    await host.waitForTimeout(3200);           // countdown
+    await waitLive(host);
+    await waitLive(guest);
 
     // the guest draws a fireball; the host owns the simulation, so the
     // damage has to show up there
