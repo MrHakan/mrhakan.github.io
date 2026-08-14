@@ -1,0 +1,78 @@
+name: Check the games
+
+# The site has no build step, so nothing catches a broken game until
+# somebody opens it. This does: it loads the real game files, checks the
+# fifty spells and their sigils, proves the recogniser can still tell
+# them apart when they are drawn badly, and makes sure the multiplayer
+# relay still relays. Deploys wait for it — see deploy.yml.
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "games/**"
+            - "server/**"
+            - "index.html"
+            - "index.js"
+            - "extras.js"
+            - "style.css"
+            - "sw.js"
+            - ".github/scripts/check-games.mjs"
+            - ".github/workflows/games-ci.yml"
+    pull_request:
+    workflow_call:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    games:
+        name: spells, sigils and wiring
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            # no npm install anywhere in here on purpose: the site has no
+            # dependencies and neither does its test suite
+            - name: Check spells, sigils and desktop wiring
+              run: node .github/scripts/check-games.mjs
+
+            - name: Smoke test the netplay relay
+              run: node server/relay-smoke.mjs
+
+    browser:
+        name: it actually opens in a browser
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install playwright chromium
+              run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
+
+            - name: Boot the site, open the game, draw a sigil, run a lobby
+              run: |
+                  python3 -m http.server 8099 &
+                  sleep 2
+                  node .github/scripts/browser-check.mjs
+
+            - name: Keep the screenshots
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: screenshots
+                  path: .ci-shots/
+                  if-no-files-found: ignore
+                  retention-days: 7

@@ -6472,3 +6472,754 @@ body.disco-floor::after {
         max-width: none;
     }
 }
+
+/* ===================================================================
+   NETPLAY LOBBY  (.np-)
+   invite codes, rosters and a chat box, in the same grey plastic as
+   every other window on this desktop.
+   =================================================================== */
+.np-body {
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    padding: 8px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.np-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #000080;
+    color: #fff;
+    padding: 4px 6px;
+    margin-bottom: 8px;
+}
+
+.np-head .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.np-chip {
+    margin-left: auto;
+    background: #c0c0c0;
+    color: #000;
+    padding: 1px 6px;
+    font-size: 10px;
+}
+
+.np-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.np-label {
+    width: 54px;
+    flex-shrink: 0;
+    font-weight: bold;
+}
+
+.np-input {
+    flex: 1;
+    min-width: 0;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 5px;
+    background: #fff;
+    color: #000;
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+}
+
+.np-note {
+    font-size: 10.5px;
+    color: #333;
+    margin: 0 0 8px 60px;
+}
+
+.np-hidden {
+    display: none;
+}
+
+.np-btn {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 10px;
+    background: #c0c0c0;
+    color: #000;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    cursor: pointer;
+}
+
+.np-btn:active {
+    transform: translateY(1px);
+}
+
+.np-btn:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+.np-btn.np-go {
+    background: #7abf4a;
+    font-weight: bold;
+}
+
+.np-btn.np-small {
+    font-size: 10px;
+    padding: 2px 7px;
+}
+
+.np-split {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0;
+    flex-wrap: wrap;
+}
+
+.np-card {
+    flex: 1 1 200px;
+    background: #c0c0c0;
+    padding: 8px;
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+}
+
+.np-card-title {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.np-p {
+    font-size: 10.5px;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.np-join {
+    display: flex;
+    gap: 4px;
+}
+
+.np-code-input {
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.np-solo {
+    text-align: center;
+    margin: 4px 0;
+}
+
+.np-status {
+    margin-top: 8px;
+    padding: 3px 6px;
+    background: #000;
+    color: #0df259;
+    font-size: 10.5px;
+    min-height: 18px;
+}
+
+.np-codebox {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #000;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.np-code-label {
+    color: #888;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.np-code {
+    color: #0df259;
+    font-size: 30px;
+    font-weight: bold;
+    letter-spacing: 8px;
+}
+
+.np-code-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.np-players {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.np-player {
+    flex: 1 1 120px;
+    text-align: center;
+    background: #b0b0b0;
+    padding: 6px;
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+}
+
+.np-player.np-ok {
+    background: #a8c89a;
+}
+
+.np-avatar {
+    background: #1b1030;
+    display: block;
+    margin: 0 auto 4px;
+}
+
+.np-pname {
+    font-weight: bold;
+    font-size: 11px;
+    word-break: break-all;
+}
+
+.np-pstate {
+    font-size: 10px;
+    color: #333;
+}
+
+.np-tag {
+    background: #000080;
+    color: #fff;
+    font-size: 9px;
+    padding: 0 3px;
+}
+
+.np-tag.np-you {
+    background: #0a6b28;
+}
+
+.np-empty {
+    opacity: .6;
+}
+
+.np-slot {
+    height: 64px;
+    line-height: 64px;
+    color: #444;
+}
+
+.np-chat {
+    height: 90px;
+    overflow-y: auto;
+    background: #fff;
+    padding: 4px;
+    border-top: 2px solid #404040;
+    border-left: 2px solid #404040;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    font-size: 11px;
+}
+
+.np-line {
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.np-line.np-dim {
+    color: #888;
+}
+
+.np-chatrow {
+    display: flex;
+    gap: 4px;
+    margin: 6px 0;
+}
+
+.np-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ===================================================================
+   WIZARDZ 98  (.wz-)
+   =================================================================== */
+.wz-body {
+    background: #0d0620;
+    color: #e8e2ff;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    padding: 6px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.wz-arena-wrap {
+    display: flex;
+    justify-content: center;
+    background: #000;
+    border: 2px solid #4b2d7a;
+}
+
+.wz-canvas {
+    display: block;
+    max-width: 100%;
+    touch-action: none;
+    cursor: crosshair;
+    image-rendering: pixelated;
+}
+
+.wz-strip {
+    display: flex;
+    gap: 4px;
+    margin: 6px 0;
+    overflow-x: auto;
+}
+
+.wz-card {
+    flex: 1 1 0;
+    min-width: 62px;
+    background: #1b1030;
+    border: 1px solid #4b2d7a;
+    padding: 3px;
+    text-align: center;
+    color: inherit;
+    font-family: inherit;
+    cursor: default;
+}
+
+.wz-card canvas {
+    display: block;
+    margin: 0 auto;
+}
+
+.wz-card.wz-cool {
+    opacity: .45;
+}
+
+.wz-card.wz-poor {
+    filter: grayscale(.7);
+}
+
+.wz-card.on {
+    border-color: #0df259;
+    box-shadow: 0 0 0 1px #0df259 inset;
+}
+
+.wz-card-name {
+    font-size: 9.5px;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.wz-card-cost {
+    font-size: 9px;
+    color: #9a8ec4;
+}
+
+.wz-foot {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.wz-wait {
+    font-size: 11px;
+    color: #ffe14d;
+}
+
+.wz-btn {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 9px;
+    background: #2a1a48;
+    color: #e8e2ff;
+    border-top: 2px solid #6a4aa0;
+    border-left: 2px solid #6a4aa0;
+    border-right: 2px solid #150a2a;
+    border-bottom: 2px solid #150a2a;
+    cursor: pointer;
+}
+
+.wz-btn:active {
+    transform: translateY(1px);
+}
+
+.wz-btn.wz-go {
+    background: #0a6b28;
+    color: #d8ffd8;
+    font-weight: bold;
+}
+
+.wz-btn.wz-wide {
+    display: block;
+    width: 100%;
+    margin: 5px 0;
+    padding: 7px;
+    font-weight: bold;
+}
+
+.wz-btn.wz-tiny {
+    font-size: 10px;
+    padding: 1px 6px;
+}
+
+.wz-input {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 5px;
+    background: #1b1030;
+    color: #e8e2ff;
+    border: 1px solid #6a4aa0;
+}
+
+.wz-menu {
+    padding: 4px;
+}
+
+.wz-title {
+    font-size: 26px;
+    font-weight: bold;
+    color: #b04dff;
+    text-shadow: 2px 2px 0 #2a1a48;
+    letter-spacing: 2px;
+}
+
+.wz-sub {
+    font-size: 11.5px;
+    color: #9a8ec4;
+    margin-bottom: 10px;
+}
+
+.wz-menu-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.wz-menu-side {
+    flex: 0 0 160px;
+    text-align: center;
+}
+
+.wz-menu-side canvas {
+    background: #160a2b;
+    border: 1px solid #4b2d7a;
+}
+
+.wz-me-name {
+    font-size: 11px;
+    color: #ffe14d;
+    margin: 4px 0;
+}
+
+.wz-menu-main {
+    flex: 1 1 260px;
+}
+
+.wz-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 5px 0;
+}
+
+.wz-hint {
+    font-size: 10.5px;
+    color: #9a8ec4;
+    line-height: 1.45;
+    margin-top: 8px;
+    border-left: 2px solid #4b2d7a;
+    padding-left: 6px;
+}
+
+/* ---------- grimoire ---------- */
+.wz-book {
+    background: #0d0620;
+    color: #e8e2ff;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    padding: 6px;
+    max-height: 74vh;
+    overflow-y: auto;
+}
+
+.wz-book-tabs {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.wz-tab {
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: #1b1030;
+    color: #cfc4ee;
+    border: 1px solid #4b2d7a;
+    cursor: pointer;
+}
+
+.wz-tab.on {
+    background: #4b2d7a;
+    color: #fff;
+}
+
+.wz-book-body {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.wz-book-list {
+    flex: 1 1 220px;
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.wz-book-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #160a2b;
+    border: 1px solid #2a1a48;
+    padding: 2px 4px;
+    color: inherit;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.wz-book-item.on {
+    border-color: #0df259;
+}
+
+.wz-book-detail {
+    flex: 1 1 190px;
+    text-align: center;
+}
+
+.wz-book-detail canvas {
+    background: #160a2b;
+    border: 1px solid #4b2d7a;
+}
+
+.wz-book-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+.wz-book-meta {
+    font-size: 10.5px;
+    color: #9a8ec4;
+}
+
+.wz-book-blurb {
+    font-size: 11px;
+    margin: 6px 0;
+    line-height: 1.4;
+}
+
+.wz-load-top {
+    font-size: 11px;
+    color: #9a8ec4;
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.wz-load-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.wz-load-all {
+    max-height: 240px;
+}
+
+/* ---------- trainer ---------- */
+.wz-train {
+    background: #0d0620;
+    color: #e8e2ff;
+    font-family: "Courier New", monospace;
+    padding: 8px;
+    text-align: center;
+}
+
+.wz-train-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.wz-train canvas {
+    background: #160a2b;
+    border: 1px solid #4b2d7a;
+}
+
+.wz-pad {
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.wz-score {
+    margin: 8px 0;
+    font-size: 12px;
+    min-height: 18px;
+}
+
+/* ---------- dressing room ---------- */
+.wz-dress {
+    background: #0d0620;
+    color: #e8e2ff;
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    padding: 8px;
+    max-height: 74vh;
+    overflow-y: auto;
+}
+
+.wz-dress-wrap {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.wz-dress-view {
+    flex: 0 0 190px;
+    text-align: center;
+}
+
+.wz-dress-view canvas {
+    background: #160a2b;
+    border: 1px solid #4b2d7a;
+}
+
+.wz-dress-parts {
+    flex: 1 1 200px;
+}
+
+.wz-part {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+
+.wz-part-label {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    background: #160a2b;
+    border: 1px solid #2a1a48;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.wz-part-label b {
+    color: #ffe14d;
+}
+
+@media (max-width: 767px) {
+    .wz-title {
+        font-size: 20px;
+    }
+
+    .wz-card {
+        min-width: 54px;
+    }
+
+    .np-code {
+        font-size: 22px;
+        letter-spacing: 4px;
+    }
+}
+
+/* ---------- 1 v bot roster ---------- */
+.wz-bots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.wz-bot {
+    flex: 1 1 150px;
+    max-width: 190px;
+    background: #160a2b;
+    border: 1px solid #4b2d7a;
+    padding: 6px 5px;
+    color: #e8e2ff;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+}
+
+.wz-bot:hover {
+    border-color: #0df259;
+    background: #1b1030;
+}
+
+.wz-bot:active {
+    transform: translateY(1px);
+}
+
+.wz-bot canvas {
+    display: block;
+    margin: 0 auto;
+}
+
+.wz-bot-name {
+    font-weight: bold;
+    font-size: 13px;
+    color: #fff;
+}
+
+.wz-bot-title {
+    font-size: 10px;
+    color: #9a8ec4;
+}
+
+.wz-bot-tier {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 2px 0;
+}
+
+.wz-bot-blurb {
+    font-size: 10px;
+    line-height: 1.35;
+    color: #cfc4ee;
+    min-height: 40px;
+}
+
+.wz-bot-els {
+    font-size: 10px;
+    margin-top: 3px;
+}
