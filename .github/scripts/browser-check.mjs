@@ -26,6 +26,10 @@ const section = n => console.log('\n== ' + n + ' ==');
 // PW_CHROMIUM lets a machine that already has a chromium skip the download
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
+// the welcome popup fires 1.4s after every boot and, being a retro dialog,
+// evicts whatever dialog is already on screen — including one a test just
+// opened. mark the session as welcomed before any page script runs.
+await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 const errors = [];
 
 async function boot(tag) {
@@ -225,7 +229,14 @@ try {
         document.getElementById('gb-website').value = 'example.com';
         document.getElementById('gb-message').value = 'hello from the browser test';
         document.getElementById('guestbook-form').dispatchEvent(new Event('submit', { cancelable: true }));
-        await new Promise(r => setTimeout(r, 400));
+        // signing reads the config before it can name the gist, so the
+        // dialog arrives a tick later — wait for the one it opens rather
+        // than for whatever dialog happens to be on screen
+        for (let i = 0; i < 60; i++) {
+            const t = document.querySelector('.retro-dialog-title');
+            if (t && /gist/i.test(t.textContent)) break;
+            await new Promise(r => setTimeout(r, 100));
+        }
         const dialog = document.querySelector('.retro-dialog');
         const text = dialog ? dialog.textContent : '';
         const preview = dialog && dialog.querySelector('.retro-dialog-pre');
