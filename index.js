@@ -67,7 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initCounterEgg();
     initStartFlyouts();
     fetchGitHubUser();
-    initScreensaver();
+    // the screensaver lives in extras.js, and not every page loads it —
+    // guestbook.html is index.js on its own. without this the boot block
+    // threw there and everything after it was quietly skipped.
+    if (typeof initScreensaver === 'function') initScreensaver();
     initAssistant();
 
     if (window.innerWidth < 768) {
