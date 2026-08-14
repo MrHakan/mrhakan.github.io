@@ -318,8 +318,8 @@
     },
     "boards": {
         "owner": "MrHakan",
-        "guestbook": "",
-        "shouts": "",
+        "guestbook": "498b5a262bbba0289a344d0d75cc1683",
+        "shouts": "73cb5a6e7e8325e0858427b255a95a87",
         "note": "each board is a public gist, and its comment thread is the board. paste the gist id (the hex blob in its url) here — see data/README.md."
     }
 }

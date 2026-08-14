@@ -32,7 +32,7 @@ const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } })
 await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 const errors = [];
 
-async function boot(tag) {
+async function boot(tag, url) {
     const p = await ctx.newPage();
     p.on('pageerror', e => errors.push(tag + ': ' + e.message));
     p.on('console', m => {
@@ -40,7 +40,7 @@ async function boot(tag) {
         // the cdn bits (tailwind, google fonts) are not part of this test
         if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource/.test(t)) errors.push(tag + ' console: ' + t);
     });
-    await p.goto(BASE, { waitUntil: 'load' });
+    await p.goto(url || BASE, { waitUntil: 'load' });
     await p.keyboard.press('Enter');          // the boot screen wants a keypress
     await p.waitForTimeout(900);
     await p.evaluate(() => { window.soundEnabled = false; });
@@ -255,6 +255,21 @@ try {
     expect(opened.url === 'https://gist.github.com/MrHakan/a7fa4c89c27fc3adedf1ff96b0514472#comments',
         'then opens the gist at the comment box', opened.url);
     await gb.close();
+
+    // guestbook.html is the standalone page — index.js without the rest of
+    // the desktop's scripts. it is easy to break from index.js and nothing
+    // was ever opening it, so: open it, on the real config.
+    const page2 = await boot('guestbook.html', BASE.replace(/[^/]*$/, 'guestbook.html'));
+    await page2.waitForTimeout(1500);
+    const standalone = await page2.evaluate(async () => {
+        const cfg = await boardConfig();
+        return { cfg, form: !!document.getElementById('guestbook-form'), gist: GUESTBOOK.gistPage(cfg, 'guestbook') };
+    });
+    expect(standalone.form && /^https:\/\/gist\.github\.com\/./.test(standalone.gist),
+        'the standalone guestbook page knows which gist it signs', JSON.stringify(standalone));
+    expect(!!standalone.cfg.guestbook && !!standalone.cfg.shouts && standalone.cfg.guestbook !== standalone.cfg.shouts,
+        'and both boards are pointed at their own gist', JSON.stringify(standalone.cfg));
+    await page2.close();
 
     // ---------------------------------------------------------------
     section('icons');
