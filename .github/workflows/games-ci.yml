@@ -17,7 +17,7 @@ on:
             - "extras.js"
             - "style.css"
             - "sw.js"
-            - ".github/scripts/check-games.mjs"
+            - ".github/scripts/**"
             - ".github/workflows/games-ci.yml"
     pull_request:
     workflow_call:
@@ -46,6 +46,11 @@ jobs:
 
             - name: Smoke test the netplay relay
               run: node server/relay-smoke.mjs
+
+            # the guestbook is the one place a stranger's writing gets
+            # committed to this repo by a robot, so it gets its own tests
+            - name: Check the guestbook automation
+              run: node .github/scripts/check-guestbook.mjs
 
     browser:
         name: it actually opens in a browser

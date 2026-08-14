@@ -150,6 +150,46 @@ try {
     await solo.close();
 
     // ---------------------------------------------------------------
+    section('signing the guestbook');
+    //
+    // It used to open a pull request, which meant forking the repo. This
+    // checks the button now points at a pre-filled issue instead — the
+    // workflow that reads it is tested in check-guestbook.mjs.
+    // ---------------------------------------------------------------
+    const gb = await boot('guestbook');
+    const opened = await gb.evaluate(async () => {
+        window.__opened = null;
+        window.open = (url) => { window.__opened = url; return null; };
+        showSection('guestbook');
+        document.getElementById('gb-name').value = 'test visitor';
+        document.getElementById('gb-website').value = 'example.com';
+        document.getElementById('gb-message').value = 'hello from the browser test';
+        document.getElementById('guestbook-form').dispatchEvent(new Event('submit', { cancelable: true }));
+        await new Promise(r => setTimeout(r, 300));
+        const dialog = document.querySelector('.retro-dialog');
+        const text = dialog ? dialog.textContent : '';
+        const okBtn = dialog && [...dialog.querySelectorAll('button')].find(b => /open github/i.test(b.textContent));
+        if (okBtn) okBtn.click();
+        await new Promise(r => setTimeout(r, 200));
+        return { text, url: window.__opened };
+    });
+    expect(/issue/i.test(opened.text) && !/pull request:|propose changes/i.test(opened.text),
+        'the dialog explains the issue flow, not a fork', opened.text.slice(0, 160));
+    expect(!!opened.url && opened.url.includes('/issues/new?'), 'signing opens a pre-filled issue', opened.url);
+    {
+        const u = new URL(opened.url);
+        const title = u.searchParams.get('title') || '';
+        const body = u.searchParams.get('body') || '';
+        expect(/^guestbook: /.test(title), 'the title carries the prefix the workflow looks for', title);
+        const json = (body.match(/```json\s*([\s\S]*?)```/) || [])[1];
+        let parsed = null;
+        try { parsed = JSON.parse(json); } catch (e) { }
+        expect(parsed && parsed.name === 'test visitor' && /hello from the browser test/.test(parsed.message),
+            'and the body carries the entry the bot will read', json && json.slice(0, 120));
+    }
+    await gb.close();
+
+    // ---------------------------------------------------------------
     section('icons');
     //
     // the icon font is a subset. an icon that is not in it renders as
