@@ -150,6 +150,54 @@ try {
     await solo.close();
 
     // ---------------------------------------------------------------
+    section('icons');
+    //
+    // the icon font is a subset. an icon that is not in it renders as
+    // its own name in 24px letters, which is exactly what happened to
+    // "auto_fix_high" in the start menu, so this checks every icon the
+    // site asks for against the font that ships.
+    // ---------------------------------------------------------------
+    const iconPage = await boot('icons');
+    const iconNames = await iconPage.evaluate(async () => {
+        // every icon the site can ask for: written into the markup, or
+        // passed as an icon: option to a window / status entry
+        const names = new Set();
+        document.querySelectorAll('.material-symbols-outlined').forEach(el => {
+            const t = el.textContent.trim();
+            if (/^[a-z0-9_]+$/.test(t)) names.add(t);
+        });
+        for (const f of ['index.js', 'apps.js', 'fun.js', 'pages.js', 'extras.js', 'themes.js',
+            'theme-maker.js', 'games/netplay.js', 'games/wizardz.js', 'games/wizardz-data.js']) {
+            const src = await fetch(f).then(r => r.text()).catch(() => '');
+            for (const m of src.matchAll(/icon: '([a-z0-9_]+)'/g)) names.add(m[1]);
+            for (const m of src.matchAll(/material-symbols-outlined[^>]*>([a-z0-9_]+)</g)) names.add(m[1]);
+        }
+        return [...names];
+    });
+    const missingIcons = await iconPage.evaluate(async (names) => {
+        await document.fonts.load('24px "Material Symbols Outlined"');
+        await document.fonts.ready;
+        const probe = document.createElement('span');
+        probe.className = 'material-symbols-outlined';
+        probe.style.cssText = 'position:absolute;left:-9999px;font-size:24px;visibility:hidden';
+        document.body.appendChild(probe);
+        const bad = [];
+        for (const n of names) {
+            probe.textContent = n;
+            // a real glyph is one square em wide; a missing ligature falls
+            // back to drawing the name itself, which is far wider
+            if (probe.getBoundingClientRect().width > 30) bad.push(n);
+        }
+        probe.remove();
+        return bad;
+    }, iconNames);
+    expect(iconNames.length > 60, 'found the icons the site uses', iconNames.length + ' names');
+    expect(!missingIcons.length, 'every icon the site uses is in the font subset',
+        'missing from the woff2: ' + missingIcons.join(', '));
+    console.log('        checked ' + iconNames.length + ' icon names against the subset');
+    await iconPage.close();
+
+    // ---------------------------------------------------------------
     section('two players');
     // ---------------------------------------------------------------
     const host = await boot('host');

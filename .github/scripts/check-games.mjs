@@ -192,8 +192,8 @@ function mulberry(a) {
 }
 // rotation, aspect, a wobbly line and a few dropped points — roughly
 // what a sigil looks like drawn at speed on a trackpad
-function shaky(strokes, rnd, level) {
-    const rot = (rnd() - 0.5) * 2 * level * 9 * Math.PI / 180;
+function shaky(strokes, rnd, level, tiltDeg) {
+    const rot = (rnd() - 0.5) * 2 * (tiltDeg === undefined ? level * 9 : tiltDeg) * Math.PI / 180;
     const sx = 1 + (rnd() - 0.5) * 0.3 * level, sy = 1 + (rnd() - 0.5) * 0.3 * level;
     const cos = Math.cos(rot), sin = Math.sin(rot);
     const wobA = level * 3.2, wobF = 1 + rnd() * 3;
@@ -209,17 +209,18 @@ function shaky(strokes, rnd, level) {
         });
     });
 }
-function trial(level, per, seed) {
+function trial(level, per, seed, tiltDeg) {
     const rnd = mulberry(seed);
     const misses = [];
     let n = 0, selfSum = 0, castable = 0;
     for (const s of S) {
         for (let k = 0; k < per; k++) {
-            const res = ENGINE.recognize(shaky(s.glyph, rnd, level));
+            const res = ENGINE.recognize(shaky(s.glyph, rnd, level, tiltDeg));
             n++;
             const self = res.find(r => r.id === s.id);
             selfSum += self ? self.score : 0;
-            if (self && self.score >= ENGINE.CAST_FLOOR && res[0].id === s.id) castable++;
+            if (self && self.score >= ENGINE.CAST_FLOOR && res[0].id === s.id &&
+                (!res[1] || self.score - res[1].score >= ENGINE.CAST_MARGIN)) castable++;
             if (!res.length || res[0].id !== s.id) misses.push(s.id + '->' + (res[0] ? res[0].id : 'nothing'));
         }
     }
@@ -228,6 +229,9 @@ function trial(level, per, seed) {
 const tidy = trial(0.55, 8, 20260813);
 const sloppy = trial(0.8, 8, 424242);
 const awful = trial(1.0, 8, 7777);
+// nobody draws upright, and this is the case the recogniser used to be
+// worst at: a sigil leaning twenty degrees was a coin flip
+const tilted = trial(0.6, 8, 31415, 22);
 console.log(`        tidy   ${tidy.n - tidy.misses.length}/${tidy.n} right, mean score ${tidy.mean.toFixed(3)}, ${tidy.castable} would cast`);
 console.log(`        sloppy ${sloppy.n - sloppy.misses.length}/${sloppy.n} right, mean score ${sloppy.mean.toFixed(3)}`);
 console.log(`        awful  ${awful.n - awful.misses.length}/${awful.n} right, mean score ${awful.mean.toFixed(3)}`);
@@ -238,6 +242,39 @@ expect(sloppy.misses.length / sloppy.n <= 0.02, 'a sloppily drawn sigil is right
     sloppy.misses.slice(0, 8).join(', '));
 expect(awful.misses.length / awful.n <= 0.06, 'even a badly drawn sigil is right at least 94% of the time',
     awful.misses.slice(0, 8).join(', '));
+console.log(`        tilted ±22° ${tilted.n - tilted.misses.length}/${tilted.n} right, ${tilted.castable} would cast`);
+expect(tilted.misses.length / tilted.n <= 0.03, 'a sigil drawn at a lean is right at least 97% of the time',
+    tilted.misses.slice(0, 8).join(', '));
+expect(tilted.castable / tilted.n >= 0.9, 'and nine out of ten of those still cast',
+    `${tilted.castable}/${tilted.n}`);
+
+// and the other half of the job: a panic scribble must not fire a spell
+function scribble(rnd) {
+    const strokes = [];
+    for (let s = 0; s < 1 + Math.floor(rnd() * 2); s++) {
+        const pts = [];
+        let x = rnd() * 100, y = rnd() * 100;
+        for (let i = 0; i < 12 + Math.floor(rnd() * 20); i++) {
+            x = Math.max(0, Math.min(100, x + (rnd() - 0.5) * 34));
+            y = Math.max(0, Math.min(100, y + (rnd() - 0.5) * 34));
+            pts.push({ x, y });
+        }
+        strokes.push(pts);
+    }
+    return strokes;
+}
+{
+    const rnd = mulberry(1234);
+    let fired = 0;
+    const N = 200;
+    for (let i = 0; i < N; i++) {
+        const res = ENGINE.recognize(scribble(rnd));
+        if (res.length && res[0].score >= ENGINE.CAST_FLOOR &&
+            (!res[1] || res[0].score - res[1].score >= ENGINE.CAST_MARGIN)) fired++;
+    }
+    console.log(`        scribbles that would cast: ${fired}/${N}`);
+    expect(fired / N <= 0.05, 'a scribble almost never casts anything', fired + '/' + N + ' fired');
+}
 
 // ===================================================================
 section('avatars');

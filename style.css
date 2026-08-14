@@ -1,11 +1,19 @@
 /* self-hosted material symbols (subset with only the icons this site uses) —
-   no more google fonts dependency, no more raw "volume_up" text when the CDN is slow */
+   no more google fonts dependency, no more raw "volume_up" text when the CDN is slow.
+
+   IT IS A SUBSET: an icon that is not in it renders as its own name in
+   giant letters, which is how "auto_fix_high" ended up shouting from the
+   start menu. Adding a new icon means rebuilding the file — the browser
+   check has a test that fails if any icon on the site is missing from it.
+   Rebuild with the icon list from that test:
+     curl "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=<comma,separated,list>&display=block"
+   then download the woff2 it points at and bump the ?v= below. */
 @font-face {
     font-family: 'Material Symbols Outlined';
     font-style: normal;
     font-weight: 100 700;
     font-display: block;
-    src: url('src/fonts/material-symbols-subset.woff2?v=6') format('woff2');
+    src: url('src/fonts/material-symbols-subset.woff2?v=7') format('woff2');
 }
 
 .material-symbols-outlined {
