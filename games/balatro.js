@@ -732,15 +732,23 @@ function balAdvanceBlind(g, skipped) {
 // ===================================================================
 function balDrawToFull(g, firstDraw) {
     const size = balHandSize(g);
+    const dealt = [];
     while (g.hand.length < size && g.drawPile.length) {
         const c = g.drawPile.pop();
         c.faceDown = false;
         g.hand.push(c);
+        dealt.push(c.uid);
     }
     // cards jokers asked to be dealt straight into hand
     while (g.pendingHandCards.length && g.hand.length < size + 2) {
-        g.hand.push(g.pendingHandCards.shift());
+        const c = g.pendingHandCards.shift();
+        g.hand.push(c);
+        dealt.push(c.uid);
     }
+    // whatever came off the deck gets flown in when the table next
+    // renders — balDiscard adds to this rather than replacing it, since
+    // a discard and a draw are one move to the player
+    if (dealt.length) g.pendingDeal = (g.pendingDeal || []).concat(dealt);
     balApplyFaceDown(g, firstDraw);
     balApplyDebuffs(g);
     balSortHand(g);
@@ -878,12 +886,34 @@ function balPlayHand() {
     balRender();
 }
 
-function balDiscard() {
+// the cards leave the screen before the state does — the discard itself
+// is unchanged below, this just waits for them to finish flying
+async function balDiscardUI() {
+    const g = BG;
+    if (balAnimating) return;
+    if (!g.selected.length) { balToast(g, 'jokerz', 'select cards to discard'); balSfx('error'); return; }
+    if (g.discards <= 0) { balToast(g, 'jokerz', 'no discards left'); balSfx('error'); return; }
+    const els = g.selected
+        .map(c => balWinBody && balWinBody.querySelector(`.bj-hand .bj-card[data-uid="${c.uid}"]`))
+        .filter(Boolean);
+    if (els.length && BJFX.on()) {
+        balAnimating = true;
+        balSfx('carddiscard');
+        await BJFX.flyOut(els, balWinBody.querySelector('.bj-deckcount'));
+        balAnimating = false;
+        balDiscard(true);
+        return;
+    }
+    balDiscard();
+}
+
+function balDiscard(sfxAlreadyPlayed) {
     const g = BG;
     if (!g.selected.length) { balToast(g, 'jokerz', 'select cards to discard'); balSfx('error'); return; }
     if (g.discards <= 0) { balToast(g, 'jokerz', 'no discards left'); balSfx('error'); return; }
-    balSfx('carddiscard');
+    if (!sfxAlreadyPlayed) balSfx('carddiscard');
     const cards = g.selected.slice();
+    const before = g.hand.slice();
 
     cards.forEach(c => { if (c.seal === 'purple') balCreateConsumable(g, 'tarot'); });
 
@@ -913,6 +943,10 @@ function balDiscard() {
         balDrawToFull(g, false);
     }
     balPickForcedCard(g);
+    // the serpent branch above pushes straight onto the hand rather than
+    // going through balDrawToFull, so catch anything it added too
+    const fresh = g.hand.filter(c => !before.includes(c)).map(c => c.uid);
+    g.pendingDeal = (g.pendingDeal || []).concat(fresh.filter(u => !(g.pendingDeal || []).includes(u)));
     balRender();
 }
 
@@ -1643,8 +1677,62 @@ function balRender() {
         cashout: balRenderCashout, shop: balRenderShop, pack: balRenderPack,
         over: balRenderOver, won: balRenderWon, info: balRenderInfo
     };
+    const changed = balLastScreen !== g.screen;
+    balLastScreen = g.screen;
+    const moneyBefore = balLastMoney;
+    balLastMoney = g.money;
     balWinBody.innerHTML = (screens[g.screen] || balRenderPlay)(g);
     balBind(g);
+    // money is the one number that changes on screens where nothing else
+    // moved, so it says so itself
+    if (moneyBefore !== null && g.money !== undefined && g.money !== moneyBefore) {
+        const el = balWinBody.querySelector('.bj-money span');
+        const d = g.money - moneyBefore;
+        BJFX.pop(el, { scale: 1.3 });
+        BJFX.floatOff(el, (d > 0 ? '+$' : '-$') + Math.abs(d), { color: d > 0 ? '#ffd400' : '#ff5c5c', up: 22 });
+    }
+    // arriving somewhere new is worth announcing; redrawing the table
+    // you are already sitting at is not
+    if (changed) BJFX.screenIn(balWinBody);
+    if (g.screen === 'play') balDealPending(g);
+}
+let balLastScreen = null;
+let balLastMoney = null;
+
+// the readout is the only part of the table that a selection changes,
+// so selecting a card updates that instead of rebuilding everything
+function balUpdateReadout(g) {
+    if (!balWinBody) return;
+    const ev = g.selected.length ? balEvaluate(g, g.selected) : null;
+    const vals = ev ? balHandValues(g, ev.key) : null;
+    const last = g.lastScore;
+    const nameEl = balWinBody.querySelector('.bj-hand-name');
+    const chipsEl = balWinBody.querySelector('.bj-chips');
+    const multEl = balWinBody.querySelector('.bj-mult');
+    if (nameEl) {
+        const wasEmpty = nameEl.dataset.key || '';
+        nameEl.innerHTML = ev
+            ? escapeHtml(BAL.HANDS[ev.key].name) + ` <small>lvl ${vals.level}</small>`
+            : 'select up to 5 cards';
+        nameEl.dataset.key = ev ? ev.key : '';
+        // the hand you are holding changed into a different hand — that
+        // is the thing a player most wants to notice
+        if (ev && wasEmpty !== ev.key) BJFX.pop(nameEl, { scale: 1.12, duration: 220 });
+    }
+    if (chipsEl) BJFX.countTo(chipsEl, ev ? vals.chips : (last ? Math.round(last.chips) : 0), { duration: 220 });
+    if (multEl) BJFX.countTo(multEl, ev ? vals.mult : (last ? +last.mult.toFixed(2) : 0), {
+        duration: 220, format: v => String(Math.round(v * 100) / 100)
+    });
+}
+
+// cards drawn while the table was not on screen get their deal-in the
+// moment it is
+function balDealPending(g) {
+    if (!g.pendingDeal || !g.pendingDeal.length || !balWinBody) return;
+    const uids = g.pendingDeal;
+    g.pendingDeal = null;
+    const els = uids.map(u => balWinBody.querySelector(`.bj-hand .bj-card[data-uid="${u}"]`)).filter(Boolean);
+    BJFX.dealIn(els, balWinBody.querySelector('.bj-deckcount'));
 }
 
 function balTopBar(g) {
@@ -1912,22 +2000,35 @@ function balBind(g) {
     const b = balWinBody;
     const on = (sel, fn) => b.querySelectorAll(sel).forEach(el => el.onclick = e => { e.stopPropagation(); fn(el, e); });
 
-    on('[data-act]', el => balAction(el.dataset.act, el));
+    // every button on the table acknowledges the click, not just the
+    // two that do something dramatic afterwards
+    on('[data-act]', el => { BJFX.press(el); balAction(el.dataset.act, el); });
     on('[data-deck]', el => { g.pickDeck = el.dataset.deck; balRender(); });
     on('[data-stake]', el => { g.pickStake = +el.dataset.stake; balRender(); });
 
-    // selecting cards in hand
+    // selecting cards in hand.
+    //
+    // This used to call balRender(), which rebuilt the whole table with
+    // innerHTML — so the card you clicked was destroyed and recreated
+    // already sitting in its raised position, and the transition it has
+    // always had never played. Nothing about the table changes when you
+    // pick a card except that card and the readout above it, so now
+    // only those two things are touched and the card survives long
+    // enough to move.
     on('.bj-hand .bj-card', el => {
         if (balAnimating) return;
         const c = g.hand.find(x => x.uid === el.dataset.uid);
         if (!c) return;
         const i = g.selected.indexOf(c);
-        if (i >= 0) { g.selected.splice(i, 1); balSfx('deselect'); }
-        else if (g.selected.length < 5) { g.selected.push(c); balSfx('select'); }
-        else { balSfx('error'); return; }
+        let picked;
+        if (i >= 0) { g.selected.splice(i, 1); balSfx('deselect'); picked = false; }
+        else if (g.selected.length < 5) { g.selected.push(c); balSfx('select'); picked = true; }
+        else { balSfx('error'); BJFX.refuse(el); return; }
         // keep selection in the order shown on the table
         g.selected.sort((a, x) => g.hand.indexOf(a) - g.hand.indexOf(x));
-        balRender();
+        el.classList.toggle('sel', picked);
+        BJFX.selectCard(el, picked);
+        balUpdateReadout(g);
     });
 
     // jokers: click to sell (with a confirm step so it is never a slip)
@@ -1994,7 +2095,7 @@ function balAction(act, el) {
         case 'select': balMusic.start(); balSelectBlind(); break;
         case 'skip': balSkipBlind(); break;
         case 'play': balPlayHandUI(); break;
-        case 'discard': balDiscard(); break;
+        case 'discard': balDiscardUI(); break;
         case 'sort-rank': g.sortMode = 'rank'; balSortHand(g); balRender(); break;
         case 'sort-suit': g.sortMode = 'suit'; balSortHand(g); balRender(); break;
         case 'use': if (g.consumables.length) balUseConsumable(g.consumables[0].uid); break;
@@ -2194,6 +2295,7 @@ function balAnimateScoring(ctx) {
             setTimeout(() => {
                 if (!balWinBody) return;
                 el.classList.add('bj-scoring-pulse');
+                BJFX.scorePulse(el);
                 balSfx('cardtick', { pitch: i });
                 setTimeout(() => el.classList.remove('bj-scoring-pulse'), 220);
             }, i * cardStep);
@@ -2206,12 +2308,34 @@ function balAnimateScoring(ctx) {
                 multEl.textContent = balMultText(ctx.mult);
                 balSfx('total');
                 if (readout) readout.classList.add('bj-finale');
+                BJFX.pop(readout, { scale: 1.06, duration: 320 });
+                hitTheBlind();
             }
             setTimeout(() => {
                 if (readout) readout.classList.remove('bj-finale');
                 if (balWinBody) balWinBody.classList.remove('bj-animating');
                 resolve();
-            }, 260);
+            }, BJFX.on() ? 620 : 260);
+        };
+        // the blind is what you are fighting, so the total lands on it as
+        // damage: the bar takes a knock, the fill runs up to where the
+        // score now is, and the number floats off it. balPlayHand has
+        // already moved g.score — this is showing what it did.
+        const hitTheBlind = () => {
+            const g = BG;
+            const bar = balWinBody.querySelector('.bj-blindbar');
+            const fill = balWinBody.querySelector('.bj-progress-fill');
+            const scoreEl = balWinBody.querySelector('.bj-blindbar-score');
+            const total = ctx.total || 0;
+            const before = Math.max(0, g.score - total);
+            if (scoreEl) BJFX.countTo(scoreEl, g.score, {
+                from: before, duration: 520, format: v => balNum(Math.round(v)) + ' / ' + balNum(g.required)
+            });
+            BJFX.damage(bar, fill, {
+                percent: Math.min(100, (g.score / g.required) * 100),
+                amount: total, required: g.required,
+                text: '-' + balNum(Math.round(total))
+            });
         };
         const tally = () => {
             if (!balWinBody || step >= rows.length) { finish(); return; }
@@ -2229,7 +2353,16 @@ function balAnimateScoring(ctx) {
             else if (dChips > 0) balSfx('chip');
             else balSfx('joker');
             const je = findJokerEl(row.t);
-            if (je) { je.classList.add('bj-trigger-pulse'); setTimeout(() => je.classList.remove('bj-trigger-pulse'), 260); }
+            if (je) {
+                je.classList.add('bj-trigger-pulse');
+                BJFX.trigger(je);
+                // what it actually did, floating off the joker that did it
+                if (v) BJFX.floatOff(je, v, {
+                    color: v.startsWith('+$') ? '#ffd400' : v.startsWith('X') ? '#ff5c5c' : '#0df259', up: 30
+                });
+                setTimeout(() => je.classList.remove('bj-trigger-pulse'), 260);
+            }
+            BJFX.pop(dMult > 0 ? multEl : chipsEl, { scale: 1.22, duration: 200 });
             step++;
             setTimeout(tally, perStep);
         };

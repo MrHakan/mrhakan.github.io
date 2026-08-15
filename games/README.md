@@ -94,6 +94,32 @@ cannot rot separately. If you register a `startSolo()` the lobby's
 "play a bot" buttons call that instead — wizardz uses it to show its
 roster of opponents (`WZ.BOTS`) rather than picking one at random.
 
+## making a game feel responsive
+
+`jokerz 98` is the worked example, and its lesson is not about easing
+curves. The table was rebuilt with `innerHTML` on every click, so the
+card you selected was **destroyed and recreated already sitting in its
+raised position** — the CSS transition it had all along never got a
+frame to play in. No amount of animation code fixes that; the element
+has to survive the click.
+
+So `balatro-fx.js` comes with the surgical updates that make it
+possible:
+
+| instead of | do |
+| --- | --- |
+| `balRender()` on every state change | touch only what changed (`balUpdateReadout`) |
+| removing a card then redrawing | animate it out, *then* change the state |
+| drawing new cards into a redraw | record them and deal them in after |
+
+The animations themselves all route through `fx.js`, which means the
+reduced-motion setting turns every one of them off for free — including
+the CSS transitions, via the `no-motion` class it puts on `<html>`. A
+game that only works when it is animating is a game that breaks for
+somebody who gets motion sick, so every animated path has a plain one:
+`BJFX.flyOut` resolves immediately, `balDiscardUI` falls through to
+`balDiscard`, and the hand ends up in the same place.
+
 ## how a drawing is read
 
 `wizardz.js` carries its own recogniser — a $P-style point cloud match

@@ -197,17 +197,32 @@
         ], { duration: 160, easing: 'steps(4, end)' });
     }
 
+    // css transitions are motion too, and no media query can see the
+    // tickbox in display properties — so the answer is published as a
+    // class on <html> and the stylesheet reads it there
+    function publish() {
+        const el = typeof document !== 'undefined' && document.documentElement;
+        if (el) el.classList.toggle('no-motion', !on());
+    }
+
     window.FX = {
         on, spring, animate, stagger, inView,
         openWindow, closeWindow, minimizeWindow,
         toastIn, toastOut, unroll, reveal, nudge,
-        MOTION_KEY,
+        MOTION_KEY, publish,
         // display properties flips this; nothing caches the answer
         setEnabled(yes) {
             try { localStorage.setItem(MOTION_KEY, yes ? '0' : '1'); } catch (e) { }
+            publish();
         },
         enabled() {
             try { return localStorage.getItem(MOTION_KEY) !== '1'; } catch (e) { return true; }
         }
     };
+    publish();
+    // the os setting can change while the page is open
+    if (window.matchMedia) {
+        const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (mq.addEventListener) mq.addEventListener('change', publish);
+    }
 })();

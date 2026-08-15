@@ -341,6 +341,110 @@ try {
     await desk.close();
 
     // ---------------------------------------------------------------
+    section('jokerz 98 moves');
+    //
+    // The table used to be rebuilt with innerHTML on every click, so
+    // the card you selected was destroyed and recreated already
+    // raised. The check that matters is therefore not "does it
+    // animate" but "does the element survive the click" — everything
+    // else follows from that.
+    // ---------------------------------------------------------------
+    const jok = await boot('jokerz');
+    await jok.evaluate(() => openBalatro());
+    await jok.waitForFunction(() => !!window.startBalatro && !!window.BJFX, null, { timeout: 30000 });
+    await jok.evaluate(() => { balAction('start'); balAction('select'); });
+    await jok.waitForSelector('.bj-hand .bj-card', { timeout: 10000 });
+    await jok.waitForTimeout(500);
+    ok('the game loads with its animation layer');
+
+    const picked = await jok.evaluate(async () => {
+        const card = document.querySelector('.bj-hand .bj-card');
+        card.dataset.probe = 'yes';
+        card.click();
+        await new Promise(r => setTimeout(r, 60));
+        const same = document.querySelector('.bj-hand .bj-card');
+        return {
+            survived: same.dataset.probe === 'yes',
+            selected: same.classList.contains('sel'),
+            animating: same.getAnimations().length > 0,
+            readout: document.querySelector('.bj-hand-name').textContent.trim(),
+            state: BG.selected.length
+        };
+    });
+    expect(picked.survived, 'picking a card no longer rebuilds the table', JSON.stringify(picked));
+    expect(picked.selected && picked.state === 1, 'the card is selected in the dom and in the game', JSON.stringify(picked));
+    expect(picked.animating, 'and it animates up rather than teleporting');
+    expect(/high card|pair|flush|straight/i.test(picked.readout), 'the readout follows without a redraw', picked.readout);
+
+    const discarded = await jok.evaluate(async () => {
+        const cards = [...document.querySelectorAll('.bj-hand .bj-card')];
+        cards[1].click(); cards[2].click();
+        await new Promise(r => setTimeout(r, 120));
+        const uids = BG.selected.map(c => c.uid);
+        const discardsBefore = BG.discards;
+        document.querySelector('[data-act="discard"]').click();
+        await new Promise(r => setTimeout(r, 120));
+        const flying = uids.filter(u => {
+            const el = document.querySelector(`.bj-hand .bj-card[data-uid="${u}"]`);
+            return el && el.getAnimations().length > 0;
+        }).length;
+        const stillThere = uids.filter(u => document.querySelector(`.bj-hand .bj-card[data-uid="${u}"]`)).length;
+        await new Promise(r => setTimeout(r, 900));
+        return {
+            flying, stillThere, discardsBefore, discardsAfter: BG.discards,
+            gone: uids.every(u => !BG.hand.some(c => c.uid === u)),
+            hand: BG.hand.length, selected: BG.selected.length
+        };
+    });
+    expect(discarded.flying === 3 && discarded.stillThere === 3,
+        'discarded cards fly out before they leave the hand', JSON.stringify(discarded));
+    expect(discarded.gone && discarded.discardsAfter === discarded.discardsBefore - 1,
+        'and the discard really happens once they land', JSON.stringify(discarded));
+    expect(discarded.hand > 0 && discarded.selected === 0, 'the hand refills and the selection clears',
+        JSON.stringify(discarded));
+
+    const hit = await jok.evaluate(async () => {
+        document.querySelector('.bj-hand .bj-card').click();
+        await new Promise(r => setTimeout(r, 80));
+        const before = BG.score;
+        document.querySelector('[data-act="play"]').click();
+        // the score moves the instant the hand is played; the damage
+        // lands on the blind at the *end* of the tally, so watch for the
+        // float rather than for the number
+        let floats = 0;
+        for (let i = 0; i < 60 && !floats; i++) {
+            await new Promise(r => setTimeout(r, 60));
+            floats = document.querySelectorAll('.bj-float').length;
+        }
+        await new Promise(r => setTimeout(r, 2500));
+        return { before, after: BG.score, floats, leftover: document.querySelectorAll('.bj-float').length };
+    });
+    expect(hit.after > hit.before, 'playing a hand scores against the blind', JSON.stringify(hit));
+    expect(hit.floats > 0, 'and the damage floats off it', JSON.stringify(hit));
+    expect(hit.leftover === 0, 'the floating numbers clean themselves up', String(hit.leftover));
+    await jok.screenshot({ path: SHOTS + '/9-jokerz.png' });
+
+    // and with motion off the same moves still work, just instantly
+    const quiet = await jok.evaluate(async () => {
+        FX.setEnabled(false);
+        const cards = [...document.querySelectorAll('.bj-hand .bj-card')];
+        cards[0].click();
+        await new Promise(r => setTimeout(r, 40));
+        const anims = cards[0].getAnimations().filter(a => a.playState === 'running').length;
+        const selected = BG.selected.length;
+        const discardsBefore = BG.discards;
+        document.querySelector('[data-act="discard"]').click();
+        await new Promise(r => setTimeout(r, 150));
+        const out = { anims, selected, discarded: BG.discards === discardsBefore - 1, hand: BG.hand.length };
+        FX.setEnabled(true);
+        return out;
+    });
+    expect(quiet.selected === 1 && quiet.anims === 0, 'with motion off a card still selects, without moving',
+        JSON.stringify(quiet));
+    expect(quiet.discarded && quiet.hand > 0, 'and discarding still discards', JSON.stringify(quiet));
+    await jok.close();
+
+    // ---------------------------------------------------------------
     section('icons');
     //
     // the icon font is a subset. an icon that is not in it renders as

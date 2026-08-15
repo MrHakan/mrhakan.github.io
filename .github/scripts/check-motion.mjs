@@ -52,7 +52,18 @@ function makeWindow(opts) {
         IntersectionObserver: null,
         devicePixelRatio: o.dpr || 1,
         CSS: { supports: () => o.linear !== false },
-        document: { querySelectorAll: () => [] }
+        document: {
+            querySelectorAll: () => [],
+            documentElement: {
+                classes: new Set(),
+                classList: {
+                    toggle(name, want) {
+                        want ? win.document.documentElement.classes.add(name)
+                            : win.document.documentElement.classes.delete(name);
+                    }
+                }
+            }
+        }
     };
     win.window = win;
     return win;
@@ -148,6 +159,82 @@ section('and it stops when asked');
     load(sys, 'fx.js');
     sys.FX.setEnabled(true);
     expect(sys.FX.on() === false, 'ticking the box cannot override the system setting');
+}
+
+// ===================================================================
+section('css transitions hear about it too');
+//
+// A media query cannot see a tickbox in display properties, so fx.js
+// publishes the answer as a class on <html> and the stylesheet reads
+// it there. Without this, javascript motion stops and every css
+// transition on the page carries on regardless.
+// ===================================================================
+{
+    const quiet = makeWindow({ store: [['motion-off', '1']] });
+    load(quiet, 'fx.js');
+    expect(quiet.document.documentElement.classes.has('no-motion'),
+        'motion off publishes .no-motion on the root element');
+    quiet.FX.setEnabled(true);
+    expect(!quiet.document.documentElement.classes.has('no-motion'), 'and ticking the box takes it off again');
+
+    const sys = makeWindow({ reduced: true });
+    load(sys, 'fx.js');
+    expect(sys.document.documentElement.classes.has('no-motion'), 'the system setting publishes it too');
+
+    const css = read('style.css');
+    expect(/\.no-motion \.bj-card/.test(css) && /transition: none !important/.test(css),
+        'and the stylesheet turns the card transitions off when it sees it');
+}
+
+// ===================================================================
+section('jokerz 98');
+//
+// The table was rebuilt with innerHTML on every click, which is why
+// nothing in it ever animated — the card was destroyed and recreated
+// already raised. These are the checks that stop that coming back.
+// ===================================================================
+{
+    const jwin = makeWindow();
+    load(jwin, 'fx.js');
+    try { load(jwin, 'games/balatro-fx.js'); ok('balatro-fx.js loads'); }
+    catch (e) { bad('balatro-fx.js loads', e.message); }
+    const BJ = jwin.BJFX;
+    if (BJ) {
+        expect(['selectCard', 'flyOut', 'dealIn', 'damage', 'countTo', 'pop', 'press', 'trigger', 'scorePulse', 'screenIn']
+            .every(k => typeof BJ[k] === 'function'), 'it exposes the moves the table needs',
+            Object.keys(BJ).join(', '));
+        // every one of them has to survive being handed nothing, because
+        // the table is redrawn under them constantly
+        let threw = '';
+        try {
+            BJ.selectCard(null, true); BJ.refuse(null); BJ.pop(null); BJ.press(null);
+            BJ.trigger(null); BJ.scorePulse(null); BJ.screenIn(null);
+            BJ.damage(null, null, {}); BJ.floatOff(null, '1'); BJ.countTo(null, 5);
+        } catch (e) { threw = e.message; }
+        expect(!threw, 'and none of them mind an element that is no longer there', threw);
+        expect(BJ.flyOut([], null) instanceof Promise && BJ.dealIn([], null) instanceof Promise,
+            'the ones the game awaits always hand back a promise');
+    }
+
+    const game = read('games/balatro.js');
+    expect(/el\.classList\.toggle\('sel', picked\)/.test(game) && /balUpdateReadout\(g\)/.test(game),
+        'selecting a card touches that card and the readout, not the whole table');
+    expect(!/g\.selected\.sort[\s\S]{0,200}balRender\(\);\n    \}\);/.test(game),
+        'and no longer redraws everything on a click');
+    expect(/async function balDiscardUI/.test(game) && /await BJFX\.flyOut/.test(game),
+        'discarded cards fly out before the state changes');
+    expect(/case 'discard': balDiscardUI\(\)/.test(game),
+        'and the discard button is wired to the animated path');
+    expect(/on\('\[data-act\]', el => \{ BJFX\.press\(el\)/.test(game),
+        'every button on the table acknowledges the click');
+    expect(/g\.pendingDeal/.test(game) && /BJFX\.dealIn/.test(game), 'drawn cards are dealt in');
+    expect(/hitTheBlind/.test(game) && /BJFX\.damage/.test(game), 'the blind visibly takes the hit');
+    expect(/balLastScreen !== g\.screen/.test(game), 'a new screen animates in, a redraw of the same one does not');
+
+    const loader = read('extras.js');
+    expect(/balatro-fx\.js'\)\)[\s\S]{0,80}balatro\.js/.test(loader),
+        'the loader pulls the animation layer in before the engine');
+    expect(read('sw.js').includes('/games/balatro-fx.js'), 'and the service worker precaches it');
 }
 
 // ===================================================================

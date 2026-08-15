@@ -340,7 +340,9 @@ function balLoadScripts() {
         document.head.appendChild(s);
     });
     // data first: the engine reads BAL at definition time
-    balLoading = load('games/balatro-data.js').then(() => load('games/balatro.js'));
+    balLoading = load('games/balatro-data.js')
+        .then(() => load('games/balatro-fx.js'))
+        .then(() => load('games/balatro.js'));
     return balLoading;
 }
 
