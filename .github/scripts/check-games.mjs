@@ -345,6 +345,58 @@ function junkRate(gen, n, seed) {
 }
 
 // ===================================================================
+section('the faces you play against');
+//
+// Every ante has an opponent portrait, and a missing image file is the
+// kind of thing nobody notices until a stranger opens the game and gets
+// a broken-image icon staring at them.
+// ===================================================================
+{
+    let BALD = null;
+    try {
+        const w2 = makeWindow();
+        // balatro-data.js declares `const BAL` rather than hanging it off
+        // window — which is right for the browser and useless here, so
+        // the harness asks for it on the way out
+        new Function('window', 'localStorage', 'performance',
+            read('games/balatro-data.js') + '\n;window.BAL = BAL;')(w2, w2.localStorage, w2.performance);
+        BALD = w2.BAL;
+        expect(!!BALD, 'balatro-data.js loads');
+    } catch (e) { bad('balatro-data.js loads', e.message); }
+
+    if (BALD) {
+        const faces = (BALD.ANTE_FACES || []).concat(BALD.BOSS_FACES || []);
+        expect(BALD.ANTE_FACES.length === 8, 'there is a face for each of the eight antes',
+            String(BALD.ANTE_FACES.length));
+        expect(BALD.BOSS_FACES.length >= 4, 'and a separate set for the bosses', String(BALD.BOSS_FACES.length));
+        const gone = faces.map(f => f.src).concat([BALD.WIN_HEAD]).filter(src => !exists(src));
+        expect(!gone.length, 'every portrait is a file that exists', gone.join(', '));
+        expect(faces.every(f => f.name && f.name.length > 2), 'and each one is named, so it has a tooltip');
+
+        // the same ante must always produce the same opponent, or the
+        // face changes every time the screen redraws
+        const twice = [BALD.faceFor(3, 0).src, BALD.faceFor(3, 0).src];
+        expect(twice[0] === twice[1], 'the same blind always shows the same face');
+        const perAnte = [1, 2, 3, 4, 5, 6, 7, 8].map(a => BALD.faceFor(a, 0).src);
+        expect(new Set(perAnte).size === 8, 'the eight antes are eight different opponents',
+            String(new Set(perAnte).size));
+        // small and big blind of one ante: same face, different colour
+        const small = BALD.faceFor(2, 0), big = BALD.faceFor(2, 1);
+        expect(small.src === big.src && small.hue !== big.hue,
+            'small and big blind are the same face at a different hue', JSON.stringify([small, big]));
+        expect(BALD.faceFor(2, 2, 'wall').boss === true && BALD.faceFor(2, 2, 'wall').src !== small.src,
+            'and the boss is somebody else entirely');
+        expect(BALD.faceFor(2, 2, 'wall').src === BALD.faceFor(5, 2, 'wall').src,
+            'a boss keeps its own face wherever it turns up');
+        expect(BALD.faceFor(2, 2, 'wall').src !== BALD.faceFor(2, 2, 'needle').src,
+            'and two different bosses do not share one');
+        // an endless run past ante 8 must keep working
+        const far = BALD.faceFor(19, 0);
+        expect(far && far.src && far.hue > 0, 'an endless run past ante 8 wraps with a new tint', JSON.stringify(far));
+    }
+}
+
+// ===================================================================
 section('avatars');
 // ===================================================================
 const av = WZ.randomAvatar();

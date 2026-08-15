@@ -318,6 +318,56 @@ BAL.anteBase = function (ante, stake) {
     return base;
 };
 
+// ---------- who you are actually playing against ----------
+// Every ante gets a face, and it is the same cast the rest of the site
+// is built out of — the cursed pack. They are ordered so the run reads
+// as an escalation: ante 1 could not care less, ante 8 wants you dead.
+// Past ante 8 it wraps, tinted, so the endless run keeps producing new
+// opponents without needing new art.
+const BAL_EMOJ = 'src/emoj/';
+const BAL_PACK = BAL_EMOJ + 'Cursed Pack 1-emojigg-pack/';
+BAL.ANTE_FACES = [
+    { src: BAL_PACK + '7161-joe-cool.png', name: 'unbothered' },
+    { src: BAL_PACK + '2825-joe-haha-funny.png', name: 'amused' },
+    { src: BAL_PACK + '5771-hmmm.png', name: 'suspicious' },
+    { src: BAL_PACK + '8394-joe-woah.png', name: 'alarmed' },
+    { src: BAL_PACK + '3353-joe-angry.png', name: 'annoyed' },
+    { src: BAL_PACK + '8332-joe-disgust.png', name: 'disgusted' },
+    { src: BAL_PACK + '9637-joe-fight.png', name: 'furious' },
+    { src: BAL_PACK + '9270-joe-murder.png', name: 'homicidal' }
+];
+// the boss of the ante wears a different face entirely
+BAL.BOSS_FACES = [
+    { src: BAL_PACK + '3666-hot.png', name: 'overheating' },
+    { src: BAL_PACK + '2421-big-sad.png', name: 'despairing' },
+    { src: BAL_PACK + '8074-big-eyes.png', name: 'unblinking' },
+    { src: BAL_EMOJ + 'xdtroll.png', name: 'trolling' },
+    { src: BAL_EMOJ + 'yeterartik.png', name: 'done with you' },
+    { src: BAL_EMOJ + 'hasiktir.png', name: 'appalled' }
+];
+// the head that comes down on them when you win
+BAL.WIN_HEAD = BAL_PACK + '7161-joe-cool.png';
+
+// A face plus a hue, so the three blinds of one ante are visibly three
+// different opponents rather than the same picture three times — and so
+// an endless run past ante 8 keeps going without repeating itself.
+BAL.faceFor = function (ante, blindIndex, bossId) {
+    if (blindIndex === 2) {
+        // the boss picks its face from its own name, so the same boss is
+        // always the same face
+        let h = 0;
+        const s = String(bossId || 'boss');
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        const f = BAL.BOSS_FACES[h % BAL.BOSS_FACES.length];
+        return { src: f.src, name: f.name, hue: (h % 7) * 40, boss: true };
+    }
+    const i = Math.max(0, (ante || 1) - 1);
+    const f = BAL.ANTE_FACES[i % BAL.ANTE_FACES.length];
+    // the big blind of an ante is the same opponent in a worse mood
+    const wraps = Math.floor(i / BAL.ANTE_FACES.length);
+    return { src: f.src, name: f.name, hue: (wraps * 55 + (blindIndex === 1 ? 25 : 0)) % 360, boss: false };
+};
+
 // ===================================================================
 // jokers
 // rarity: 1 common, 2 uncommon, 3 rare, 4 legendary

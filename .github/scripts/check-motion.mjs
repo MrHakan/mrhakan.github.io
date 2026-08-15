@@ -210,9 +210,11 @@ section('jokerz 98');
             BJ.selectCard(null, true); BJ.refuse(null); BJ.pop(null); BJ.press(null);
             BJ.trigger(null); BJ.scorePulse(null); BJ.screenIn(null);
             BJ.damage(null, null, {}); BJ.floatOff(null, '1'); BJ.countTo(null, 5);
+            BJ.bonk(null, 'x.png');
         } catch (e) { threw = e.message; }
         expect(!threw, 'and none of them mind an element that is no longer there', threw);
-        expect(BJ.flyOut([], null) instanceof Promise && BJ.dealIn([], null) instanceof Promise,
+        expect(BJ.flyOut([], null) instanceof Promise && BJ.dealIn([], null) instanceof Promise
+            && BJ.bonk(null, 'x.png') instanceof Promise,
             'the ones the game awaits always hand back a promise');
     }
 
@@ -229,6 +231,15 @@ section('jokerz 98');
         'every button on the table acknowledges the click');
     expect(/g\.pendingDeal/.test(game) && /BJFX\.dealIn/.test(game), 'drawn cards are dealt in');
     expect(/hitTheBlind/.test(game) && /BJFX\.damage/.test(game), 'the blind visibly takes the hit');
+    expect(/BJFX\.bonk\(face, BAL\.WIN_HEAD\)/.test(game), 'and something lands on their head when they lose');
+    expect(/balFaceHtml/.test(game) && /bj-victim/.test(game), 'the opponent has a face to land it on');
+    // the readout used to fall back to the last hand's numbers when
+    // nothing was selected, which read as the game failing to
+    // recalculate rather than as history
+    expect(!/last \? Math\.round\(last\.chips\)/.test(game) && !/last \? \+last\.mult/.test(game),
+        'an empty readout reads zero, not whatever the last hand scored');
+    expect(/typeof moneyBefore === 'number'/.test(game),
+        'and the money float cannot subtract a number that is not there yet');
     expect(/balLastScreen !== g\.screen/.test(game), 'a new screen animates in, a redraw of the same one does not');
 
     const loader = read('extras.js');

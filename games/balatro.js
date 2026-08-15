@@ -629,6 +629,20 @@ const BAL_BLIND_NAMES = ['Small Blind', 'Big Blind'];
 const BAL_BLIND_MULT = [1, 1.5];
 const BAL_BLIND_REWARD = [3, 4, 5];
 
+// the face of whoever you are up against. the hue shift is what makes
+// the small and big blind of one ante read as two opponents rather than
+// the same picture twice, and what keeps an endless run producing new
+// ones after the art runs out.
+function balFaceHtml(g, index, opts) {
+    const o = opts || {};
+    const boss = index === 2 ? balCurrentBoss(g) : null;
+    const f = BAL.faceFor(g.ante, index, boss && boss.id);
+    const beaten = index < g.blindIndex;
+    return `<img class="bj-face${o.size === 'big' ? ' bj-face-big' : ''}${beaten ? ' beaten' : ''}"
+        src="${escapeHtml(f.src)}" alt="" data-face="${index}"
+        title="${escapeHtml(f.name)}" style="filter:hue-rotate(${f.hue}deg)">`;
+}
+
 function balBlindInfo(g, index) {
     const base = BAL.anteBase(g.ante, g.stake);
     if (index === 2) {
@@ -1685,7 +1699,10 @@ function balRender() {
     balBind(g);
     // money is the one number that changes on screens where nothing else
     // moved, so it says so itself
-    if (moneyBefore !== null && g.money !== undefined && g.money !== moneyBefore) {
+    // typeof, not != null: the menu screen has no money at all, so the
+    // first render after starting a run was subtracting undefined and
+    // floating a cheerful "$NaN" over the top bar
+    if (typeof moneyBefore === 'number' && typeof g.money === 'number' && g.money !== moneyBefore) {
         const el = balWinBody.querySelector('.bj-money span');
         const d = g.money - moneyBefore;
         BJFX.pop(el, { scale: 1.3 });
@@ -1695,6 +1712,13 @@ function balRender() {
     // you are already sitting at is not
     if (changed) BJFX.screenIn(balWinBody);
     if (g.screen === 'play') balDealPending(g);
+    // you beat them, so something heavy lands on their head
+    if (changed && g.screen === 'cashout') {
+        setTimeout(() => {
+            const face = balWinBody && balWinBody.querySelector('.bj-victim .bj-face');
+            if (face) { BJFX.bonk(face, BAL.WIN_HEAD); balSfx('bonk'); }
+        }, 260);
+    }
 }
 let balLastScreen = null;
 let balLastMoney = null;
@@ -1705,7 +1729,6 @@ function balUpdateReadout(g) {
     if (!balWinBody) return;
     const ev = g.selected.length ? balEvaluate(g, g.selected) : null;
     const vals = ev ? balHandValues(g, ev.key) : null;
-    const last = g.lastScore;
     const nameEl = balWinBody.querySelector('.bj-hand-name');
     const chipsEl = balWinBody.querySelector('.bj-chips');
     const multEl = balWinBody.querySelector('.bj-mult');
@@ -1719,8 +1742,13 @@ function balUpdateReadout(g) {
         // is the thing a player most wants to notice
         if (ev && wasEmpty !== ev.key) BJFX.pop(nameEl, { scale: 1.12, duration: 220 });
     }
-    if (chipsEl) BJFX.countTo(chipsEl, ev ? vals.chips : (last ? Math.round(last.chips) : 0), { duration: 220 });
-    if (multEl) BJFX.countTo(multEl, ev ? vals.mult : (last ? +last.mult.toFixed(2) : 0), {
+    // with nothing selected the readout reads zero, not whatever the
+    // last hand happened to score. it used to keep the previous hand's
+    // chips and mult on screen, which looked exactly like the game had
+    // failed to recalculate — the total of that hand is on the "last
+    // hand" line right underneath, where it belongs.
+    if (chipsEl) BJFX.countTo(chipsEl, ev ? vals.chips : 0, { duration: 220 });
+    if (multEl) BJFX.countTo(multEl, ev ? vals.mult : 0, {
         duration: 220, format: v => String(Math.round(v * 100) / 100)
     });
 }
@@ -1776,6 +1804,7 @@ function balRenderBlind(g) {
         const done = i < g.blindIndex;
         const now = i === g.blindIndex;
         return `<div class="bj-blind${now ? ' now' : ''}${done ? ' done' : ''}${i === 2 ? ' boss' : ''}">
+            ${balFaceHtml(g, i, { size: 'big' })}
             <div class="bj-blind-name">${escapeHtml(info.name)}</div>
             <div class="bj-blind-req">${balNum(info.req * (g.deckId === 'plasma' ? 2 : 1))}</div>
             <div class="bj-blind-sub">score at least</div>
@@ -1802,6 +1831,7 @@ function balRenderPlay(g) {
 
     return `${balTopBar(g)}
     <div class="bj-blindbar${boss ? ' boss' : ''}">
+        ${balFaceHtml(g, g.blindIndex)}
         <span class="bj-blindbar-name">${escapeHtml(info.name)}</span>
         ${boss && !g.bossDisabled ? `<span class="bj-blindbar-text">${escapeHtml(boss.text)}</span>` : ''}
         <span class="bj-blindbar-score">${balNum(g.score)} / ${balNum(g.required)}</span>
@@ -1822,9 +1852,9 @@ function balRenderPlay(g) {
     <div class="bj-readout">
         <div class="bj-hand-name">${ev ? escapeHtml(BAL.HANDS[ev.key].name) + ` <small>lvl ${vals.level}</small>` : 'select up to 5 cards'}</div>
         <div class="bj-calc">
-            <span class="bj-chips">${ev ? vals.chips : (last ? Math.round(last.chips) : 0)}</span>
+            <span class="bj-chips">${ev ? vals.chips : 0}</span>
             <span class="bj-x">X</span>
-            <span class="bj-mult">${ev ? vals.mult : (last ? +last.mult.toFixed(2) : 0)}</span>
+            <span class="bj-mult">${ev ? vals.mult : 0}</span>
         </div>
         ${last ? `<div class="bj-last">last hand: ${balNum(last.total)}</div>` : ''}
     </div>
@@ -1856,6 +1886,7 @@ function balRenderCashout(g) {
     const total = (g.roundPayouts || []).reduce((s, p) => s + p[1], 0);
     return `${balTopBar(g)}
         <div class="bj-cashout">
+            <div class="bj-victim">${balFaceHtml(g, g.blindIndex, { size: 'big' })}</div>
             <h3>blind defeated</h3>
             <div class="bj-paylist">${rows || '<div class="bj-payrow"><span>nothing</span><b>$0</b></div>'}</div>
             <div class="bj-paytotal">cash out: <b>$${total}</b></div>
@@ -2203,6 +2234,9 @@ function balSfx(name, opts) {
         case 'take': balTone(880, 0.07, { type: 'triangle', gain: 0.07 }); break;
         case 'use': balTone(700, 0.06, { type: 'sine', gain: 0.07 }); balTone(1050, 0.08, { type: 'sine', gain: 0.06, delay: 0.05 }); balTone(1400, 0.1, { type: 'sine', gain: 0.05, delay: 0.1 }); break;
         case 'blindselect': balTone(220, 0.16, { type: 'triangle', gain: 0.08 }); balTone(165, 0.22, { type: 'triangle', gain: 0.07, delay: 0.08 }); break;
+        // something heavy landing on somebody's head: a low thud with a
+        // short bright crack on top of it
+        case 'bonk': balTone(90, 0.18, { type: 'sine', gain: 0.12, slideTo: 55 }); balNoiseBurst(0.09, { filterStart: 1400, filterEnd: 180, gain: 0.09 }); balTone(196, 0.1, { type: 'square', gain: 0.05, delay: 0.03, slideTo: 147 }); break;
         case 'newrun': balTone(392, 0.08, { type: 'triangle', gain: 0.07 }); balTone(523, 0.08, { type: 'triangle', gain: 0.07, delay: 0.06 }); balTone(784, 0.14, { type: 'triangle', gain: 0.07, delay: 0.12 }); break;
         case 'blindwin': balChord([523, 659, 784], 0.22, { type: 'square', gain: 0.09 }); break;
         case 'gameover': balTone(392, 0.18, { type: 'sawtooth', gain: 0.09, slideTo: 220 }); balTone(220, 0.3, { type: 'sawtooth', gain: 0.08, delay: 0.16, slideTo: 110 }); break;
