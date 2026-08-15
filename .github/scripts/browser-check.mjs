@@ -424,6 +424,33 @@ try {
     expect(hit.leftover === 0, 'the floating numbers clean themselves up', String(hit.leftover));
     await jok.screenshot({ path: SHOTS + '/9-jokerz.png' });
 
+    // with nothing selected the readout has to read zero. it used to
+    // show the previous hand's chips and mult, which looks exactly like
+    // the game failing to recalculate.
+    const readout = await jok.evaluate(() => ({
+        chips: (document.querySelector('.bj-chips') || {}).textContent,
+        mult: (document.querySelector('.bj-mult') || {}).textContent,
+        last: !!document.querySelector('.bj-last'),
+        selected: BG.selected.length
+    }));
+    expect(readout.selected === 0 && readout.chips === '0' && readout.mult === '0',
+        'after a hand is played the readout resets instead of showing the last one', JSON.stringify(readout));
+    expect(readout.last, 'the previous hand is still reported, on its own line', JSON.stringify(readout));
+
+    // the faces, and the head that lands on them
+    const faces = await jok.evaluate(() => {
+        const bar = document.querySelector('.bj-blindbar .bj-face');
+        return {
+            inBar: !!bar,
+            loaded: bar ? (bar.complete && bar.naturalWidth > 0) : false,
+            hue: bar ? bar.style.filter : '',
+            title: bar ? bar.title : ''
+        };
+    });
+    expect(faces.inBar && faces.loaded, 'the blind you are playing has a face, and it loaded', JSON.stringify(faces));
+    expect(/hue-rotate/.test(faces.hue) && faces.title.length > 2, 'tinted and named', JSON.stringify(faces));
+
+
     // and with motion off the same moves still work, just instantly
     const quiet = await jok.evaluate(async () => {
         FX.setEnabled(false);
@@ -442,6 +469,36 @@ try {
     expect(quiet.selected === 1 && quiet.anims === 0, 'with motion off a card still selects, without moving',
         JSON.stringify(quiet));
     expect(quiet.discarded && quiet.hand > 0, 'and discarding still discards', JSON.stringify(quiet));
+
+    // last, because winning takes the table away: after this the
+    // cashout screen is up and there is no hand to click on
+    const won = await jok.evaluate(async () => {
+        BG.required = 1;                       // beat it with whatever is in hand
+        document.querySelector('.bj-hand .bj-card').click();
+        await new Promise(r => setTimeout(r, 60));
+        document.querySelector('[data-act="play"]').click();
+        // the screen flag flips when the hand scores; the dom catches up
+        // when the scoring animation ends
+        for (let i = 0; i < 100 && !document.querySelector('.bj-victim'); i++) await new Promise(r => setTimeout(r, 100));
+        let head = null;
+        for (let i = 0; i < 30 && !head; i++) { await new Promise(r => setTimeout(r, 50)); head = document.querySelector('.bj-bonk'); }
+        const victim = document.querySelector('.bj-victim .bj-face');
+        const out = {
+            victim: !!victim, head: !!head,
+            headSrc: head ? head.src.split('/').pop() : '',
+            headLoaded: head ? (head.complete && head.naturalWidth > 0) : false
+        };
+        // it lands on them, then leaves
+        await new Promise(r => setTimeout(r, 1500));
+        out.headGone = !document.querySelector('.bj-bonk');
+        out.stillThere = !!document.querySelector('.bj-victim .bj-face');
+        return out;
+    });
+    expect(won.victim, 'beating a blind shows you who you beat', JSON.stringify(won));
+    expect(won.head && won.headLoaded, 'and drops a head on them', JSON.stringify(won));
+    expect(won.headGone && won.stillThere, 'which then falls off and leaves, taking nothing with it',
+        JSON.stringify(won));
+    await jok.screenshot({ path: SHOTS + '/10-bonk.png' });
     await jok.close();
 
     // ---------------------------------------------------------------

@@ -177,6 +177,75 @@
             { transform: 'translateY(-10px) scale(1)' }
         ], { duration: 300, easing: FX.spring({ stiffness: 520, damping: 19 }) });
     }
+    // ---------- winning ----------
+    // a yellow head drops out of nowhere, lands on the beaten blind, and
+    // then slides off and falls out of the window. the blind takes the
+    // hit at the moment of contact — squashed, then wobbling — which is
+    // the whole joke, so the two animations are timed against each
+    // other rather than just played at once.
+    function bonk(targetEl, src) {
+        if (!targetEl || !on() || !targetEl.parentElement) return Promise.resolve();
+        const host = targetEl.closest('.bj-body') || targetEl.parentElement;
+        const t = rect(targetEl), h = rect(host);
+        // it has to come to rest *on their head*, not over their face —
+        // slightly smaller than the victim and sitting three quarters
+        // above them, so at the moment of impact you can see both
+        const size = Math.max(40, t.width * 0.88);
+        const head = document.createElement('img');
+        head.className = 'bj-bonk';
+        head.src = src;
+        head.alt = '';
+        head.style.width = size + 'px';
+        head.style.left = (t.left - h.left + t.width / 2 - size / 2) + 'px';
+        // half the size, not three quarters: these pngs carry a lot of
+        // transparent margin, so a head that is geometrically resting on
+        // the crown looks like it is hovering over it
+        const restTop = t.top - h.top - size * 0.5;
+        head.style.top = restTop + 'px';
+        host.appendChild(head);
+
+        // it falls from the top edge of the panel rather than from
+        // somewhere above it — the window clips its own overflow, and a
+        // head that spends its whole drop outside the box is a head
+        // nobody sees
+        // the easing has to live on the keyframes, not on the animation:
+        // one curve across the whole thing stretches the drop over the
+        // hang and the fall as well, and the head arrives late for its
+        // own impact
+        const DROP = 300, HANG = 140, FALL = 620, TOTAL = DROP + HANG + FALL;
+        const from = Math.max(0, restTop) + 4;
+        const fall = FX.animate(head, [
+            { transform: `translateY(-${from}px) rotate(-14deg)`, opacity: 0, offset: 0, easing: 'linear' },
+            // gravity: slow off the mark, quick at the end
+            { transform: `translateY(-${from * 0.94}px) rotate(-12deg)`, opacity: 1, offset: 0.05, easing: 'cubic-bezier(.5,0,.9,.5)' },
+            // lands
+            { transform: 'translateY(0) rotate(0deg)', offset: DROP / TOTAL, easing: 'ease-out' },
+            // a small bounce off their skull
+            { transform: 'translateY(-9px) rotate(4deg)', offset: (DROP + HANG * 0.45) / TOTAL, easing: 'ease-in' },
+            { transform: 'translateY(0) rotate(1deg)', offset: (DROP + HANG) / TOTAL, easing: 'cubic-bezier(.4,0,.9,.6)' },
+            // then off the side and out of the window
+            { transform: `translate(${size * 0.55}px, ${h.height}px) rotate(120deg)`, opacity: 0.9, offset: 1 }
+        ], { duration: TOTAL, easing: 'linear' });
+
+        // the impact, on the frame the head lands
+        setTimeout(() => {
+            if (!targetEl.isConnected) return;
+            FX.animate(targetEl, [
+                { transform: 'scale(1,1) translateY(0)' },
+                { transform: 'scale(1.22,.72) translateY(7px)' },
+                { transform: 'scale(.94,1.08) translateY(-3px)' },
+                { transform: 'scale(1.04,.97) translateY(1px)' },
+                { transform: 'scale(1,1) translateY(0)' }
+            ], { duration: 520, easing: 'ease-out' });
+            const host2 = targetEl.closest('.bj-body');
+            if (host2) host2.classList.add('bj-shook');
+            setTimeout(() => host2 && host2.classList.remove('bj-shook'), 220);
+            floatOff(targetEl, 'BONK', { color: '#ffd400', up: 40, duration: 900 });
+        }, DROP);
+
+        return fall.finished.then(() => head.remove());
+    }
+
     // a screen arriving — shop, blind select, cash out
     function screenIn(root) {
         if (!root || !on()) return;
@@ -188,6 +257,6 @@
 
     window.BJFX = {
         on, selectCard, refuse, flyOut, dealIn, damage, floatOff,
-        countTo, pop, press, trigger, scorePulse, screenIn
+        countTo, pop, press, trigger, scorePulse, screenIn, bonk
     };
 })();

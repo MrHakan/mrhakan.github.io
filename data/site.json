@@ -164,6 +164,16 @@
     ],
     "changelog": [
         {
+            "version": "8.5",
+            "date": "2026-08-15",
+            "changes": [
+                "every ante in jokerz 98 has a face now, and they are the cursed pack — ante 1 could not care less, ante 8 wants you dead. the small and big blind of an ante are the same opponent at a different hue, and the boss is somebody else entirely, keeping its own face wherever it turns up.",
+                "beat a blind and a yellow head drops out of the top of the window, lands on theirs with a BONK, bounces once and falls out of the bottom",
+                "fixed: the chips and mult readout kept showing the previous hand after you played one, which looked exactly like the game had failed to recalculate. it reads zero when nothing is selected — the last hand is still reported on its own line underneath.",
+                "fixed: starting a run floated a cheerful \"$NaN\" over the money counter, because the menu screen has no money to compare against yet"
+            ]
+        },
+        {
             "version": "8.4",
             "date": "2026-08-15",
             "changes": [

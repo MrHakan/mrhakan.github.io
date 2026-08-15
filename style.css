@@ -4044,6 +4044,67 @@ body.disco-floor::after {
     box-shadow: none;
 }
 
+/* ---------- who you are playing against ---------- */
+/* every ante has a face, hue-shifted per blind so the three blinds of
+   one ante are three opponents rather than one picture three times */
+.bj-face {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    image-rendering: auto;
+    flex-shrink: 0;
+    vertical-align: middle;
+    transform-origin: 50% 100%;
+}
+
+.bj-face-big {
+    width: 54px;
+    height: 54px;
+    display: block;
+    margin: 0 auto 4px;
+}
+
+.bj-face.beaten {
+    filter: grayscale(1) brightness(.6) !important;
+}
+
+.bj-victim {
+    text-align: center;
+    margin-bottom: 2px;
+    /* headroom for the thing that is about to land on them */
+    padding-top: 42px;
+}
+
+.bj-victim .bj-face {
+    width: 72px;
+    height: 72px;
+}
+
+/* the head that lands on them */
+.bj-bonk {
+    position: absolute;
+    z-index: 70;
+    pointer-events: none;
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .5));
+}
+
+/* the whole table flinches on impact */
+.bj-shook {
+    animation: bj-shook .2s steps(4, end);
+}
+
+@keyframes bj-shook {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(-3px, 2px); }
+    50% { transform: translate(3px, -1px); }
+    75% { transform: translate(-2px, 1px); }
+    100% { transform: translate(0, 0); }
+}
+
+.no-motion .bj-shook {
+    animation: none;
+}
+
 /* a number lifting off the thing that caused it — damage on the blind,
    a joker's payout, money changing hands */
 .bj-float {
