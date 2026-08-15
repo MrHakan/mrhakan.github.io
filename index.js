@@ -479,7 +479,8 @@ function showToast(title, message) {
     toast.appendChild(msgEl);
     document.body.appendChild(toast);
     playSound('balloon');
-    setTimeout(() => toast.classList.add('fading'), 3000);
+    FX.toastIn(toast);
+    setTimeout(() => { toast.classList.add('fading'); FX.toastOut(toast); }, 3000);
     setTimeout(() => toast.remove(), 3500);
 }
 
@@ -861,6 +862,11 @@ window.hax = function () {
 };
 function createSparkle(e) {
     if (Math.random() > 0.5) return;
+    // trails follow the cursor whether you asked for them or not, which
+    // makes them exactly the kind of motion the reduced-motion setting
+    // is about. the sparkles tickbox in display properties is separate
+    // and still wins on its own.
+    if (!FX.on()) return;
     const sparkle = document.createElement('div');
     sparkle.classList.add('sparkle');
     sparkle.style.left = `${e.pageX}px`;
@@ -1777,7 +1783,17 @@ function createAppWindow(title, opts = {}) {
     minBtn.className = 'ie-titlebar-btn bevel-out';
     minBtn.textContent = '_';
     minBtn.title = 'minimize';
-    minBtn.onclick = () => { win.style.display = 'none'; playSound('click'); };
+    minBtn.onclick = () => {
+        playSound('click');
+        if (!FX.on()) { win.style.display = 'none'; return; }
+        FX.minimizeWindow(win).finished.then(() => {
+            win.style.display = 'none';
+            // the animation left its transform behind; the taskbar button
+            // restores display, so clear it or the window comes back small
+            win.style.transform = '';
+            win.style.opacity = '';
+        });
+    };
     // maximize toggles a full-desktop layout, remembering the restore geometry
     const maxBtn = document.createElement('button');
     maxBtn.className = 'ie-titlebar-btn bevel-out';
@@ -1846,12 +1862,13 @@ function createAppWindow(title, opts = {}) {
         b.onclick = () => {
             const hidden = win.style.display === 'none';
             win.style.display = hidden ? 'flex' : 'none';
-            if (hidden) win.style.zIndex = ++ieHighestZ;
+            if (hidden) { win.style.zIndex = ++ieHighestZ; FX.openWindow(win); }
             playSound('click');
         };
         tb.appendChild(b);
     }
     win._cleanup = () => document.removeEventListener('mousemove', onMove);
+    FX.openWindow(win);
     return { win, body, id, close: () => closeAppWindow(id) };
 }
 // ---------- fullscreen ----------
@@ -1940,9 +1957,16 @@ function closeAppWindow(id) {
     const win = document.getElementById(id);
     if (win && document.fullscreenElement === win) exitWindowFullscreen();
     if (win && win._cleanup) win._cleanup();
-    win?.remove();
     document.getElementById(`${id}-tb`)?.remove();
     playSound('click');
+    if (!win) return;
+    // the window is gone the moment you click the ✕ as far as the rest of
+    // the page is concerned — it loses its id and stops taking clicks —
+    // it just takes another tenth of a second to leave the screen
+    win.id = '';
+    win.style.pointerEvents = 'none';
+    if (!FX.on()) { win.remove(); return; }
+    FX.closeWindow(win).finished.then(() => win.remove());
 }
 
 // ===================================================================
@@ -2142,9 +2166,33 @@ function openTaskManager() {
         { name: 'clippy.exe', cpu: 1, mem: 300, kill: () => hideAssistant() }
     ];
     body.innerHTML = `
-        <div class="tm-tabs">applications | <b>processes</b> | performance</div>
-        <div class="tm-header"><span>image name</span><span>cpu</span><span>mem</span></div>
-        <div class="tm-list" id="tm-list"></div>
+        <div class="tm-tabs">applications | <button class="tm-tab is-on" data-tab="processes">processes</button> | <button class="tm-tab" data-tab="performance">performance</button></div>
+        <div id="tm-pane-processes">
+            <div class="tm-header"><span>image name</span><span>cpu</span><span>mem</span></div>
+            <div class="tm-list" id="tm-list"></div>
+        </div>
+        <div id="tm-pane-performance" hidden>
+            <div class="tm-perf">
+                <div class="tm-perf-cell">
+                    <div class="tm-perf-cap">cpu usage history</div>
+                    <canvas id="tm-cpu" class="tm-canvas bevel-in"></canvas>
+                </div>
+                <div class="tm-perf-cell">
+                    <div class="tm-perf-cap">memory</div>
+                    <canvas id="tm-mem" class="tm-canvas bevel-in"></canvas>
+                </div>
+                <div class="tm-perf-cell tm-perf-cell--split">
+                    <div>
+                        <div class="tm-perf-cap">load</div>
+                        <canvas id="tm-ring" class="tm-canvas tm-canvas--ring bevel-in"></canvas>
+                    </div>
+                    <div class="tm-perf-grow">
+                        <div class="tm-perf-cap">per process</div>
+                        <canvas id="tm-bars" class="tm-canvas bevel-in"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="tm-footer">
             <span id="tm-count"></span>
             <button class="bevel-out tm-endbtn" id="tm-end">end task</button>
@@ -2152,6 +2200,48 @@ function openTaskManager() {
     const listEl = body.querySelector('#tm-list');
     const countEl = body.querySelector('#tm-count');
     let selected = null;
+
+    // the performance tab. the numbers are the same made-up ones the
+    // process list shows — the point is that they are now drawn the way
+    // a 1998 task manager drew them, scrolling right to left.
+    const cpuTrack = Charts.track(60), memTrack = Charts.track(60);
+    let scroll = 0, tab = 'processes';
+    const totalCpu = () => Math.min(100, procs.reduce((s, p) => s + p.cpu, 0));
+    const totalMem = () => procs.reduce((s, p) => s + p.mem, 0);
+    const MEM_CEIL = 32768;   // 32 megs ought to be enough for anybody
+    function paint() {
+        if (tab !== 'performance') return;
+        const cpu = totalCpu();
+        Charts.history(body.querySelector('#tm-cpu'), {
+            series: [{ points: cpuTrack.points, color: Charts.PALETTE.ink, fill: 'rgba(13,242,89,.35)' }],
+            max: 100, scroll: scroll, label: cpu + '%  peak ' + Math.round(cpuTrack.peak()) + '%'
+        });
+        Charts.history(body.querySelector('#tm-mem'), {
+            series: [{ points: memTrack.points, color: Charts.PALETTE.warn, fill: 'rgba(255,225,77,.25)' }],
+            max: MEM_CEIL, scroll: scroll, rows: 3,
+            label: Math.round(totalMem() / 1024) + 'M / 32M', labelColor: Charts.PALETTE.warn
+        });
+        Charts.ring(body.querySelector('#tm-ring'), {
+            value: cpu, max: 100,
+            color: cpu > 80 ? Charts.PALETTE.hot : cpu > 50 ? Charts.PALETTE.warn : Charts.PALETTE.ink
+        });
+        Charts.bars(body.querySelector('#tm-bars'), {
+            items: procs.slice().sort((a, b) => b.cpu - a.cpu).slice(0, 5)
+                .map(p => ({ label: p.name.replace(/\.(exe|dll|sys)$/, ''), value: p.cpu })),
+            max: 100
+        });
+    }
+    body.querySelectorAll('.tm-tab').forEach(btn => {
+        btn.onclick = () => {
+            tab = btn.dataset.tab;
+            body.querySelectorAll('.tm-tab').forEach(b => b.classList.toggle('is-on', b === btn));
+            body.querySelector('#tm-pane-processes').hidden = tab !== 'processes';
+            body.querySelector('#tm-pane-performance').hidden = tab !== 'performance';
+            playSound('click');
+            paint();
+            if (tab === 'performance') FX.reveal(body.querySelectorAll('.tm-perf-cell'), { each: 0.05 });
+        };
+    });
 
     function render() {
         listEl.innerHTML = '';
@@ -2162,8 +2252,8 @@ function openTaskManager() {
             row.onclick = () => { selected = i; render(); };
             listEl.appendChild(row);
         });
-        const totalCpu = Math.min(100, procs.reduce((s, p) => s + p.cpu, 0));
-        countEl.textContent = `processes: ${procs.length}  cpu: ${totalCpu}%`;
+        countEl.textContent = `processes: ${procs.length}  cpu: ${totalCpu()}%`;
+        paint();
     }
     body.querySelector('#tm-end').onclick = () => {
         if (selected == null || !procs[selected]) { showToast('task manager', 'select a process first bradar'); return; }
@@ -2186,13 +2276,21 @@ function openTaskManager() {
             showToast('task manager', `${p.name} terminated`);
         }
     };
-    // live-ish cpu jitter
+    // live-ish cpu jitter. the history ticks four times faster than the
+    // list redraws, because a graph that moves once a second and a half
+    // is not a graph, it is a slideshow.
     const jitter = setInterval(() => {
         procs.forEach(p => { if (p.name !== 'vibes.sys') p.cpu = Math.max(0, Math.min(99, p.cpu + Math.floor(Math.random() * 7) - 3)); });
         render();
     }, 1500);
+    const ticker = setInterval(() => {
+        cpuTrack.push(totalCpu());
+        memTrack.push(totalMem());
+        scroll += 4;
+        paint();
+    }, 380);
     const win = document.getElementById(`app-win-${appWinCount}`);
-    if (win) { const orig = win._cleanup; win._cleanup = () => { clearInterval(jitter); orig && orig(); }; }
+    if (win) { const orig = win._cleanup; win._cleanup = () => { clearInterval(jitter); clearInterval(ticker); orig && orig(); }; }
     render();
 }
 
