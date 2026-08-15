@@ -164,6 +164,18 @@
     ],
     "changelog": [
         {
+            "version": "8.4",
+            "date": "2026-08-15",
+            "changes": [
+                "jokerz 98 moves now. the real fix underneath: the table was rebuilt with innerHTML on every click, so the card you selected was destroyed and recreated already raised — the transition it had all along never got to play. selecting a card now touches that card and the readout, nothing else.",
+                "so picking a card lifts with a little overshoot, hovering raises it, and a full hand nudges instead of going quiet",
+                "discarded cards fly to the deck one after another before they leave your hand, and whatever replaces them is dealt back in",
+                "the blind takes the hit visibly: the bar shudders, the fill runs up, the total floats off it as damage, and the score counts up instead of snapping",
+                "jokers jump when they fire and say what they did, every button acknowledges the click, money that changes says so, and a new screen arrives rather than appearing",
+                "all of it through fx.js, so unticking window animations turns off every bit of it — css transitions included — and the game plays exactly the same"
+            ]
+        },
+        {
             "version": "8.3",
             "date": "2026-08-15",
             "changes": [

@@ -3489,6 +3489,8 @@ body.disco-floor::after {
     padding: 6px;
     font-size: 11px;
     max-height: 78vh;
+    /* floating numbers are positioned against this */
+    position: relative;
 }
 
 .bj-body h2,
@@ -4004,16 +4006,55 @@ body.disco-floor::after {
     border-radius: 4px;
     cursor: pointer;
     flex-shrink: 0;
-    transition: transform .08s;
+    /* the lift is the same transform the js animates, so a hover that
+       lands mid-animation continues from where the card actually is
+       rather than snapping */
+    transition: transform .12s cubic-bezier(.22, 1.1, .36, 1), box-shadow .12s;
+    will-change: transform;
 }
 
 .bj-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-8px) scale(1.04);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, .45);
+    z-index: 3;
 }
 
 .bj-card.sel {
     transform: translateY(-10px);
     outline: 2px solid #ffd400;
+    box-shadow: 0 4px 0 rgba(255, 212, 0, .35);
+}
+
+.bj-card.sel:hover {
+    transform: translateY(-15px) scale(1.04);
+}
+
+/* fx.js puts .no-motion on <html> when the visitor (or their system)
+   asked for less of it. javascript animation stops at the source; these
+   are the css transitions that would otherwise carry on regardless. */
+.no-motion .bj-card,
+.no-motion .bj-progress-fill,
+.no-motion .retro-toast,
+.no-motion .app-window {
+    transition: none !important;
+}
+
+.no-motion .bj-card:hover {
+    transform: translateY(-8px);
+    box-shadow: none;
+}
+
+/* a number lifting off the thing that caused it — damage on the blind,
+   a joker's payout, money changing hands */
+.bj-float {
+    position: absolute;
+    z-index: 60;
+    pointer-events: none;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 1px 1px 0 #000, -1px 1px 0 #000;
+    white-space: nowrap;
 }
 
 .bj-card.red {
