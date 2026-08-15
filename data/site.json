@@ -82,6 +82,7 @@
             "tailwind via cdn for utility classes only",
             "typed.js self-hosted for the terminal tagline",
             "material symbols icon font, subsetted to only the 48 glyphs used (6.7kb)",
+            "animation is the web animations api behind a 4kb wrapper — motion.dev's api, not motion.dev's 139kb",
             "guestbook + shoutbox are the comment threads of two public gists — signing is a comment, nothing is committed",
             "hit counter via komarev's ghpvc badge, the same one on my github profile readme",
             "a service worker keeps the whole desktop working offline",
@@ -163,13 +164,24 @@
     ],
     "changelog": [
         {
+            "version": "8.3",
+            "date": "2026-08-15",
+            "changes": [
+                "windows, menus and toasts move now — a motion layer (fx.js) built on the web animations api, with the api shape borrowed from motion.dev and springs sampled into a linear() easing curve the same way it does",
+                "borrowed the shape rather than the bundle on purpose: motion.dev's vanilla build is 139kb, this is about four, and the site still has no build step and no dependencies",
+                "the reduced-motion setting is finally honoured — the os one, plus a new \"window animations\" tickbox in display properties. off means nothing animates and the end state lands instantly, cursor sparkles included",
+                "task manager's performance tab is no longer decorative text: live cpu and memory history, a load ring and per-process bars, drawn on canvas in perfmon green (charts.js, composable pieces borrowed from bklit ui)",
+                "57 checks on the lot, including the one that matters — ask for less motion and nothing moves"
+            ]
+        },
+        {
             "version": "8.2",
             "date": "2026-08-14",
             "changes": [
-                "wizardz reads your drawing better \u2014 the tilt search reaches \u00b130\u00b0 instead of \u00b118\u00b0, so a sigil drawn at a real-world lean stops falling off the end of it (89% of them cast now, up from 67%)",
+                "wizardz reads your drawing better — the tilt search reaches \u00b130\u00b0 instead of \u00b118\u00b0, so a sigil drawn at a real-world lean stops falling off the end of it (89% of them cast now, up from 67%)",
                 "and it is twice as fast doing it: the ink grid picks which lean each spell is judged at, so thirty point-cloud matches run instead of five hundred and fifty",
-                "the score now charges you for wandering \u2014 how much line you used and how much your hand turned, both measured against the sigil you were aiming for, so a doodle that crosses the right area no longer scores like a spell",
-                "casting bar lowered to 60%: a drawing only has to be recognisably the thing, and power is measured from there up \u2014 scrape in and the spell is weak, draw it clean and it hits full",
+                "the score now charges you for wandering — how much line you used and how much your hand turned, both measured against the sigil you were aiming for, so a doodle that crosses the right area no longer scores like a spell",
+                "casting bar lowered to 60%: a drawing only has to be recognisably the thing, and power is measured from there up — scrape in and the spell is weak, draw it clean and it hits full",
                 "fizzles say which failure it was: \"half fireball, half frostbolt\" is a different problem from \"too rough\", and the practice pad now shows the bar and the power"
             ]
         },

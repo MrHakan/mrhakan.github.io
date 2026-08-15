@@ -1118,6 +1118,58 @@ body {
     margin-bottom: 4px;
 }
 
+/* the tabs are real buttons now that performance does something */
+.tm-tab {
+    font-family: inherit;
+    font-size: inherit;
+    color: #000080;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.tm-tab.is-on {
+    font-weight: bold;
+    color: #000;
+    text-decoration: none;
+}
+
+/* ---------- performance tab (charts.js draws into these) ---------- */
+.tm-perf {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tm-perf-cap {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #000;
+    margin-bottom: 2px;
+}
+
+.tm-canvas {
+    display: block;
+    width: 100%;
+    height: 62px;
+    background: #000;
+}
+
+.tm-perf-cell--split {
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+}
+
+.tm-perf-grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.tm-canvas--ring {
+    width: 74px;
+    height: 74px;
+}
+
 .tm-header,
 .tm-row {
     display: grid;

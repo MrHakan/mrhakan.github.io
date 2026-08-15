@@ -55,6 +55,11 @@ jobs:
             - name: Check the guestbook
               run: node .github/scripts/check-guestbook.mjs
 
+            # the motion layer has one promise to keep — reduced motion
+            # means no motion — and it is not visible when it breaks
+            - name: Check the motion layer and the charts
+              run: node .github/scripts/check-motion.mjs
+
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest

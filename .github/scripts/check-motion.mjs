@@ -1,0 +1,259 @@
+// ===================================================================
+// check-motion.mjs — tests for fx.js and charts.js
+//
+// Both files are pure enough to run without a browser if you hand them
+// a small enough hole to run in, which is what this does: a fake
+// element that records the keyframes it was asked to animate, and a
+// fake 2d context that records the drawing calls.
+//
+// The thing worth protecting here is the promise fx.js makes: if the
+// visitor asked for less motion, *nothing* animates and the end state
+// is applied anyway. A motion layer that silently keeps animating for
+// somebody who gets motion sick is worse than no motion layer.
+//
+//   node .github/scripts/check-motion.mjs
+// ===================================================================
+import fs from 'fs';
+import path from 'path';
+
+const ROOT = process.cwd();
+const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
+let failures = 0, checks = 0;
+const ok = m => { checks++; console.log('  ok    ' + m); };
+const bad = (m, d) => { checks++; failures++; console.log('  FAIL  ' + m + (d ? '\n        ' + d : '')); };
+const expect = (c, m, d) => c ? ok(m) : bad(m, d);
+const section = n => console.log('\n== ' + n + ' ==');
+
+// ---------- a browser-shaped hole ----------
+function fakeElement() {
+    const el = {
+        style: {}, nodeType: 1, calls: [],
+        animate(keyframes, options) {
+            el.calls.push({ keyframes, options });
+            return {
+                finished: Promise.resolve(),
+                cancel() { this.cancelled = true; },
+                reverse() { this.reversed = true; }
+            };
+        }
+    };
+    return el;
+}
+function makeWindow(opts) {
+    const o = opts || {};
+    const store = new Map(o.store || []);
+    const win = {
+        localStorage: {
+            getItem: k => (store.has(k) ? store.get(k) : null),
+            setItem: (k, v) => store.set(k, String(v)),
+            removeItem: k => store.delete(k)
+        },
+        matchMedia: q => ({ matches: !!o.reduced && /reduce/.test(q) }),
+        IntersectionObserver: null,
+        devicePixelRatio: o.dpr || 1,
+        CSS: { supports: () => o.linear !== false },
+        document: { querySelectorAll: () => [] }
+    };
+    win.window = win;
+    return win;
+}
+const load = (w, file) => new Function('window', 'localStorage', 'document', 'CSS', read(file))(w, w.localStorage, w.document, w.CSS);
+
+// ===================================================================
+section('fx.js runs without a dom');
+// ===================================================================
+const win = makeWindow();
+try { load(win, 'fx.js'); ok('fx.js loads'); } catch (e) { bad('fx.js loads', e.message); process.exit(1); }
+const FX = win.FX;
+expect(typeof FX.animate === 'function' && typeof FX.stagger === 'function' && typeof FX.inView === 'function',
+    'it exposes the motion.dev shape: animate, stagger, inView');
+expect(typeof FX.openWindow === 'function' && typeof FX.toastIn === 'function' && typeof FX.reveal === 'function',
+    'and the presets this desktop uses');
+
+// ===================================================================
+section('it animates');
+// ===================================================================
+{
+    const el = fakeElement();
+    const a = FX.animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+    expect(el.calls.length === 1, 'one element, one animation', String(el.calls.length));
+    expect(el.calls[0].options.duration === 200, 'the duration is passed through', JSON.stringify(el.calls[0].options));
+    expect(typeof a.finished.then === 'function' && typeof a.cancel === 'function',
+        'and it hands back something you can await and cancel');
+
+    const many = [fakeElement(), fakeElement(), fakeElement()];
+    FX.animate(many, [{ opacity: 0 }, { opacity: 1 }], { delay: FX.stagger(0.05) });
+    expect(many.every(e => e.calls.length === 1), 'a list animates every element');
+    const delays = many.map(e => e.calls[0].options.delay);
+    expect(delays[0] === 0 && delays[1] === 50 && delays[2] === 100, 'staggered by 50ms each', JSON.stringify(delays));
+
+    const centred = FX.stagger(0.1, { from: 'center' });
+    expect(centred(0, 3) === 100 && centred(1, 3) === 0 && centred(2, 3) === 100,
+        'stagger can start from the middle', [centred(0, 3), centred(1, 3), centred(2, 3)].join(','));
+    const last = FX.stagger(20, { from: 'last' });
+    expect(last(0, 3) === 40 && last(2, 3) === 0, 'or from the end');
+    expect(FX.stagger(0.04)(1, 2) === 40 && FX.stagger(40)(1, 2) === 40,
+        'seconds and milliseconds both work, like motion.dev');
+
+    expect(FX.animate(null, [{ opacity: 1 }]).skipped === true, 'animating nothing is not an error');
+    expect(FX.animate([], [{ opacity: 1 }]).skipped === true, 'nor is animating an empty list');
+}
+
+// ===================================================================
+section('springs');
+// ===================================================================
+{
+    const easing = FX.spring({ stiffness: 300, damping: 20 });
+    expect(/^linear\(/.test(easing), 'a spring becomes a linear() easing curve', easing.slice(0, 40));
+    const points = easing.slice(7, -1).split(',').map(Number);
+    expect(points.length > 20, 'sampled finely enough to look like a spring', String(points.length));
+    expect(points[0] < 0.2 && points[points.length - 1] === 1,
+        'it starts at rest and ends exactly on target', `${points[0]} .. ${points[points.length - 1]}`);
+    expect(Math.max.apply(null, points) > 1, 'and overshoots on the way, which is the whole point',
+        String(Math.max.apply(null, points)));
+
+    const noLinear = makeWindow({ linear: false });
+    load(noLinear, 'fx.js');
+    expect(/^cubic-bezier/.test(noLinear.FX.spring({})), 'a browser without linear() gets a bezier instead',
+        noLinear.FX.spring({}));
+}
+
+// ===================================================================
+section('and it stops when asked');
+//
+// The promise: reduced motion means nothing animates, but the end state
+// still lands, so no caller has to know which mode it is in.
+// ===================================================================
+{
+    for (const [name, w] of [
+        ['the system asks for reduced motion', makeWindow({ reduced: true })],
+        ['the visitor unticks window animations', makeWindow({ store: [['motion-off', '1']] })]
+    ]) {
+        load(w, 'fx.js');
+        const el = fakeElement();
+        const a = w.FX.animate(el, [{ opacity: 0 }, { opacity: 1, transform: 'scale(1)' }]);
+        expect(el.calls.length === 0, name + ': nothing animates');
+        expect(el.style.opacity === 1 && el.style.transform === 'scale(1)',
+            name + ': but the end state is applied anyway', JSON.stringify(el.style));
+        expect(typeof a.finished.then === 'function', name + ': and it still resolves');
+        expect(w.FX.on() === false, name + ': FX.on() says so');
+    }
+    const w = makeWindow({ store: [['motion-off', '1']] });
+    load(w, 'fx.js');
+    expect(w.FX.enabled() === false, 'the tickbox reads its own setting');
+    w.FX.setEnabled(true);
+    expect(w.FX.enabled() === true && w.FX.on() === true, 'and flipping it takes effect immediately');
+    // the system setting is not something a tickbox may override
+    const sys = makeWindow({ reduced: true });
+    load(sys, 'fx.js');
+    sys.FX.setEnabled(true);
+    expect(sys.FX.on() === false, 'ticking the box cannot override the system setting');
+}
+
+// ===================================================================
+section('charts.js');
+// ===================================================================
+const cwin = makeWindow();
+try { load(cwin, 'charts.js'); ok('charts.js loads'); } catch (e) { bad('charts.js loads', e.message); }
+const Charts = cwin.Charts;
+function fakeCanvas(w, h) {
+    const calls = [];
+    const ctx = new Proxy({}, {
+        get(_, k) {
+            if (k === 'createLinearGradient') return () => ({ addColorStop() { } });
+            if (k === 'setTransform' || k === 'measureText') return () => ({ width: 10 });
+            return (...args) => calls.push({ fn: k, args });
+        },
+        set() { return true; }
+    });
+    return { clientWidth: w, clientHeight: h, width: 0, height: 0, getContext: () => ctx, calls };
+}
+{
+    expect(typeof Charts.history === 'function' && typeof Charts.bars === 'function' && typeof Charts.ring === 'function',
+        'it draws the three shapes the performance tab needs');
+
+    const t = Charts.track(5);
+    expect(t.points.length === 5 && t.points.every(v => v === 0), 'a track starts empty and fixed length');
+    for (let i = 1; i <= 7; i++) t.push(i);
+    expect(t.points.length === 5, 'and never grows past its length', String(t.points.length));
+    expect(t.points.join(',') === '3,4,5,6,7', 'the oldest samples fall off the left', t.points.join(','));
+    expect(t.peak() === 7 && t.mean() === 5, 'it can report its own peak and mean', `${t.peak()} / ${t.mean()}`);
+
+    const c = fakeCanvas(200, 60);
+    Charts.history(c, { series: [{ points: t.points, color: '#0df259', fill: 'rgba(0,0,0,.2)' }], max: 100, label: '42%' });
+    expect(c.width === 200 && c.height === 60, 'the canvas is sized to its css box', `${c.width}x${c.height}`);
+    expect(c.calls.some(x => x.fn === 'stroke') && c.calls.some(x => x.fn === 'fillRect'),
+        'a history chart strokes a line onto a filled panel');
+    expect(c.calls.some(x => x.fn === 'fillText' && x.args[0] === '42%'), 'and writes its label');
+
+    const hi = fakeCanvas(200, 60);
+    Charts.surface(hi);           // same canvas, twice, must not keep growing
+    Charts.surface(hi);
+    expect(hi.width === 200, 'redrawing does not inflate the backing store', String(hi.width));
+    const retina = { clientWidth: 100, clientHeight: 50, width: 0, height: 0, getContext: () => fakeCanvas(1, 1).getContext() };
+    cwin.devicePixelRatio = 2;
+    const rwin = makeWindow({ dpr: 2 });
+    load(rwin, 'charts.js');
+    rwin.Charts.surface(retina);
+    expect(retina.width === 200 && retina.height === 100, 'and a retina screen gets real pixels',
+        `${retina.width}x${retina.height}`);
+
+    // a chart with nothing in it must not throw — the performance tab
+    // paints before any sample has been taken
+    const empty = fakeCanvas(120, 40);
+    let threw = '';
+    try {
+        Charts.history(empty, {});
+        Charts.bars(empty, { items: [] });
+        Charts.ring(empty, {});
+        Charts.series(empty.getContext(), 100, 40, [1], {});
+    } catch (e) { threw = e.message; }
+    expect(!threw, 'an empty chart draws nothing rather than throwing', threw);
+}
+
+// ===================================================================
+section('wired into the desktop');
+// ===================================================================
+{
+    const indexJs = read('index.js');
+    const sw = read('sw.js');
+    for (const f of ['/fx.js', '/charts.js']) {
+        expect(sw.includes(`'${f}'`), 'the service worker precaches ' + f);
+    }
+    // index.js reaches for FX on every page it runs on, so every page
+    // that loads index.js has to load fx.js first — that is the whole
+    // failure mode of a global helper
+    for (const page of fs.readdirSync(ROOT).filter(f => f.endsWith('.html'))) {
+        if (!/<script src="index\.js"/.test(read(page))) continue;
+        expect(/<script src="fx\.js"[^>]*>[\s\S]*?<script src="index\.js"/.test(read(page)),
+            page + ' loads fx.js before index.js');
+    }
+    expect(/FX\.openWindow\(win\)/.test(indexJs), 'windows animate open');
+    expect(/FX\.closeWindow\(win\)/.test(indexJs), 'and closed');
+    expect(/FX\.toastIn\(toast\)/.test(indexJs), 'toasts slide in');
+    // a window that is closing must stop being findable straight away,
+    // or a second click animates a corpse
+    expect(/win\.id = '';[\s\S]{0,120}pointerEvents = 'none'/.test(indexJs),
+        'a closing window is unreachable before the animation finishes');
+    expect(/if \(!FX\.on\(\)\) \{ win\.remove\(\); return; \}/.test(indexJs),
+        'and with motion off it just goes');
+
+    const apps = read('apps.js');
+    expect(/id="cp-motion"/.test(apps) && /FX\.setEnabled/.test(apps),
+        'display properties can turn window animations off');
+    expect(/prefers-reduced-motion: reduce/.test(apps) && /mo\.disabled = true/.test(apps),
+        'and defers to the system setting instead of lying about it');
+    expect(/if \(!FX\.on\(\)\) return;/.test(indexJs), 'cursor sparkles respect it too');
+
+    const css = read('style.css');
+    expect(/\.tm-canvas/.test(css) && /\.tm-perf/.test(css), 'the performance tab has styles');
+    expect(/id="tm-cpu"/.test(indexJs) && /Charts\.history/.test(indexJs), 'and a chart in it');
+    expect(/clearInterval\(ticker\)/.test(indexJs), 'whose ticker is cleaned up with the window');
+}
+
+// ===================================================================
+console.log(`\n${checks - failures}/${checks} checks passed`);
+if (failures) {
+    console.log(`${failures} failed`);
+    process.exit(1);
+}
