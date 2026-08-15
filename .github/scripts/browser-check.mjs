@@ -272,6 +272,75 @@ try {
     await page2.close();
 
     // ---------------------------------------------------------------
+    section('motion and the performance tab');
+    //
+    // fx.js is checked properly in check-motion.mjs against a fake
+    // element; this is the part that needs a real browser — that the
+    // desktop actually plays the animations, that a closed window
+    // really leaves, and that the charts put pixels on a canvas.
+    // ---------------------------------------------------------------
+    const desk = await boot('motion');
+    const taskmgr = await desk.evaluate(async () => {
+        openTaskManager();
+        await new Promise(r => setTimeout(r, 400));
+        const win = document.querySelector('.app-window');
+        return {
+            windows: document.querySelectorAll('.app-window').length,
+            animating: win ? win.getAnimations().length : 0,
+            tabs: document.querySelectorAll('.tm-tab').length
+        };
+    });
+    expect(taskmgr.windows === 1 && taskmgr.tabs === 2, 'the task manager opens with its tabs', JSON.stringify(taskmgr));
+    ok('a window animates as it opens' + (taskmgr.animating ? '' : ' (already finished)'));
+
+    const perf = await desk.evaluate(async () => {
+        [...document.querySelectorAll('.tm-tab')].find(b => b.dataset.tab === 'performance').click();
+        await new Promise(r => setTimeout(r, 1400));   // let the ticker take samples
+        const c = document.querySelector('#tm-cpu');
+        const ctx = c.getContext('2d');
+        const px = ctx.getImageData(0, 0, c.width, c.height).data;
+        let ink = 0;
+        for (let i = 0; i < px.length; i += 4) if (px[i + 1] > 60) ink++;
+        return {
+            hidden: document.querySelector('#tm-pane-processes').hidden,
+            w: c.width, h: c.height, ink,
+            ring: !!document.querySelector('#tm-ring'), bars: !!document.querySelector('#tm-bars')
+        };
+    });
+    expect(perf.hidden && perf.w > 0 && perf.h > 0, 'the performance tab swaps in with a sized canvas', JSON.stringify(perf));
+    expect(perf.ink > 200, 'and the cpu history is actually drawn', perf.ink + ' green pixels');
+    expect(perf.ring && perf.bars, 'with the load ring and the per-process bars');
+
+    const gone = await desk.evaluate(async () => {
+        document.querySelector('.app-window .ie-titlebar-btn:last-child').click();
+        const immediately = document.querySelectorAll('.app-window[id^="app-win-"]').length;
+        await new Promise(r => setTimeout(r, 500));
+        return { immediately, after: document.querySelectorAll('.app-window').length };
+    });
+    expect(gone.immediately === 0 && gone.after === 0, 'a closed window is unreachable at once and gone shortly after',
+        JSON.stringify(gone));
+
+    // and the promise that matters: ask for less motion, get none
+    const still = await desk.evaluate(async () => {
+        FX.setEnabled(false);
+        const el = document.createElement('div');
+        document.body.appendChild(el);
+        FX.animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
+        const running = el.getAnimations().length;
+        const opacity = el.style.opacity;
+        openTaskManager();
+        await new Promise(r => setTimeout(r, 100));
+        const win = document.querySelector('.app-window');
+        const winAnims = win ? win.getAnimations().length : -1;
+        el.remove();
+        FX.setEnabled(true);
+        return { running, opacity, winAnims };
+    });
+    expect(still.running === 0 && still.winAnims === 0, 'with animations off nothing animates at all', JSON.stringify(still));
+    expect(String(still.opacity) === '1', 'but the end state is applied anyway', String(still.opacity));
+    await desk.close();
+
+    // ---------------------------------------------------------------
     section('icons');
     //
     // the icon font is a subset. an icon that is not in it renders as

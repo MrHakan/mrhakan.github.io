@@ -494,6 +494,7 @@ function openControlPanel() {
             <label><input type="checkbox" id="cp-sparkle"> cursor sparkles</label>
             <label><input type="checkbox" id="cp-stars"> starfield</label>
             <label><input type="checkbox" id="cp-snow"> let it snow</label>
+            <label><input type="checkbox" id="cp-motion"> window animations</label>
         </div>`;
 
     // the savers themselves live in extras.js
@@ -521,11 +522,21 @@ function openControlPanel() {
         unlockAchievement('decorator');
     });
     const crt = body.querySelector('#cp-crt'), sp = body.querySelector('#cp-sparkle'),
-        st = body.querySelector('#cp-stars'), sn = body.querySelector('#cp-snow');
+        st = body.querySelector('#cp-stars'), sn = body.querySelector('#cp-snow'),
+        mo = body.querySelector('#cp-motion');
     crt.checked = localStorage.getItem('crt-off') !== '1';
     sp.checked = localStorage.getItem('sparkles-off') !== '1';
     st.checked = localStorage.getItem('stars-off') !== '1';
     sn.checked = !!document.getElementById('snow-canvas');
+    mo.checked = FX.enabled();
+    // if the machine itself asked for less motion, say so rather than
+    // showing a tickbox that looks like it is on and does nothing
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        mo.disabled = true;
+        mo.checked = false;
+        mo.parentElement.append(' (your system asked for less motion)');
+    }
+    mo.onchange = () => { FX.setEnabled(mo.checked); playSound('click'); };
     crt.onchange = () => { localStorage.setItem('crt-off', crt.checked ? '0' : '1'); applyDisplayPrefs(); };
     sp.onchange = () => { localStorage.setItem('sparkles-off', sp.checked ? '0' : '1'); applyDisplayPrefs(); };
     st.onchange = () => { localStorage.setItem('stars-off', st.checked ? '0' : '1'); applyDisplayPrefs(); };
