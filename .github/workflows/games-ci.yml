@@ -60,6 +60,11 @@ jobs:
             - name: Check the motion layer and the charts
               run: node .github/scripts/check-motion.mjs
 
+            # the defragmenter moves clusters around a model of the site's
+            # own files; the plan has to not lose any of them
+            - name: Check the defragmenter
+              run: node .github/scripts/check-defrag.mjs
+
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest

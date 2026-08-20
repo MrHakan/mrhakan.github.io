@@ -164,6 +164,17 @@
     ],
     "changelog": [
         {
+            "version": "8.6",
+            "date": "2026-08-15",
+            "changes": [
+                "defrag.exe grew a real disk under it. the clusters are the files this page actually downloaded, at the sizes they actually weigh — the browser keeps that list, so nothing had to be invented and nothing can be wrong about it. hover a cluster and it tells you whose it is.",
+                "it defragments for real too: the scaffolding of the site sits in a system area at the front and never moves, everything else gets pulled forward into one piece each, and the free space ends up as a single lump at the bottom",
+                "a file that would leave a big gap in front of a bad cluster gets written straight across it instead, because skipping forty percent of a drive to avoid one split is vandalism rather than tidying",
+                "speed control, pause, stop, and the dialog at the end that tells you it did not make anything faster",
+                "57 checks on the plan — the one that matters replays every move and counts the clusters, because the first version lost some and looked perfectly fine doing it"
+            ]
+        },
+        {
             "version": "8.5",
             "date": "2026-08-15",
             "changes": [

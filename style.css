@@ -3313,97 +3313,6 @@ body.disco-floor::after {
     }
 }
 
-/* ---------- defrag.exe ---------- */
-.df-grid {
-    display: grid;
-    grid-template-columns: repeat(34, 1fr);
-    gap: 1px;
-    background: #000;
-    padding: 3px;
-    border: 1px solid #808080;
-}
-
-.df-cell {
-    display: block;
-    aspect-ratio: 1;
-    background: #000080;
-}
-
-.df-used {
-    background: #000080;
-}
-
-.df-frag {
-    background: #6a6ad0;
-}
-
-.df-free {
-    background: #e8e8e8;
-}
-
-.df-read {
-    background: #0df259;
-}
-
-.df-write {
-    background: #ff2d2d;
-}
-
-.df-bad {
-    background: #707070;
-}
-
-.df-status {
-    margin: 8px 0 6px;
-}
-
-.df-bar {
-    height: 14px;
-    background: #fff;
-    padding: 1px;
-}
-
-.df-bar-fill {
-    height: 100%;
-    width: 0;
-    background: repeating-linear-gradient(90deg, #000080 0 8px, #c0c0c0 8px 10px);
-    transition: width .18s linear;
-}
-
-.df-text {
-    font-size: 11px;
-    margin-top: 4px;
-    color: #000;
-    min-height: 15px;
-}
-
-.df-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    font-size: 10px;
-    color: #000;
-    margin-bottom: 8px;
-}
-
-.df-legend span {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.df-legend .df-cell {
-    width: 10px;
-    height: 10px;
-    aspect-ratio: auto;
-    border: 1px solid #808080;
-}
-
-.df-btns {
-    display: flex;
-    gap: 4px;
-}
-
 /* ---------- find: files ---------- */
 .find-bar {
     display: flex;
@@ -7401,4 +7310,138 @@ body.disco-floor::after {
 .wz-bot-els {
     font-size: 10px;
     margin-top: 3px;
+}
+
+/* =================================================================== */
+/* disk defragmenter                                                    */
+/* the palette is the one from the original: dark blue needs to move,   */
+/* light blue is home, white is free, and the two hot colours are the   */
+/* head reading and writing                                             */
+/* =================================================================== */
+.dfg-body {
+    background: #c0c0c0;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+
+.dfg-head {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.dfg-frag {
+    font-weight: bold;
+    color: #7a1616;
+}
+
+.dfg-cluster {
+    margin-left: auto;
+    color: #444;
+    font-size: 10px;
+}
+
+.dfg-map {
+    display: block;
+    width: 100%;
+    background: #c8c8c8;
+    image-rendering: pixelated;
+    cursor: crosshair;
+}
+
+.dfg-bar {
+    height: 12px;
+    background: #fff;
+    margin: 6px 0 3px;
+    padding: 1px;
+}
+
+.dfg-fill {
+    height: 100%;
+    width: 0;
+    background: repeating-linear-gradient(90deg, #000080 0 6px, #1084d0 6px 8px);
+    transition: width .12s linear;
+}
+
+.no-motion .dfg-fill {
+    transition: none;
+}
+
+.dfg-status {
+    min-height: 15px;
+    margin-bottom: 5px;
+    color: #202020;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dfg-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.dfg-btn {
+    background: #c0c0c0;
+    color: #000;
+    font-family: "Comic Sans MS", cursive;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 3px 10px;
+}
+
+.dfg-btn:disabled {
+    color: #808080;
+    text-shadow: 1px 1px 0 #fff;
+    cursor: default;
+}
+
+.dfg-speed {
+    margin-left: auto;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dfg-select {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    background: #fff;
+    border: 1px solid #808080;
+    color: #000;
+}
+
+.dfg-legend {
+    margin-top: 6px;
+    font-size: 10px;
+}
+
+.dfg-legend summary {
+    cursor: pointer;
+}
+
+.dfg-legend-rows {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 2px 10px;
+    margin-top: 4px;
+}
+
+.dfg-legend-rows span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.dfg-legend-rows i {
+    width: 11px;
+    height: 11px;
+    border: 1px solid #666;
+    flex-shrink: 0;
 }

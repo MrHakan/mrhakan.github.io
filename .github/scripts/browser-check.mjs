@@ -502,6 +502,74 @@ try {
     await jok.close();
 
     // ---------------------------------------------------------------
+    section('defragmenting drive c:');
+    //
+    // The plan is checked properly in check-defrag.mjs against a model
+    // of the disk. This is the part that needs a real browser: that the
+    // disk it lays out is made of the files this page actually
+    // downloaded, and that running it to the end really does leave the
+    // map packed and the counter at zero.
+    // ---------------------------------------------------------------
+    const dfg = await boot('defrag');
+    await dfg.evaluate(() => openDefrag());
+    await dfg.waitForSelector('#dfg-map', { timeout: 8000 });
+    await dfg.waitForTimeout(400);
+    // the two blues are the whole story: dark is data that has to move,
+    // light is data that is home. counting them off the canvas is how
+    // this knows the picture really changed rather than the label
+    const countBlues = () => {
+        const c = document.querySelector('#dfg-map');
+        const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let dark = 0, light = 0;
+        for (let i = 0; i < px.length; i += 4) {
+            if (px[i] < 60 && px[i + 2] > 80 && px[i + 2] < 160) dark++;
+            else if (px[i] > 55 && px[i] < 110 && px[i + 2] > 180) light++;
+        }
+        return { dark, light, w: c.width, h: c.height };
+    };
+    const disk = await dfg.evaluate(fn => {
+        const blues = new Function('return ' + fn)()();
+        return {
+            w: blues.w, h: blues.h, dark: blues.dark, light: blues.light,
+            frag: parseInt(document.querySelector('#dfg-frag').textContent),
+            files: DEFRAG.realFiles().map(f => f.name),
+            label: document.querySelector('#dfg-cluster').textContent
+        };
+    }, countBlues.toString());
+    expect(disk.w > 0 && disk.h > 0 && disk.dark > 2000,
+        'the disk map is drawn, and it is a mess', JSON.stringify({ w: disk.w, dark: disk.dark, light: disk.light }));
+    expect(disk.frag > 40, 'and it starts in a state worth defragmenting', disk.frag + '%');
+    expect(disk.files.some(n => /index\.js$/.test(n)) && disk.files.some(n => /style\.css$/.test(n)),
+        'the clusters are the files this page really loaded', disk.files.slice(0, 6).join(', '));
+    expect(/\d+ files/.test(disk.label), 'and it says how many', disk.label);
+
+    const ran = await dfg.evaluate(async fn => {
+        document.querySelector('#dfg-speed').value = 'turbo';
+        document.querySelector('[data-dfg="run"]').click();
+        for (let i = 0; i < 250; i++) {
+            await new Promise(r => setTimeout(r, 80));
+            if (/complete/.test(document.querySelector('#dfg-status').textContent)) break;
+        }
+        const blues = new Function('return ' + fn)()();
+        return {
+            status: document.querySelector('#dfg-status').textContent,
+            frag: parseInt(document.querySelector('#dfg-frag').textContent),
+            fill: document.querySelector('#dfg-fill').style.width,
+            dark: blues.dark, light: blues.light,
+            dialog: (document.querySelector('.retro-dialog') || {}).textContent || '',
+            unlocked: !!(localStorage.getItem('achievements') || '').match(/defrag/)
+        };
+    }, countBlues.toString());
+    expect(/complete/.test(ran.status) && ran.fill === '100%', 'it runs to the end', JSON.stringify(ran));
+    expect(ran.frag === 0, 'and the drive comes out unfragmented', ran.frag + '%');
+    expect(ran.dark === 0 && ran.light > disk.light,
+        'the map agrees: nothing left to move', JSON.stringify({ before: disk, after: { dark: ran.dark, light: ran.light } }));
+    expect(/complete/i.test(ran.dialog), 'with the dialog the original always gave you', ran.dialog.slice(0, 80));
+    expect(ran.unlocked, 'and the achievement it has always had');
+    await dfg.screenshot({ path: SHOTS + '/11-defrag.png' });
+    await dfg.close();
+
+    // ---------------------------------------------------------------
     section('icons');
     //
     // the icon font is a subset. an icon that is not in it renders as
