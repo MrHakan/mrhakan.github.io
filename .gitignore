@@ -1,0 +1,17 @@
+# Screenshots the browser test drops on every run. CI uploads them as a
+# build artifact instead — see .github/workflows/games-ci.yml.
+.ci-shots/
+
+# playwright is installed with --no-save to run the browser test, both in
+# CI and by hand. The rest of node_modules is the little express backend
+# and stays committed, so this names only the test driver rather than
+# ignoring a directory that is half tracked.
+node_modules/playwright/
+node_modules/playwright-core/
+node_modules/.bin/playwright
+node_modules/.bin/playwright-core
+
+# editors and the operating system leaving things lying around
+.DS_Store
+Thumbs.db
+*.swp
