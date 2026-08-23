@@ -13,7 +13,7 @@
     font-style: normal;
     font-weight: 100 700;
     font-display: block;
-    src: url('src/fonts/material-symbols-subset.woff2?v=7') format('woff2');
+    src: url('src/fonts/material-symbols-subset.woff2?v=8') format('woff2');
 }
 
 .material-symbols-outlined {
@@ -7445,3 +7445,636 @@ body.disco-floor::after {
     border: 1px solid #666;
     flex-shrink: 0;
 }
+
+/* =================================================================== */
+/* echoes of the tide: leviathan's wake                                 */
+/* rust, verdigris, bone and abyss — a rig lit by whale-oil lamps       */
+/* =================================================================== */
+.et-body {
+    background: #17201c;
+    color: #d8d2c2;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    max-height: 80vh;
+    padding: 6px;
+}
+
+.et-two {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.et-side {
+    width: 176px;
+    flex-shrink: 0;
+}
+
+.et-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.et-scroll {
+    max-height: 66vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* ---------- the menu ---------- */
+.et-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 20px;
+    color: #c9a227;
+    text-align: center;
+    margin: 6px 0 2px;
+}
+
+.et-sub {
+    text-align: center;
+    color: #8fa38f;
+    margin-bottom: 10px;
+}
+
+.et-intro {
+    white-space: pre-wrap;
+    line-height: 1.5;
+    color: #c8c2b2;
+    background: #121a16;
+    border-left: 3px solid #3c5145;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+
+.et-field {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.et-field label {
+    width: 46px;
+    color: #8fa38f;
+}
+
+.et-field input {
+    flex: 1;
+    background: #0e1512;
+    border: 1px solid #3c5145;
+    color: #d8d2c2;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 5px;
+}
+
+.et-row {
+    display: flex;
+    gap: 6px;
+}
+
+/* ---------- character strip ---------- */
+.et-sheet {
+    background: #121a16;
+    border: 1px solid #3c5145;
+    padding: 6px;
+}
+
+.et-name {
+    font-weight: bold;
+    color: #e8e0cc;
+    margin-bottom: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 8px;
+}
+
+.et-name span {
+    color: #c9a227;
+    font-weight: normal;
+}
+
+.et-bar {
+    position: relative;
+    height: 13px;
+    background: #0b120f;
+    margin-bottom: 3px;
+}
+
+.et-bar-fill {
+    height: 100%;
+    background: #4a6f52;
+    transition: width .25s;
+}
+
+.no-motion .et-bar-fill {
+    transition: none;
+}
+
+.et-bar-fill.hp { background: linear-gradient(90deg, #7a2f2f, #b8514a); }
+.et-bar-fill.stam { background: linear-gradient(90deg, #3f5f7a, #5a8fb8); }
+.et-bar-fill.xp { background: linear-gradient(90deg, #6b5a1f, #c9a227); }
+.et-bar-fill.foe { background: linear-gradient(90deg, #5a2c3a, #a2617d); }
+
+.et-bar span {
+    position: absolute;
+    inset: 0;
+    text-align: center;
+    font-size: 9px;
+    line-height: 13px;
+    color: #e8e0cc;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.et-stats,
+.et-skills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px 6px;
+    font-size: 10px;
+    color: #9fb09f;
+    margin-top: 4px;
+}
+
+.et-stats b,
+.et-skills b {
+    color: #e8e0cc;
+}
+
+.et-coin {
+    margin-top: 5px;
+    font-size: 10px;
+    color: #c9a227;
+    border-top: 1px dotted #3c5145;
+    padding-top: 4px;
+}
+
+/* ---------- who is looking for you ---------- */
+.et-nem {
+    margin-top: 6px;
+    background: #1b1218;
+    border: 1px solid #5a2c3a;
+    padding: 5px;
+}
+
+.et-nem-head {
+    font-size: 10px;
+    color: #a2617d;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 3px;
+}
+
+.et-nem-row {
+    font-size: 10px;
+    line-height: 1.35;
+    border-top: 1px dotted #3a2630;
+    padding-top: 2px;
+    margin-top: 2px;
+}
+
+.et-nem-row b { color: #e0b8c8; display: block; }
+.et-nem-row span { color: #8f7080; }
+.et-nem-row i { float: right; color: #6f5a62; font-style: normal; }
+
+/* ---------- place & actions ---------- */
+.et-place {
+    border-left: 4px solid #4a6f52;
+    background: #121a16;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+}
+
+.et-place-name {
+    font-weight: bold;
+    color: #e8e0cc;
+}
+
+.et-place-weather {
+    font-size: 10px;
+    color: #7f9080;
+    font-style: italic;
+}
+
+.et-place-blurb {
+    margin-top: 3px;
+    color: #b8b2a2;
+}
+
+.et-acts {
+    display: block;
+    margin-bottom: 6px;
+    border-left: 3px solid #6b5a1f;
+    padding-left: 7px;
+}
+
+.et-btn {
+    background: #24312a;
+    border: 1px solid #4a6f52;
+    color: #d8d2c2;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 5px 7px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.et-btn:hover:not(:disabled) {
+    background: #2f4136;
+    border-color: #6fae7a;
+}
+
+.et-btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.et-btn:disabled {
+    opacity: .4;
+    cursor: default;
+}
+
+.et-wide {
+    grid-column: 1 / -1;
+    text-align: center;
+}
+
+.et-end {
+    border-color: #c9a227;
+    color: #f0d98a;
+}
+
+/* ---------- log ---------- */
+.et-log {
+    background: #0e1512;
+    border: 1px solid #2a3a30;
+    padding: 5px 6px;
+    max-height: 108px;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.et-log div {
+    border-bottom: 1px dotted #1f2b24;
+    padding: 1px 0;
+}
+
+/* ---------- travel ---------- */
+.et-realms {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.et-realm {
+    background: #121a16;
+    border-left: 4px solid #4a6f52;
+    border-top: 1px solid #2a3a30;
+    border-right: 1px solid #2a3a30;
+    border-bottom: 1px solid #2a3a30;
+    color: #d8d2c2;
+    font-family: inherit;
+    text-align: left;
+    padding: 5px 8px;
+    cursor: pointer;
+}
+
+.et-realm b { display: block; color: #e8e0cc; }
+.et-realm span { font-size: 10px; color: #8fa38f; }
+.et-realm i { float: right; font-size: 10px; color: #c9a227; font-style: normal; }
+.et-realm.here { background: #1b2721; }
+.et-realm.locked { opacity: .45; cursor: default; }
+
+/* ---------- a fight ---------- */
+.et-foe {
+    background: #1b1218;
+    border: 1px solid #5a2c3a;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+}
+
+.et-foe-name {
+    font-weight: bold;
+    color: #e0b8c8;
+    margin-bottom: 3px;
+}
+
+.et-foe-text {
+    font-size: 11px;
+    color: #a89aa2;
+    margin: 3px 0;
+}
+
+.et-traits {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.et-trait {
+    font-size: 10px;
+    background: #2a1a22;
+    border: 1px solid #5a2c3a;
+    padding: 1px 5px;
+    color: #8f7080;
+}
+
+.et-trait.known {
+    color: #e0b8c8;
+    border-color: #a2617d;
+}
+
+.et-abils {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.et-abil i {
+    float: right;
+    color: #5a8fb8;
+    font-style: normal;
+}
+
+.et-fightlog {
+    background: #0e1512;
+    border: 1px solid #2a3a30;
+    padding: 5px 6px;
+    min-height: 96px;
+    max-height: 140px;
+    overflow-y: auto;
+    line-height: 1.5;
+}
+
+.et-fightlog div {
+    padding: 1px 0;
+}
+
+/* ---------- pack, guild, codex ---------- */
+.et-h {
+    color: #c9a227;
+    font-size: 14px;
+    margin: 0 0 6px;
+}
+
+.et-h4 {
+    color: #8fa38f;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin: 8px 0 3px;
+}
+
+.et-dim { color: #7f9080; font-size: 11px; }
+
+.et-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 2px;
+}
+
+.et-item {
+    background: #121a16;
+    border: 1px solid #2a3a30;
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.et-item i { float: right; color: #c9a227; font-style: normal; }
+
+.et-gears { display: grid; gap: 3px; }
+
+.et-gear {
+    background: #121a16;
+    border-left: 3px solid #c9a227;
+    padding: 3px 7px;
+}
+
+.et-gear span {
+    font-size: 10px;
+    color: #7f9080;
+    text-transform: uppercase;
+    margin-right: 6px;
+}
+
+.et-gear b { color: #e8e0cc; }
+.et-gear i { display: block; font-size: 10px; color: #8fa38f; font-style: normal; }
+.et-empty { color: #55645a; }
+
+.et-guild {
+    background: #121a16;
+    border-left: 4px solid #4a6f52;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+}
+
+.et-guild b { font-size: 13px; }
+.et-guild em { display: block; color: #c9a227; margin: 2px 0 4px; }
+.et-guild p { color: #b8b2a2; margin-bottom: 4px; }
+.et-guild i { display: block; color: #8fa38f; font-style: normal; margin-bottom: 4px; }
+.et-guild u { display: block; color: #a2617d; text-decoration: none; font-size: 10px; margin-bottom: 5px; }
+
+.et-rank {
+    background: #121a16;
+    border: 1px solid #3c5145;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+}
+
+.et-rank span { float: right; color: #8fa38f; font-size: 10px; }
+
+.et-lore {
+    color: #b8b2a2;
+    line-height: 1.55;
+    margin-bottom: 6px;
+}
+
+.et-contract {
+    background: #1c1a10;
+    border-left: 4px solid #c9a227;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+}
+
+.et-contract b { display: block; color: #f0d98a; }
+.et-contract span { font-size: 11px; color: #b8b2a2; }
+.et-contract i { display: block; font-style: normal; color: #8fa38f; font-size: 10px; margin: 3px 0; }
+
+.et-entry {
+    background: #121a16;
+    border-left: 3px solid #3c5145;
+    margin-bottom: 4px;
+}
+
+.et-entry summary {
+    padding: 4px 8px;
+    cursor: pointer;
+    color: #e8e0cc;
+}
+
+.et-entry pre {
+    white-space: pre-wrap;
+    padding: 4px 10px 8px;
+    color: #b8b2a2;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.et-nem-full {
+    background: #1b1218;
+    border-left: 3px solid #a2617d;
+    padding: 4px 8px;
+    margin-bottom: 3px;
+}
+
+.et-nem-full.dead { opacity: .5; border-left-color: #55454c; }
+.et-nem-full b { color: #e0b8c8; }
+.et-nem-full span { color: #8f7080; }
+.et-nem-full i { display: block; font-style: normal; font-size: 10px; color: #7f6570; }
+
+.et-nem-traits {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    margin: 2px 0;
+}
+
+.et-nem-traits span {
+    font-size: 9px;
+    background: #2a1a22;
+    border: 1px solid #5a2c3a;
+    padding: 0 4px;
+    color: #c8a0b0;
+}
+
+/* ---------- stations ---------- */
+.et-station {
+    background: #121a16;
+    border: 1px solid #3c5145;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+}
+
+.et-station-head {
+    font-weight: bold;
+    color: #e8e0cc;
+    margin-bottom: 4px;
+}
+
+.et-station-head span { float: right; color: #8fa38f; font-weight: normal; font-size: 10px; }
+
+.et-room {
+    color: #b8b2a2;
+    line-height: 1.55;
+}
+
+/* ---------- minigames ---------- */
+.et-canvas {
+    display: block;
+    width: 100%;
+    background: #0a1218;
+    margin: 6px 0;
+    cursor: pointer;
+}
+
+.et-patterns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.et-pattern {
+    background: #121a16;
+    border: 1px solid #3c5145;
+    color: #d8d2c2;
+    font-family: inherit;
+    text-align: left;
+    padding: 4px 7px;
+    cursor: pointer;
+}
+
+.et-pattern b { display: block; color: #e8e0cc; }
+.et-pattern span { font-size: 10px; color: #c9a227; }
+.et-pattern i { display: block; font-size: 10px; color: #7f9080; font-style: normal; }
+.et-pattern.locked { opacity: .45; cursor: default; }
+
+.et-endscreen { max-width: 640px; margin: 0 auto; }
+
+.et-endtext {
+    white-space: pre-wrap;
+    line-height: 1.65;
+    color: #d8d2c2;
+    background: #121a16;
+    border-left: 3px solid #c9a227;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+    .et-two { flex-direction: column; }
+    .et-side { width: 100%; }
+    .et-acts { grid-template-columns: 1fr; }
+}
+
+/* ---------- echoes: the pieces the tide brought in ---------- */
+.et-bar-fill.san { background: linear-gradient(90deg, #3b2a55, #7a5fa8); }
+
+/* log tone. the deep gets its own colour so a war-cry does not read as
+   damage, and a phase change does not read as flavour */
+.et-log div.good,
+.et-fightlog div.good { color: #86b884; }
+
+.et-log div.bad,
+.et-fightlog div.bad { color: #c0625a; }
+
+.et-log div.warn,
+.et-fightlog div.warn { color: #c9a227; }
+
+.et-log div.lore,
+.et-fightlog div.lore { color: #8fa0c8; font-style: italic; }
+
+.et-fightlog div.cry {
+    color: #d4a0b8;
+    font-style: italic;
+    border-left: 2px solid #5a2c3a;
+    padding-left: 5px;
+}
+
+.et-fightlog div.phase {
+    color: #f0d98a;
+    border-top: 1px solid #3a3020;
+    border-bottom: 1px solid #3a3020;
+    margin: 3px 0;
+    padding: 3px 0;
+}
+
+/* rarity reads at a glance in a full pack */
+.et-item.masterwork { border-color: #6b5a1f; box-shadow: inset 0 0 0 1px #2a2410; }
+.et-item.masterwork b { color: #f0d98a; }
+.et-item.cursed { border-color: #4a2436; }
+.et-item.cursed b { color: #d4a0b8; }
+
+.et-item select {
+    width: 100%;
+    margin: 3px 0;
+    background: #0b120f;
+    color: #c8c2b2;
+    border: 1px solid #2a3a30;
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px;
+}
+
+.et-trait[title] { cursor: help; }
+
+.et-canvas {
+    image-rendering: pixelated;
+    touch-action: none;
+}
+
+/* the reel is a hold, so it must not look like a click that fired */
+.et-btn[data-a="reel"] { user-select: none; }

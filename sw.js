@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v9';
+const CACHE = 'mrhakan98-v10';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -33,6 +33,8 @@ const PRECACHE = [
     '/games/troll-problem.js',
     '/games/become-user-data.js',
     '/games/become-user.js',
+    '/games/echoes-data.js',
+    '/games/echoes.js',
     '/games/netplay.js',
     '/games/wizardz-data.js',
     '/games/wizardz.js',

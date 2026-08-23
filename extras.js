@@ -456,6 +456,35 @@ function wzLoadScripts() {
     return npLoadScripts().then(() => Netplay.loadGame('wizardz'));
 }
 
+// ---------- echoes of the tide ----------
+let etLoading = null;
+function etLoadScripts() {
+    if (window.startEchoes) return Promise.resolve();
+    if (etLoading) return etLoading;
+    const load = src => new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = res;
+        s.onerror = () => rej(new Error(src));
+        document.head.appendChild(s);
+    });
+    // data first: the engine reads RZ at definition time
+    etLoading = load('games/echoes-data.js').then(() => load('games/echoes.js'));
+    return etLoading;
+}
+
+function openEchoes() {
+    if (window.startEchoes) { startEchoes(); return; }
+    const { body, win } = createAppWindow('echoes of the tide', { icon: 'explore', width: 320 });
+    body.innerHTML = '<div class="bj-loading">charting the tide...</div>';
+    etLoadScripts().then(() => {
+        closeAppWindow(win.id);
+        startEchoes();
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">the tide took the charts bradar</div>';
+    });
+}
+
 function openWizardz(mode) {
     if (window.startWizardz) { startWizardz(mode); return; }
     const { body, win } = createAppWindow('wizardz 98', { icon: 'auto_fix_high', width: 320 });
@@ -813,6 +842,7 @@ function siteSearchIndex() {
         ['my internet life', 'document', () => openInternetHistory(), 'timeline history nostalgia'],
         ['site map', 'document', () => openSiteMap(), 'index everything'],
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
+        ['echoes of the tide', 'game', () => openEchoes(), 'rpg grimdark leviathan nemesis drowned lords faction dungeon dredging fishing smithing forge realms sanity tide lore'],
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
         ['become user', 'game', () => openBecomeUser(), 'interactive drama story branching choices adventure narrative visual novel qte flowchart endings 1999 y2k androids'],

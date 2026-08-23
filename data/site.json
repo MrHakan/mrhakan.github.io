@@ -1,8 +1,8 @@
 {
     "status": {
-        "text": "drawing sigils at a stranger on the internet",
-        "emoji": "🛠️",
-        "updated": "2026-08-13"
+        "text": "under thirty thousand feet of black water",
+        "emoji": "🌊",
+        "updated": "2026-08-23"
     },
     "now": {
         "updated": "2026-08-07",
@@ -163,6 +163,22 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "8.7",
+            "date": "2026-08-23",
+            "changes": [
+                "echoes of the tide: leviathan's wake — a grimdark RPG in a win98 window. three hundred years ago the celestial sun came out of the sky and went into the trench, the sea rose to meet the hole it left, and it has never gone back down. forty thousand people are still floating on what is left, and this morning a line came up with a piece of worked brass on it, and the brass was warm.",
+                "the drowned lords remember you. seventeen of them — twelve captains, four warlords and whatever is at the bottom of the spire — grown from your seed and kept for the whole run. kill you and one takes a title from the way you died (the carver, the kindled, the hollow, the anvil, the patient, the chorus), twenty percent more hit points and an armour upgrade. run from one and it learns your knot and starts meeting your boat. survive enough fire and it grows a scar that makes it immune to fire and softer to everything else — every mutation writes a matching weakness, so a heavily scarred lord is more answerable, not just harder.",
+                "beat a captain three times and it takes a warlord's seat off the incumbent, who is demoted rather than removed, and who remembers that. a kill only sticks if it was permanent — an inquisitor pyre, a dredger unmaking, or a leviathan-bone edge through the neck. anything else comes back a rank down, poorly drowned and much angrier.",
+                "five attributes, fifty levels, three skill trees of eight nodes — marrow-smith, tide-weaver, harpooner — and only fifty points for a hundred and twenty ranks, so you cannot have all of it.",
+                "sanity is a second health bar that only the deep attacks. below seventy percent you hear things, below forty you see things that are not in this realm, below fifteen the tide talks to you directly and everything costs an extra stamina. at zero you are not lost — you are recruited, and your character joins the roster of the next run on that seed, wearing what you were wearing.",
+                "deep-forge smithing across five material tiers behind a heat-and-quench minigame: hold the metal in a band that narrows with tier and widens with your marrow-smith rank, then three hammer strikes at a moving sweet spot. get it wrong and you get a cursed piece, which is one affix at masterwork strength plus one curse, and which the dredgers consider correct. sockets take runes, and two runes in one item are worth more than one each in two — the syndicate calls it resonance and charges for it.",
+                "dredging is a line-tension simulation integrated at 60hz. hold to reel, release to give slack, and watch depth and tension fight each other while the thing on the end of it thrashes. a deep fish at high tide on a tier-one line is a snapped line; that is the lesson. the eldritch band is not a catch at all — it is something that was fishing back.",
+                "a tide clock of eight ticks a day drives all of it. night brings nightmares and rare fish, high tide floods the trench nodes for an extra danger and an extra loot tier, low tide opens wrecks that are otherwise underwater, and at witching plus high tide the leviathan turns over and every lord in the realm is awake at once.",
+                "four realms behind a pressure gate, node-based dungeons dealt from a deck that gets meaner with depth, four multi-phase bosses with environmental triggers — the rust mother floods the deck and puts out every fire, the leviathan rolls twice and tears your gear off, the beacon's heart is finished at 1 hp against four rounds of air — branching dialogue with skill checks derived from your attributes, an eighteen-entry codex, and four endings, none of them clean.",
+                "specified before it was built: games/ECHOES-GDD.md is the design document and 120 automated checks hold the source to it — the crit table, the xp curve, the nemesis limits, the save round trip through key-shortening, and a few thousand simulated fights that fail the build if the balance drifts. a browser run rolls a character, sails, fights, forges and puts a line in the water on every push."
+            ]
+        },
         {
             "version": "8.6",
             "date": "2026-08-15",
