@@ -65,6 +65,12 @@ jobs:
             - name: Check the defragmenter
               run: node .github/scripts/check-defrag.mjs
 
+            # the RPG has a design document it is supposed to obey and a set
+            # of balance targets that no amount of eyeballing will hold: this
+            # runs a few thousand fights and fails if any of them drift
+            - name: Check echoes of the tide
+              run: node .github/scripts/check-echoes.mjs
+
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest
@@ -90,6 +96,14 @@ jobs:
                   node server/nostr-test-relay.mjs &
                   sleep 2
                   node .github/scripts/browser-check.mjs
+
+            # and the RPG, which is all DOM and two canvases: roll a
+            # character, sail, fight, forge and put a line in the water
+            - name: Play echoes of the tide
+              run: |
+                  python3 -m http.server 8098 &
+                  sleep 2
+                  SITE_URL=http://localhost:8098/index.html node .github/scripts/browser-echoes.mjs
 
             - name: Keep the screenshots
               if: always()
