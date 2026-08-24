@@ -53,7 +53,14 @@ function makeWindow() {
         btoa: s => Buffer.from(s, 'binary').toString('base64'),
         atob: s => Buffer.from(s, 'base64').toString('binary'),
         matchMedia: () => ({ matches: false, addEventListener() { } }),
-        requestAnimationFrame: () => 0, cancelAnimationFrame() { }
+        requestAnimationFrame: () => 0, cancelAnimationFrame() { },
+        // enough of a document for the sprite decoder to draw into
+        document: {
+            createElement: () => ({
+                width: 0, height: 0,
+                getContext: () => ({ fillRect() { }, set fillStyle(v) { }, get fillStyle() { return ''; } })
+            })
+        }
     };
     win.window = win;
     win._store = store;
@@ -62,9 +69,10 @@ function makeWindow() {
 const win = makeWindow();
 function loadInto(w, file) {
     // eslint-disable-next-line no-new-func
-    new Function('window', 'localStorage', 'document', 'btoa', 'atob', read(file))(w, w.localStorage, undefined, w.btoa, w.atob);
+    new Function('window', 'localStorage', 'document', 'btoa', 'atob', read(file))(w, w.localStorage, w.document, w.btoa, w.atob);
 }
-for (const f of ['games/echoes-core.js', 'games/echoes-data.js', 'games/echoes.js']) {
+// load order matters: the engine reads the world's tile size at module scope
+for (const f of ['games/echoes-core.js', 'games/echoes-sprites.js', 'games/echoes-world.js', 'games/echoes-data.js', 'games/echoes.js']) {
     try { loadInto(win, f); ok(f + ' runs'); }
     catch (e) { bad(f + ' runs', e.message); }
 }
@@ -338,7 +346,7 @@ section('the drowned admiralty');
 // ===================================================================
 function makeGame(seed) {
     return {
-        p: null, roster: [], log: [], screen: 'hub', fight: null, dungeon: null,
+        p: null, roster: [], log: [], screen: 'world', fight: null, dungeon: null,
         angling: null, forge: null, dialogue: null, pendingEvent: null,
         rng: E.makeRng(seed), lordSeq: 1, itemSeq: 1, dungeonSeq: 1, ended: null, body: null, open: true
     };
@@ -763,15 +771,162 @@ expect(firstWins / FIRST >= 0.80, 'a level-1 diver wins their first fight at lea
 expect(firstWins / FIRST < 0.995, 'but it is still a fight', (firstWins / FIRST * 100).toFixed(1) + '%');
 
 // ===================================================================
+section('the sprite atlas');
+// ===================================================================
+const SPR = win.ECHOES_SPRITES;
+const W = win.ECHOES_WORLD;
+expect(!!SPR && !!W, 'the sprite and world modules loaded');
+{
+    const names = SPR.names();
+    expect(names.length >= 30, 'the atlas has a real amount of art in it', names.length + ' sprites');
+    const ragged = names.filter(n => new Set(SPR.ART[n].map(r => r.length)).size !== 1);
+    expect(ragged.length === 0, 'every sprite is a rectangle', ragged.join(', '));
+    const offPalette = [];
+    for (const n of names) for (const row of SPR.ART[n]) for (const ch of row) {
+        if (!(ch in SPR.PALETTE) && offPalette.indexOf(n + ':' + ch) < 0) offPalette.push(n + ':' + ch);
+    }
+    expect(offPalette.length === 0, 'and every pixel is a colour the palette knows', offPalette.slice(0, 6).join(', '));
+    const blank = names.filter(n => SPR.ART[n].every(r => /^\.*$/.test(r)));
+    expect(blank.length === 0, 'and none of them is an empty box', blank.join(', '));
+    // the diver needs every facing the movement code can ask for
+    const facings = ['diver_down_0', 'diver_down_1', 'diver_up_0', 'diver_up_1', 'diver_side_0', 'diver_side_1', 'diver_back'];
+    const missingFacing = facings.filter(n => !SPR.ART[n]);
+    expect(missingFacing.length === 0, 'the diver has every facing the walk cycle uses', missingFacing.join(', '));
+    // and every silhouette the battle screen can pick
+    const archetypes = SPR.ARCHETYPES || [];
+    const missingArch = archetypes.filter(a => !SPR.ART[a]);
+    expect(archetypes.length >= 8 && missingArch.length === 0,
+        'and every battle archetype has art', missingArch.join(', ') || archetypes.length + ' archetypes');
+}
+
+// ===================================================================
+section('the overworld maps');
+// ===================================================================
+{
+    const mapIds = Object.keys(W.MAPS);
+    expect(mapIds.length >= 5, 'there are maps to walk on', mapIds.length + ' maps');
+
+    const ragged = mapIds.filter(id => new Set(W.MAPS[id].rows.map(r => r.length)).size !== 1);
+    expect(ragged.length === 0, 'every map is a rectangle', ragged.join(', '));
+
+    const unknown = [];
+    for (const id of mapIds) for (const row of W.MAPS[id].rows) for (const ch of row) {
+        if (!(ch in W.TILES) && unknown.indexOf(id + ':' + ch) < 0) unknown.push(id + ':' + ch);
+    }
+    expect(unknown.length === 0, 'every character in every map is in the legend', unknown.join(', '));
+
+    const noArt = Object.keys(W.TILES).filter(k => !SPR.ART[W.TILES[k].sprite]);
+    expect(noArt.length === 0, 'every tile in the legend has a sprite', noArt.join(', '));
+
+    const badSpawn = mapIds.filter(id => !W.walkable(W.MAPS[id], W.MAPS[id].spawn.x, W.MAPS[id].spawn.y));
+    expect(badSpawn.length === 0, 'every map spawns you somewhere you can stand', badSpawn.join(', '));
+
+    const badRealm = mapIds.filter(id => !realmIds.has(W.MAPS[id].realm));
+    expect(badRealm.length === 0, 'every map belongs to a real realm', badRealm.join(', '));
+
+    const unmapped = D.realms.filter(r => !W.MAPS[W.REALM_MAP[r.id]]);
+    expect(unmapped.length === 0, 'every realm has a hub map to arrive on', unmapped.map(r => r.id).join(', '));
+
+    // a warp that lands inside a wall is a soft-lock
+    const badWarp = [];
+    for (const id of mapIds) {
+        const m = W.MAPS[id];
+        for (const key of Object.keys(m.warps || {})) {
+            const wp = m.warps[key];
+            const dest = W.MAPS[wp.map];
+            if (!dest) { badWarp.push(id + ' ' + key + ' -> no map ' + wp.map); continue; }
+            if (!W.walkable(dest, wp.x, wp.y)) badWarp.push(id + ' ' + key + ' -> solid ' + wp.map + ' ' + wp.x + ',' + wp.y);
+            const [kx, ky] = key.split(',').map(Number);
+            if (!(W.tileAt(m, kx, ky) || {}).face) badWarp.push(id + ' ' + key + ' is not a door');
+        }
+    }
+    expect(badWarp.length === 0, 'every warp lands on a tile you can stand on', badWarp.slice(0, 4).join('; '));
+
+    // and no walkable tile may be walled off from where you arrive
+    const stranded = [];
+    for (const id of mapIds) {
+        const m = W.MAPS[id];
+        const seen = new Set([m.spawn.x + ',' + m.spawn.y]);
+        const queue = [[m.spawn.x, m.spawn.y]];
+        while (queue.length) {
+            const [x, y] = queue.shift();
+            for (const dir of Object.keys(W.DIRS)) {
+                const d = W.DIRS[dir], nx = x + d[0], ny = y + d[1], k = nx + ',' + ny;
+                if (seen.has(k) || !W.walkable(m, nx, ny)) continue;
+                seen.add(k); queue.push([nx, ny]);
+            }
+        }
+        let walkables = 0;
+        for (let y = 0; y < m.rows.length; y++) for (let x = 0; x < m.rows[0].length; x++) if (W.walkable(m, x, y)) walkables++;
+        if (seen.size !== walkables) stranded.push(id + ' (' + (walkables - seen.size) + ' cut off)');
+    }
+    expect(stranded.length === 0, 'and every walkable tile is reachable from the spawn', stranded.join(', '));
+
+    // the npcs standing on them
+    const badNpc = [];
+    for (const id of mapIds) for (const npc of W.MAPS[id].npcs || []) {
+        if (!SPR.ART[npc.sprite]) badNpc.push(id + ':' + npc.name + ' has no sprite');
+        if (npc.dialogue && !D.dialogue[npc.dialogue]) badNpc.push(id + ':' + npc.name + ' points at a missing line');
+        if (npc.guild && !D.factions[npc.guild]) badNpc.push(id + ':' + npc.name + ' recruits for nobody');
+        if (!(npc.lines || []).length && !npc.dialogue) badNpc.push(id + ':' + npc.name + ' has nothing to say');
+        if ((W.tileAt(W.MAPS[id], npc.x, npc.y) || {}).solid) badNpc.push(id + ':' + npc.name + ' is standing in a wall');
+    }
+    expect(badNpc.length === 0, 'every npc has a sprite, a line, and somewhere to stand', badNpc.slice(0, 4).join('; '));
+
+    // every map you can reach from a realm's hub without leaving the realm
+    function reachableMaps(realmId) {
+        const seen = new Set(), queue = [W.REALM_MAP[realmId]];
+        while (queue.length) {
+            const id = queue.shift();
+            if (!id || seen.has(id) || !W.MAPS[id]) continue;
+            seen.add(id);
+            for (const key of Object.keys(W.MAPS[id].warps || {})) queue.push(W.MAPS[id].warps[key].map);
+        }
+        return [...seen];
+    }
+    // the three things a realm has to be able to give you: a voyage, an
+    // anvil, and somewhere to put a line in
+    // and it has to be a tile you can actually stand next to, not just one
+    // that exists somewhere behind a wall
+    function standableBeside(mapId, chars) {
+        const m = W.MAPS[mapId];
+        for (let y = 0; y < m.rows.length; y++) for (let x = 0; x < m.rows[0].length; x++) {
+            if (chars.indexOf(W.tileChar(m, x, y)) < 0) continue;
+            for (const dir of Object.keys(W.DIRS)) {
+                const d = W.DIRS[dir];
+                if (W.walkable(m, x - d[0], y - d[1])) return true;
+            }
+        }
+        return false;
+    }
+    const wants = { 'a boat you can take out': 'B', 'an anvil you can reach': 'AF', 'water you can fish': '~' };
+    for (const label of Object.keys(wants)) {
+        const missing = D.realms.filter(r => !reachableMaps(r.id).some(id => standableBeside(id, wants[label])));
+        expect(missing.length === 0, 'every realm has ' + label, missing.map(r => r.id).join(', '));
+    }
+
+    // the act-two choice is made by talking to three people, so all three
+    // have to actually be standing somewhere
+    const act2 = D.acts[1].choice.dialogues;
+    const placed = new Set();
+    for (const id of mapIds) for (const npc of W.MAPS[id].npcs || []) if (npc.dialogue) placed.add(npc.dialogue);
+    const missingLeader = Object.keys(act2).filter(k => !placed.has(act2[k]));
+    expect(missingLeader.length === 0, 'all three faction leaders are somewhere you can walk to', missingLeader.join(', '));
+}
+
+// ===================================================================
 section('wired into the desktop');
 // ===================================================================
 const sw = read('sw.js');
-expect(['echoes-core.js', 'echoes-data.js', 'echoes.js'].every(f => sw.includes("'/games/" + f + "'")),
-    'the service worker precaches all three game files');
+const gameFiles = ['echoes-core.js', 'echoes-sprites.js', 'echoes-world.js', 'echoes-data.js', 'echoes.js'];
+expect(gameFiles.every(f => sw.includes("'/games/" + f + "'")),
+    'the service worker precaches all five game files',
+    gameFiles.filter(f => !sw.includes("'/games/" + f + "'")).join(', '));
 expect(/CACHE = 'mrhakan98-v(\d+)'/.test(sw), 'the cache name is versioned');
 const extras = read('extras.js');
-expect(extras.includes("load('games/echoes-core.js')") && extras.includes("load('games/echoes-data.js')") && extras.includes("load('games/echoes.js')"),
-    'extras.js lazy-loads all three, in order');
+const loadOrder = gameFiles.map(f => extras.indexOf("load('games/" + f + "')"));
+expect(loadOrder.every(i => i >= 0) && loadOrder.every((v, i) => i === 0 || v > loadOrder[i - 1]),
+    'extras.js lazy-loads all five, in dependency order', loadOrder.join(','));
 expect(extras.includes("'echoes of the tide'"), 'the game is in find:files');
 const indexJs = read('index.js');
 expect(/echoes:\s*\(\)\s*=>\s*openEchoes\(\)/.test(indexJs), 'the desktop icon opens it');

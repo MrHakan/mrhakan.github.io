@@ -554,12 +554,15 @@ with it if you finish it below 20 sanity), the Lesser Kraken Spawn and the
 ### 6.1 The state machine
 
 ```
-[BOOT] ─► [CREATE] ─► [HUB] ─┬─► [DUNGEON] ─► [COMBAT] ─► back
-                             ├─► [ANGLING]  (canvas)
-                             ├─► [FORGE]    (canvas)
-                             ├─► [DIALOGUE] ─► [ENDING]
-                             └─► sheet · skills · gear · chart · codex · guilds
+[BOOT] ─► [CREATE] ─► [WORLD] ─┬─► [DUNGEON] ─► [COMBAT] ─► back
+              (tile overworld) ├─► [ANGLING]  (canvas)
+                               ├─► [FORGE]    (canvas)
+                               ├─► [DIALOGUE] ─► [ENDING]
+                               └─► sheet · skills · gear · chart · codex · guilds
 ```
+
+`WORLD` is the only place the player stands. There is no menu screen
+behind it: everything the old hub offered is a tile you walk up to.
 
 Modules never call each other directly. `games/echoes-core.js` publishes a
 `GameEventBus`; the combat engine announces `PLAYER_DIED` and the nemesis
@@ -689,8 +692,64 @@ if any of these drift.
 > maximum health every turn. The water does the arithmetic before the
 > monsters get a turn.
 
-### 6.6 Implementation target
+### 6.6 Presentation — the overworld and the battle screen
 
-Vanilla JS, no dependencies, no build step. Canvas 2D for the forge and
-the line; everything else is DOM in a `createAppWindow` retro window, and
-it obeys the site's reduced-motion setting through `fx.js`.
+The game is played on two canvases, in the shape a handheld RPG uses.
+
+**The sprite atlas** (`games/echoes-sprites.js`). Every sprite is written
+as an array of equal-length strings, one character per pixel, indexed
+into a shared palette. `decode()` paints one into an offscreen canvas
+once; `sprite(name, opts)` caches by `name|scale|palette`, so a tile that
+appears four hundred times on a map is decoded once and blitted four
+hundred times. `draw()` takes an optional palette override, which is how
+a Drowned Lord gets a coat colour derived from its `nemesis_id` — the
+same Lord is the same colour every time you meet it.
+
+The atlas holds the diver in four facings with a two-frame walk cycle
+plus a back view for battle, nine enemy archetypes, fifteen tiles and
+three townsfolk.
+
+**The overworld** (`games/echoes-world.js`). A map is an array of rows of
+single characters and a legend that says, for each character, which
+sprite it uses, whether it is solid, whether it rolls for an encounter,
+and what pressing a key while facing it *means*:
+
+| char | tile | facing it does |
+|---|---|---|
+| `.` `,` `s` | decking, rig plate, wet stone | nothing |
+| `k` `"` | kelp, marrow slick | *(walkable; rolls for encounters)* |
+| `~` | open water | opens the fishing spots |
+| `B` | the moored boat | starts a voyage |
+| `A` `F` | anvil, furnace | opens the deep-forge |
+| `D` `S` | door, stairs | warps to another map |
+| `R` | a rest bunk | rests until the tide turns |
+| `c` | crates | reads them |
+| `#` `r` `L` | plating, the rail, a lamp post | nothing (solid) |
+
+Movement is grid-locked: a held key starts a step, the step takes eight
+frames, and the tile is not committed until it lands. The camera follows
+the diver and clamps at the map edges. Encounters roll on arrival, on
+encounter tiles only, with a three-step grace period so nothing jumps you
+twice in a row, and the Act I opening waits fourteen steps so the landing
+gets to be a place before the story interrupts it.
+
+Every realm has its own hub map, and the invariants are tested rather
+than trusted: every map rectangular, every character in the legend, every
+warp landing on a tile you can stand on, every walkable tile reachable
+from the spawn, and every realm with a boat, an anvil and open water
+within reach of where you arrive.
+
+**The battle screen.** Your own back on the near platform, the enemy
+facing you on the far one, both on shadow ellipses, with health boxes in
+the corners. The enemy's silhouette is chosen from its id (or, for a
+Lord, from its `base_creature`); the water behind is tinted by the
+realm's layer and again by the arena's flags. Damage flashes the sprite
+that took it. Names are measured and cut to fit rather than truncated at
+a fixed length.
+
+### 6.7 Implementation target
+
+Vanilla JS, no dependencies, no build step. Canvas 2D for the overworld,
+the battle screen, the forge and the line; the panels around them are DOM
+in a `createAppWindow` retro window, and it obeys the site's
+reduced-motion setting through `fx.js`.

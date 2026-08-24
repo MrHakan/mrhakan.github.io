@@ -863,6 +863,7 @@
         if (foe.traits.vulnerabilities.indexOf('one_eyed') >= 0 && o.flank) mult *= 1.5;
         const dealt = Math.max(0, Math.round(amount * mult));
         foe.hp -= dealt;
+        if (dealt > 0) foe._flash = 6;
         g.fight.damageByType[type] = (g.fight.damageByType[type] || 0) + dealt;
         if (mult === 0) fightLog(g, label + ' — immune. Nothing.', 'bad');
         else if (mult >= 1.4) fightLog(g, label + ' for ' + dealt + '. It is weak to that.', 'good');
@@ -1173,6 +1174,7 @@
         dmg = Math.round(dmg);
         if (dmg > 0) {
             p.vitals.hp -= dmg;
+            f.playerFlash = 6;
             f.lastDamageType = type;
             f.lastAttacker = source;
             fightLog(g, (source ? source + ' hits you' : 'you take') + ' for ' + dmg + '.', 'bad');
@@ -1407,7 +1409,7 @@
         }
         const lost = f.result === 'lost';
         g.fight = null;
-        g.screen = (!lost && g.dungeon) ? 'dungeon' : 'hub';
+        g.screen = (!lost && g.dungeon) ? 'dungeon' : 'world';
         save(g);
         render(g);
     }
@@ -1485,7 +1487,7 @@
                 it.durability.current = Math.max(0, it.durability.current - Math.ceil(n * 1));
             }
         }
-        if (p.vitals.hp <= 0) { p.vitals.hp = 1; log(g, 'you surface with blood in both ears.', 'bad'); g.dungeon = null; g.screen = 'hub'; }
+        if (p.vitals.hp <= 0) { p.vitals.hp = 1; log(g, 'you surface with blood in both ears.', 'bad'); g.dungeon = null; g.screen = 'world'; }
     }
 
     // ---------- the dungeon graph (GDD Module 5) ----------
@@ -1684,14 +1686,14 @@
             log(g, opt.text, 'lore');
         }
         clampVitals(p);
-        g.screen = g.dungeon ? 'dungeon' : 'hub';
+        g.screen = g.dungeon ? 'dungeon' : 'world';
         save(g);
         render(g);
     }
 
     function leaveDungeon(g) {
         g.dungeon = null;
-        g.screen = 'hub';
+        g.screen = 'world';
         advanceDay(g, 1);
         log(g, 'you put in at the harbour with what you have got.');
         save(g);
@@ -1881,7 +1883,7 @@
             }
             sound('error');
             g.angling = null;
-            g.screen = 'hub';
+            g.screen = 'world';
             return (save(g), render(g));
         }
         p.stats.landed++;
@@ -1916,7 +1918,7 @@
         clampVitals(p);
         sound('ding');
         g.angling = null;
-        g.screen = 'hub';
+        g.screen = 'world';
         save(g);
         render(g);
     }
@@ -1985,7 +1987,7 @@
             }
             const target = res.pass ? sc.success_target : sc.failure_target;
             if (target && dialogueNode(target)) { dl.node_id = target; save(g); return render(g); }
-            g.dialogue = null; g.screen = 'hub'; save(g); return render(g);
+            g.dialogue = null; g.screen = 'world'; save(g); return render(g);
         }
 
         dl.roll = null;
@@ -2042,12 +2044,12 @@
                 case 'link_dialogue':
                     if (dialogueNode(a.target)) { g.dialogue = { node_id: a.target, roll: g.dialogue && g.dialogue.roll }; return; }
                     break;
-                case 'exit_dialogue': g.dialogue = null; g.screen = 'hub'; return;
+                case 'exit_dialogue': g.dialogue = null; g.screen = 'world'; return;
             }
         }
         // an option with actions but no link and no exit closes the conversation
         g.dialogue = null;
-        g.screen = 'hub';
+        g.screen = 'world';
     }
 
     function endRun(g, endingId) {
@@ -2137,6 +2139,429 @@
         return true;
     }
 
+    // ---------- the overworld ----------
+    const W = window.ECHOES_WORLD;
+    const SPR = window.ECHOES_SPRITES;
+    const VIEW_COLS = 15, VIEW_ROWS = 11;
+    const VIEW_W = VIEW_COLS * W.TILE, VIEW_H = VIEW_ROWS * W.TILE;
+    const WORLD_SCALE = 2;
+    const STEP_FRAMES = 8;
+    const ENCOUNTER_CHANCE = 0.11;
+    const ENCOUNTER_GRACE = 3;               // steps of quiet after one fires
+    const STORY_OPENING_STEPS = 14;          // let the player walk before act I
+
+    function enterWorld(g, mapId, spawn) {
+        const map = W.mapById(mapId);
+        if (!map) return;
+        const at = spawn || map.spawn;
+        g.world = {
+            map: mapId,
+            x: at.x, y: at.y, dir: at.dir || 'down',
+            step: null, frame: 0, walkFrame: 0,
+            sinceEncounter: 99, steps: 0, say: null, held: {}
+        };
+        g.p.realm = map.realm;
+        g.p.world_state.current_realm = map.realm;
+        g.screen = 'world';
+    }
+
+    function worldMap(g) { return W.mapById(g.world.map); }
+
+    // one frame of the overworld: finish a step, start a step, roll for
+    // whatever is living in the kelp
+    function worldTick(g) {
+        const s = g.world;
+        if (!s || g.screen !== 'world') return;
+        s.frame++;
+        if (s.say) return;                       // the band holds everything still
+
+        if (s.step) {
+            s.step.t++;
+            if (s.step.t >= STEP_FRAMES) {
+                s.x = s.step.tx; s.y = s.step.ty;
+                s.step = null;
+                s.walkFrame ^= 1;
+                return arriveAt(g);
+            }
+            return;
+        }
+        const dir = heldDirection(s);
+        if (!dir) return;
+        s.dir = dir;
+        const d = W.DIRS[dir];
+        const tx = s.x + d[0], ty = s.y + d[1];
+        if (!W.walkable(worldMap(g), tx, ty)) { s.walkFrame ^= 1; return; }
+        s.step = { t: 0, tx: tx, ty: ty };
+    }
+    function heldDirection(s) {
+        for (const dir of ['up', 'down', 'left', 'right']) if (s.held[dir]) return dir;
+        return null;
+    }
+
+    function arriveAt(g) {
+        const s = g.world, map = worldMap(g);
+        s.steps++;
+        // Act I opens itself, but not before the landing has had a chance to
+        // be a place: let the player walk it first, then the line comes up
+        if (g.p.act === 1 && !g.p.world_state.story_flags.act1_relic_found && s.steps >= STORY_OPENING_STEPS) {
+            return startDialogue(g, 'dlg_act1_discovery');
+        }
+        const tile = W.tileAt(map, s.x, s.y);
+        s.sinceEncounter++;
+        if (!tile.encounter) return;
+        if (s.sinceEncounter < ENCOUNTER_GRACE) return;
+        if (!chance(g.rng, ENCOUNTER_CHANCE)) return;
+        s.sinceEncounter = 0;
+        const ambusher = rollAmbush(g, g.p.realm);
+        if (ambusher) {
+            log(g, ambusher.dialogue_set.intro_encounter, 'bad');
+            return startFight(g, [lordToFoe(ambusher)], 'ambush');
+        }
+        const tpl = pickFoeTemplate(g, g.p.realm, 1);
+        log(g, 'something comes up out of the ' + tile.name + '.', 'bad');
+        return startFight(g, [foeFromTemplate(tpl, 1)], 'world');
+    }
+
+    function worldInteract(g) {
+        const s = g.world;
+        if (!s) return;
+        if (s.say) {                              // advance or close the band
+            s.say.index++;
+            if (s.say.index >= s.say.lines.length) s.say = null;
+            return render(g);
+        }
+        if (s.step) return;
+        const map = worldMap(g);
+        const what = W.facing(map, s);
+        switch (what.kind) {
+            case 'npc': return talkTo(g, what.npc);
+            case 'sign': return say(g, 'a sign', [what.text]);
+            case 'warp': {
+                const wp = what.warp;
+                enterWorld(g, wp.map, { x: wp.x, y: wp.y, dir: wp.dir });
+                save(g);
+                return render(g);
+            }
+            case 'angle': g.screen = 'angling_pick'; return render(g);
+            case 'forge': g.screen = 'forge_pick'; return render(g);
+            case 'voyage':
+                if (g.p.act === 3 && g.p.realm === 'drowned_spire' && g.p.world_state.story_flags['boss_boss_drowned_archon']) {
+                    return startDialogue(g, 'dlg_archon_final');
+                }
+                return startVoyage(g);
+            case 'rest': return rest(g);
+            case 'read': return say(g, null, ['Crates, roped down and stencilled with somebody else\'s name.']);
+            default: return say(g, null, ['Nothing here but ' + (what.tile ? what.tile.name : 'the deck') + '.']);
+        }
+    }
+
+    function say(g, name, lines) {
+        g.world.say = { name: name, lines: lines, index: 0 };
+        render(g);
+    }
+
+    function talkTo(g, npc) {
+        const p = g.p;
+        npc.dir = { up: 'down', down: 'up', left: 'right', right: 'left' }[g.world.dir] || 'down';
+        // a guild recruiter signs you up on the spot, once
+        if (npc.guild && !p.faction) {
+            p.faction = npc.guild;
+            p.faction_reputation[npc.guild] = clamp(p.faction_reputation[npc.guild] + 25, -100, 100);
+            const f = D.factions[npc.guild];
+            if (f.hates) p.faction_reputation[f.hates] = clamp(p.faction_reputation[f.hates] - 30, -100, 100);
+            log(g, 'you signed with ' + f.name + '. "' + f.creed + '"', 'good');
+            achieve('echoes-faction');
+            save(g);
+            return say(g, npc.name, [npc.lines[0], 'You are one of ours now.']);
+        }
+        // the act's own conversation takes precedence over small talk
+        if (npc.dialogue && dialogueNode(npc.dialogue) && actWantsDialogue(g, npc.dialogue)) {
+            return startDialogue(g, npc.dialogue);
+        }
+        return say(g, npc.name, npc.lines || ['...']);
+    }
+
+    function actWantsDialogue(g, id) {
+        const p = g.p;
+        if (p.act !== 2) return false;
+        const act = D.acts[1];
+        if (!act.choice) return false;
+        const wanted = Object.keys(act.choice.dialogues).map(k => act.choice.dialogues[k]);
+        return wanted.indexOf(id) >= 0 && (p.quest_items.item_marrow_core_t3 || 0) > 0;
+    }
+
+    // ---------- drawing the overworld ----------
+    function drawWorld(g) {
+        const cv = g.body && g.body.querySelector('#et-world');
+        if (!cv || !g.world) return;
+        const ctx = cv.getContext('2d');
+        const s = g.world, map = worldMap(g);
+        const mapW = map.rows[0].length * W.TILE, mapH = map.rows.length * W.TILE;
+
+        // where the diver actually is, mid-step
+        let px = s.x * W.TILE, py = s.y * W.TILE;
+        if (s.step) {
+            const t = s.step.t / STEP_FRAMES;
+            px += (s.step.tx - s.x) * W.TILE * t;
+            py += (s.step.ty - s.y) * W.TILE * t;
+        }
+        const cam = {
+            x: clamp(Math.round(px + W.TILE / 2 - VIEW_W / 2), 0, Math.max(0, mapW - VIEW_W)),
+            y: clamp(Math.round(py + W.TILE / 2 - VIEW_H / 2), 0, Math.max(0, mapH - VIEW_H))
+        };
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.scale(WORLD_SCALE, WORLD_SCALE);
+        ctx.fillStyle = '#04090d';
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        W.drawMap(ctx, map, cam, { w: VIEW_W, h: VIEW_H }, SPR);
+
+        for (const npc of map.npcs || []) {
+            const sx = npc.x * W.TILE - cam.x, sy = npc.y * W.TILE - cam.y - 2;
+            if (sx < -20 || sy < -24 || sx > VIEW_W + 20 || sy > VIEW_H + 24) continue;
+            SPR.draw(ctx, spriteFor(npc.sprite, npc.dir), sx, sy, { flip: npc.dir === 'right' });
+        }
+
+        const walking = !!s.step;
+        SPR.draw(ctx, divingSprite(s.dir, walking ? s.walkFrame : 0),
+            px - cam.x, py - cam.y - 2, { flip: s.dir === 'right' });
+
+        // the realm's own weather, laid over the lot
+        const realm = realmById(g.p.realm);
+        if (realm && realm.layer >= 3) {
+            ctx.fillStyle = realm.layer === 4 ? 'rgba(240,217,138,0.06)' : 'rgba(10,20,30,0.35)';
+            ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        }
+        ctx.restore();
+
+        drawWorldHud(g, ctx, cv);
+    }
+    function divingSprite(dir, frame) {
+        if (dir === 'up') return 'diver_up_' + frame;
+        if (dir === 'down') return 'diver_down_' + frame;
+        return 'diver_side_' + frame;
+    }
+    function spriteFor(base, dir) { return base; }
+
+    function drawWorldHud(g, ctx, cv) {
+        const s = g.world, p = g.p;
+        const w = cv.width, h = cv.height;
+        // a slim band at the top: where you are, and the day
+        ctx.fillStyle = 'rgba(8,12,15,0.82)';
+        ctx.fillRect(0, 0, w, 20);
+        ctx.fillStyle = '#c9a227';
+        ctx.font = '11px monospace';
+        ctx.fillText(worldMap(g).name, 8, 14);
+        ctx.fillStyle = '#8fa38f';
+        const right = 'day ' + p.world_state.current_day + ' · ' + (isBlackTide(p) ? 'black tide' : 'calm day');
+        ctx.fillText(right, w - ctx.measureText(right).width - 8, 14);
+
+        if (!s.say) return;
+        // and the message band at the bottom, which holds the world still
+        const bandH = 66;
+        ctx.fillStyle = 'rgba(8,12,15,0.94)';
+        ctx.fillRect(0, h - bandH, w, bandH);
+        ctx.strokeStyle = '#3d5162';
+        ctx.strokeRect(1.5, h - bandH + 1.5, w - 3, bandH - 3);
+        ctx.font = '12px monospace';
+        if (s.say.name) {
+            ctx.fillStyle = '#c9a227';
+            ctx.fillText(s.say.name, 12, h - bandH + 20);
+        }
+        ctx.fillStyle = '#e8e0cc';
+        const line = s.say.lines[s.say.index] || '';
+        wrapText(ctx, line, 12, h - bandH + (s.say.name ? 38 : 24), w - 24, 15);
+        ctx.fillStyle = '#7f9080';
+        ctx.font = '10px monospace';
+        const more = s.say.index < s.say.lines.length - 1 ? '[space] more' : '[space] close';
+        ctx.fillText(more, w - ctx.measureText(more).width - 12, h - 10);
+    }
+    function wrapText(ctx, text, x, y, maxW, lh) {
+        const words = String(text).split(' ');
+        let line = '', ly = y;
+        for (const word of words) {
+            const test = line ? line + ' ' + word : word;
+            if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, ly); line = word; ly += lh; }
+            else line = test;
+        }
+        if (line) ctx.fillText(line, x, ly);
+    }
+
+    function screenWorld(g) {
+        const p = g.p;
+        return '<div class="et-main"><div class="et-scroll">'
+            + '<canvas class="et-canvas et-world" id="et-world" width="' + (VIEW_W * WORLD_SCALE) + '" height="' + (VIEW_H * WORLD_SCALE) + '"></canvas>'
+            + '<div class="et-dim">arrow keys or wasd to walk · space to look at what you are facing</div>'
+            + '<div class="et-abils">'
+            + btn('screen:sheet', 'character') + btn('screen:skills', 'skills' + (p.skill_points ? ' (' + p.skill_points + ')' : ''))
+            + btn('screen:gear', 'gear') + btn('screen:chart', 'chart')
+            + btn('screen:codex', 'codex (' + p.codex.length + '/' + D.codex.length + ')') + btn('screen:factions', 'guilds')
+            + btn('screen:nemesis', 'admiralty')
+            + '</div>'
+            + '<div class="et-dim">' + esc(realmById(p.realm).name) + ' · Act ' + p.act + ' — ' + esc(D.acts[p.act - 1].title) + '. ' + esc(D.acts[p.act - 1].goal) + '</div>'
+            + hazardLine(p)
+            + '</div></div>';
+    }
+
+    // what the realm does to you, and whether you have an answer to it
+    function hazardLine(p) {
+        const h = realmById(p.realm).hazard;
+        const countered = SLOTS.some(s => p.equipment[s] && p.equipment[s].counters === h.id);
+        return '<div class="et-dim" style="color:' + (countered ? '#8fa38f' : '#c0625a') + '">'
+            + esc(h.name) + ': ' + esc(h.text) + (countered ? ' — answered by your gear.' : ' You need ' + esc(h.counterName) + '.') + '</div>';
+    }
+
+    // ---------- the battle screen ----------
+    // Which silhouette a thing gets. This is presentation, so it lives with
+    // the renderer rather than in the content library.
+    const FOE_SPRITE = {
+        mob_dock_rat: 'arch_swarm', mob_rust_ghoul: 'arch_humanoid', mob_gull_swarm: 'arch_swarm',
+        mob_hull_crab: 'arch_crab', mob_salvage_thief: 'arch_humanoid', mob_brine_wight: 'arch_wraith',
+        mob_reef_choirling: 'arch_choir', mob_glass_hound: 'arch_crab', mob_mist_surgeon: 'arch_humanoid',
+        mob_chitin_crawler: 'arch_crab', mob_corroded_saint: 'arch_humanoid',
+        mob_brine_diver_mutant: 'arch_humanoid', mob_pressure_wraith: 'arch_wraith',
+        mob_rib_walker: 'arch_hulk', mob_trench_choir: 'arch_choir',
+        mob_spire_sentinel: 'arch_machine', mob_ash_apostle: 'arch_humanoid', mob_hollow_tide: 'arch_wraith',
+        mob_hollow_fragment: 'arch_wraith', mob_parasitic_leech: 'arch_leech',
+        boss_anchor_saint: 'arch_machine', boss_reef_choir: 'arch_choir',
+        boss_morvath_behemoth: 'arch_hulk', boss_drowned_archon: 'arch_wraith',
+        boss_kraken_spawn: 'arch_fish'
+    };
+    const CREATURE_SPRITE = {
+        cr_drowned_reaver: 'arch_humanoid', cr_sump_prophet: 'arch_wraith', cr_chain_baron: 'arch_hulk',
+        cr_ash_widow: 'arch_humanoid', cr_reef_dowager: 'arch_choir', cr_harpoon_martyr: 'arch_humanoid',
+        cr_boiler_saint: 'arch_machine', cr_lantern_eater: 'arch_fish'
+    };
+    // a Lord's coat is derived from its id, so the same Lord is the same
+    // colour every time you meet it and no two share one by accident
+    const LORD_COATS = ['#3d5162', '#5a3a4e', '#3f5540', '#5c4a2c', '#443a5e', '#4d3030', '#2f4a52', '#54452f'];
+    function foeSprite(g, foe) {
+        if (foe.nemesis_id) {
+            const n = lordById(g.roster, foe.nemesis_id);
+            if (n) return CREATURE_SPRITE[n.base_creature] || 'arch_humanoid';
+        }
+        return FOE_SPRITE[foe.id] || 'arch_humanoid';
+    }
+    function foePalette(g, foe) {
+        if (!foe.nemesis_id) return null;
+        let h = 0;
+        for (let i = 0; i < foe.nemesis_id.length; i++) h = (h * 31 + foe.nemesis_id.charCodeAt(i)) >>> 0;
+        return { c: LORD_COATS[h % LORD_COATS.length] };
+    }
+
+    const BATTLE_W = 240, BATTLE_H = 148, BATTLE_SCALE = 2;
+
+    function drawBattle(g) {
+        const cv = g.body && g.body.querySelector('#et-battle');
+        if (!cv || !g.fight) return;
+        const ctx = cv.getContext('2d');
+        const f = g.fight, p = g.p;
+        const foe = currentTarget(g) || f.foes[0];
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.scale(BATTLE_SCALE, BATTLE_SCALE);
+
+        // the water behind everything, tinted by the realm
+        const realm = realmById(p.realm);
+        const deep = ['#12222b', '#101f24', '#0a141a', '#141018'][Math.max(0, realm.layer - 1)];
+        const grad = ctx.createLinearGradient(0, 0, 0, BATTLE_H);
+        grad.addColorStop(0, deep);
+        grad.addColorStop(1, '#04090d');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, BATTLE_W, BATTLE_H);
+        if (f.arena.flooded) { ctx.fillStyle = 'rgba(40,90,120,0.25)'; ctx.fillRect(0, 0, BATTLE_W, BATTLE_H); }
+        if (f.arena.radiation) { ctx.fillStyle = 'rgba(240,217,138,0.10)'; ctx.fillRect(0, 0, BATTLE_W, BATTLE_H); }
+
+        // two platforms, the far one small and the near one wide
+        ctx.fillStyle = '#26313a';
+        ellipse(ctx, 168, 62, 46, 11);
+        ctx.fillStyle = '#1b242b';
+        ellipse(ctx, 62, 116, 58, 13);
+
+        // the foe, facing you
+        if (foe && foe.hp > 0) {
+            const bob = Math.sin(f.round * 0.9 + (g.world ? g.world.frame : 0) * 0.05) * 1.5;
+            const pal = foePalette(g, foe);
+            const flash = foe._flash > 0;
+            ctx.save();
+            if (flash) ctx.globalAlpha = 0.45;
+            SPR.draw(ctx, foeSprite(g, foe), 168 - 28, 62 - 44 + bob, { scale: 2, palette: pal || undefined });
+            ctx.restore();
+            if (foe._flash > 0) foe._flash--;
+        }
+        // and your own back
+        const pflash = f.playerFlash > 0;
+        ctx.save();
+        if (pflash) ctx.globalAlpha = 0.45;
+        SPR.draw(ctx, 'diver_back', 62 - 24, 116 - 52, { scale: 2 });
+        ctx.restore();
+        if (f.playerFlash > 0) f.playerFlash--;
+
+        // the other foes, small, waiting their turn
+        const others = f.foes.filter(x => x !== foe && x.hp > 0);
+        others.forEach((o, i) => {
+            SPR.draw(ctx, foeSprite(g, o), BATTLE_W - 34 - i * 22, 6, { palette: foePalette(g, o) || undefined });
+        });
+
+        // health boxes, in the corners a handheld would put them
+        healthBox(ctx, 6, 6, foe ? foe.name : '', foe ? Math.max(0, foe.hp) : 0, foe ? foe.max_hp : 1, foe ? foe.level : 1, false);
+        healthBox(ctx, BATTLE_W - 106, BATTLE_H - 40, p.name, p.vitals.hp, p.vitals.max_hp, p.level, true);
+
+        if (f.arena.telegraph) {
+            ctx.fillStyle = 'rgba(184,81,74,0.30)';
+            ctx.fillRect(0, 96, BATTLE_W, 40);
+            ctx.fillStyle = '#c4604f';
+            ctx.font = '9px monospace';
+            ctx.fillText('a red line across the deck', 8, 92);
+        }
+        if (f.barrier > 0) {
+            ctx.strokeStyle = 'rgba(143,122,192,0.8)';
+            ctx.beginPath();
+            ctx.arc(62, 100, 32, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+    function ellipse(ctx, cx, cy, rx, ry) {
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // cut a label down until it actually fits the room it has been given
+    function fitText(ctx, text, room) {
+        if (ctx.measureText(text).width <= room) return text;
+        let out = text;
+        while (out.length > 1 && ctx.measureText(out.replace(/\s+$/, '') + '…').width > room) out = out.slice(0, -1);
+        return out.replace(/\s+$/, '') + '…';
+    }
+
+    function healthBox(ctx, x, y, name, hp, max, level, mine) {
+        const w = 100, h = 34;
+        ctx.fillStyle = 'rgba(8,12,15,0.88)';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#3d5162';
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        ctx.font = '9px monospace';
+        const lv = 'lv' + level;
+        const lvW = ctx.measureText(lv).width;
+        ctx.fillStyle = '#e8e0cc';
+        // the level sits hard right, so the name gets whatever is left of it
+        ctx.fillText(fitText(ctx, String(name), w - 14 - lvW), x + 5, y + 12);
+        ctx.fillStyle = '#8fa38f';
+        ctx.fillText(lv, x + w - 5 - lvW, y + 12);
+        ctx.fillStyle = '#0b120f';
+        ctx.fillRect(x + 5, y + 17, w - 10, 6);
+        const pct = clamp(max > 0 ? hp / max : 0, 0, 1);
+        ctx.fillStyle = pct > 0.5 ? '#6f9f6a' : pct > 0.2 ? '#c9a227' : '#b8514a';
+        ctx.fillRect(x + 5, y + 17, (w - 10) * pct, 6);
+        if (mine) {
+            ctx.fillStyle = '#8fa38f';
+            ctx.fillText(hp + '/' + max, x + 5, y + 31);
+        }
+    }
+
     // ---------- html ----------
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2207,53 +2632,6 @@
             + '</div></div>';
     }
 
-    function screenHub(g) {
-        const p = g.p, realm = realmById(p.realm);
-        const act = D.acts[p.act - 1];
-        const h = realm.hazard;
-        const countered = SLOTS.some(s => p.equipment[s] && p.equipment[s].counters === h.id);
-        let storyBtn = '';
-        if (act.realm === p.realm) {
-            if (p.act === 2) {
-                const has = (p.quest_items.item_marrow_core_t3 || 0) > 0;
-                storyBtn = has
-                    ? Object.keys(act.choice.dialogues).map(k => btn('story', 'take the Core to ' + D.factions[k].short, { arg: act.choice.dialogues[k], wide: true })).join('')
-                    : '<div class="et-dim">the beacon core is somewhere under the Reefs. The Choir has it.</div>';
-            } else if (p.act === 3) {
-                storyBtn = p.world_state.story_flags['boss_boss_drowned_archon']
-                    ? btn('story', 'go to the Beacon', { arg: 'dlg_archon_final', wide: true })
-                    : '<div class="et-dim">the Archon keeps the last door, and the last door is at the bottom of the Spire.</div>';
-            } else {
-                storyBtn = btn('story', 'see about it', { arg: act.dialogue, wide: true });
-            }
-        } else {
-            storyBtn = '<div class="et-dim">this act is waiting for you in ' + esc(realmById(act.realm).name) + '.</div>';
-        }
-        return '<div class="et-main"><div class="et-scroll">'
-            + '<div class="et-place">'
-            + '<div class="et-place-name">' + esc(realm.name) + '</div>'
-            + '<div class="et-place-weather">' + esc(realm.depth[0]) + '–' + esc(realm.depth[1]) + ' m · ' + esc(realm.harbour) + ' · ' + esc(realm.weather[(p.world_state.current_day) % realm.weather.length]) + '</div>'
-            + '<div class="et-place-blurb">' + esc(realm.blurb) + '</div>'
-            + '<div class="et-place-blurb" style="color:' + (countered ? '#8fa38f' : '#c0625a') + '">' + esc(h.name) + ': ' + esc(h.text) + (countered ? ' — answered by your gear.' : ' You need ' + esc(h.counterName) + '.') + '</div>'
-            + '</div>'
-            + '<div class="et-acts"><div class="et-h4">Act ' + act.n + ' — ' + esc(act.title) + '</div>'
-            + '<div class="et-lore">' + esc(act.goal) + '</div>' + storyBtn + '</div>'
-            + '<div class="et-abils">'
-            + btn('voyage', 'take a voyage', { wide: true })
-            + btn('screen:angling', 'put a line in', { wide: true })
-            + btn('screen:forge_pick', 'the deep-forge', { wide: true })
-            + btn('rest', 'rest until the tide turns', { wide: true })
-            + '</div>'
-            + '<div class="et-abils">'
-            + btn('screen:sheet', 'character') + btn('screen:skills', 'skills' + (p.skill_points ? ' (' + p.skill_points + ')' : ''))
-            + btn('screen:gear', 'gear') + btn('screen:chart', 'chart')
-            + btn('screen:codex', 'codex (' + p.codex.length + '/' + D.codex.length + ')') + btn('screen:factions', 'guilds')
-            + '</div>'
-            + '<div class="et-dim">' + p.stats.kills + ' kills · ' + p.stats.deaths + ' deaths · ' + p.stats.landed + ' landed · ' + p.stats.lords_ended + ' lords ended · smithing ' + p.life_skills.smithing.level + ' · fishing ' + p.life_skills.fishing.level + '</div>'
-            + '<div class="et-row">' + btn('export', 'export save') + btn('newgame', 'abandon this run') + '</div>'
-            + '</div></div>';
-    }
-
     function screenCombat(g) {
         const f = g.fight, p = g.p;
         const target = currentTarget(g);
@@ -2265,6 +2643,7 @@
         }
         const harpoons = f.foes.some(x => x.phases && (x.phases[x.phase].mechanics || []).indexOf('interactable_harpoons') >= 0) && !f.arena.harpoonsUsed;
         return '<div class="et-main"><div class="et-scroll">'
+            + '<canvas class="et-canvas et-battle" id="et-battle" width="' + (BATTLE_W * BATTLE_SCALE) + '" height="' + (BATTLE_H * BATTLE_SCALE) + '"></canvas>'
             + f.foes.map((foe, i) => foe.hp <= 0 ? '' :
                 '<div class="et-foe' + (target === foe ? ' here' : '') + '" data-a="target" data-x="' + i + '">'
                 + '<div class="et-foe-name">' + esc(foe.name) + ' <span class="et-dim">lv ' + foe.level + (foe.rank ? ' · ' + esc(foe.rank) : '') + '</span></div>'
@@ -2350,7 +2729,7 @@
                     + '</div>';
             }).join('') + '</div>'
             + '<div class="et-dim">rod ' + rodStrengthOf(p) + ' · reel ' + reelSpeedOf(p) + ' — a stronger rod raises tension more slowly.</div>'
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenAngling(g) {
@@ -2375,7 +2754,7 @@
                     + '<i>' + Object.keys(r.cost).map(m => esc((materialById(m) || {}).name) + ' ×' + r.cost[m]).join(', ') + (r.skill > 1 ? ' · needs smithing ' + r.skill : '') + '</i>'
                     + '<i class="et-dim">' + esc(r.text) + '</i></div>';
             }).join('') + '</div>'
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenForge(g) {
@@ -2393,7 +2772,7 @@
         const it = g.lastForged;
         return '<div class="et-main"><div class="et-scroll"><div class="et-h">' + esc(it.name) + '</div>'
             + itemCard(it, true)
-            + '<div class="et-abils">' + btn('equip', 'put it on', { arg: it.item_id }) + btn('screen:forge_pick', 'forge again') + btn('screen:hub', 'done') + '</div>'
+            + '<div class="et-abils">' + btn('equip', 'put it on', { arg: it.item_id }) + btn('screen:forge_pick', 'forge again') + btn('screen:world', 'done') + '</div>'
             + '</div></div>';
     }
 
@@ -2442,7 +2821,10 @@
             + Object.keys(p.faction_reputation).map(k => '<div>' + esc(D.factions[k].short) + ' <b>' + p.faction_reputation[k] + '</b></div>').join('') + '</div>'
             + '<div class="et-h4">life skills</div><div class="et-stats">'
             + '<div>smithing <b>' + p.life_skills.smithing.level + '</b></div><div>fishing <b>' + p.life_skills.fishing.level + '</b></div></div>'
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-dim">' + p.stats.kills + ' kills · ' + p.stats.deaths + ' deaths · ' + p.stats.landed + ' landed · '
+            + p.stats.lords_ended + ' lords ended · day ' + p.world_state.current_day + '</div>'
+            + '<div class="et-row">' + btn('export', 'export save') + btn('newgame', 'abandon this run') + '</div>'
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenSkills(g) {
@@ -2462,7 +2844,7 @@
                             : (r < n.maxRank && p.skill_points > 0 ? btn('skill-up', 'take a rank', { arg: n.id }) : ''))
                         + '</div>';
                 }).join('') + '</div>').join('')
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenGear(g) {
@@ -2486,7 +2868,7 @@
                     + (socketable.length ? '<select data-rune="' + i + '">' + socketable.map(it => '<option value="' + esc(it.item_id) + '">' + esc(it.name) + '</option>').join('') + '</select> ' + btn('socket', 'set it', { arg: i })
                         : '<div class="et-dim">nothing with an open socket.</div>') + '</div>';
             }).join('') + '</div>' : '')
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenChart(g) {
@@ -2501,7 +2883,7 @@
                     + '<span>' + esc(r.hazard.name) + ' — ' + esc(r.hazard.text) + '</span>'
                     + '<span>' + lordsIn(g, r.id).length + ' drowned lords here</span></div>';
             }).join('') + '</div>'
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenNemesis(g) {
@@ -2521,7 +2903,7 @@
                 + '</div>'
                 + (n.memories.length ? '<i>' + esc(n.memories.slice(-3).map(m => 'day ' + m.timestamp_game_day + ': ' + m.detail).join(' — ')) + '</i>' : '')
                 + '</div>').join('')
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenCodex(g) {
@@ -2530,7 +2912,7 @@
             + D.codex.map(c => p.codex.indexOf(c.id) >= 0
                 ? '<details class="et-entry"><summary>' + esc(c.title) + '</summary><pre>' + esc(c.text) + '</pre></details>'
                 : '<div class="et-entry et-dim">— unread —</div>').join('')
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenFactions(g) {
@@ -2543,7 +2925,7 @@
                     + '<u>' + esc(f.perk) + ' · standing ' + p.faction_reputation[k] + (f.hates ? ' · will not have ' + esc(D.factions[f.hates].short) : '') + '</u>'
                     + (p.faction === k ? '<div class="et-dim">you signed here.</div>' : '') + '</div>';
             }).join('')
-            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+            + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
     function screenEnding(g) {
@@ -2638,6 +3020,13 @@
             if (!g.open) return;
             if (g.screen === 'angling' && g.angling) { anglingStep(g); drawAngling(g); }
             else if (g.screen === 'forge' && g.forge) { forgeStep(g); drawForge(g); }
+            else if (g.screen === 'world' && g.world) {
+                const before = g.screen;
+                worldTick(g);
+                if (g.screen !== before) { render(g); return; }
+                drawWorld(g);
+            }
+            else if (g.screen === 'combat' && g.fight) { drawBattle(g); }
             else return;
             g.raf = requestAnimationFrame(step);
         };
@@ -2646,7 +3035,10 @@
 
     // ---------- render ----------
     const SCREENS = {
-        create: screenCreate, hub: screenHub, combat: screenCombat, dungeon: screenDungeon,
+        // the overworld replaces the hub menu: everything the buttons used
+        // to do is a thing you walk up to and press a key at
+        create: screenCreate, world: screenWorld,
+        combat: screenCombat, dungeon: screenDungeon,
         angling: screenAngling, forge: screenForge, forge_done: screenForgeDone,
         forge_pick: screenForgePick, event: screenEvent, dialogue: screenDialogue,
         sheet: screenSheet, skills: screenSkills, gear: screenGear, chart: screenChart,
@@ -2656,10 +3048,10 @@
 
     function render(g) {
         if (!g.body) return;
-        const fn = SCREENS[g.screen] || screenHub;
+        const fn = SCREENS[g.screen] || screenWorld;
         const withSide = g.screen !== 'create' && g.screen !== 'ending';
         g.body.innerHTML = '<div class="et-body"><div class="et-two">' + (withSide ? sideBar(g) : '') + fn(g) + '</div></div>';
-        if (g.screen === 'angling' || g.screen === 'forge') ensureLoop(g);
+        if (['angling', 'forge', 'world', 'combat'].indexOf(g.screen) >= 0) ensureLoop(g);
         if (window.FX && FX.on() && withSide) {
             const els = g.body.querySelectorAll('.et-main .et-btn');
             if (els.length) FX.reveal(els, { each: 0.02, duration: 140 });
@@ -2708,7 +3100,7 @@
             case 'equip': {
                 const it = p.inventory.find(i => i.item_id === x) || (g.lastForged && g.lastForged.item_id === x ? g.lastForged : null);
                 if (it) { if (p.inventory.indexOf(it) < 0) p.inventory.push(it); equip(g, it); save(g); }
-                if (g.screen === 'forge_done') g.screen = 'hub';
+                if (g.screen === 'forge_done') g.screen = 'world';
                 return render(g);
             }
             case 'consume': {
@@ -2770,7 +3162,7 @@
             log(g, ambusher.dialogue_set.intro_encounter, 'bad');
             return startFight(g, [lordToFoe(ambusher)], 'ambush');
         }
-        g.screen = 'hub';
+        enterWorld(g, W.REALM_MAP[realmId]);
         save(g);
         render(g);
     }
@@ -2825,7 +3217,7 @@
         if (!s) return;
         const doc = saves.importSaveString(s);
         if (!doc) { log(g, 'that save string did not verify: ' + (saves.lastError || 'unreadable') + '.', 'bad'); return render(g); }
-        if (loadInto(g)) { g.screen = g.ended ? 'ending' : 'hub'; log(g, 'save imported.', 'good'); }
+        if (loadInto(g)) { g.screen = g.ended ? 'ending' : 'world'; log(g, 'save imported.', 'good'); }
         render(g);
     }
     function confirmNew(g) {
@@ -2872,7 +3264,7 @@
         g.p.vitals.marrow_mana = g.p.vitals.max_marrow_mana;
 
         log(g, 'the harpoon line comes up heavy and wrong.', 'lore');
-        g.screen = 'hub';
+        enterWorld(g, W.REALM_MAP[g.p.realm]);
         achieve('echoes');
         bus.emit('RUN_STARTED', { seed: seed });
         save(g);
@@ -2907,12 +3299,24 @@
         body.addEventListener('pointerup', hold(false));
         body.addEventListener('pointercancel', hold(false));
         body.addEventListener('pointerleave', hold(false));
+        const WALK = {
+            ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+            KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right'
+        };
         const keyDown = e => {
-            if (!g.open || e.code !== 'Space') return;
+            if (!g.open) return;
+            const inWorld = g.screen === 'world' && g.world;
+            if (inWorld && WALK[e.code]) { e.preventDefault(); g.world.held[WALK[e.code]] = true; return; }
+            if (e.code !== 'Space' && e.code !== 'Enter') return;
             if (g.screen === 'angling' && g.angling) { e.preventDefault(); g.angling.holding = true; }
             else if (g.screen === 'forge' && g.forge) { e.preventDefault(); forgeInput(g); render(g); }
+            else if (inWorld) { e.preventDefault(); worldInteract(g); }
         };
-        const keyUp = e => { if (g.open && e.code === 'Space' && g.angling) g.angling.holding = false; };
+        const keyUp = e => {
+            if (!g.open) return;
+            if (WALK[e.code] && g.world) g.world.held[WALK[e.code]] = false;
+            if (e.code === 'Space' && g.angling) g.angling.holding = false;
+        };
         document.addEventListener('keydown', keyDown);
         document.addEventListener('keyup', keyUp);
 
@@ -2926,8 +3330,10 @@
         };
 
         if (loadInto(g)) {
-            g.screen = g.ended ? 'ending' : (g.dungeon ? 'dungeon' : 'hub');
             log(g, 'day ' + g.p.world_state.current_day + ' in ' + realmById(g.p.realm).name + '.');
+            if (g.ended) g.screen = 'ending';
+            else if (g.dungeon) { enterWorld(g, W.REALM_MAP[g.p.realm]); g.screen = 'dungeon'; }
+            else enterWorld(g, W.REALM_MAP[g.p.realm]);
         } else {
             g.create = freshCreate();
             g.screen = 'create';
@@ -2963,6 +3369,18 @@
         anglingStep: anglingStep, rodStrengthOf: rodStrengthOf, reelSpeedOf: reelSpeedOf,
         forgeStep: forgeStep, bandFor: bandFor, dialogueBody: dialogueBody, optionAvailable: optionAvailable,
         runActions: runActions, save: save, loadInto: loadInto, log: log, clampVitals: clampVitals,
-        rankOf: rankOf, skillValue: skillValue, passive: passive, tierUnlocked: tierUnlocked
+        rankOf: rankOf, skillValue: skillValue, passive: passive, tierUnlocked: tierUnlocked,
+        // a read-only snapshot of where the diver is standing, so a test can
+        // walk the overworld without guessing at frame timings
+        where: function () {
+            const s = current && current.world;
+            if (!s) return null;
+            return {
+                screen: current.screen,
+                map: s.map, x: s.x, y: s.y, dir: s.dir, steps: s.steps, walking: !!s.step,
+                saying: !!s.say,
+                say: s.say ? { name: s.say.name, line: s.say.lines[s.say.index] || '' } : null
+            };
+        }
     };
 })();

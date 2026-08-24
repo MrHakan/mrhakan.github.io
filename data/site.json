@@ -164,6 +164,19 @@
     ],
     "changelog": [
         {
+            "version": "8.9",
+            "date": "2026-08-24",
+            "changes": [
+                "echoes of the tide is 2d now. the menus are gone: you walk. arrow keys or wasd move a diver one tile at a time across hand-drawn maps \u2014 vell's landing, the grand anvil, the listening post, the drowned hollow, jawbone station, the last cleat \u2014 with a camera that follows and clamps at the edges, and space to look at whatever you are facing.",
+                "everything you used to click is a place you stand next to. the boat at the end of the pier takes you on a voyage. the anvil starts the forge. open water opens the fishing spots. a door warps you into the building behind it. a bunk is where you rest until the tide turns.",
+                "the people are on the map. harbourmaster vell, a dredger who tells you not to answer anything using your own voice, an ash acolyte who says they are not cruel, only early. the three faction leaders you take the marrow core to \u2014 vaelen voss, matriark nahesia, ignis malakor \u2014 stand in their own halls, and the act two choice is made by walking up to one of them.",
+                "combat is a battle screen. you see your own back on the near platform and the thing you are fighting on the far one, full sprite, on a shadow, with health boxes in the corners the way a handheld would put them. lords get a coat colour derived from their id, so the same lord is the same colour every time you meet it.",
+                "an atlas of hand-authored pixel art: the diver in four facings with a walk cycle, nine enemy silhouettes, fifteen tiles, three townsfolk \u2014 all palette-indexed, decoded once to offscreen canvases and tinted per draw.",
+                "kelp and marrow slicks roll for encounters as you walk over them, with a grace period so you are never jumped twice in three steps.",
+                "and the tests walk it: the browser run now steers the diver tile by tile, talks to an npc, takes the boat, fights on the canvas, walks through a door into the anvil hall, forges, comes back out and puts a line in the water. 178 headless checks cover the maps too \u2014 every one rectangular, every warp landing somewhere you can stand, every walkable tile reachable from the spawn, and every realm with a boat, an anvil and water within reach."
+            ]
+        },
+        {
             "version": "8.8",
             "date": "2026-08-24",
             "changes": [

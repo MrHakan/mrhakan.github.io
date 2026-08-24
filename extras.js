@@ -470,6 +470,8 @@ function etLoadScripts() {
     });
     // data first: the engine reads RZ at definition time
     etLoading = load('games/echoes-core.js')
+        .then(() => load('games/echoes-sprites.js'))
+        .then(() => load('games/echoes-world.js'))
         .then(() => load('games/echoes-data.js'))
         .then(() => load('games/echoes.js'));
     return etLoading;

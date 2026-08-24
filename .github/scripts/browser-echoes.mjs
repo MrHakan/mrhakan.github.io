@@ -49,6 +49,132 @@ const state = () => page.evaluate(() => {
     return raw ? JSON.parse(raw) : null;
 });
 
+// ---------- driving the overworld ----------
+// The diver is moved by held keys, one tile per eight frames, so the test
+// holds a key and waits for the tile to actually change rather than
+// guessing at frame timings.
+const KEY = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+const where = () => page.evaluate(() => window.ET_ENGINE.where());
+
+// exactly one tile: hold the key only until the step has started, so the
+// held-key loop cannot slip a second step in behind it
+async function stepOnce(dir) {
+    const from = await where();
+    if (!from) return null;
+    await page.keyboard.down(KEY[dir]);
+    let started = false;
+    for (let i = 0; i < 30 && !started; i++) {
+        await page.waitForTimeout(20);
+        const now = await where();
+        if (!now) break;
+        if (now.walking || now.x !== from.x || now.y !== from.y || now.map !== from.map) started = true;
+        if (now.saying || now.screen !== 'world') break;
+    }
+    await page.keyboard.up(KEY[dir]);
+    for (let i = 0; i < 30; i++) {                 // let the step land
+        const now = await where();
+        if (!now || !now.walking) break;
+        await page.waitForTimeout(25);
+    }
+    await page.waitForTimeout(60);
+    return await where();
+}
+
+// a story beat can open on any step; play it out and carry on
+async function clearDialogue() {
+    for (let i = 0; i < 12; i++) {
+        const opts = page.locator('.et-body button[data-a="say"]:not([disabled])');
+        if (!await opts.count()) return;
+        await opts.first().click();
+        await page.waitForTimeout(400);
+    }
+}
+
+// shortest walk to a tile, over the map the diver is standing on
+async function pathTo(tx, ty) {
+    const here = await where();
+    if (!here) return null;
+    return page.evaluate(([mapId, sx, sy, gx, gy]) => {
+        const W = window.ECHOES_WORLD, map = W.mapById(mapId);
+        const seen = { [sx + ',' + sy]: null };
+        const queue = [[sx, sy]];
+        while (queue.length) {
+            const [x, y] = queue.shift();
+            if (x === gx && y === gy) {
+                const out = [];
+                let k = x + ',' + y;
+                while (seen[k]) { out.unshift(seen[k].dir); k = seen[k].from; }
+                return out;
+            }
+            for (const dir of ['up', 'down', 'left', 'right']) {
+                const d = W.DIRS[dir], nx = x + d[0], ny = y + d[1], key = nx + ',' + ny;
+                if (key in seen || !W.walkable(map, nx, ny)) continue;
+                seen[key] = { dir: dir, from: x + ',' + y };
+                queue.push([nx, ny]);
+            }
+        }
+        return null;
+    }, [here.map, here.x, here.y, tx, ty]);
+}
+
+// walk to a tile and stop; returns false if the walk was interrupted
+async function walkTo(tx, ty, depth) {
+    await closeBand();
+    await clearDialogue();
+    const route = await pathTo(tx, ty);
+    if (!route) return false;
+    for (const dir of route) {
+        const now = await stepOnce(dir);
+        if (!now) return false;
+        if (now.x === tx && now.y === ty && now.map === (await where()).map) return true;
+        if (now.saying) { await closeBand(); continue; }
+        if (now.screen === 'dialogue') { await clearDialogue(); continue; }
+        // an ambush out of the kelp: fight it out, then pick the walk back up
+        if (now.screen === 'combat') {
+            await fightToTheEnd();
+            return (depth || 0) < 2 ? walkTo(tx, ty, (depth || 0) + 1) : false;
+        }
+    }
+    const end = await where();
+    return !!end && end.x === tx && end.y === ty;
+}
+
+// swing until the fight has an outcome, then take the outcome
+async function fightToTheEnd() {
+    for (let i = 0; i < 60; i++) {
+        const strike = page.locator('.et-body button[data-a="act:strike"]').first();
+        if (!await strike.count() || await strike.isDisabled()) break;
+        await strike.click();
+        await page.waitForTimeout(140);
+    }
+    const done = page.locator('.et-body button[data-a="fight-done"]').first();
+    if (await done.count()) { await done.click(); await page.waitForTimeout(450); }
+    await clearDialogue();
+}
+
+// press on through a speech band until it closes
+async function closeBand() {
+    for (let i = 0; i < 12; i++) {
+        const now = await where();
+        if (!now || !now.saying) return true;
+        await page.keyboard.press('Space');
+        await page.waitForTimeout(220);
+    }
+    return false;
+}
+
+// turn to face a neighbouring tile without stepping onto it, then act
+async function faceAndAct(tx, ty) {
+    const here = await where();
+    const dir = tx > here.x ? 'right' : tx < here.x ? 'left' : ty > here.y ? 'down' : 'up';
+    await page.keyboard.down(KEY[dir]);
+    await page.waitForTimeout(200);
+    await page.keyboard.up(KEY[dir]);
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(400);
+}
+
 try {
     section('the game opens');
     await page.goto(BASE, { waitUntil: 'load' });
@@ -78,13 +204,32 @@ try {
     await click('take the boat out', { wait: 900 });
     expect(await has('The Rust Shallows'), 'the run starts in the Rust Shallows');
     expect(await has('Act 1'), 'act one is on the board');
+    expect(await page.locator('#et-world').count() === 1, 'and it drops you on the overworld, not a menu');
     const s0 = await state();
     expect(s0 && s0.save_version && s0.checksum, 'it saved immediately, with a version and a checksum');
     expect(s0 && s0.nemesis_roster && s0.nemesis_roster.length === 17, 'the admiralty of 17 was born', s0 && s0.nemesis_roster ? String(s0.nemesis_roster.length) : 'no roster');
     await page.screenshot({ path: SHOTS + '/echoes-2-harbour.png' });
 
+    section('walking the landing');
+    {
+        const start = await where();
+        expect(start && start.map === 'rust_harbour', 'the diver is standing on Vell\'s Landing', JSON.stringify(start));
+        await page.screenshot({ path: SHOTS + '/echoes-2b-world.png' });
+        const moved = await stepOnce('up');
+        expect(moved && moved.y === start.y - 1, 'holding a key walks one tile', JSON.stringify(moved));
+        // the Ash Acolyte stands at 12,14 and has something to say
+        expect(await walkTo(11, 14), 'and the diver can be walked to a named tile', JSON.stringify(await where()));
+        await faceAndAct(12, 14);
+        const band = await where();
+        expect(band && band.say && band.say.name === 'An Ash Acolyte',
+            'facing an npc and pressing space opens a speech band', JSON.stringify(band && band.say));
+        expect(band && band.say && band.say.line.length > 10, 'and the band has a line in it');
+        await page.screenshot({ path: SHOTS + '/echoes-2c-npc.png' });
+        expect(await closeBand(), 'and pressing on closes it again');
+    }
+
     section('the drowned lords are on the wall');
-    await click('the full roster');
+    await click('admiralty');
     expect(await has('Deck Captain'), 'the roster screen renders');
     const lordRows = await page.locator('.et-nem-full').count();
     expect(lordRows === 17, 'seventeen lords listed', String(lordRows));
@@ -93,8 +238,10 @@ try {
     await click('back');
 
     section('a voyage, and whatever is in the corridor');
-    await click('take a voyage', { wait: 500 });
-    expect(await has('floor 1 /'), 'the dungeon deals a node');
+    // the boat is moored at 10,16; you take it by standing beside it and looking at it
+    expect(await walkTo(11, 16), 'the diver can walk down to the mooring');
+    await faceAndAct(10, 16);
+    expect(await has('floor 1 /'), 'looking at the boat deals a dungeon node');
     let fought = false, nodes = 0;
     while (nodes++ < 14 && !fought) {
         if (await page.locator('.et-body button', { hasText: 'strike' }).count()) { fought = true; break; }
@@ -105,6 +252,16 @@ try {
     }
     expect(fought, 'a voyage runs into a fight within fourteen nodes');
     if (fought) {
+        expect(await page.locator('#et-battle').count() === 1, 'the fight is drawn on a battle canvas');
+        const painted = await page.evaluate(() => {
+            const cv = document.querySelector('#et-battle');
+            if (!cv) return 0;
+            const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+            const seen = new Set();
+            for (let i = 0; i < d.length; i += 4) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
+            return seen.size;
+        });
+        expect(painted > 8, 'and the canvas has actually been painted', painted + ' distinct colours');
         await page.screenshot({ path: SHOTS + '/echoes-4-fight.png' });
         const foe = await page.locator('.et-foe-name').first().textContent();
         let rounds = 0;
@@ -122,12 +279,21 @@ try {
         await done.click();
         await page.waitForTimeout(450);
     }
-    // back out to the harbour whichever screen we landed on
+    // back out to the landing whichever screen we ended on
     if (await page.locator('.et-body button[data-a="leave"]').count()) await click('put back in to harbour', { wait: 400 });
-    expect(await has('take a voyage'), 'and you get back to the harbour');
+    expect(await page.locator('#et-world').count() === 1, 'and you come back up onto the overworld');
 
-    section('the deep-forge');
-    await click('the deep-forge');
+    section('through the door into the Grand Anvil');
+    // the anvil hall is behind the door at 21,6
+    expect(await walkTo(20, 6), 'the diver can walk to the door');
+    await faceAndAct(21, 6);
+    {
+        const inside = await where();
+        expect(inside && inside.map === 'grand_anvil', 'and the door warps you inside', JSON.stringify(inside));
+        await page.screenshot({ path: SHOTS + '/echoes-4b-anvil.png' });
+        expect(await walkTo(3, 5), 'you can reach the anvil');
+        await faceAndAct(3, 4);
+    }
     expect(await has('Rig Hook'), 'the pattern list shows what you can afford');
     await page.locator('.et-pattern[data-a="forge"]').first().click();
     await page.waitForTimeout(400);
@@ -145,11 +311,20 @@ try {
     const forged = await page.locator('.et-item b').first().textContent();
     console.log('        forged: ' + forged);
     await click('put it on', { wait: 300 });
-    expect(await has('take a voyage'), 'and putting it on returns you to the harbour');
+    expect(await page.locator('#et-world').count() === 1, 'and putting it on returns you to the overworld');
 
     section('a line in the water');
     {
-        await click('put a line in', { wait: 500 });
+        // back out of the anvil hall and down to the mooring, where the
+        // water is the only thing you can be facing
+        expect(await walkTo(8, 11), 'the diver can walk back to the anvil hall door');
+        await faceAndAct(8, 12);
+        const out = await where();
+        expect(out && out.map === 'rust_harbour', 'and the door puts you back on the landing', JSON.stringify(out));
+        expect(await walkTo(11, 16), 'and down to the mooring');
+        await faceAndAct(11, 17);
+        expect(await has('put a line in') || await page.locator('.et-pattern[data-a="cast"]').count() > 0,
+            'facing open water opens the fishing spots');
         // pick the first castable spot for the current tide
         const spot = page.locator('.et-pattern[data-a="cast"]').first();
         if (await spot.count()) { await spot.click(); await page.waitForTimeout(600); }
@@ -167,7 +342,7 @@ try {
             await page.mouse.up();
             await page.waitForTimeout(500);
             // landed, snapped, escaped, or it was fishing back and is now a fight
-            const resolved = await has('take a voyage') || await page.locator('.et-body button[data-a="act:strike"]').count() > 0;
+            const resolved = await page.locator('#et-world').count() > 0 || await page.locator('.et-body button[data-a="act:strike"]').count() > 0;
             expect(resolved, 'and the line resolves — landed, snapped, or it turned into a fight');
         } else {
             expect(await has('nothing is biting'), 'nothing was biting, which is a legal outcome');
@@ -181,8 +356,11 @@ try {
     await page.waitForTimeout(900);
     await page.evaluate(() => window.openEchoes());
     await page.waitForSelector('.et-body', { timeout: 15000 });
-    expect(await has('ci dredger'), 'the character comes back after a reload');
+    expect(await page.locator('#et-world').count() === 1, 'it comes back on the overworld after a reload');
     expect(await has('The Rust Shallows'), 'in the realm they were left in');
+    await click('character');
+    expect(await has('ci dredger'), 'and the same character is on the sheet');
+    await click('back');
     const after = await state();
     expect(before && after && before.player.seed === after.player.seed, 'and on the same seed');
     await page.screenshot({ path: SHOTS + '/echoes-7-reloaded.png' });
