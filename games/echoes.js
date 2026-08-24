@@ -1,15 +1,13 @@
 /* echoes of the tide: leviathan's wake — the rules.
  *
- * Implements games/ECHOES-GDD.md. The constants named in the GDD are the
- * constants below, under the same names, so the document and the source
- * can be diffed by eye. Content lives in games/echoes-data.js and is read
- * only — this file never writes to it.
+ * Implements games/ECHOES-GDD.md. The constants named in the document are
+ * the constants below, under the same names, so the two can be diffed by
+ * eye. Content lives in games/echoes-data.js and is read only; the save
+ * engine and the event bus live in games/echoes-core.js.
  *
  * Everything is deterministic from a single uint32 seed: the nemesis
- * roster, the dungeon decks, the loot rolls and the forge bands all come
- * off one xorshift stream whose state is saved with the profile, so a
- * reloaded run continues the same sequence and a fresh run on the same
- * seed replays identically.
+ * roster, the dungeon graphs and the loot rolls all come off one xorshift
+ * stream whose state is saved with the profile.
  */
 
 (function () {
@@ -17,47 +15,42 @@
 
     const D = window.ECHOES_DATA;
 
-    // ---------- GDD §2 constants ----------
-    const MITIGATION_FACTOR = 0.55;
-    const DAMAGE_FLOOR = 0.10;          // armour reduces, never deletes
-    const SWING_LOW = 0.85, SWING_HIGH = 1.15;
-    const CRIT_CAP = 0.60, CRIT_K = 120;
-    const CRIT_MULT_BASE = 1.5, CRIT_MULT_PER = 0.005, CRIT_MULT_CAP = 2.5;
-    const DODGE_CAP = 0.35, DODGE_K = 60;
-    const HIT_MIN = 0.30, HIT_MAX = 0.98;
-    const ATTR_START = 8, ATTR_FREE = 3, ATTR_SOFT_CAP = 60;
-    const ATTR_PER_LEVEL = 3, ATTR_BONUS_EVERY = 5, ATTR_BONUS = 2;
-    const SANITY_CAP = 120;
+    // ---------- combat constants (GDD Module 2) ----------
+    const ARMOR_K = 350;                 // 350 armour = 50% mitigation
+    const BASE_HIT_CHANCE = 0.85;
+    const GLANCING_WINDOW = 0.10;        // a miss by this much is a glancing blow
+    const GLANCING_MULTIPLIER = 0.50;
+    const VARIANCE = [0.95, 1.05];
+    const CRIT_BASE_MULTIPLIER = 1.50;
+    const HIT_FLOOR = 0.05, HIT_CEILING = 0.99;
+
+    const HP_BASE = 100, HP_PER_LEVEL = 30;
+    const STAMINA_BASE = 90, STAMINA_PER_LEVEL = 2;
+    const SANITY_MAX = 100;
+    const ATTR_PER_LEVEL = 3, SKILL_PER_LEVEL = 1;
+    const ATTR_START = 8;
     const MAX_LEVEL = 50;
-    const TICKS_PER_DAY = 8;
 
-    // GDD §4.5 — line tension. REEL_FORCE is the base; the line and the arm
-    // holding it scale it (calibration pass, recorded in the GDD).
-    const REEL_FORCE = 1.15;
-    const HAUL_GAIN = 0.06;
-    const TENSION_DECAY = 0.94;
-    const DRAG_DEPTH_K = 400;
+    const SANITY_ILLUSION = 25;          // below this the interface lies to you
+    const PANIC_SKIP_CHANCE = 0.30;      // at zero sanity, per turn
 
-    // Drowned Lord scaling. Pulled out and named because it is the hardest
-    // thing in the game to balance by eye: a Lord is a fight the player is
-    // supposed to lose sometimes, and the margin between "memorable" and
-    // "pointless" is about fifteen percent of hit points.
-    const NEMESIS_SCALE = {
-        hpBase: 20, hpPerLevel: 8,
-        dmgBase: 14, dmgPerLevel: 2.0,
-        armBase: 3, armPerLevel: 0.6, armPerTier: 4,
-        rankHp: { captain: 1, warlord: 1.1, overlord: 1.6 },
-        rankDmg: { captain: 1, warlord: 0.9, overlord: 1.2 }
-    };
+    // Module 5 — procedural difficulty: M = 1 + (D * 0.25) + (k * 0.08)
+    const DEPTH_SCALE = 0.25, ROOM_SCALE = 0.08;
 
-    const SLOTS = ['mainHand', 'offHand', 'head', 'body', 'line', 'trinket'];
-    const SLOT_NAMES = { mainHand: 'main hand', offHand: 'off hand', head: 'head', body: 'body', line: 'line', trinket: 'trinket' };
-    const TIME_OF_DAY = ['dawn', 'morning', 'noon', 'afternoon', 'dusk', 'night', 'deep night', 'witching'];
-    const TIDE_PHASE = ['low', 'rising', 'high', 'falling'];
-    const ELEMENTS = ['physical', 'abyssal', 'burn', 'bleed'];
-    const RANKS = { captain: 1, warlord: 2, overlord: 3 };
-    const SAVE_KEY = 'mrhakan98-echoes';
-    const SAVE_SCHEMA = 'echoes/save/1';
+    // Module 3 — ambush
+    const AMBUSH_BASE = 0.05, AMBUSH_PER_GRUDGE = 0.04, AMBUSH_CAP = 0.65;
+
+    // Module 4 — angling
+    const TENSION_GREEN = [40, 80];
+    const TENSION_MAX = 100;
+
+    const SLOTS = ['main_hand', 'off_hand', 'head', 'body', 'lantern'];
+    const SLOT_NAMES = { main_hand: 'main hand', off_hand: 'off hand', head: 'head', body: 'body', lantern: 'lantern' };
+    const ELEMENTS = ['physical', 'abyssal', 'burn', 'bleed', 'crush', 'rot'];
+    const SAVE_KEY = 'ECHOES_OF_THE_TIDE_SAVE';
+
+    const saves = new window.SaveEngine(SAVE_KEY);
+    const bus = window.GameBus;
 
     // ---------- seeded rng (xorshift32) ----------
     function makeRng(seed) {
@@ -69,39 +62,88 @@
             return s / 4294967296;
         };
         f.state = () => s >>> 0;
-        f.seed = (v) => { s = (v >>> 0) || 0x9e3779b9; };
+        f.seed = v => { s = (v >>> 0) || 0x9e3779b9; };
         return f;
     }
     const ri = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
+    const rf = (rng, a, b) => a + rng() * (b - a);
     const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
     const chance = (rng, p) => rng() < p;
     const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+    const byId = (list, id) => list.find(x => x.id === id) || null;
+
+    function weighted(rng, entries, weightOf) {
+        let total = 0;
+        for (const e of entries) total += Math.max(0, weightOf(e));
+        if (total <= 0) return entries[0];
+        let roll = rng() * total;
+        for (const e of entries) { roll -= Math.max(0, weightOf(e)); if (roll <= 0) return e; }
+        return entries[entries.length - 1];
+    }
 
     // ---------- content lookups ----------
-    const byId = (list, id) => list.find(x => x.id === id) || null;
     const realmById = id => byId(D.realms, id);
     const recipeById = id => byId(D.recipes, id);
     const runeById = id => byId(D.runes, id);
-    const fishById = id => byId(D.fish, id);
+    const materialById = id => byId(D.materials, id);
+    const catchById = id => byId(D.catches, id);
+    const rarityById = id => byId(D.rarities, id);
+    const bandFor = score => D.qualityBands.find(b => score >= b.min && score <= b.max) || D.qualityBands[0];
     const foeById = id => byId(D.bestiary, id) || byId(D.bosses, id);
-    const skillNode = id => {
+    const spotsIn = realm => D.fishingSpots.filter(s => s.realm === realm);
+    function skillNode(id) {
         for (const t of D.skillTrees) { const n = byId(t.nodes, id); if (n) return n; }
         return null;
+    }
+    function treeOf(nodeId) {
+        for (const t of D.skillTrees) if (byId(t.nodes, nodeId)) return t;
+        return null;
+    }
+
+    // ---------- experience (GDD Module 2, the published table) ----------
+    // The document publishes a table rather than a formula, so the table is
+    // the authority: these seven levels come out to the digit and the rest
+    // are interpolated in log space, which keeps the curve monotone.
+    const XP_ANCHORS = [[1, 150], [5, 2214], [10, 7532], [20, 26890], [30, 56710], [40, 96540], [50, 145980]];
+    function xpToNext(level) {
+        const L = clamp(Math.round(level), 1, MAX_LEVEL);
+        for (let i = 0; i < XP_ANCHORS.length - 1; i++) {
+            const [l0, x0] = XP_ANCHORS[i], [l1, x1] = XP_ANCHORS[i + 1];
+            if (L === l0) return x0;
+            if (L > l0 && L < l1) {
+                const t = (Math.log(L) - Math.log(l0)) / (Math.log(l1) - Math.log(l0));
+                return Math.round(Math.exp(Math.log(x0) + t * (Math.log(x1) - Math.log(x0))));
+            }
+        }
+        return XP_ANCHORS[XP_ANCHORS.length - 1][1];
+    }
+    const LEVEL_UNLOCKS = {
+        5: 'Tier 2 skills',
+        10: 'the off-hand slot: a second weapon, a shield or a lantern',
+        20: 'Nemesis hunt contracts and advanced marrow sockets',
+        30: 'Tier 4 ultimates',
+        40: 'the Abyssal Trench diving licence and legendary patterns',
+        50: 'the Archon stat cap and Masterwork crafting'
     };
 
     // ---------- gear ----------
-    // an item's contribution to one stat: base + affixes + runes, where a
-    // rune is worth 15% more per other filled socket on the same item
-    // (GDD §4.3 — the Syndicate calls it resonance and charges for it).
+    // an item's affixes are stored the way the design document names them,
+    // as prefixes and suffixes, because the item's name is assembled from
+    // them — but every stat lookup wants one flat list
+    function allAffixes(item) {
+        if (!item || !item.affixes) return [];
+        return (item.affixes.prefix || []).concat(item.affixes.suffix || []);
+    }
     function itemStat(item, stat) {
         if (!item) return 0;
-        let v = (item.baseStats && item.baseStats[stat]) || 0;
-        for (const a of item.affixes || []) if (a.stat === stat) v += a.value;
-        const filled = (item.sockets || []).filter(s => s.runeId).length;
+        let v = (item.base_stats && item.base_stats[stat]) || 0;
+        for (const a of allAffixes(item)) if (a.stat === stat) v += a.value;
         for (const s of item.sockets || []) {
-            if (!s.runeId) continue;
-            const r = runeById(s.runeId);
-            if (r && r.stat === stat) v += Math.round(r.base * (1 + 0.15 * filled));
+            if (!s.gem_id) continue;
+            const r = runeById(s.gem_id);
+            if (!r) continue;
+            if (r.stat === stat) v += r.value;
+            if (r.extra && r.extra[stat]) v += r.extra[stat];
         }
         return v;
     }
@@ -110,452 +152,599 @@
         for (const slot of SLOTS) sum += itemStat(p.equipment[slot], stat);
         return sum;
     }
-    function itemPower(item) {
-        return itemStat(item, 'damage') * 2 + itemStat(item, 'armour') * 2 +
-            itemStat(item, 'critRating') + itemStat(item, 'pressureRating') * 4 +
-            itemStat(item, 'lineStrength') * 4;
+    function heavyPieces(p) {
+        let n = 0;
+        for (const slot of SLOTS) {
+            const it = p.equipment[slot];
+            if (it && it.heavy) n++;
+        }
+        return n;
     }
-
-    // ---------- skills ----------
-    function skillEffect(p, effectId) {
+    function curseEffect(p, key) {
         let total = 0;
-        for (const tree of D.skillTrees) for (const node of tree.nodes) {
-            if (node.effect !== effectId) continue;
-            const r = p.skills[node.id] || 0;
-            if (r > 0) total += node.ranks[r - 1];
+        for (const slot of SLOTS) {
+            const it = p.equipment[slot];
+            if (!it || !it.curse) continue;
+            const c = byId(D.curses, it.curse);
+            if (!c) continue;
+            if (c.grants && c.grants[key]) total += c.grants[key];
+            if (c.costs && c.costs[key]) total += c.costs[key];
         }
         return total;
     }
-    function abilityValue(p, abilityId) {
-        for (const tree of D.skillTrees) for (const node of tree.nodes) {
-            if (node.ability !== abilityId) continue;
-            const r = p.skills[node.id] || 0;
-            return r > 0 ? node.ranks[r - 1] : 0;
-        }
-        return 0;
-    }
-    function rankOf(p, nodeId) { return p.skills[nodeId] || 0; }
 
-    // ---------- derived values (GDD §2.2) ----------
-    function maxHp(p) { return 40 + p.attributes.fortitude * 6 + p.level * 8; }
-    function maxStamina(p) {
-        return 8 + Math.floor(p.attributes.finesse / 4) + Math.floor(p.attributes.fortitude / 6) +
-            skillEffect(p, 'staminaMax') + gearStat(p, 'staminaMax');
+    // ---------- skills ----------
+    function rankOf(p, nodeId) { return (p.skills && p.skills[nodeId]) || 0; }
+    function skillValue(p, nodeId) {
+        const node = skillNode(nodeId);
+        const r = rankOf(p, nodeId);
+        if (!node || r < 1) return 0;
+        if (node.ranks) return node.ranks[Math.min(r, node.ranks.length) - 1];
+        if (node.scaling) return node.scaling.baseMultiplier + node.scaling.perRank * (r - 1);
+        if (node.stunChance) return node.stunChance[Math.min(r, node.stunChance.length) - 1];
+        if (node.dot && node.dot.flat) return node.dot.flat[Math.min(r, node.dot.flat.length) - 1];
+        if (node.heal) return node.heal.maxHpPct + (node.heal.perRank || 0) * (r - 1);
+        if (node.barrier) return node.barrier.armourMultiplier + (node.barrier.perRank || 0) * (r - 1);
+        return r;
     }
-    function maxSanity(p) {
-        let base = Math.min(SANITY_CAP, 50 + p.attributes.attunement * 2 + gearStat(p, 'sanityMax'));
-        let pct = 0;
-        for (const slot of SLOTS) {
-            const it = p.equipment[slot];
-            if (!it) continue;
-            for (const a of it.affixes || []) if (a.stat === 'sanityMaxPct') pct += a.value;
+    function passive(p, effectId) {
+        let total = 0;
+        for (const tree of D.skillTrees) for (const node of tree.nodes) {
+            if (node.effect !== effectId) continue;
+            const r = rankOf(p, node.id);
+            if (r > 0) total += node.ranks[Math.min(r, node.ranks.length) - 1];
         }
-        return Math.max(10, Math.round(base * (1 + pct)));
+        return total;
     }
-    function carryWeight(p) { return 20 + p.attributes.might * 2; }
+    function tierUnlocked(p, tier) { return p.level >= (D.tierLevel[tier] || 1); }
+
+    // ---------- derived stats (GDD Module 2.1) ----------
+    const per = id => (byId(D.attributes, id) || { perPoint: {} }).perPoint;
+    function maxHp(p) {
+        const flat = HP_BASE + p.attributes.fortitude * per('fortitude').maxHp + (p.level - 1) * HP_PER_LEVEL + gearStat(p, 'maxHp');
+        return Math.max(1, Math.round(flat * (1 + curseEffect(p, 'maxHpPct'))));
+    }
+    function maxStamina(p) { return STAMINA_BASE + (p.level - 1) * STAMINA_PER_LEVEL + Math.round(p.attributes.fortitude * 1.5); }
+    function maxMarrow(p) { return Math.round(p.attributes.attunement * per('attunement').marrowMana + gearStat(p, 'maxMarrow')); }
+    function maxSanity(p) { return SANITY_MAX; }
+    function carryCapacity(p) { return 40 + p.attributes.might * per('might').carryCapacity; }
+
+    // Armour = flat gear armour, lifted by Fortitude's natural layer and by
+    // whatever the smithing tree has been told to do about it.
     function armourOf(p) {
-        const raw = gearStat(p, 'armour') * (1 + p.attributes.fortitude / 120);
-        let mult = 1 + skillEffect(p, 'armourPct');
-        if (p.faction === 'ironclad') mult += D.factions.ironclad.bonus.armourPct;
-        return Math.round(raw * mult);
+        let flat = gearStat(p, 'armour');
+        let mult = 1 + p.attributes.fortitude * per('fortitude').naturalArmourPct;
+        mult += passive(p, 'armourPct');
+        mult += passive(p, 'armourPerHeavyPiece') * heavyPieces(p);
+        if (p.faction === 'syndicate') mult += D.factions.syndicate.bonus.armourPct;
+        return Math.max(0, Math.round(flat * mult));
     }
-    function pressureRating(p) {
-        return gearStat(p, 'pressureRating') + skillEffect(p, 'pressure');
+    // the whole point of the curve: stacking armour approaches 100% and
+    // never arrives, so nothing in the game is unhittable
+    function armourMitigation(armour) { return armour / (armour + ARMOR_K); }
+
+    function critChance(p) {
+        let c = p.attributes.finesse * per('finesse').critChancePct + gearStat(p, 'critChancePct');
+        const seeker = passive(p, 'perceptionToCrit');
+        if (seeker) c += p.attributes.perception * seeker / 100;
+        return clamp(c, 0, 0.95);
     }
-    function lineTier(p) {
-        const line = p.equipment.line;
-        return line ? line.tier + itemStat(line, 'lineStrength') - (line.baseStats.lineStrength || 0) : 0;
+    function critMultiplier(p) {
+        return CRIT_BASE_MULTIPLIER
+            + p.attributes.perception * per('perception').critDamagePct
+            + passive(p, 'critDamagePct')
+            + curseEffect(p, 'critDamagePct');
     }
-    function lineStrength(p) { return itemStat(p.equipment.line, 'lineStrength'); }
-    function carried(p) {
+    function hitRating(p) { return p.attributes.perception * per('perception').hitChancePct + gearStat(p, 'hitChancePct'); }
+    function dodgeRating(p) {
+        return p.attributes.finesse * per('finesse').dodgePct
+            + gearStat(p, 'dodgePct')
+            + passive(p, 'dodgeFlat');
+    }
+    function blockValue(p) {
+        return Math.round(p.attributes.might * per('might').blockValue + gearStat(p, 'blockValue'));
+    }
+    function sanityResist(p) {
+        return p.attributes.attunement * per('attunement').sanityResist + gearStat(p, 'sanityResist');
+    }
+    function hazardResist(p) {
+        return clamp(gearStat(p, 'hazardResistPct') + passive(p, 'hazardResist'), 0, 0.95);
+    }
+    function carriedWeight(p) {
         let w = 0;
-        for (const it of p.inventory) w += it.weight || 0;
+        for (const it of p.inventory || []) w += (it.weight || 0) * (it.count || 1);
         for (const slot of SLOTS) if (p.equipment[slot]) w += p.equipment[slot].weight || 0;
         return Math.round(w * 10) / 10;
     }
-    function coinOf(p) { return p.coin; }
 
-    // ---------- levelling (GDD §2.7) ----------
-    function xpToNext(level) { return Math.round(50 * Math.pow(level, 1.9)); }
-
-    function gainXp(g, amount) {
-        const p = g.p;
-        if (p.level >= MAX_LEVEL) return;
-        p.xp += Math.max(0, Math.round(amount));
-        while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
-            p.xp -= xpToNext(p.level);
-            p.level++;
-            p.unspentAttributePoints += ATTR_PER_LEVEL + (p.level % ATTR_BONUS_EVERY === 0 ? ATTR_BONUS : 0);
-            p.skillPoints += 1;
-            p.vitals.hp = maxHp(p);
-            p.vitals.stamina = maxStamina(p);
-            p.vitals.sanity = Math.min(maxSanity(p), p.vitals.sanity + 5);
-            log(g, `you are level ${p.level}. ${ATTR_PER_LEVEL + (p.level % ATTR_BONUS_EVERY === 0 ? ATTR_BONUS : 0)} attribute points, 1 skill point.`, 'good');
-            if (p.level >= 10) achieve('echoes-ten');
-        }
-    }
-
-    // ---------- combat maths (GDD §2.3 – §2.5) ----------
-    // Damage = RawDamage * (1 + Stat/100) - (Armour * MitigationFactor)
-    function rollDamage(rng, weaponBase, stat, armour, penetration) {
-        const swing = SWING_LOW + rng() * (SWING_HIGH - SWING_LOW);
-        const raw = weaponBase * swing;
-        const mf = penetration ? MITIGATION_FACTOR * (1 - penetration) : MITIGATION_FACTOR;
-        let dmg = raw * (1 + stat / 100) - armour * mf;
-        const floor = raw * DAMAGE_FLOOR;
-        if (dmg < floor) dmg = floor;
-        return { raw, dmg };
-    }
-    // hyperbola: the first points of Finesse are worth a great deal, the
-    // fiftieth almost nothing
-    function critChance(finesse, critRating) {
-        const F = finesse + (critRating || 0);
-        return CRIT_CAP * (F / (F + CRIT_K));
-    }
-    function critMultiplier(finesse, bonusPct) {
-        const base = Math.min(CRIT_MULT_CAP, CRIT_MULT_BASE + CRIT_MULT_PER * finesse);
-        return base * (1 + (bonusPct || 0));
-    }
-    function dodgeChance(attackerFinesse, targetFinesse) {
-        return DODGE_CAP * (targetFinesse / (targetFinesse + attackerFinesse + DODGE_K));
-    }
-    function hitChance(attackerFinesse, targetFinesse, extraDodge) {
-        return clamp(1 - (dodgeChance(attackerFinesse, targetFinesse) + (extraDodge || 0)), HIT_MIN, HIT_MAX);
-    }
-    // elemental multiplier, applied after mitigation
-    function elementMult(type, foe) {
-        if (foe.immune && foe.immune.indexOf(type) >= 0) return 0;
-        if (foe.weak && foe.weak.indexOf(type) >= 0) return 1.5;
-        if (foe.resist && foe.resist.indexOf(type) >= 0) return 0.5;
+    // ---------- the combat maths (GDD Module 2.2) ----------
+    function elementMultiplier(type, target) {
+        if (target.immune && target.immune.indexOf(type) >= 0) return 0;
+        if (target.weak && target.weak.indexOf(type) >= 0) return 1.5;
+        if (target.resist && target.resist.indexOf(type) >= 0) return 0.5;
         return 1;
     }
-    // d20 + mod >= dc; nat 20 always passes, nat 1 always fails
-    function d20check(rng, mod, dc) {
+
+    // Raw = base * statMultiplier * abilityMultiplier * variance
+    // Net = Raw * elementMultiplier * (1 - Armor/(Armor+350))
+    function computeDamage(rng, opts) {
+        const variance = rf(rng, VARIANCE[0], VARIANCE[1]);
+        const raw = opts.base * (1 + (opts.statBonus || 0)) * (opts.abilityMultiplier || 1) * variance;
+        let armour = Math.max(0, opts.targetArmour || 0);
+        if (opts.piercing) armour *= 0.5;
+        if (opts.armourBreak) armour *= (1 - opts.armourBreak);
+        const mitigation = armourMitigation(armour);
+        let net = raw * (1 - mitigation) * (opts.elementMultiplier === undefined ? 1 : opts.elementMultiplier);
+        return { raw: raw, mitigation: mitigation, net: Math.max(0, net) };
+    }
+
+    // 85% base, shifted by the gap between the attacker's hit and the
+    // target's dodge. A roll that misses by less than ten points still
+    // lands, for half, and cannot crit.
+    function resolveSwing(rng, attackerHit, targetDodge) {
+        const threshold = clamp(BASE_HIT_CHANCE + (attackerHit - targetDodge), HIT_FLOOR, HIT_CEILING);
+        const roll = rng();
+        if (roll <= threshold) return { outcome: 'hit', roll: roll, threshold: threshold };
+        if (roll <= threshold + GLANCING_WINDOW) return { outcome: 'glancing', roll: roll, threshold: threshold };
+        return { outcome: 'miss', roll: roll, threshold: threshold };
+    }
+
+    function skillCheck(rng, attributeValue, difficulty) {
         const roll = ri(rng, 1, 20);
-        if (roll === 20) return { roll, mod, dc, pass: true, nat: true };
-        if (roll === 1) return { roll, mod, dc, pass: false, nat: true };
-        return { roll, mod, dc, pass: roll + mod >= dc, nat: false };
+        const total = roll + Math.floor(attributeValue / 2);
+        if (roll === 20) return { roll, total, difficulty, pass: true, critical: 'success' };
+        if (roll === 1) return { roll, total, difficulty, pass: false, critical: 'failure' };
+        return { roll, total, difficulty, pass: total >= difficulty, critical: null };
     }
 
-    // ---------- dialogue skills (GDD §1.4) ----------
-    function skillMod(p, skill) {
-        const a = p.attributes;
-        switch (skill) {
-            case 'abyssal_lore': return Math.floor(a.attunement / 4) + Math.floor(p.codex.length / 6);
-            case 'strength': return Math.floor(a.might / 4);
-            case 'bribe': return Math.floor(a.perception / 6) + (p.coin > 0 ? Math.floor(Math.log10(p.coin)) : 0);
-            case 'intimidate': return Math.floor(Math.max(a.might, a.attunement) / 5) + p.notoriety;
-            default: return 0;
-        }
-    }
-
-    // ---------- sanity (GDD §2.6) ----------
     function sanityLoss(p, base) {
-        let loss = base * (1 - p.attributes.attunement / 150);
-        loss *= (1 - Math.min(0.8, skillEffect(p, 'sanityWard')));
-        if (p.faction === 'dredgers') loss *= (1 - D.factions.dredgers.bonus.sanityPct);
+        const resist = clamp(sanityResist(p) / 100, 0, 0.75);
+        let loss = base * (1 - resist) * (1 - clamp(passive(p, 'sanityWard'), 0, 0.8));
+        if (p.faction === 'dredgers') loss *= (1 + D.factions.dredgers.bonus.sanityLossPct);
         return Math.max(0, Math.round(loss));
     }
-    function sanityPct(p) { return p.vitals.sanity / maxSanity(p); }
     function sanityTier(p) {
-        const pct = sanityPct(p);
-        if (p.vitals.sanity <= 0) return 4;
-        if (pct < 0.15) return 3;
-        if (pct < 0.40) return 2;
-        if (pct < 0.70) return 1;
-        return 0;
+        const s = p.vitals.sanity;
+        if (s <= 0) return 'panic';
+        if (s < SANITY_ILLUSION) return 'illusions';
+        if (s < 50) return 'fraying';
+        if (s < 75) return 'uneasy';
+        return 'steady';
     }
-    const SANITY_LABEL = ['steady', 'whispers', 'seeing things', 'the Tide is talking', 'recruited'];
 
-    // ---------- the clock (GDD §4.4) ----------
-    function timeOfDay(p) { return TIME_OF_DAY[p.clock.tick % TICKS_PER_DAY]; }
-    function tidePhase(p) { return TIDE_PHASE[Math.floor(p.clock.tick / 2) % 4]; }
-    function isNight(p) { const t = timeOfDay(p); return t === 'night' || t === 'deep night' || t === 'witching'; }
-    function tidePull(p) {
-        const t = tidePhase(p);
-        return t === 'high' ? 1.25 : t === 'low' ? 0.95 : 1.1;
+    // ---------- item generation (GDD Module 4 & 5) ----------
+    function rollRarity(rng, bias) {
+        // bias shifts the roll up the ladder: forge quality, Trophy rank,
+        // dungeon depth all push toward the coloured end
+        const pool = D.rarities.filter(r => !r.cursed);
+        const chosen = weighted(rng, pool, r => r.weight * (1 + (bias || 0) * (D.rarities.indexOf(r) / 2)));
+        return chosen;
     }
-    function leviathanTurns(p) { return timeOfDay(p) === 'witching' && tidePhase(p) === 'high'; }
 
-    // ---------- items (GDD §4.2, §6.3) ----------
-    function makeItem(g, recipe, quality) {
-        const rng = g.rng, p = g.p;
-        quality = clamp(Math.round(quality), 0, 6);
-        const rarity = quality <= 1 ? 'cursed' : quality <= 4 ? 'standard' : 'masterwork';
-        let affixCount = rarity === 'cursed' ? 1 : rarity === 'masterwork' ? 3 : Math.max(0, quality - 1);
-        let socketCount = rarity === 'cursed' ? 0 : rarity === 'masterwork' ? 2 : (quality >= 3 ? 1 : 0);
-        if (socketCount > 0) socketCount = Math.min(3, socketCount + skillEffect(p, 'sockets'));
+    function rollAffix(rng, pool, slot, tier, budget) {
+        const legal = pool.filter(a => a.slots.indexOf(slot) >= 0);
+        if (!legal.length) return null;
+        const a = pick(rng, legal);
+        const roll = rf(rng, a.min, a.max);
+        const tierScale = 0.45 + tier * 0.11;          // a tier-1 affix is not a tier-5 affix
+        const value = a.pct
+            ? Math.round(roll * budget * tierScale * 1000) / 1000
+            : Math.max(1, Math.round(roll * budget * tierScale));
+        return { id: a.id, name: a.name, stat: a.stat, value: value, pct: !!a.pct };
+    }
 
-        const scale = 0.85 + quality * 0.06;
-        const baseStats = {};
+    function nameItem(baseName, affixes) {
+        const pre = (affixes.prefix || [])[0];
+        const suf = (affixes.suffix || [])[0];
+        return (pre ? pre.name + ' ' : '') + baseName + (suf ? ' ' + suf.name : '');
+    }
+
+    function makeItem(g, recipe, opts) {
+        const rng = g.rng, o = opts || {};
+        const band = o.qualityScore === undefined ? bandFor(60) : bandFor(o.qualityScore);
+        let rarity = o.rarity || rollRarity(rng, o.rarityBias || 0);
+        // a piece you forged well cannot come off the anvil Common: the
+        // quality band sets a floor and the roll may still beat it
+        if (o.forged && !rarity.cursed) {
+            const floorId = { defective: 'common', standard: 'sturdy', masterwork: 'abyssal_rare', abyssal_forged: 'dread_epic' }[band.id];
+            const floor = rarityById(floorId);
+            if (floor && D.rarities.indexOf(floor) > D.rarities.indexOf(rarity)) rarity = floor;
+        }
+        const material = materialById(o.materialId) || D.materials.find(m => m.tier === recipe.tier) || D.materials[0];
+
+        const statMult = band.statMultiplier * rarity.budget * (material.statScale || 1) / 1.0;
+        const base_stats = {};
         for (const k in recipe.base) {
-            baseStats[k] = k === 'penetration' ? recipe.base[k] : Math.max(1, Math.round(recipe.base[k] * scale));
-        }
-        for (const k in (recipe.grants || {})) baseStats[k] = (baseStats[k] || 0) + recipe.grants[k];
-
-        const pool = D.affixes.filter(a => a.slots.indexOf(recipe.slot) >= 0);
-        const affixes = [];
-        for (let i = 0; i < affixCount && pool.length; i++) {
-            const a = pool[Math.floor(rng() * pool.length)];
-            if (affixes.some(x => x.id === a.id)) { i--; if (affixes.length >= pool.length) break; continue; }
-            // a Cursed piece rolls its one affix at Masterwork strength
-            const roll = rarity === 'cursed' ? a.max : ri(rng, a.min, a.max);
-            // affixes are a fraction of the item, not a second item: a tier-1
-            // vest must not out-armour its own base plate
-            const tierScale = a.stat === 'durability' ? 1 : (0.20 + recipe.tier * 0.16);
-            affixes.push({ id: a.id, name: a.name, stat: a.stat, value: Math.max(1, Math.round(roll * tierScale)), curse: false });
-        }
-        if (rarity === 'cursed') {
-            const c = pick(rng, D.curses);
-            affixes.push({ id: c.id, name: c.name, stat: c.stat, value: c.value, curse: true, text: c.text });
+            const v = recipe.base[k];
+            if (typeof v === 'boolean') { base_stats[k] = v; continue; }
+            base_stats[k] = k.endsWith('Pct') ? Math.round(v * statMult * 1000) / 1000 : Math.max(1, Math.round(v * statMult));
         }
 
+        const affixes = { prefix: [], suffix: [] };
+        const nPre = rarity.prefixes + (band.extraAffixes || 0);
+        for (let i = 0; i < nPre; i++) {
+            const a = rollAffix(rng, D.prefixes, recipe.slot, recipe.tier, rarity.budget);
+            if (a && !affixes.prefix.some(x => x.id === a.id)) affixes.prefix.push(a);
+        }
+        for (let i = 0; i < rarity.suffixes; i++) {
+            const a = rollAffix(rng, D.suffixes, recipe.slot, recipe.tier, rarity.budget);
+            if (a && !affixes.suffix.some(x => x.id === a.id)) affixes.suffix.push(a);
+        }
+
+        const socketRange = rarity.sockets;
+        const materialSockets = material.sockets || 0;
+        const socketCount = Math.min(3, ri(rng, socketRange[0], socketRange[1]) + (o.forged ? materialSockets : 0));
         const sockets = [];
-        for (let i = 0; i < socketCount; i++) sockets.push({ runeId: null });
-        const durMax = 60 + recipe.tier * 22 + skillEffect(p, 'durability');
-        const prefix = rarity === 'masterwork' ? 'Masterwork ' : rarity === 'cursed' ? 'Cursed ' : '';
+        for (let i = 0; i < socketCount; i++) sockets.push({ slot: i + 1, gem_id: null, bonus: null });
 
-        return {
-            $schema: 'echoes/item/1',
-            id: 'it_' + (g.itemSeq++).toString(36),
-            recipeId: recipe.id,
-            name: prefix + recipe.name,
-            slot: recipe.slot,
+        const durMax = Math.round((60 + recipe.tier * 30 + passive(g.p || { skills: {} }, 'durability')) * band.durabilityMultiplier);
+
+        const item = {
+            item_id: 'itm_' + (g.itemSeq++).toString(36),
+            recipe_id: recipe.id,
+            name: '',
+            rarity: rarity.id,
+            rarity_name: rarity.name,
+            rarity_colour: rarity.colour,
+            quality_band: band.id,
+            quality_score: o.qualityScore === undefined ? null : o.qualityScore,
             tier: recipe.tier,
-            rarity: rarity,
-            baseStats: baseStats,
-            damageType: recipe.damageType || null,
-            permanentKill: !!recipe.permanent,
-            sockets: sockets,
+            slot: recipe.slot,
+            heavy: !!recipe.heavy,
+            base_stats: base_stats,
+            damage_type: recipe.damageType || null,
+            piercing: !!recipe.base.piercing,
+            permanent_kill: !!recipe.permanentKill,
+            counters: recipe.counters || null,
             affixes: affixes,
+            sockets: sockets,
             durability: { current: durMax, max: durMax },
             weight: recipe.weight,
-            value: Math.round(recipe.value * (0.7 + quality * 0.12))
+            value: Math.round(recipe.value * rarity.budget * band.statMultiplier),
+            curse: null
         };
+        if (rarity.cursed) {
+            const c = pick(rng, D.curses);
+            item.curse = c.id;
+            item.name = c.name.replace('Cursed: ', '') + ' ' + recipe.name;
+        }
+        if (!item.name) item.name = nameItem(recipe.name, affixes);
+        return item;
     }
 
-    function canForge(p, recipe) {
-        for (const m in recipe.cost) if ((p.materials[m] || 0) < recipe.cost[m]) return false;
+    function canCraft(p, recipe) {
         if (recipe.faction && p.faction !== recipe.faction) return false;
+        if ((p.life_skills.smithing.level || 1) < (recipe.skill || 1)) return false;
+        for (const m in recipe.cost) if ((p.materials[m] || 0) < recipe.cost[m]) return false;
         return true;
     }
     function payFor(p, recipe) { for (const m in recipe.cost) p.materials[m] -= recipe.cost[m]; }
 
     function equip(g, item) {
         const p = g.p;
+        if (item.slot === 'off_hand' && p.level < 10) { log(g, 'the off-hand slot opens at level 10.', 'warn'); return false; }
         const old = p.equipment[item.slot];
         p.equipment[item.slot] = item;
         const idx = p.inventory.indexOf(item);
         if (idx >= 0) p.inventory.splice(idx, 1);
         if (old) p.inventory.push(old);
-        p.vitals.hp = Math.min(p.vitals.hp, maxHp(p));
-        p.vitals.stamina = Math.min(p.vitals.stamina, maxStamina(p));
-        p.vitals.sanity = Math.min(p.vitals.sanity, maxSanity(p));
-        log(g, `equipped ${item.name}.`);
+        clampVitals(p);
+        log(g, 'equipped ' + item.name + '.');
+        bus.emit('ITEM_EQUIPPED', item);
+        return true;
+    }
+    function clampVitals(p) {
+        p.vitals.max_hp = maxHp(p);
+        p.vitals.max_stamina = maxStamina(p);
+        p.vitals.max_marrow_mana = maxMarrow(p);
+        p.vitals.max_sanity = maxSanity(p);
+        p.vitals.hp = clamp(p.vitals.hp, 0, p.vitals.max_hp);
+        p.vitals.stamina = clamp(p.vitals.stamina, 0, p.vitals.max_stamina);
+        p.vitals.marrow_mana = clamp(p.vitals.marrow_mana, 0, p.vitals.max_marrow_mana);
+        p.vitals.sanity = clamp(p.vitals.sanity, 0, p.vitals.max_sanity);
     }
 
-    // ---------- the Drowned Lords (GDD §3) ----------
-    function makeLord(g, realm, rank) {
-        const rng = g.rng;
-        const c = pick(rng, D.lordCreatures);
-        const level = rank === 'overlord' ? 26
-            : rank === 'warlord' ? realm.tier * 4 + 1
-                : realm.tier * 4 - 1 + ri(rng, 0, 2);
-        return {
-            $schema: 'echoes/nemesis/1',
-            id: 'lord_' + (g.lordSeq++).toString(36),
+    // ---------- the Drowned Admiralty (GDD Module 3) ----------
+    const RANK_BY_TIER = tier => D.nemesisRanks.find(r => r.tier === tier) || D.nemesisRanks[0];
+    // roster entries are keyed by nemesis_id, not id — byId() would silently
+    // find nothing, and a Lord that never gets looked up never remembers
+    // anything that happened to it
+    const lordById = (roster, id) => roster.find(n => n.nemesis_id === id) || null;
+
+    // A Lord's profile is derived from its power index and its rank's
+    // multipliers. Pulled out and named because it is the hardest thing in
+    // the game to balance by eye — a Lord is a fight you are meant to lose
+    // sometimes, and the margin either side of that is narrow.
+    const NEMESIS_SCALE = { hpBase: 120, hpPerPower: 34, dmgBase: 6, dmgPerPower: 3.6, armBase: 25, armPerPower: 4 };
+    // Module 3's worked example puts a Deck Captain at 1850 hp / 85 damage /
+    // 180 armour against a level-12 diver with 532 hp. Those two numbers do
+    // not describe a fight — that captain kills the document's own example
+    // character in seven rounds and takes twenty-eight to die — so the shape
+    // of the formula is the document's and the constants are measured.
+
+    function lordDisplayName(n) { return n.title ? n.name + ', ' + n.title : n.name; }
+
+    function makeLord(g, opts) {
+        const rng = g.rng, o = opts || {};
+        const tier = o.tier === undefined ? 1 : o.tier;
+        const rank = RANK_BY_TIER(tier);
+        const creature = o.creature ? byId(D.lordCreatures, o.creature) : pick(rng, D.lordCreatures);
+        const realm = o.realm || pick(rng, D.realms).id;
+        const level = o.level || Math.max(2, realmById(realm).layer * 5 + ri(rng, -1, 2));
+        const faction = o.faction || pick(rng, ['syndicate_mutant', 'dredger_born', 'ash_touched', 'feral']);
+
+        const node = {
+            nemesis_id: 'nem_' + (g.lordSeq++).toString(36),
             name: pick(rng, D.lordNames.given),
-            epithet: pick(rng, D.lordNames.epithet),
-            title: null,
-            rank: rank,
-            rankProgress: 0,
-            realm: realm.id,
-            baseCreature: c.id,
+            title: rank.named ? pick(rng, D.lordNames.epithet) : null,
+            rank: rank.name,
+            tier: tier,
+            power_index: level + tier * 3,
+            faction_origin: faction,
+            current_zone: realm,
+            status: 'active',
+            base_creature: creature.id,
             level: level,
-            vitals: { maxHp: 0, hpMultiplier: 1, armourTier: rank === 'overlord' ? 3 : rank === 'warlord' ? 2 : 1 },
+            visual_traits: { scar: null, mutation: null, weapon: creature.weapon },
+            combat_profile: { max_hp: 0, current_hp: 0, base_damage: 0, armor: 0, speed: 10 },
+            traits: { immunities: [], enrage_triggers: [], vulnerabilities: [], phobias: [] },
             memories: [],
-            strengths: [c.damageType],
-            weaknesses: [],
-            scars: [],
-            traits: rank === 'overlord' ? ['ascendant'] : [],
-            warCry: pick(rng, D.warCry.opener) + ' ' + pick(rng, D.warCry.claim) + ' ' + pick(rng, D.warCry.threat),
-            taunts: [],
-            status: 'alive',
-            lastSeenDay: 0
+            grudge: 0,
+            dialogue_set: {
+                intro_encounter: pick(rng, D.lordDialogue.intro),
+                on_kill_player: pick(rng, D.lordDialogue.onKill),
+                on_flee: pick(rng, D.lordDialogue.onFlee)
+            }
         };
-    }
-
-    // 12 captains (3 per realm), 4 warlords (1 per realm), 1 Abyssal Overlord
-    function birthRoster(g) {
-        const roster = [];
-        for (const realm of D.realms) {
-            for (let i = 0; i < 3; i++) roster.push(makeLord(g, realm, 'captain'));
-            roster.push(makeLord(g, realm, 'warlord'));
+        // a rank's strengths are rolled at birth; its weaknesses are usually earned
+        for (let i = 0; i < (rank.strengths || 0); i++) {
+            const pool = i === 0 ? D.nemesisTraits.immunities.filter(t => !t.earned) : D.nemesisTraits.enrages;
+            const t = pick(rng, pool);
+            const bucket = i === 0 ? node.traits.immunities : node.traits.enrage_triggers;
+            if (bucket.indexOf(t.id) < 0) bucket.push(t.id);
         }
-        roster.push(makeLord(g, D.realms[D.realms.length - 1], 'overlord'));
-        return roster;
+        for (let i = 0; i < (rank.weaknesses || 0); i++) {
+            const t = pick(rng, D.nemesisTraits.vulnerabilities.filter(x => !x.earned));
+            if (t && node.traits.vulnerabilities.indexOf(t.id) < 0) node.traits.vulnerabilities.push(t.id);
+        }
+        refreshLordProfile(node);
+        return node;
     }
 
-    function lordName(n) {
-        return n.title ? `${n.name} ${n.epithet}, ${n.title}` : `${n.name} ${n.epithet}`;
-    }
-
-    function nemesisStats(n) {
-        const c = byId(D.lordCreatures, n.baseCreature) || D.lordCreatures[0];
-        const rk = RANKS[n.rank];
+    // the combat profile is derived, never stored by hand, so a mutation is
+    // one field change and a recomputation rather than six numbers to keep
+    // in step with each other
+    function refreshLordProfile(n) {
+        const c = byId(D.lordCreatures, n.base_creature) || D.lordCreatures[0];
+        const rank = D.nemesisRanks.find(r => r.name === n.rank) || D.nemesisRanks[0];
+        const power = n.power_index;
         const S = NEMESIS_SCALE;
-        const hp = Math.round((S.hpBase + n.level * S.hpPerLevel) * c.hp * n.vitals.hpMultiplier * S.rankHp[n.rank]);
-        const damage = Math.round((S.dmgBase + n.level * S.dmgPerLevel) * c.damage * S.rankDmg[n.rank]);
-        const armour = Math.round((S.armBase + n.level * S.armPerLevel) * c.armour + n.vitals.armourTier * S.armPerTier);
-        let finesse = c.finesse + Math.floor(n.level / 3) + (rk - 1) * 2;
-        if (n.traits.indexOf('bloated') >= 0) finesse -= 3;
-        const immune = [];
-        let physicalReduction = 0;
-        for (const s of n.scars) {
-            const sc = byId(D.scars, s.id);
-            if (!sc) continue;
-            if (sc.immuneTo) immune.push(sc.immuneTo);
-            if (sc.physicalReduction) physicalReduction += sc.physicalReduction;
+        const hp = Math.round((S.hpBase + power * S.hpPerPower) * c.hp * rank.hpMultiplier);
+        n.combat_profile = {
+            max_hp: hp,
+            current_hp: hp,
+            base_damage: Math.round((S.dmgBase + power * S.dmgPerPower) * c.damage * rank.damageMultiplier),
+            armor: Math.round((S.armBase + power * S.armPerPower) * c.armour),
+            speed: Math.round(10 + (c.dodge * 40) - (n.traits.vulnerabilities.indexOf('brittle_shell') >= 0 ? 1 : 0))
+        };
+        return n;
+    }
+
+    function lordToFoe(n) {
+        const c = byId(D.lordCreatures, n.base_creature) || D.lordCreatures[0];
+        const immune = [], resist = [], weak = [];
+        for (const id of n.traits.immunities) {
+            const t = byId(D.nemesisTraits.immunities, id);
+            if (t && t.immuneTo) for (const e of t.immuneTo) immune.push(e);
         }
-        // every scar costs 20% resistance to the other three elements
-        const backlash = n.scars.length * 0.20;
+        for (const id of n.traits.vulnerabilities) {
+            const t = byId(D.nemesisTraits.vulnerabilities, id);
+            if (t && t.element) weak.push(t.element);
+        }
         return {
-            id: n.id, nemesisId: n.id, name: lordName(n), level: n.level,
-            hp: hp, maxHp: hp, damage: damage, damageType: c.damageType,
-            armour: armour, finesse: Math.max(3, finesse),
-            weak: [], resist: n.scars.length ? [] : [c.damageType],
-            immune: immune, physicalReduction: physicalReduction, backlash: backlash,
-            traits: n.traits.slice(), rank: n.rank, lord: true,
-            penetrationVuln: n.traits.indexOf('plated') >= 0 ? 0.25 : 0,
-            grudge: n.traits.indexOf('grudge') >= 0 ? 0.15 : 0,
-            text: (byId(D.lordCreatures, n.baseCreature) || {}).text || ''
+            id: n.nemesis_id, nemesis_id: n.nemesis_id, lord: true,
+            name: lordDisplayName(n), level: n.level, rank: n.rank, tier: n.tier,
+            hp: n.combat_profile.max_hp, max_hp: n.combat_profile.max_hp,
+            damage: n.combat_profile.base_damage, damageType: c.damageType,
+            armour: n.combat_profile.armor,
+            hit: 0.08 + n.tier * 0.02, dodge: c.dodge,
+            weak: weak, resist: resist, immune: immune,
+            absorbs: n.traits.immunities.indexOf('abyssal_attuned') >= 0,
+            traits: n.traits, sanity: 4 + n.tier * 3,
+            xp: Math.round(400 * n.power_index * (0.6 + n.tier * 0.5)),
+            coin: Math.round(60 * n.power_index * (0.5 + n.tier * 0.4)),
+            drops: {}, text: c.text, intro: n.dialogue_set.intro_encounter
         };
     }
 
-    function remember(n, type, day, realm, detail) {
-        n.memories.push({ type: type, day: day, realm: realm, detail: detail });
-        if (n.memories.length > 30) n.memories.shift();
+    // ---------- nemesis lifecycle ----------
+    function remember(n, type, day, location, detail) {
+        n.memories.push({ event_type: type, timestamp_game_day: day, location: location, detail: detail });
+        if (n.memories.length > 40) n.memories.shift();
     }
-    function addTrait(n, id) {
-        if (n.traits.indexOf(id) >= 0) return;
-        n.traits.push(id);
-        const t = byId(D.traits, id);
-        if (t && t.weakness && n.weaknesses.indexOf(t.weakness) < 0) n.weaknesses.push(t.weakness);
+    function addTrait(n, bucket, id) {
+        if (n.traits[bucket].indexOf(id) < 0) n.traits[bucket].push(id);
+    }
+    function rosterCount(g, tier) { return g.roster.filter(n => n.tier === tier && n.status === 'active').length; }
+
+    // A nameless thing that kills a diver is a Deck Captain by morning.
+    function promoteOnKill(g, foe, deathType) {
+        const p = g.p;
+        let n = foe.nemesis_id ? lordById(g.roster, foe.nemesis_id) : null;
+
+        if (!n) {
+            // Tier 0 Brine Scum earns a seat, if there is one going
+            const rank = RANK_BY_TIER(1);
+            if (rosterCount(g, 1) >= rank.slots) {
+                const weakest = g.roster.filter(x => x.tier === 1 && x.status === 'active')
+                    .sort((a, b) => a.power_index - b.power_index)[0];
+                if (weakest) { weakest.status = 'retired'; remember(weakest, 'lost_seat', p.world_state.current_day, weakest.current_zone, 'shouldered out by a nameless one'); }
+            }
+            n = makeLord(g, { tier: 1, realm: p.realm, level: Math.max(2, p.level) });
+            n.title = D.earnedTitles['killed_by_' + deathType] || D.earnedTitles.killed_by_physical;
+            g.roster.push(n);
+            log(g, 'the thing that killed you has a name now: ' + lordDisplayName(n) + '.', 'bad');
+            bus.emit('NEMESIS_BORN', n);
+        } else {
+            n.power_index += 1;
+            if (!n.title || D.lordNames.epithet.indexOf(n.title) >= 0) {
+                n.title = D.earnedTitles['killed_by_' + deathType] || n.title;
+            }
+            n.visual_traits.mutation = n.visual_traits.mutation || 'chitin_armored_shoulder';
+            refreshLordProfile(n);
+            // three kills and it starts looking at the seat above it
+            const kills = n.memories.filter(m => m.event_type === 'killed_player').length;
+            if (kills >= 2) tryPromote(g, n);
+            log(g, lordDisplayName(n) + ' is stronger for having killed you.', 'bad');
+        }
+        n.grudge = Math.min(5, n.grudge + 1);
+        n.current_zone = p.realm;
+        remember(n, 'killed_player', p.world_state.current_day, p.realm, 'killed you by ' + deathType);
+        bus.emit('PLAYER_DIED', n.nemesis_id);
+        return n;
     }
 
-    // it killed you: a title, +20% max HP, an armour upgrade, and a new
-    // line for the next time
-    function lordKilledPlayer(g, n, deathType) {
-        if (!n.title) n.title = D.titles[deathType] || D.titles.physical;
-        n.vitals.hpMultiplier = Math.round(n.vitals.hpMultiplier * 1.2 * 100) / 100;
-        n.vitals.armourTier = Math.min(5, n.vitals.armourTier + 1);
-        const pool = D.taunts[deathType] || D.taunts.physical;
-        const line = pick(g.rng, pool);
-        if (n.taunts.indexOf(line) < 0) n.taunts.push(line);
-        if (n.vitals.hpMultiplier >= 1.4) addTrait(n, 'bloated');
-        if (n.vitals.armourTier >= 2) addTrait(n, 'plated');
-        addTrait(n, 'grudge');
-        n.rankProgress = Math.min(3, n.rankProgress + 1);
-        n.status = 'alive';
-        remember(n, 'killed_player', g.p.clock.day, n.realm, 'killed you by ' + deathType);
-        checkPromotion(g, n);
+    function tryPromote(g, n) {
+        const nextTier = n.tier + 1;
+        const rank = RANK_BY_TIER(nextTier);
+        if (!rank || nextTier > 3) return false;
+        const held = g.roster.filter(x => x.tier === nextTier && x.status === 'active');
+        if (held.length >= rank.slots) {
+            // take a seat off the weakest incumbent — who is demoted, not
+            // removed, and who now has something to be angry about
+            const incumbent = held.sort((a, b) => a.power_index - b.power_index)[0];
+            if (incumbent.power_index >= n.power_index) return false;
+            incumbent.tier = n.tier;
+            incumbent.rank = RANK_BY_TIER(n.tier).name;
+            incumbent.grudge = Math.min(5, incumbent.grudge + 2);
+            remember(incumbent, 'demoted', g.p.world_state.current_day, incumbent.current_zone, 'lost the seat to ' + lordDisplayName(n));
+            refreshLordProfile(incumbent);
+        }
+        n.tier = nextTier;
+        n.rank = rank.name;
+        n.power_index += 2;
+        for (let i = n.traits.immunities.length; i < (rank.strengths || 1); i++) {
+            const t = pick(g.rng, D.nemesisTraits.immunities.filter(x => !x.earned));
+            addTrait(n, 'immunities', t.id);
+        }
+        if (rank.enrages && !n.traits.enrage_triggers.length) {
+            addTrait(n, 'enrage_triggers', pick(g.rng, D.nemesisTraits.enrages).id);
+        }
+        refreshLordProfile(n);
+        remember(n, 'promoted', g.p.world_state.current_day, n.current_zone, 'took a ' + rank.name + ' seat');
+        log(g, lordDisplayName(n) + ' has been promoted to ' + rank.name + '.', 'bad');
+        bus.emit('NEMESIS_PROMOTED', n);
+        return true;
     }
 
     function lordSawYouRun(g, n) {
-        addTrait(n, 'tracker');
+        addTrait(n, 'vulnerabilities', 'coward_scent');
+        n.grudge = Math.min(5, n.grudge + 1);
         n.status = 'hunting';
-        remember(n, 'player_fled', g.p.clock.day, n.realm, 'you ran');
-        if (!n.title) n.title = D.titles.fled;
+        remember(n, 'player_fled', g.p.world_state.current_day, g.p.realm, 'you ran');
+        if (!n.title || D.lordNames.epithet.indexOf(n.title) >= 0) n.title = D.earnedTitles.player_fled;
+        bus.emit('PLAYER_FLED', n.nemesis_id);
     }
 
-    // survived a fight: if ≥30% of what it took was one element it may
-    // grow a scar against it — and lose ground against everything else
+    // it walked away from a fight: whatever nearly finished it becomes the
+    // thing it can no longer be finished by
     function lordSurvived(g, n, damageByType) {
-        let total = 0;
-        for (const k in damageByType) total += damageByType[k];
-        remember(n, 'survived', g.p.clock.day, n.realm, 'walked away from you');
-        if (total <= 0) return null;
-        for (const el of ELEMENTS) {
-            const share = (damageByType[el] || 0) / total;
-            if (share < 0.30) continue;
-            if (n.scars.some(s => s.immuneTo === el)) continue;
-            const odds = Math.min(0.65, 0.25 + 0.1 * RANKS[n.rank]);
-            if (!chance(g.rng, odds)) continue;
-            const scar = D.scars.find(s => s.immuneTo === el) || byId(D.scars, 'barnacled');
-            if (!scar) continue;
-            // the flesh runs out: a third scar overwrites the first
-            if (n.scars.length >= 2) n.scars.shift();
-            n.scars.push({ id: scar.id, immuneTo: scar.immuneTo });
-            n.weaknesses.push('scarred: −20% resistance to everything but ' + el);
-            remember(n, 'wounded', g.p.clock.day, n.realm, 'grew ' + scar.name);
-            return scar;
+        let total = 0, top = null, topV = 0;
+        for (const k in damageByType) { total += damageByType[k]; if (damageByType[k] > topV) { topV = damageByType[k]; top = k; } }
+        remember(n, 'survived_encounter', g.p.world_state.current_day, n.current_zone, 'walked away from you');
+        n.grudge = Math.min(5, n.grudge + 1);
+        if (!total || !top || topV / total < 0.30) return null;
+
+        if (top === 'burn' && n.traits.immunities.indexOf('pyre_scarred') < 0) {
+            addTrait(n, 'immunities', 'pyre_scarred');
+            n.visual_traits.scar = 'burned_to_the_bone';
+            if (!n.title || D.lordNames.epithet.indexOf(n.title) >= 0) n.title = D.earnedTitles.survived_fire;
+            // burned once, and it may never stand for it again
+            if (chance(g.rng, 0.40)) addTrait(n, 'phobias', 'fear_of_ash_fire');
+            remember(n, 'survived_fire', g.p.world_state.current_day, n.current_zone, 'gained Pyre-Scarred');
+            refreshLordProfile(n);
+            return byId(D.nemesisTraits.immunities, 'pyre_scarred');
+        }
+        if ((top === 'physical' || top === 'crush') && n.traits.vulnerabilities.indexOf('one_eyed') < 0 && chance(g.rng, 0.45)) {
+            addTrait(n, 'vulnerabilities', 'one_eyed');
+            n.visual_traits.scar = 'blind_left_eye';
+            if (!n.title || D.lordNames.epithet.indexOf(n.title) >= 0) n.title = D.earnedTitles.lost_an_eye;
+            remember(n, 'lost_an_eye', g.p.world_state.current_day, n.current_zone, 'lost an eye to you');
+            refreshLordProfile(n);
+            return byId(D.nemesisTraits.vulnerabilities, 'one_eyed');
+        }
+        if (chance(g.rng, 0.35)) {
+            const t = pick(g.rng, D.nemesisTraits.vulnerabilities.filter(x => !x.earned));
+            if (t && n.traits.vulnerabilities.indexOf(t.id) < 0) {
+                addTrait(n, 'vulnerabilities', t.id);
+                remember(n, 'wounded', g.p.world_state.current_day, n.current_zone, 'gained ' + t.name);
+                refreshLordProfile(n);
+                return t;
+            }
         }
         return null;
     }
 
-    // a kill only sticks if it was permanent: an Inquisitor pyre, a
-    // Dredger unmaking, or a Leviathan-bone edge through the neck
-    function killMethodIsPermanent(g, damageType) {
-        const p = g.p;
-        const weapon = p.equipment.mainHand;
-        if (weapon && weapon.permanentKill) return true;
-        if (p.faction === 'inquisitors' && damageType === 'burn') return true;
-        if (p.faction === 'dredgers' && damageType === 'abyssal') return true;
-        return false;
-    }
-
-    function lordDefeated(g, n, damageType) {
-        if (killMethodIsPermanent(g, damageType)) {
+    function lordDefeated(g, n, killingDamageType) {
+        const weapon = g.p.equipment.main_hand;
+        const permanent = (weapon && weapon.permanent_kill)
+            || (g.p.faction === 'inquisitors' && killingDamageType === 'burn')
+            || (g.p.faction === 'dredgers' && killingDamageType === 'abyssal');
+        if (permanent) {
             n.status = 'dead';
-            g.p.notoriety++;
-            remember(n, 'killed_player', g.p.clock.day, n.realm, 'you ended it properly');
-            log(g, `${lordName(n)} is dead, and stays dead.`, 'good');
+            g.p.stats.lords_ended++;
+            remember(n, 'killed_permanently', g.p.world_state.current_day, n.current_zone, 'you ended it properly');
+            log(g, lordDisplayName(n) + ' is dead, and stays dead.', 'good');
             achieve('echoes-lord');
+            bus.emit('NEMESIS_KILLED', n);
             return 'dead';
         }
-        const order = ['captain', 'warlord', 'overlord'];
-        const idx = order.indexOf(n.rank);
-        if (idx > 0) { n.rank = order[idx - 1]; remember(n, 'demoted', g.p.clock.day, n.realm, 'you put it down a rank'); }
-        addTrait(n, 'poorly_drowned');
-        n.vitals.hpMultiplier = Math.max(0.7, n.vitals.hpMultiplier * 0.85);
-        n.rankProgress = 0;
-        n.status = 'alive';
-        log(g, `${lordName(n)} goes under. It does not stay under.`, 'warn');
+        if (n.tier > 0) {
+            n.tier -= 1;
+            n.rank = RANK_BY_TIER(n.tier).name;
+        }
+        n.power_index = Math.max(1, n.power_index - 2);
+        n.grudge = Math.min(5, n.grudge + 2);
+        n.status = 'active';
+        refreshLordProfile(n);
+        remember(n, 'poorly_drowned', g.p.world_state.current_day, n.current_zone, 'you put it down and it did not take');
+        log(g, lordDisplayName(n) + ' goes under. It does not stay under.', 'warn');
         return 'poorly_drowned';
     }
 
-    function checkPromotion(g, n) {
-        if (n.rank !== 'captain' || n.rankProgress < 3) return;
-        const seat = g.roster.find(x => x.rank === 'warlord' && x.realm === n.realm && x.status !== 'dead');
-        n.rank = 'warlord';
-        n.rankProgress = 0;
-        addTrait(n, 'ascendant');
-        remember(n, 'promoted', g.p.clock.day, n.realm, 'took a Warlord seat');
-        log(g, `${lordName(n)} has taken a Warlord seat in ${realmById(n.realm).name}.`, 'bad');
-        if (seat) {
-            seat.rank = 'captain';
-            addTrait(seat, 'grudge');
-            remember(seat, 'demoted', g.p.clock.day, seat.realm, 'lost the seat to ' + lordName(n));
+    // P(ambush) = base + grudge*step + coward-scent bonus, capped
+    function ambushChance(g, n) {
+        let p = AMBUSH_BASE + AMBUSH_PER_GRUDGE * (n.grudge || 0);
+        if (n.traits.vulnerabilities.indexOf('coward_scent') >= 0) {
+            p += byId(D.nemesisTraits.vulnerabilities, 'coward_scent').ambushBonus;
         }
+        for (const slot of SLOTS) {
+            const it = g.p.equipment[slot];
+            if (it && it.curse) p += curseEffect(g.p, 'ambushChancePct') > 0 ? 0 : 0;
+        }
+        p += Math.max(0, curseEffect(g.p, 'ambushChancePct'));
+        if (n.status === 'hunting') p += 0.08;
+        return clamp(p, 0, AMBUSH_CAP);
+    }
+    function lordsIn(g, realmId) { return g.roster.filter(n => n.current_zone === realmId && n.status !== 'dead' && n.status !== 'retired'); }
+    function rollAmbush(g, realmId) {
+        const here = lordsIn(g, realmId);
+        for (const n of here.sort((a, b) => b.grudge - a.grudge)) {
+            if (chance(g.rng, ambushChance(g, n))) return n;
+        }
+        return null;
     }
 
-    // five quiet days is progress toward a seat
-    function rosterDayPasses(g) {
-        for (const n of g.roster) {
-            if (n.status === 'dead') continue;
-            if (g.p.clock.day - n.lastSeenDay >= 5) {
-                n.lastSeenDay = g.p.clock.day;
-                n.rankProgress = Math.min(3, n.rankProgress + 1);
-                if (n.rank === 'captain' && n.rankProgress >= 3) checkPromotion(g, n);
-            }
+    // the admiralty is generated at new-game and the seats stay filled
+    function birthAdmiralty(g) {
+        const roster = [];
+        const seed = { g: g, roster: roster };
+        for (const realm of D.realms) {
+            for (let i = 0; i < 3; i++) roster.push(makeLord(g, { tier: 1, realm: realm.id }));
         }
-    }
-
-    function lordsIn(g, realmId) {
-        return g.roster.filter(n => n.realm === realmId && n.status !== 'dead');
-    }
-    function trackersIn(g, realmId) {
-        return lordsIn(g, realmId).filter(n => n.traits.indexOf('tracker') >= 0);
+        for (const realm of D.realms) roster.push(makeLord(g, { tier: 2, realm: realm.id }));
+        roster.push(makeLord(g, { tier: 3, realm: 'drowned_spire', level: 30 }));
+        return roster;
     }
 
     // ---------- logging ----------
@@ -566,310 +755,507 @@
     function fightLog(g, text, kind) {
         if (!g.fight) return;
         g.fight.log.unshift({ text: text, kind: kind || '' });
-        if (g.fight.log.length > 40) g.fight.log.pop();
+        if (g.fight.log.length > 60) g.fight.log.pop();
     }
     function achieve(id) { try { if (window.unlockAchievement) unlockAchievement(id); } catch (e) { } }
     function sound(name) { try { if (window.playSound) playSound(name); } catch (e) { } }
 
-    // ---------- the clock ----------
-    function advanceClock(g, ticks) {
-        const p = g.p;
-        for (let i = 0; i < (ticks || 1); i++) {
-            p.clock.tick++;
-            if (p.clock.tick >= TICKS_PER_DAY) {
-                p.clock.tick = 0;
-                p.clock.day++;
-                rosterDayPasses(g);
-            }
-        }
-        const realm = realmById(p.realm);
-        if (realm && realm.sanityDrain && pressureRating(p) < realm.pressure) {
-            const bite = sanityLoss(p, realm.sanityDrain * 2);
-            p.vitals.sanity -= bite;
-            log(g, `the pressure gets in. −${bite} sanity.`, 'bad');
-        }
-        checkSanityFloor(g);
-    }
-
-    function checkSanityFloor(g) {
-        const p = g.p;
-        if (p.vitals.sanity > 0) return false;
-        p.vitals.sanity = 0;
-        endRun(g, 'recruited');
-        return true;
-    }
-
-    // ---------- weapons ----------
-    function weaponOf(p) {
-        const w = p.equipment.mainHand;
-        if (!w) return { base: 5, type: 'physical', crit: 0, pen: 0, name: 'bare hands' };
+    // ---------- foes ----------
+    function foeFromTemplate(tpl, statMultiplier) {
+        const m = statMultiplier || 1;
+        const hp = Math.round((tpl.total_hp || tpl.hp) * m);
         return {
-            base: itemStat(w, 'damage') + itemStat(p.equipment.offHand, 'damage'),
-            type: w.damageType || 'physical',
-            crit: gearStat(p, 'critRating'),
-            pen: (w.baseStats && w.baseStats.penetration) || 0,
-            name: w.name
-        };
-    }
-    function statFor(p, type) {
-        if (type === 'abyssal') return p.attributes.attunement;
-        if (type === 'bleed') return p.attributes.finesse;
-        return p.attributes.might;
-    }
-    function factionDamageMult(p, type) {
-        let m = 1;
-        if (p.faction === 'dredgers' && type === 'abyssal') m += D.factions.dredgers.bonus.abyssalPct;
-        if (p.faction === 'inquisitors' && type === 'burn') m += D.factions.inquisitors.bonus.burnPct;
-        return m;
-    }
-
-    // ---------- fights ----------
-    function foeFromTemplate(tpl, bump) {
-        const b = bump || 0;
-        const hp = Math.round(tpl.hp * (1 + 0.26 * b));
-        return {
-            id: tpl.id, name: tpl.name, level: tpl.level + b * 2,
-            hp: hp, maxHp: hp,
-            damage: Math.round(tpl.damage * (1 + 0.20 * b)),
+            id: tpl.id, name: tpl.name, level: tpl.level,
+            hp: hp, max_hp: hp,
+            damage: Math.round(tpl.damage * m),
             damageType: tpl.damageType,
-            armour: Math.round(tpl.armour * (1 + 0.14 * b)),
-            finesse: tpl.finesse,
+            armour: Math.round(tpl.armour * m),
+            hit: tpl.hit || 0.08, dodge: tpl.dodge || 0.05,
             weak: (tpl.weak || []).slice(), resist: (tpl.resist || []).slice(), immune: [],
-            physicalReduction: 0, backlash: 0, traits: [], sanity: tpl.sanity || 0,
-            xp: tpl.xp, coin: tpl.coin, drops: tpl.drops || {},
-            phases: tpl.phases || null, boss: !!tpl.phases, intro: tpl.intro || '',
-            codex: tpl.codex || null, text: tpl.text || ''
+            sanity: tpl.sanity || 0,
+            xp: Math.round((tpl.xp || 50) * m), coin: Math.round((tpl.coin || 10) * m),
+            drops: tpl.drops || {},
+            phases: tpl.phases || null, phase: 0,
+            intro: tpl.intro || '', text: tpl.text || '',
+            codex: tpl.codex || null,
+            boss: !!tpl.phases,
+            add: !!tpl.add, heals_owner_pct: tpl.heals_owner_pct || 0,
+            traits: { immunities: [], enrage_triggers: [], vulnerabilities: [], phobias: [] },
+            enraged: false, cower: 0, armourBreak: 0, armourBreakTurns: 0
         };
     }
 
-    function startFight(g, foe, context) {
+    function startFight(g, foes, context) {
+        const list = Array.isArray(foes) ? foes : [foes];
         g.fight = {
-            foe: foe,
-            round: 1,
-            log: [],
-            dots: { bleed: 0, burn: 0, bleedLeft: 0, burnLeft: 0 },
-            foeDots: { bleed: 0, burn: 0, bleedLeft: 0, burnLeft: 0 },
-            foeStun: 0,
-            guard: false,
-            over: false,
-            result: null,
-            damageByType: {},
-            phaseIdx: 0,
-            effects: { dodgeMult: 1, damageMult: 1, staminaMult: 1, burnPerRound: 0, deadmans: 0, noAttack: false, drownAt: 0 },
+            foes: list, target: 0, round: 1, log: [],
+            barrier: 0, playerDots: [], cooldowns: {},
+            over: false, result: null, damageByType: {},
+            arena: { flooded: false, radiation: false, dodgeMult: 1, enrageStacks: 0, singularity: 0, harpoonsUsed: false, telegraph: null },
             context: context || 'field'
         };
-        if (foe.intro) fightLog(g, foe.intro, 'lore');
-        if (foe.lord) {
-            const n = byId(g.roster, foe.nemesisId);
-            if (n) {
-                n.lastSeenDay = g.p.clock.day;
-                fightLog(g, '"' + n.warCry + '"', 'cry');
-                if (n.taunts.length) fightLog(g, '"' + pick(g.rng, n.taunts) + '"', 'cry');
-            }
+        for (const f of list) {
+            if (f.intro) fightLog(g, f.intro, 'lore');
+            if (f.phases) enterPhase(g, f, 0);
         }
-        g.screen = 'fight';
+        g.screen = 'combat';
+        bus.emit('COMBAT_STARTED', { foes: list, context: context });
         sound('navigate');
-        // every caller reaches a fight from a different screen, and more than
-        // one of them used to return without drawing it — which left the
-        // dungeon showing a resolved node that no longer answered clicks
         render(g);
     }
 
-    function foeElementMult(foe, type) {
-        let mult = elementMult(type, foe);
-        if (mult > 0 && foe.backlash && (foe.immune || []).indexOf(type) < 0) mult *= (1 + foe.backlash);
-        if (type === 'physical' && foe.physicalReduction) mult *= (1 - foe.physicalReduction);
-        return mult;
+    function enterPhase(g, foe, index) {
+        const ph = foe.phases[index];
+        if (!ph) return;
+        foe.phase = index;
+        foe.passiveArmourPct = ph.passive_armor_pct ? ph.passive_armor_pct / 100 : 0;
+        if (index > 0) fightLog(g, '— ' + (ph.text || 'It changes.') + ' —', 'phase');
+        const mech = ph.mechanics || [];
+        if (mech.indexOf('sanity_toll') >= 0 && ph.sanity_hit) {
+            const bite = sanityLoss(g.p, ph.sanity_hit);
+            g.p.vitals.sanity -= bite;
+            fightLog(g, '−' + bite + ' sanity.', 'bad');
+        }
+        if (ph.on_enter === 'flood' || ph.on_phase_end_event === 'collapse_floor_fill_water') {
+            g.fight.arena.flooded = true;
+            g.fight.arena.dodgeMult = 0.5;
+            g.fight.playerDots = g.fight.playerDots.filter(d => d.type !== 'burn');
+            fightLog(g, 'the floor gives and the arena fills. Dodge is halved and every fire on you goes out.', 'phase');
+        }
+        if (ph.on_enter === 'radiation') {
+            g.fight.arena.radiation = true;
+            fightLog(g, 'the light comes up through the floor. Healing is going to be worth a lot less from here.', 'phase');
+        }
+        if (mech.indexOf('void_singularity') >= 0) {
+            g.fight.arena.singularity = ph.singularity_turns || 6;
+            fightLog(g, 'a hole opens in the middle of the floor. ' + g.fight.arena.singularity + ' turns before it has you.', 'bad');
+        }
     }
 
-    function dealToFoe(g, amount, type, label, pierced) {
-        const f = g.fight, foe = f.foe;
-        let mult = foeElementMult(foe, type);
-        if (pierced && foe.penetrationVuln) mult *= (1 + foe.penetrationVuln);
+    function checkPhases(g, foe) {
+        if (!foe.phases) return;
+        const pct = (foe.hp / foe.max_hp) * 100;
+        for (let i = foe.phase + 1; i < foe.phases.length; i++) {
+            if (pct <= foe.phases[i].hp_threshold_pct) enterPhase(g, foe, i);
+        }
+    }
+
+    function foeArmour(foe) {
+        let a = foe.armour * (1 + (foe.passiveArmourPct || 0));
+        if (foe.armourBreakTurns > 0) a *= (1 - foe.armourBreak);
+        if (foe.enraged) {
+            const e = byId(D.nemesisTraits.enrages, 'blood_frenzy');
+            if (foe.traits.enrage_triggers.indexOf('blood_frenzy') >= 0) a *= Math.max(0, 1 + e.armourPct);
+        }
+        return Math.max(0, a);
+    }
+
+    function applyDamageToFoe(g, foe, amount, type, label, opts) {
+        const o = opts || {};
+        let mult = elementMultiplier(type, foe);
+        // Abyssal Attuned absorbs magic and turns it into health
+        if (foe.absorbs && (type === 'abyssal')) {
+            const absorbed = Math.round(amount * 0.75);
+            foe.hp = Math.min(foe.max_hp, foe.hp + absorbed);
+            fightLog(g, label + ' — it drinks it. +' + absorbed + ' to ' + foe.name + '.', 'bad');
+            return 0;
+        }
+        if (foe.traits.vulnerabilities.indexOf('one_eyed') >= 0 && o.flank) mult *= 1.5;
         const dealt = Math.max(0, Math.round(amount * mult));
         foe.hp -= dealt;
-        f.damageByType[type] = (f.damageByType[type] || 0) + dealt;
-        if (mult === 0) fightLog(g, `${label} — it is immune. nothing.`, 'bad');
-        else if (mult >= 1.4) fightLog(g, `${label} for ${dealt}. it is weak to that.`, 'good');
-        else if (mult <= 0.6) fightLog(g, `${label} for ${dealt}. it barely notices.`, 'warn');
-        else fightLog(g, `${label} for ${dealt}.`);
-        const leech = skillEffect(g.p, 'leechPct');
-        if (type === 'abyssal' && leech > 0 && dealt > 0) {
-            const heal = Math.max(1, Math.round(dealt * leech));
-            g.p.vitals.hp = Math.min(maxHp(g.p), g.p.vitals.hp + heal);
-            fightLog(g, `the tide gives ${heal} of it back to you.`, 'good');
+        g.fight.damageByType[type] = (g.fight.damageByType[type] || 0) + dealt;
+        if (mult === 0) fightLog(g, label + ' — immune. Nothing.', 'bad');
+        else if (mult >= 1.4) fightLog(g, label + ' for ' + dealt + '. It is weak to that.', 'good');
+        else if (mult <= 0.6) fightLog(g, label + ' for ' + dealt + '. It barely notices.', 'warn');
+        else fightLog(g, label + ' for ' + dealt + '.');
+
+        // Brittle Shell: crushing strips armour faster
+        if (type === 'crush' && foe.traits.vulnerabilities.indexOf('brittle_shell') >= 0) {
+            foe.armourBreak = Math.min(0.8, (foe.armourBreak || 0) + 0.25);
+            foe.armourBreakTurns = 3;
+            fightLog(g, 'the shell cracks further.', 'good');
         }
-        checkPhase(g);
+        // phobias
+        if (type === 'burn' && foe.traits.phobias.indexOf('fear_of_ash_fire') >= 0 && foe.cower <= 0) {
+            foe.cower = byId(D.nemesisTraits.phobias, 'fear_of_ash_fire').cowerTurns;
+            fightLog(g, foe.name + ' has burned before. It will not stand for it again.', 'good');
+        }
+        // enrage triggers
+        if (!foe.enraged && foe.traits.enrage_triggers.indexOf('blood_frenzy') >= 0
+            && foe.hp / foe.max_hp <= byId(D.nemesisTraits.enrages, 'blood_frenzy').threshold) {
+            foe.enraged = true;
+            fightLog(g, foe.name + ' goes into a blood frenzy. It has stopped defending.', 'bad');
+        }
+        if (!foe.enraged && o.steam && foe.traits.enrage_triggers.indexOf('hate_of_steam') >= 0) {
+            foe.enraged = true;
+            fightLog(g, 'the steam lands, and ' + foe.name + ' loses whatever it had instead of a temper.', 'bad');
+        }
+        checkPhases(g, foe);
         return dealt;
     }
 
-    function checkPhase(g) {
-        const f = g.fight, foe = f.foe;
-        if (!foe.phases) return;
-        const pct = Math.max(0, foe.hp / foe.maxHp);
-        while (f.phaseIdx + 1 < foe.phases.length && pct <= foe.phases[f.phaseIdx + 1].at) {
-            f.phaseIdx++;
-            const ph = foe.phases[f.phaseIdx];
-            fightLog(g, `— ${ph.name} — ${ph.text}`, 'phase');
-            const e = ph.effect || {};
-            if (e.dodgeMult) f.effects.dodgeMult *= e.dodgeMult;
-            if (e.damageMult) f.effects.damageMult *= e.damageMult;
-            if (e.staminaMult) f.effects.staminaMult *= e.staminaMult;
-            if (e.burnPerRound) f.effects.burnPerRound += e.burnPerRound;
-            if (e.deadmans) f.effects.deadmans = e.deadmans;
-            if (e.extinguish) { f.dots.burn = 0; f.dots.burnLeft = 0; f.foeDots.burn = 0; f.foeDots.burnLeft = 0; }
-            if (e.sanityHit) {
-                const bite = sanityLoss(g.p, e.sanityHit);
-                g.p.vitals.sanity -= bite;
-                fightLog(g, `−${bite} sanity.`, 'bad');
-            }
-            if (e.unequip) {
-                for (const slot of e.unequip) {
-                    const it = g.p.equipment[slot];
-                    if (!it) continue;
-                    g.p.equipment[slot] = null;
-                    g.p.inventory.push(it);
-                    fightLog(g, `${it.name} tears free and is in your pack, not your hands.`, 'bad');
-                }
-            }
-            if (e.setHp) { g.p.vitals.hp = e.setHp; fightLog(g, 'the water reaches your mouth.', 'bad'); }
-            // "fought at 1 HP by design" only works if the thing stops
-            // swinging: the last phase is a race against the water, and the
-            // water is the one with the clock
-            if (e.noAttack) { f.effects.noAttack = true; f.effects.burnPerRound = 0; }
-            if (e.drownIn) {
-                f.effects.drownAt = f.round + e.drownIn;
-                fightLog(g, `${e.drownIn} rounds of air left.`, 'bad');
-            }
-        }
+    function weaponOf(p) {
+        const w = p.equipment.main_hand;
+        if (!w) return { base: 12, type: 'physical', piercing: false, name: 'bare hands', steam: false };
+        return {
+            base: itemStat(w, 'damage') + itemStat(w, 'flatDamage') + itemStat(p.equipment.off_hand, 'damage'),
+            type: w.damage_type || 'physical',
+            piercing: !!w.piercing,
+            name: w.name,
+            steam: (w.recipe_id || '').indexOf('steam') >= 0 || itemStat(w, 'mightAbilityPct') > 0
+        };
+    }
+    function statBonusFor(p, type) {
+        if (type === 'abyssal') return p.attributes.attunement * per('attunement').spellDamagePct + curseEffect(p, 'abyssalDamagePct');
+        if (type === 'burn') return p.attributes.might * per('might').physicalDamagePct
+            + (p.faction === 'inquisitors' ? D.factions.inquisitors.bonus.burnDamagePct : 0)
+            + gearStat(p, 'burnDamagePct');
+        return p.attributes.might * per('might').physicalDamagePct + curseEffect(p, 'physicalDamagePct');
     }
 
-    function staminaCost(g, base) { return Math.max(1, Math.round(base * g.fight.effects.staminaMult)) + (sanityTier(g.p) >= 3 ? 1 : 0); }
+    const STRIKE_STAMINA = 8;
 
-    function playerAction(g, kind) {
+    function livingFoes(g) { return g.fight.foes.filter(f => f.hp > 0); }
+    function currentTarget(g) {
+        const alive = livingFoes(g);
+        if (!alive.length) return null;
+        const t = g.fight.foes[g.fight.target];
+        return (t && t.hp > 0) ? t : alive[0];
+    }
+
+    function canUseSkill(g, nodeId) {
+        const p = g.p, node = skillNode(nodeId);
+        if (!node || node.type !== 'active') return { ok: false, why: 'not an active skill' };
+        if (rankOf(p, nodeId) < 1) return { ok: false, why: 'not learned' };
+        if (!tierUnlocked(p, node.tier)) return { ok: false, why: 'tier ' + node.tier + ' unlocks at level ' + D.tierLevel[node.tier] };
+        if ((g.fight.cooldowns[nodeId] || 0) > 0) return { ok: false, why: g.fight.cooldowns[nodeId] + ' turns of cooldown left' };
+        const c = node.cost || {};
+        if ((c.stamina || 0) > p.vitals.stamina) return { ok: false, why: 'needs ' + c.stamina + ' stamina' };
+        if ((c.marrow || 0) > p.vitals.marrow_mana) return { ok: false, why: 'needs ' + c.marrow + ' marrow' };
+        if ((c.sanity || 0) > p.vitals.sanity) return { ok: false, why: 'needs ' + c.sanity + ' sanity' };
+        return { ok: true, node: node };
+    }
+
+    function payCost(p, node) {
+        const c = node.cost || {};
+        p.vitals.stamina -= (c.stamina || 0);
+        p.vitals.marrow_mana -= (c.marrow || 0);
+        p.vitals.sanity -= (c.sanity || 0);
+    }
+
+    function playerStrike(g, opts) {
+        const o = opts || {}, p = g.p, rng = g.rng, f = g.fight;
+        const foe = o.foe || currentTarget(g);
+        if (!foe) return;
+        const w = o.weapon || weaponOf(p);
+        const type = o.damageType || w.type;
+
+        const swing = resolveSwing(rng, hitRating(p), foe.dodge * f.arena.dodgeMult);
+        if (swing.outcome === 'miss') { fightLog(g, (o.label || w.name) + ' goes through water.', 'warn'); return; }
+
+        const r = computeDamage(rng, {
+            base: w.base,
+            statBonus: statBonusFor(p, type),
+            abilityMultiplier: o.abilityMultiplier || 1,
+            targetArmour: foeArmour(foe),
+            piercing: o.piercing || w.piercing,
+            elementMultiplier: 1
+        });
+        let dmg = r.net;
+        let label = o.label || (w.name + ' hits');
+
+        if (swing.outcome === 'glancing') {
+            dmg *= GLANCING_MULTIPLIER;
+            label = (o.label || w.name) + ' catches it a glancing blow';
+        } else if (o.alwaysCrit || chance(rng, critChance(p))) {
+            dmg *= critMultiplier(p);
+            label = (o.label || w.name) + ' lands clean —';
+        }
+        if (o.execute && foe.hp / foe.max_hp <= o.execute.belowHpPct) {
+            dmg *= o.execute.multiplier;
+            label = (o.label || w.name) + ' finds the thing under the ribs —';
+        }
+
+        const dealt = applyDamageToFoe(g, foe, dmg, type, label, { steam: w.steam || o.steam, flank: o.flank });
+
+        // marrow leech
+        const leech = gearStat(p, 'marrowLeechPct');
+        if (leech > 0 && dealt > 0) {
+            const gain = Math.max(1, Math.round(dealt * leech));
+            p.vitals.marrow_mana = Math.min(p.vitals.max_marrow_mana, p.vitals.marrow_mana + gain);
+        }
+        // bleed rider from a Serrated prefix or a Crimson Marrow rune
+        const bleed = gearStat(p, 'bleedOnHit');
+        if (bleed > 0 && dealt > 0 && elementMultiplier('bleed', foe) > 0) {
+            addFoeDot(g, foe, { id: 'bleed', name: 'bleeding', type: 'bleed', perTurn: bleed, turns: 3 });
+        }
+        // a Sun Shard is what a phobia is waiting for
+        const blind = gearStat(p, 'sunBlindChance');
+        if (blind > 0 && dealt > 0 && chance(rng, blind)) triggerFlarePhobia(g, foe, 'the shard flares');
+        return dealt;
+    }
+
+    function addFoeDot(g, foe, dot) {
+        foe.dots = foe.dots || [];
+        const existing = foe.dots.find(d => d.id === dot.id);
+        if (existing) { existing.turns = Math.max(existing.turns, dot.turns); existing.perTurn = Math.max(existing.perTurn, dot.perTurn); }
+        else foe.dots.push(Object.assign({}, dot));
+    }
+    function triggerFlarePhobia(g, foe, why) {
+        if (foe.traits.phobias.indexOf('fear_of_sun_flares') < 0) return false;
+        const t = byId(D.nemesisTraits.phobias, 'fear_of_sun_flares');
+        foe.cower = Math.max(foe.cower, t.cowerTurns);
+        fightLog(g, why + ' and ' + foe.name + ' will not look at it. ' + t.cowerTurns + ' turns cowering.', 'good');
+        return true;
+    }
+
+    function playerAction(g, action, arg) {
         const f = g.fight;
         if (!f || f.over) return;
         const p = g.p, rng = g.rng;
-        f.guard = false;
+        f.guarding = false;
 
-        if (kind === 'flee') {
-            const odds = clamp(0.35 + p.attributes.finesse / 200, 0.2, 0.85);
+        // at zero sanity the Tide is choosing some of your turns for you
+        if (p.vitals.sanity <= 0 && chance(rng, PANIC_SKIP_CHANCE)) {
+            fightLog(g, 'you lose the turn to something that is not in the room.', 'bad');
+            return foeTurn(g);
+        }
+
+        if (action === 'flee') {
+            const odds = clamp(0.35 + dodgeRating(p) * 2, 0.15, 0.85);
             if (chance(rng, odds)) {
                 f.over = true; f.result = 'fled'; p.stats.fled++;
-                if (f.foe.lord) { const n = byId(g.roster, f.foe.nemesisId); if (n) lordSawYouRun(g, n); }
+                for (const foe of f.foes) {
+                    if (!foe.nemesis_id) continue;
+                    const n = lordById(g.roster, foe.nemesis_id);
+                    if (n) { lordSawYouRun(g, n); fightLog(g, '"' + n.dialogue_set.on_flee + '"', 'cry'); }
+                }
                 fightLog(g, 'you cut the line and go.', 'warn');
-                render(g);
-                return;
+                return render(g);
             }
             fightLog(g, 'you turn to run and it is already in front of you.', 'bad');
             return foeTurn(g);
         }
 
-        if (kind === 'guard') {
-            f.guard = true;
-            p.vitals.stamina = Math.min(maxStamina(p), p.vitals.stamina + 2);
-            fightLog(g, 'you set your feet behind the shield.');
+        if (action === 'guard') {
+            f.guarding = true;
+            p.vitals.stamina = Math.min(p.vitals.max_stamina, p.vitals.stamina + 22);
+            fightLog(g, 'you set your feet behind the guard.');
             return foeTurn(g);
         }
 
-        if (kind === 'strike') {
-            if (p.vitals.stamina < 1) { fightLog(g, 'nothing left in your arms.', 'warn'); return foeTurn(g); }
-            p.vitals.stamina -= 1;
-            swing(g);
-            const sl = skillEffect(p, 'secondLine');
-            if (sl > 0 && p.vitals.hp / maxHp(p) < 0.35 && chance(rng, sl)) {
-                fightLog(g, 'second line — you get another one in.', 'good');
-                swing(g);
-            }
+        if (action === 'target') { f.target = Number(arg) || 0; return render(g); }
+
+        if (action === 'harpoon') {
+            const foe = currentTarget(g);
+            if (!foe || f.arena.harpoonsUsed) return;
+            f.arena.harpoonsUsed = true;
+            foe.armourBreak = 1.0;
+            foe.armourBreakTurns = 2;
+            fightLog(g, 'you haul the corner lever and the platform harpoons pin it. No armour for two turns.', 'good');
+            return foeTurn(g);
+        }
+
+        if (action === 'flare') {
+            if ((p.materials.flare || 0) <= 0) { fightLog(g, 'no flares left.', 'warn'); return; }
+            p.materials.flare--;
+            let any = false;
+            for (const foe of livingFoes(g)) if (triggerFlarePhobia(g, foe, 'the flare goes up')) any = true;
+            if (!any) fightLog(g, 'the flare goes up. Nothing here is afraid of the light.', 'warn');
+            return foeTurn(g);
+        }
+
+        if (action === 'strike') {
+            if (p.vitals.stamina < STRIKE_STAMINA) { fightLog(g, 'nothing left in your arms.', 'warn'); return foeTurn(g); }
+            p.vitals.stamina -= STRIKE_STAMINA;
+            playerStrike(g);
             return afterPlayer(g);
         }
 
-        // skill abilities
-        const cost = { abyssal_bolt: 2, whisper: 3, harpoon: 2, burn_oil: 2, reel_in: 3 }[kind];
-        if (cost === undefined) return;
-        const value = abilityValue(p, kind);
-        if (!value) return;
-        const need = staminaCost(g, cost);
-        if (p.vitals.stamina < need) { fightLog(g, `you need ${need} stamina for that.`, 'warn'); return; }
-        p.vitals.stamina -= need;
-
-        if (kind === 'abyssal_bolt') {
-            const amt = value * factionDamageMult(p, 'abyssal') * (1 + p.attributes.attunement / 100);
-            dealToFoe(g, amt, 'abyssal', 'a bolt out of the deep hits it');
-        } else if (kind === 'harpoon') {
-            const amt = value * (1 + p.attributes.might / 100);
-            const armourBite = f.foe.armour * MITIGATION_FACTOR * 0.5;
-            dealToFoe(g, Math.max(amt * DAMAGE_FLOOR, amt - armourBite), 'physical', 'the harpoon goes through the plate', true);
-        } else if (kind === 'burn_oil') {
-            f.foeDots.burn = Math.round(value / 3);
-            f.foeDots.burnLeft = 3;
-            fightLog(g, `burning oil across it — ${Math.round(value / 3)} burn for 3 rounds.`, 'good');
-        } else if (kind === 'whisper') {
-            if (chance(rng, value)) { f.foeStun += 1; fightLog(g, 'you say the word and it stops to listen.', 'good'); }
-            else fightLog(g, 'you say the word. it says one back.', 'warn');
-        } else if (kind === 'reel_in') {
-            if (chance(rng, value)) { f.foeStun += 1; fightLog(g, 'the line goes taut and it comes off its feet.', 'good'); }
-            else fightLog(g, 'the barb skips off it.', 'warn');
+        if (action === 'skill') {
+            const check = canUseSkill(g, arg);
+            if (!check.ok) { fightLog(g, check.why + '.', 'warn'); return; }
+            const node = check.node;
+            payCost(p, node);
+            f.cooldowns[node.id] = node.cooldown || 0;
+            runSkill(g, node);
+            return afterPlayer(g);
         }
-        return afterPlayer(g);
     }
 
-    function swing(g) {
-        const f = g.fight, p = g.p, rng = g.rng, foe = f.foe;
-        const w = weaponOf(p);
-        let dodge = dodgeChance(p.attributes.finesse, foe.finesse);
-        let acc = clamp(1 - dodge, HIT_MIN, HIT_MAX);
-        if (sanityTier(p) >= 2) acc -= 0.15;      // hallucinating: −15% hit chance
-        if (!chance(rng, clamp(acc, 0.1, 0.98))) { fightLog(g, 'you swing through water.', 'warn'); return; }
+    function runSkill(g, node) {
+        const p = g.p, rng = g.rng, f = g.fight;
+        const value = skillValue(p, node.id);
+        const targets = node.target === 'all_enemies' ? livingFoes(g) : [currentTarget(g)].filter(Boolean);
 
-        const r = rollDamage(rng, w.base, statFor(p, w.type), foe.armour, w.pen);
-        let dmg = r.dmg * factionDamageMult(p, w.type);
-        const cc = critChance(p.attributes.finesse, w.crit);
-        let label = `${w.name} hits`;
-        if (chance(rng, cc)) {
-            dmg *= critMultiplier(p.attributes.finesse, skillEffect(p, 'critDmg'));
-            label = `${w.name} lands clean —`;
+        if (node.scaling) {
+            for (const foe of targets) {
+                playerStrike(g, {
+                    foe: foe,
+                    abilityMultiplier: value,
+                    piercing: node.scaling.piercing,
+                    damageType: node.scaling.damageType || undefined,
+                    alwaysCrit: node.scaling.alwaysCrit,
+                    execute: node.execute,
+                    label: node.name,
+                    steam: node.id === 'steam_vent_slam'
+                });
+                if (node.debuff && foe.hp > 0) {
+                    foe.armourBreak = Math.max(foe.armourBreak || 0, node.debuff.armourReductionPct);
+                    foe.armourBreakTurns = node.debuff.durationTurns;
+                    fightLog(g, node.debuff.name + ' on ' + foe.name + '.', 'good');
+                }
+                if (node.stun && foe.hp > 0) { foe.cower = Math.max(foe.cower, node.stun); fightLog(g, foe.name + ' is stunned.', 'good'); }
+                if (node.dot && foe.hp > 0) {
+                    const perTurn = node.dot.statPct
+                        ? Math.round(p.attributes[node.dot.stat] * node.dot.statPct * 4)
+                        : value;
+                    addFoeDot(g, foe, { id: node.dot.id, name: node.dot.name, type: node.dot.type, perTurn: perTurn, turns: node.dot.durationTurns });
+                    fightLog(g, node.dot.name + ': ' + perTurn + ' a turn for ' + node.dot.durationTurns + '.', 'good');
+                }
+            }
+            return;
         }
-        dealToFoe(g, dmg, w.type, label, w.pen > 0);
-        const bleed = skillEffect(p, 'bleed');
-        if (bleed > 0) {
-            f.foeDots.bleed = Math.round(bleed / 3);
-            f.foeDots.bleedLeft = 3;
+
+        if (node.dot) {                                  // Burn Oil and friends
+            for (const foe of targets) {
+                addFoeDot(g, foe, { id: node.dot.id, name: node.dot.name, type: node.dot.type, perTurn: value, turns: node.dot.durationTurns });
+                fightLog(g, node.dot.name + ' across ' + foe.name + ': ' + value + ' a turn for ' + node.dot.durationTurns + '.', 'good');
+            }
+            return;
         }
+        if (node.stunChance) {
+            for (const foe of targets) {
+                if (chance(rng, value)) { foe.cower = Math.max(foe.cower, 1); fightLog(g, 'the line goes taut and ' + foe.name + ' comes off its feet.', 'good'); }
+                else fightLog(g, 'the barb skips off ' + foe.name + '.', 'warn');
+            }
+            return;
+        }
+        if (node.barrier) {
+            const shield = Math.round(armourOf(p) * value);
+            f.barrier = shield;
+            f.barrierDetonates = !!node.barrier.detonates;
+            fightLog(g, 'a marrow barrier worth ' + shield + ' closes over you.', 'good');
+            return;
+        }
+        if (node.heal) {
+            const healed = Math.round(p.vitals.max_hp * value * (f.arena.radiation ? 0.4 : 1));
+            p.vitals.hp = Math.min(p.vitals.max_hp, p.vitals.hp + healed);
+            if (node.regen) f.playerDots.push({ id: node.id, name: node.name, type: 'regen', perTurn: -node.regen.marrowPerTurn, turns: node.regen.turns, marrow: true });
+            fightLog(g, node.name + ': +' + healed + ' health.', 'good');
+            return;
+        }
+        fightLog(g, node.name + '.', 'good');
     }
 
     function afterPlayer(g) {
-        const f = g.fight;
-        if (f.foe.hp <= 0) return winFight(g);
+        if (!livingFoes(g).length) return winFight(g);
         return foeTurn(g);
     }
 
-    function foeTurn(g) {
-        const f = g.fight, p = g.p, rng = g.rng, foe = f.foe;
-        if (f.effects.noAttack) {
-            fightLog(g, `${foe.name} does not strike back. It has stopped, and it is watching you.`, 'phase');
-        } else if (f.foeStun > 0) {
-            f.foeStun--;
-            fightLog(g, `${foe.name} loses the round.`, 'good');
+    function damagePlayer(g, amount, type, source) {
+        const p = g.p, f = g.fight;
+        let dmg = Math.max(0, amount);
+        if (f.guarding) {
+            const blocked = blockValue(p) * (1 + passive(p, 'blockPct'));
+            dmg = Math.max(dmg * 0.25, dmg - blocked);
+        }
+        if (f.barrier > 0) {
+            const absorbed = Math.min(f.barrier, dmg);
+            f.barrier -= absorbed;
+            dmg -= absorbed;
+            if (f.barrier <= 0 && f.barrierDetonates) {
+                f.barrierDetonates = false;
+                for (const foe of livingFoes(g)) applyDamageToFoe(g, foe, absorbed, 'physical', 'the barrier goes and takes the room with it');
+                fightLog(g, 'the barrier breaks and detonates.', 'good');
+            }
+        }
+        dmg = Math.round(dmg);
+        if (dmg > 0) {
+            p.vitals.hp -= dmg;
+            f.lastDamageType = type;
+            f.lastAttacker = source;
+            fightLog(g, (source ? source + ' hits you' : 'you take') + ' for ' + dmg + '.', 'bad');
         } else {
-            let dodge = (dodgeChance(foe.finesse, p.attributes.finesse) + skillEffect(p, 'dodgeFlat')) * f.effects.dodgeMult;
-            const acc = clamp(1 - dodge, HIT_MIN, HIT_MAX);
-            if (!chance(rng, acc)) {
-                fightLog(g, `${foe.name} comes at you and misses.`, 'good');
+            fightLog(g, 'the blow does not get through.', 'good');
+        }
+        return dmg;
+    }
+
+    function foeTurn(g) {
+        const f = g.fight, p = g.p, rng = g.rng;
+
+        for (const foe of livingFoes(g)) {
+            if (foe.cower > 0) { foe.cower--; fightLog(g, foe.name + ' loses the turn.', 'good'); continue; }
+
+            const phase = foe.phases ? foe.phases[foe.phase] : null;
+            const mech = (phase && phase.mechanics) || [];
+
+            // a telegraphed sweep is marked one turn ahead and lands the next
+            if (f.arena.telegraph && f.arena.telegraph.foe === foe.id) {
+                const dmg = f.arena.telegraph.damage;
+                f.arena.telegraph = null;
+                fightLog(g, 'the sweep comes down the marked line.', 'bad');
+                damagePlayer(g, dmg * (1 - armourMitigation(armourOf(p))), 'crush', foe.name);
+                continue;
+            }
+            if (mech.indexOf('telegraphed_tail_sweep') >= 0 && !f.arena.telegraph && chance(rng, 0.35)) {
+                f.arena.telegraph = { foe: foe.id, damage: phase.tail_sweep_damage || Math.round(foe.damage * 1.8) };
+                fightLog(g, foe.name + ' marks a line across the deck in red. Next turn, that line.', 'warn');
+                continue;
+            }
+
+            let dmgMult = 1;
+            if (foe.enraged) dmgMult += byId(D.nemesisTraits.enrages, 'blood_frenzy').damagePct;
+            if (mech.indexOf('hard_enrage') >= 0) {
+                f.arena.enrageStacks += (phase.damage_scaling_per_turn_pct || 0.15);
+                dmgMult += f.arena.enrageStacks;
+            }
+
+            const swing = resolveSwing(rng, foe.hit, dodgeRating(p) * f.arena.dodgeMult);
+            if (swing.outcome === 'miss') {
+                fightLog(g, foe.name + ' comes at you and misses.', 'good');
             } else {
-                const r = rollDamage(rng, foe.damage * f.effects.damageMult, foe.level, armourOf(p), 0);
-                let dmg = r.dmg * (1 + (foe.grudge || 0));
-                if (f.guard) dmg *= (1 - 0.40 - skillEffect(p, 'blockPct'));
-                if (foe.damageType === 'burn') dmg *= (1 + gearStat(p, 'burnTaken'));
-                dmg = Math.max(1, Math.round(dmg));
-                p.vitals.hp -= dmg;
-                f.lastFoeDamage = foe.damageType;
-                fightLog(g, `${foe.name} hits you for ${dmg}.`, 'bad');
-                if (foe.damageType === 'bleed') { f.dots.bleed = Math.max(3, Math.round(dmg * 0.25)); f.dots.bleedLeft = 3; }
+                const r = computeDamage(rng, {
+                    base: foe.damage * dmgMult,
+                    statBonus: foe.level * 0.01,
+                    targetArmour: armourOf(p),
+                    elementMultiplier: 1
+                });
+                let dmg = r.net;
+                if (swing.outcome === 'glancing') { dmg *= GLANCING_MULTIPLIER; fightLog(g, foe.name + ' catches you a glancing blow.', 'warn'); }
+                damagePlayer(g, dmg, foe.damageType, foe.name);
+                if (foe.damageType === 'bleed') f.playerDots.push({ id: 'foe_bleed', name: 'a deep cut', type: 'bleed', perTurn: Math.max(4, Math.round(dmg * 0.22)), turns: 3 });
+            }
+
+            if (mech.indexOf('abyssal_bile_aoe') >= 0 && !f.playerDots.some(d => d.id === 'abyssal_bile')) {
+                f.playerDots.push({ id: 'abyssal_bile', name: 'abyssal bile', type: 'rot', perTurn: phase.bile_damage_per_turn || 30, turns: phase.bile_turns || 3 });
+                fightLog(g, 'it sprays the whole floor with something that is still eating the plate.', 'bad');
+            }
+            if (mech.indexOf('spawn_leeches') >= 0 && phase.adds_spawn_rate_turns && f.round % phase.adds_spawn_rate_turns === 0) {
+                const tpl = foeById(phase.add_id);
+                if (tpl && livingFoes(g).length < 4) {
+                    const add = foeFromTemplate(tpl, 1);
+                    add.owner = foe.id;
+                    f.foes.push(add);
+                    fightLog(g, 'it sheds a ' + add.name + '.', 'bad');
+                }
+            }
+            if (mech.indexOf('sanity_toll') >= 0 || (phase && phase.sanity_drain_per_action)) {
+                const bite = sanityLoss(p, phase.sanity_drain_per_action || 4);
+                if (bite > 0) { p.vitals.sanity -= bite; fightLog(g, '−' + bite + ' sanity.', 'bad'); }
+            }
+            if (foe.heals_owner_pct && foe.owner) {
+                const owner = f.foes.find(x => x.id === foe.owner && x.hp > 0);
+                if (owner) {
+                    const healed = Math.round(owner.max_hp * foe.heals_owner_pct);
+                    owner.hp = Math.min(owner.max_hp, owner.hp + healed);
+                    fightLog(g, foe.name + ' puts ' + healed + ' back into ' + owner.name + '.', 'bad');
+                }
             }
             if (foe.sanity) {
                 const bite = sanityLoss(p, foe.sanity);
-                if (bite > 0) { p.vitals.sanity -= bite; fightLog(g, `−${bite} sanity.`, 'bad'); }
+                if (bite > 0) { p.vitals.sanity -= bite; fightLog(g, '−' + bite + ' sanity.', 'bad'); }
             }
         }
         return endRound(g);
@@ -877,55 +1263,52 @@
 
     function endRound(g) {
         const f = g.fight, p = g.p;
-        // damage over time, both ways
-        if (f.foeDots.bleedLeft > 0) { f.foeDots.bleedLeft--; dealToFoe(g, f.foeDots.bleed, 'bleed', 'it is still bleeding —'); }
-        if (f.foeDots.burnLeft > 0) { f.foeDots.burnLeft--; dealToFoe(g, f.foeDots.burn, 'burn', 'the oil is still burning —'); }
-        if (f.dots.bleedLeft > 0) { f.dots.bleedLeft--; p.vitals.hp -= f.dots.bleed; fightLog(g, `you are bleeding: −${f.dots.bleed}.`, 'bad'); }
-        if (f.effects.burnPerRound) { p.vitals.hp -= f.effects.burnPerRound; fightLog(g, `the corona burns you for ${f.effects.burnPerRound}.`, 'bad'); }
 
-        p.vitals.stamina = Math.min(maxStamina(p), p.vitals.stamina + Math.max(0, 2 + gearStat(p, 'staminaRegen')));
+        for (const foe of livingFoes(g)) {
+            for (const d of (foe.dots || []).slice()) {
+                if (d.turns <= 0) continue;
+                d.turns--;
+                applyDamageToFoe(g, foe, d.perTurn, d.type, foe.name + ' is still taking ' + d.name + ' —');
+            }
+            if (foe.dots) foe.dots = foe.dots.filter(d => d.turns > 0);
+            if (foe.armourBreakTurns > 0) { foe.armourBreakTurns--; if (foe.armourBreakTurns === 0) foe.armourBreak = 0; }
+        }
+        for (const d of f.playerDots.slice()) {
+            d.turns--;
+            if (d.marrow) {
+                p.vitals.marrow_mana = Math.min(p.vitals.max_marrow_mana, p.vitals.marrow_mana - d.perTurn);
+            } else {
+                p.vitals.hp -= d.perTurn;
+                fightLog(g, d.name + ': −' + d.perTurn + '.', 'bad');
+            }
+        }
+        f.playerDots = f.playerDots.filter(d => d.turns > 0);
+
+        // cursed gear takes its cut every turn regardless of what happened
+        const curseSanity = curseEffect(p, 'sanityPerTurn');
+        if (curseSanity) { p.vitals.sanity -= curseSanity; fightLog(g, 'the seals leak. −' + curseSanity + ' sanity.', 'bad'); }
+
+        if (f.arena.singularity > 0) {
+            f.arena.singularity--;
+            if (f.arena.singularity <= 0) {
+                fightLog(g, 'the hole in the floor finishes taking the room, and you with it.', 'bad');
+                p.vitals.hp = 0;
+            } else {
+                fightLog(g, f.arena.singularity + ' turns before the singularity has you.', 'warn');
+            }
+        }
+
+        for (const id in f.cooldowns) if (f.cooldowns[id] > 0) f.cooldowns[id]--;
+        p.vitals.stamina = Math.min(p.vitals.max_stamina, p.vitals.stamina + 14 + Math.round(p.attributes.fortitude * 0.4));
+        p.vitals.marrow_mana = Math.min(p.vitals.max_marrow_mana, p.vitals.marrow_mana + Math.round(p.attributes.attunement * 0.5));
         f.round++;
 
-        if (f.foe.hp <= 0) return winFight(g);
-        if (f.effects.drownAt && f.round > f.effects.drownAt) {
-            fightLog(g, 'the water closes over the last of it.', 'bad');
-            p.vitals.hp = 0;
-            return loseFight(g);
-        }
-        if (f.effects.drownAt) fightLog(g, `${f.effects.drownAt - f.round + 1} rounds of air.`, 'warn');
+        if (!livingFoes(g).length) return winFight(g);
         if (p.vitals.hp <= 0) return loseFight(g);
-        if (p.vitals.sanity <= 0) { render(g); return checkSanityFloor(g); }
-        render(g);
-    }
-
-    function winFight(g) {
-        const f = g.fight, p = g.p, foe = f.foe;
-        f.over = true; f.result = 'won';
-        p.stats.kills++;
-        // Choir of the Reef: killing it below 20 sanity kills you too
-        if (f.effects.deadmans && p.vitals.sanity < f.effects.deadmans) {
-            fightLog(g, 'it dies mid-note, and takes the note with it, and you were singing.', 'bad');
-            p.vitals.sanity = 0;
-            render(g);
-            return checkSanityFloor(g);
+        if (p.vitals.sanity <= 0 && !f.panicAnnounced) {
+            f.panicAnnounced = true;
+            fightLog(g, 'your sanity is gone. From here you will lose turns, and some of them will land on the wrong thing.', 'bad');
         }
-        const lootMult = 1 + skillEffect(p, 'lootPct');
-        const xp = Math.round((foe.xp || 20) * (1 + 0.1 * (foe.rank ? RANKS[foe.rank] : 0)));
-        const coin = Math.round((foe.coin || 5) * lootMult);
-        p.coin += coin;
-        gainXp(g, xp);
-        fightLog(g, `${foe.name} is down. +${xp} xp, +${coin} coin.`, 'good');
-        for (const m in (foe.drops || {})) {
-            const range = foe.drops[m];
-            const n = ri(g.rng, range[0], range[1]);
-            if (n > 0) { p.materials[m] = (p.materials[m] || 0) + n; fightLog(g, `salvaged ${n} × ${(byId(D.materials, m) || {}).name || m}.`); }
-        }
-        if (foe.codex) unlockCodex(g, foe.codex);
-        if (foe.lord) {
-            const n = byId(g.roster, foe.nemesisId);
-            if (n) lordDefeated(g, n, f.damageByTypeTop || topDamageType(f));
-        }
-        if (foe.boss) { g.p.storyFlags['boss_' + foe.id] = true; achieve('echoes-boss'); }
         render(g);
     }
 
@@ -935,374 +1318,443 @@
         return best;
     }
 
+    function winFight(g) {
+        const f = g.fight, p = g.p;
+        f.over = true; f.result = 'won';
+
+        // the Choir takes you with it if you finish it too far gone
+        for (const foe of f.foes) {
+            const phase = foe.phases ? foe.phases[foe.phase] : null;
+            if (phase && (phase.mechanics || []).indexOf('deadmans_chorus') >= 0 && p.vitals.sanity < phase.deadmans_below_sanity) {
+                fightLog(g, 'it dies mid-note, and takes the note with it, and you were singing.', 'bad');
+                p.vitals.sanity = 0;
+                p.vitals.hp = 0;
+                return loseFight(g);
+            }
+        }
+
+        const lootMult = 1 + passive(p, 'lootPct') + p.attributes.perception * 0.004;
+        let xp = 0, coin = 0;
+        for (const foe of f.foes) {
+            xp += foe.xp || 0;
+            coin += Math.round((foe.coin || 0) * lootMult);
+            for (const m in (foe.drops || {})) {
+                const range = foe.drops[m];
+                const n = ri(g.rng, range[0], range[1]);
+                if (n > 0) { p.materials[m] = (p.materials[m] || 0) + n; fightLog(g, 'salvaged ' + n + ' × ' + ((materialById(m) || {}).name || m) + '.'); }
+            }
+            if (foe.codex) unlockCodex(g, foe.codex);
+            if (foe.boss) {
+                p.world_state.story_flags['boss_' + foe.id] = true;
+                // Act II turns on this: the Choir is holding the beacon core
+                if (foe.id === 'boss_reef_choir') {
+                    p.quest_items.item_marrow_core_t3 = (p.quest_items.item_marrow_core_t3 || 0) + 1;
+                    fightLog(g, 'in the middle of the coral throat, still lit: the Marrow Core.', 'good');
+                    unlockCodex(g, 'cdx_the_heart');
+                }
+            }
+            if (foe.nemesis_id) {
+                const n = lordById(g.roster, foe.nemesis_id);
+                if (n) lordDefeated(g, n, topDamageType(f));
+            }
+        }
+        p.stats.kills += f.foes.length;
+        p.coin += coin;
+        gainXp(g, xp);
+        fightLog(g, 'clear. +' + xp + ' xp, +' + coin + ' coin.', 'good');
+        if (f.foes.some(x => x.boss)) achieve('echoes-boss');
+        bus.emit('COMBAT_WON', { xp: xp, coin: coin });
+        render(g);
+    }
+
     function loseFight(g) {
         const f = g.fight, p = g.p;
         f.over = true; f.result = 'lost';
         p.stats.deaths++;
-        const deathType = f.lastFoeDamage || 'physical';
-        if (f.foe.lord) {
-            const n = byId(g.roster, f.foe.nemesisId);
-            if (n) lordKilledPlayer(g, n, deathType);
+        const deathType = p.vitals.sanity <= 0 ? 'sanity' : (f.lastDamageType || 'physical');
+
+        const killer = f.foes.find(x => x.hp > 0) || f.foes[0];
+        if (killer) promoteOnKill(g, killer, deathType === 'sanity' ? 'physical' : deathType);
+        if (killer && killer.nemesis_id) {
+            const n = lordById(g.roster, killer.nemesis_id);
+            if (n) fightLog(g, '"' + n.dialogue_set.on_kill_player + '"', 'cry');
         }
+
         const lost = Math.round(p.coin * 0.25);
         p.coin -= lost;
-        p.vitals.hp = Math.max(1, Math.round(maxHp(p) * 0.4));
-        p.vitals.stamina = maxStamina(p);
-        p.vitals.sanity = Math.max(1, p.vitals.sanity - sanityLoss(p, 8));
+        p.vitals.hp = Math.max(1, Math.round(p.vitals.max_hp * 0.4));
+        p.vitals.stamina = p.vitals.max_stamina;
+        p.vitals.sanity = Math.max(10, p.vitals.sanity);
         g.dungeon = null;
-        fightLog(g, `you wake on the nearest Rest Rig, ${lost} coin lighter.`, 'bad');
-        log(g, `you died in ${realmById(p.realm).name}. it cost you ${lost} coin and the killer got a promotion out of it.`, 'bad');
-        advanceClock(g, 2);
+        fightLog(g, 'you wake on the nearest Rest Rig, ' + lost + ' coin lighter.', 'bad');
+        log(g, 'you died in ' + realmById(p.realm).name + '. It cost you ' + lost + ' coin, and the killer got a promotion out of it.', 'bad');
+        advanceDay(g, 1);
         render(g);
     }
 
     function endFight(g) {
         const f = g.fight;
-        if (f && f.result === 'lost') { g.screen = 'hub'; g.fight = null; save(g); return render(g); }
-        if (f && f.foe.lord && f.result === 'fled') { /* memory already written */ }
-        if (f && f.result !== 'lost' && f.foe.lord && f.foe.hp > 0) {
-            const n = byId(g.roster, f.foe.nemesisId);
-            if (n) { const scar = lordSurvived(g, n, f.damageByType); if (scar) log(g, `${lordName(n)} grew a scar: ${scar.name}.`, 'warn'); }
+        if (!f) return;
+        if (f.result !== 'lost') {
+            for (const foe of f.foes) {
+                if (!foe.nemesis_id || foe.hp <= 0) continue;
+                const n = lordById(g.roster, foe.nemesis_id);
+                if (n) {
+                    const gained = lordSurvived(g, n, f.damageByType);
+                    if (gained) log(g, lordDisplayName(n) + ' walked away with ' + gained.name + '.', 'warn');
+                }
+            }
         }
+        const lost = f.result === 'lost';
         g.fight = null;
-        g.screen = g.dungeon ? 'dungeon' : 'hub';
+        g.screen = (!lost && g.dungeon) ? 'dungeon' : 'hub';
         save(g);
         render(g);
     }
 
-    // ---------- dungeons (GDD §5) ----------
-    function canWalk(g, realm) {
+    // ---------- levelling ----------
+    function gainXp(g, amount) {
         const p = g.p;
-        if (p.realmsUnlocked.indexOf(realm.id) < 0) return false;
-        return true;
+        if (p.level >= MAX_LEVEL) return;
+        p.experience.current += Math.max(0, Math.round(amount));
+        while (p.level < MAX_LEVEL && p.experience.current >= xpToNext(p.level)) {
+            p.experience.current -= xpToNext(p.level);
+            p.level++;
+            p.attributes.unallocated_points += ATTR_PER_LEVEL;
+            p.skill_points += SKILL_PER_LEVEL;
+            clampVitals(p);
+            p.vitals.hp = p.vitals.max_hp;
+            p.vitals.stamina = p.vitals.max_stamina;
+            p.vitals.marrow_mana = p.vitals.max_marrow_mana;
+            log(g, 'level ' + p.level + '. ' + ATTR_PER_LEVEL + ' attribute points, 1 skill point.', 'good');
+            if (LEVEL_UNLOCKS[p.level]) log(g, 'unlocked: ' + LEVEL_UNLOCKS[p.level] + '.', 'good');
+            bus.emit('LEVEL_UP', p.level);
+            if (p.level >= 10) achieve('echoes-ten');
+        }
+        p.experience.next_level = xpToNext(p.level);
     }
-    function pressureShort(g, realm) { return Math.max(0, realm.pressure - pressureRating(g.p)); }
+
+    function gainLifeSkill(g, skill, amount) {
+        const s = g.p.life_skills[skill];
+        if (!s) return;
+        s.xp += Math.round(amount);
+        while (s.xp >= s.level * 120) { s.xp -= s.level * 120; s.level++; log(g, skill + ' is now level ' + s.level + '.', 'good'); }
+    }
+
+    // ---------- the clock ----------
+    function advanceDay(g, days) {
+        const w = g.p.world_state;
+        for (let i = 0; i < (days || 1); i++) {
+            w.current_day++;
+            w.time_of_day = w.time_of_day === 'calm_day' ? 'black_tide' : 'calm_day';
+        }
+        bus.emit('DAY_PASSED', w.current_day);
+    }
+    const isBlackTide = p => p.world_state.time_of_day === 'black_tide';
+
+    // ---------- environmental hazards ----------
+    function applyHazard(g, turns) {
+        const p = g.p, realm = realmById(p.realm);
+        if (!realm || !realm.hazard) return;
+        const h = realm.hazard;
+        const countered = SLOTS.some(s => p.equipment[s] && p.equipment[s].counters === h.id)
+            || (h.counter === 'purified_oil' && (p.materials.purified_oil || 0) > 0);
+        if (countered) {
+            if (h.counter === 'purified_oil' && chance(g.rng, 0.5)) p.materials.purified_oil--;
+            return;
+        }
+        const resist = 1 - hazardResist(p);
+        const n = turns || 1;
+        if (h.hpPctPerTurn) {
+            const bite = Math.round(p.vitals.max_hp * h.hpPctPerTurn * n * resist);
+            if (bite > 0) { p.vitals.hp -= bite; log(g, h.name + ': −' + bite + ' health. You need ' + h.counterName + '.', 'bad'); }
+        }
+        if (h.sanityPerInterval) {
+            const bite = sanityLoss(p, h.sanityPerInterval * Math.max(1, Math.floor(n / (h.intervalTurns || 3))));
+            if (bite > 0) { p.vitals.sanity -= bite; log(g, h.name + ': −' + bite + ' sanity.', 'bad'); }
+        }
+        if (h.burnPerTurn) {
+            const bite = Math.round(h.burnPerTurn * n * resist);
+            p.vitals.hp -= bite;
+            log(g, h.name + ': −' + bite + ' health from the light.', 'bad');
+        }
+        if (h.armourDecayPerTurn) {
+            for (const slot of SLOTS) {
+                const it = p.equipment[slot];
+                if (!it || !it.durability) continue;
+                it.durability.current = Math.max(0, it.durability.current - Math.ceil(n * 1));
+            }
+        }
+        if (p.vitals.hp <= 0) { p.vitals.hp = 1; log(g, 'you surface with blood in both ears.', 'bad'); g.dungeon = null; g.screen = 'hub'; }
+    }
+
+    // ---------- the dungeon graph (GDD Module 5) ----------
+    const NODE_WEIGHTS = { combat: 40, elite: 15, salvage: 15, mystery: 15, rest: 10 };
+
+    function generateDungeon(g, realmId) {
+        const rng = g.rng, realm = realmById(realmId);
+        const floors = 3 + realm.layer;
+        const nodes = [];
+        let prevFloor = [];
+        let seq = 0;
+        for (let floor = 1; floor <= floors; floor++) {
+            const isLast = floor === floors;
+            const width = (isLast || floor === 1) ? 1 : ri(rng, 2, 3);
+            const thisFloor = [];
+            for (let i = 0; i < width; i++) {
+                const id = 'node_' + (++seq).toString().padStart(2, '0');
+                const type = isLast ? 'boss' : weighted(rng, Object.keys(NODE_WEIGHTS), t => {
+                    let w = NODE_WEIGHTS[t];
+                    if (t === 'elite') w += floor * 4;
+                    if (t === 'rest') w -= floor * 2;
+                    if (t === 'combat' && isBlackTide(g.p)) w += 12;
+                    return w;
+                });
+                const node = {
+                    node_id: id, type: type, floor: floor, connections: [],
+                    cleared: false, text: pick(rng, D.nodeText[type] || D.nodeText.combat),
+                    stat_multiplier: Math.round((1 + realm.layer * DEPTH_SCALE + seq * ROOM_SCALE) * 100) / 100
+                };
+                if (type === 'mystery') node.event_id = pick(rng, D.mysteryEvents).id;
+                if (type === 'salvage') node.loot_tier = realm.layer;
+                if (type === 'boss') node.boss_id = (D.bosses.find(b => b.realm === realmId && !b.add) || D.bosses[0]).id;
+                nodes.push(node);
+                thisFloor.push(node);
+            }
+            // every node on the previous floor connects forward to at least one
+            for (const prev of prevFloor) {
+                const links = ri(rng, 1, Math.min(2, thisFloor.length));
+                const shuffled = thisFloor.slice().sort(() => rng() - 0.5);
+                for (let i = 0; i < links; i++) prev.connections.push(shuffled[i].node_id);
+            }
+            // and every node on this floor is reachable from something
+            for (const here of thisFloor) {
+                if (!prevFloor.length) continue;
+                if (!prevFloor.some(pv => pv.connections.indexOf(here.node_id) >= 0)) {
+                    pick(rng, prevFloor).connections.push(here.node_id);
+                }
+            }
+            prevFloor = thisFloor;
+        }
+        return {
+            dungeon_id: 'dng_' + realmId + '_' + (g.dungeonSeq++),
+            realm: realmId,
+            depth_level: realm.layer,
+            environmental_hazard: realm.hazard,
+            floors: floors,
+            current_floor: 1,
+            current_node: nodes[0].node_id,
+            entered: [nodes[0].node_id],
+            nodes: nodes
+        };
+    }
+    const dungeonNode = (d, id) => d.nodes.find(n => n.node_id === id);
+    function availableNodes(d) {
+        const here = dungeonNode(d, d.current_node);
+        if (!here || !here.cleared) return [];
+        return here.connections.map(id => dungeonNode(d, id)).filter(Boolean);
+    }
+
+    function pickFoeTemplate(g, realmId, floor) {
+        const pool = D.bestiary.filter(b => b.realm === realmId);
+        if (!pool.length) return D.bestiary[0];
+        // a realm's roster spans six levels; draw near the player's own so a
+        // level-2 diver does not meet the top of the table on floor one
+        const target = g.p.level + floor * 0.6;
+        return weighted(g.rng, pool, b => {
+            const d = b.level - target;
+            return d > 0 ? Math.pow(0.45, d) : Math.pow(0.78, -d);
+        });
+    }
 
     function startVoyage(g) {
-        const realm = realmById(g.p.realm);
-        g.dungeon = {
-            realm: realm.id, depth: 0, maxDepth: 4 + realm.tier * 2,
-            node: null, cleared: false, taken: { coin: 0, xp: 0 }
-        };
-        advanceClock(g, 1);
-        if (g.ended) return;
-        log(g, `you take a boat out into ${realm.name}. ${timeOfDay(g.p)}, ${tidePhase(g.p)} tide.`);
-        // Trackers know your knot
-        const trackers = trackersIn(g, realm.id);
-        if (trackers.length && chance(g.rng, 0.30)) {
-            const n = pick(g.rng, trackers);
-            log(g, `${lordName(n)} was waiting where you always put in.`, 'bad');
-            g.screen = 'fight';
-            return startFight(g, nemesisStats(n), 'ambush');
+        const p = g.p;
+        g.dungeon = generateDungeon(g, p.realm);
+        advanceDay(g, 1);
+        log(g, 'you take a boat out into ' + realmById(p.realm).name + '. ' + (isBlackTide(p) ? 'Black tide.' : 'Calm water, for now.'));
+        const ambusher = rollAmbush(g, p.realm);
+        if (ambusher) {
+            log(g, ambusher.dialogue_set.intro_encounter, 'bad');
+            const guards = RANK_BY_TIER(ambusher.tier).guards;
+            const party = [lordToFoe(ambusher)];
+            const n = ri(g.rng, guards[0], guards[1]);
+            for (let i = 0; i < Math.min(2, n); i++) party.push(foeFromTemplate(pickFoeTemplate(g, p.realm, 1), 1));
+            return startFight(g, party, 'ambush');
         }
-        dealNode(g);
         g.screen = 'dungeon';
         render(g);
     }
 
-    function dealNode(g) {
-        const d = g.dungeon, realm = realmById(d.realm), rng = g.rng;
-        if (d.depth >= d.maxDepth) { d.node = { type: 'boss' }; return; }
-        const t = d.depth / d.maxDepth;
-        const weights = {
-            combat: 30 + 14 * t,
-            elite: 3 + 22 * t,
-            treasure: 15 - 4 * t,
-            rest: 13 - 8 * t,
-            hazard: 9 + 9 * t,
-            lore: 10 - 3 * t,
-            descent: 18
-        };
-        if (leviathanTurns(g.p)) { weights.elite += 25; weights.rest = 2; }
-        if (isNight(g.p)) weights.combat += 14;           // +40% nightmare encounters
-        let total = 0; for (const k in weights) total += Math.max(0, weights[k]);
-        let roll = rng() * total, type = 'combat';
-        for (const k in weights) { roll -= Math.max(0, weights[k]); if (roll <= 0) { type = k; break; } }
-        d.node = { type: type, text: pick(rng, D.nodeText[type] || D.nodeText.combat), resolved: false };
-    }
+    function enterNode(g, nodeId) {
+        const d = g.dungeon, p = g.p;
+        if (!d) return;
+        const node = dungeonNode(d, nodeId);
+        if (!node || node.cleared) return;
+        const here = dungeonNode(d, d.current_node);
+        if (here && here.cleared && here.connections.indexOf(nodeId) < 0) return;
+        d.current_node = nodeId;
+        d.current_floor = node.floor;
+        if (d.entered.indexOf(nodeId) < 0) d.entered.push(nodeId);
+        node.cleared = true;
+        applyHazard(g, 1);
+        if (!g.dungeon) return render(g);
 
-    function realmFoes(realmId) { return D.bestiary.filter(b => b.realm === realmId); }
+        const realm = realmById(d.realm);
+        const m = node.stat_multiplier;
 
-    // a realm's roster spans several levels, and picking from it uniformly
-    // means a level-1 dredger meets a brine wight on their first walk out.
-    // Weight the draw toward things near the player's own level; depth
-    // pushes the window up so the bottom of a dungeon is still the bottom.
-    function pickFoe(g, realmId, depth) {
-        const pool = realmFoes(realmId);
-        if (!pool.length) return null;
-        // decay away from the player's level, and steeply upward: meeting a
-        // brine wight at level 1 is not a difficulty spike, it is the end of
-        // the run before the run has started
-        const target = g.p.level + 1 + depth * 0.5;
-        let total = 0;
-        const weights = pool.map(b => {
-            const d = b.level - target;
-            const w = d > 0 ? Math.pow(0.42, d) : Math.pow(0.75, -d);
-            total += w;
-            return w;
-        });
-        let roll = g.rng() * total;
-        for (let i = 0; i < pool.length; i++) { roll -= weights[i]; if (roll <= 0) return pool[i]; }
-        return pool[pool.length - 1];
-    }
-
-    function enterNode(g) {
-        const d = g.dungeon, realm = realmById(d.realm), p = g.p, rng = g.rng;
-        const node = d.node;
-        if (!node || node.resolved) return;
-        node.resolved = true;
-        advanceClock(g, 1);
-        if (g.ended) return;
-
-        const short = pressureShort(g, realm);
-        if (short > 0) {
-            const bite = Math.round(maxHp(p) * 0.06 * short);
-            p.vitals.hp -= bite;
-            log(g, `no pressure rating for this depth. the water takes ${bite}.`, 'bad');
-            if (p.vitals.hp <= 0) { p.vitals.hp = 1; g.dungeon = null; g.screen = 'hub'; log(g, 'you surface, bleeding from both ears.', 'bad'); return render(g); }
-        }
-        if (realm.sanityDrain) {
-            const bite = sanityLoss(p, realm.sanityDrain);
-            if (bite > 0) { p.vitals.sanity -= bite; if (checkSanityFloor(g)) return; }
-        }
-
-        const bump = Math.floor(d.depth / 3);
         if (node.type === 'combat') {
-            let tpl = pickFoe(g, realm.id, d.depth);
-            if (sanityTier(p) >= 2 && chance(rng, 0.25)) {
-                tpl = pick(rng, D.bestiary);
-                log(g, 'something is here that should not be in this realm. probably.', 'warn');
-            }
-            return startFight(g, foeFromTemplate(tpl, bump), 'dungeon');
+            const party = [foeFromTemplate(pickFoeTemplate(g, d.realm, node.floor), m)];
+            if (chance(g.rng, 0.35)) party.push(foeFromTemplate(pickFoeTemplate(g, d.realm, node.floor), m * 0.9));
+            return startFight(g, party, 'dungeon');
         }
         if (node.type === 'elite') {
-            const lords = lordsIn(g, realm.id);
-            if (!lords.length) return startFight(g, foeFromTemplate(pickFoe(g, realm.id, d.depth + 3), bump + 1), 'dungeon');
-            const hunting = lords.filter(n => n.status === 'hunting');
-            const n = pick(rng, hunting.length ? hunting : lords);
-            return startFight(g, nemesisStats(n), 'dungeon');
+            const lords = lordsIn(g, d.realm);
+            if (lords.length) {
+                const n = lords.sort((a, b) => b.grudge - a.grudge)[0];
+                n.current_zone = d.realm;
+                return startFight(g, [lordToFoe(n)], 'dungeon');
+            }
+            return startFight(g, [foeFromTemplate(pickFoeTemplate(g, d.realm, node.floor + 3), m * 1.25)], 'dungeon');
         }
-        if (node.type === 'treasure') {
-            const mats = D.materials.filter(m => m.tier <= realm.tier + 1 && !m.reagent);
-            const m = pick(rng, mats);
-            const n = ri(rng, 2, 4 + realm.tier);
-            p.materials[m.id] = (p.materials[m.id] || 0) + n;
-            const coin = ri(rng, 20, 40) * realm.tier;
+        if (node.type === 'boss') {
+            const boss = foeById(node.boss_id);
+            return startFight(g, [foeFromTemplate(boss, 1)], 'boss');
+        }
+        if (node.type === 'salvage') {
+            const mats = D.materials.filter(x => x.tier <= realm.layer + 1 && !x.reagent);
+            const mat = pick(g.rng, mats);
+            const n = ri(g.rng, 2, 4 + realm.layer);
+            p.materials[mat.id] = (p.materials[mat.id] || 0) + n;
+            const coin = ri(g.rng, 30, 70) * realm.layer;
             p.coin += coin;
-            log(g, `${node.text} ${n} × ${m.name}, ${coin} coin.`, 'good');
-            if (chance(rng, 0.22 + realm.tier * 0.05)) {
-                const rune = pick(rng, D.runes);
+            log(g, node.text + ' ' + n + ' × ' + mat.name + ', ' + coin + ' coin.', 'good');
+            if (chance(g.rng, 0.25 + realm.layer * 0.05)) {
+                const rune = pick(g.rng, D.runes);
                 p.runes.push(rune.id);
-                log(g, `and a rune, cold in the hand: ${rune.name}. ${rune.text}`, 'good');
+                log(g, 'and a rune, cold in the hand: ' + rune.name + '.', 'good');
+            }
+            if (chance(g.rng, 0.30)) {
+                const recipe = pick(g.rng, D.recipes.filter(r => r.tier <= realm.layer + 1));
+                const item = makeItem(g, recipe, { rarityBias: realm.layer * 0.35 });
+                p.inventory.push(item);
+                log(g, 'and something worth carrying: ' + item.name + ' (' + item.rarity_name + ').', 'good');
             }
             sound('ding');
         } else if (node.type === 'rest') {
-            const heal = Math.round(maxHp(p) * 0.35);
-            p.vitals.hp = Math.min(maxHp(p), p.vitals.hp + heal);
-            p.vitals.stamina = maxStamina(p);
-            p.vitals.sanity = Math.min(maxSanity(p), p.vitals.sanity + 10);
-            log(g, `${node.text} +${heal} hp, +10 sanity.`, 'good');
-        } else if (node.type === 'hazard') {
-            const chk = d20check(rng, skillMod(p, 'strength') + Math.floor(p.attributes.perception / 4), 10 + realm.tier * 2);
-            if (chk.pass) log(g, `${node.text} you see it in time (d20 ${chk.roll}+${chk.mod} vs ${chk.dc}).`, 'good');
-            else {
-                const bite = Math.round(maxHp(p) * (0.08 + realm.tier * 0.02));
-                p.vitals.hp -= bite;
-                log(g, `${node.text} it gets you for ${bite} (d20 ${chk.roll}+${chk.mod} vs ${chk.dc}).`, 'bad');
-                if (p.vitals.hp <= 0) { p.vitals.hp = 1; g.dungeon = null; g.screen = 'hub'; log(g, 'you come up on the winch, unconscious.', 'bad'); return render(g); }
+            const healed = Math.round(p.vitals.max_hp * 0.35);
+            p.vitals.hp = Math.min(p.vitals.max_hp, p.vitals.hp + healed);
+            p.vitals.stamina = p.vitals.max_stamina;
+            p.vitals.marrow_mana = p.vitals.max_marrow_mana;
+            p.vitals.sanity = Math.min(p.vitals.max_sanity, p.vitals.sanity + 12);
+            for (const slot of SLOTS) {
+                const it = p.equipment[slot];
+                if (it && it.durability) it.durability.current = Math.min(it.durability.max, it.durability.current + 15);
             }
-        } else if (node.type === 'lore') {
-            const unread = D.codex.filter(c => p.codex.indexOf(c.id) < 0);
-            if (unread.length) { unlockCodex(g, pick(rng, unread).id); log(g, node.text, 'lore'); }
-            else { p.coin += 30; log(g, `${node.text} nothing you have not already read. 30 coin for the paper.`); }
-        } else if (node.type === 'descent') {
-            d.depth++;
-            log(g, `${node.text} depth ${d.depth} of ${d.maxDepth}.`);
-        } else if (node.type === 'boss') {
-            const boss = D.bosses.find(b => b.realm === realm.id);
-            if (!boss) { d.depth = 0; return dealNode(g), render(g); }
-            return startFight(g, foeFromTemplate(boss, 0), 'boss');
+            log(g, node.text + ' +' + healed + ' health, +12 sanity, and the gear gets a look at.', 'good');
+        } else if (node.type === 'mystery') {
+            g.pendingEvent = byId(D.mysteryEvents, node.event_id);
+            g.screen = 'event';
+            return render(g);
         }
-        dealNode(g);
+        save(g);
+        render(g);
+    }
+
+    function resolveEvent(g, optionIndex) {
+        const ev = g.pendingEvent, p = g.p;
+        if (!ev) return;
+        const opt = ev.options[optionIndex];
+        g.pendingEvent = null;
+        if (opt) {
+            const c = opt.cost || {}, gain = opt.gain || {}, risk = opt.risk || {};
+            if (c.hpPct) { const bite = Math.round(p.vitals.max_hp * c.hpPct); p.vitals.hp -= bite; log(g, '−' + bite + ' health.', 'bad'); }
+            if (c.coin) { if (p.coin < c.coin) { log(g, 'you cannot afford that.', 'warn'); } else { p.coin -= c.coin; } }
+            if (c.sanity) { p.vitals.sanity += c.sanity; }
+            if (c.reputation) for (const k in c.reputation) p.faction_reputation[k] = clamp(p.faction_reputation[k] + c.reputation[k], -100, 100);
+            if (c.time) advanceDay(g, c.time);
+            if (gain.sanity) { p.vitals.sanity = Math.min(p.vitals.max_sanity, p.vitals.sanity + gain.sanity); }
+            if (gain.coin) p.coin += gain.coin;
+            if (gain.xpMult) gainXp(g, Math.round(xpToNext(p.level) * gain.xpMult));
+            if (gain.rune) { const r = pick(g.rng, D.runes); p.runes.push(r.id); log(g, 'you are given ' + r.name + '.', 'good'); }
+            if (gain.material) { const m = pick(g.rng, D.materials.filter(x => !x.reagent && x.tier <= realmById(p.realm).layer + 1)); p.materials[m.id] = (p.materials[m.id] || 0) + ri(g.rng, 3, 7); log(g, 'materials change hands.', 'good'); }
+            if (gain.codex) { const unread = D.codex.filter(c2 => p.codex.indexOf(c2.id) < 0); if (unread.length) unlockCodex(g, pick(g.rng, unread).id); }
+            if (gain.reputation) for (const k in gain.reputation) p.faction_reputation[k] = clamp(p.faction_reputation[k] + gain.reputation[k], -100, 100);
+            if (risk.sanity) p.vitals.sanity += risk.sanity;
+            if (risk.nemesisAlert) triggerNemesisAlert(g, null, risk.nemesisAlert);
+            log(g, opt.text, 'lore');
+        }
+        clampVitals(p);
+        g.screen = g.dungeon ? 'dungeon' : 'hub';
+        save(g);
         render(g);
     }
 
     function leaveDungeon(g) {
         g.dungeon = null;
         g.screen = 'hub';
-        advanceClock(g, 1);
+        advanceDay(g, 1);
         log(g, 'you put in at the harbour with what you have got.');
         save(g);
         render(g);
     }
 
-    // ---------- dredging (GDD §4.5) ----------
-    function bandWeights(g) {
-        const p = g.p;
-        const w = { common: 46, uncommon: 28, rare: 15, relic: 7, eldritch: 4 };
-        const luck = Math.floor(p.attributes.perception / 6) + skillEffect(p, 'dredgeLuck');
-        w.rare += luck * 2.2; w.relic += luck * 1.1; w.uncommon += luck;
-        if (isNight(g.p)) { w.rare *= 1.25; w.relic *= 1.25; w.eldritch *= 1.4; }
-        if (p.faction === 'dredgers') { w.rare *= 1.3; w.relic *= 1.3; }
-        if (tidePhase(p) === 'high') w.eldritch *= 1.3;
-        return w;
-    }
-
-    function pickFish(g) {
-        const p = g.p, rng = g.rng;
-        const tide = tidePhase(p), time = timeOfDay(p);
-        let pool = D.fish.filter(f => f.realm === p.realm &&
-            (!f.tide || f.tide.indexOf(tide) >= 0) &&
-            (!f.time || f.time.indexOf(time) >= 0));
-        if (!pool.length) pool = D.fish.filter(f => f.realm === p.realm && f.band === 'common');
-        if (!pool.length) return null;
-        const w = bandWeights(g);
-        let total = 0;
-        for (const f of pool) total += w[f.band] || 1;
-        let roll = rng() * total;
-        for (const f of pool) { roll -= (w[f.band] || 1); if (roll <= 0) return f; }
-        return pool[0];
-    }
-
-    // the whole tackle model in one place, so the balance run and the game
-    // cannot drift apart on what a line is worth
-    function newDredgeState(p, fish, pull, rng) {
-        const line = p.equipment.line;
-        const tier = line ? line.tier : 0;
-        return {
-            fishId: fish.id,
-            depth: fish.depth, startDepth: fish.depth,
-            tension: 0,
-            threshold: 1.0 + tier * 0.25 + itemStat(line, 'lineStrength') * 0.10,
-            reelFactor: 1 + 0.28 * tier + p.attributes.might / 150,
-            pull: pull,
-            held: false, thrash: 0, nextThrash: 90 + Math.floor((rng ? rng() : 0.5) * 150),
-            over: false, result: null, ticks: 0
-        };
-    }
-
-    function startDredge(g) {
-        const p = g.p;
-        advanceClock(g, 1);
-        if (g.ended) return;
-        const fish = pickFish(g);
-        if (!fish) { log(g, 'nothing is biting here.', 'warn'); return render(g); }
-        g.dredge = newDredgeState(p, fish, tidePull(p), g.rng);
-        g.screen = 'dredge';
-        log(g, `something takes the hook at ${fish.depth} fathoms.`);
-        render(g);
-    }
-
-    // one integration step, 1/60 s. Formulas are GDD §4.5 verbatim; the
-    // line and the arm holding it scale REEL_FORCE.
-    function dredgeStep(g) {
-        const s = g.dredge;
-        if (!s || s.over) return;
-        const fish = fishById(s.fishId);
-        const dt = 1 / 60;
-        s.ticks++;
-        if (s.ticks >= s.nextThrash) {
-            s.thrash = 40;
-            s.nextThrash = s.ticks + 120 + Math.floor(g.rng() * 180);
+    function triggerNemesisAlert(g, faction, threatLevel) {
+        const rng = g.rng;
+        for (let i = 0; i < (threatLevel || 1); i++) {
+            const n = makeLord(g, {
+                tier: threatLevel >= 2 ? 2 : 1,
+                realm: g.p.realm,
+                level: Math.max(3, g.p.level + threatLevel),
+                faction: faction ? faction + '_hunter' : undefined
+            });
+            n.grudge = Math.min(5, 2 + threatLevel);
+            n.status = 'hunting';
+            g.roster.push(n);
+            log(g, lordDisplayName(n) + ' has been sent after you' + (faction ? ' by the ' + D.factions[faction].short : '') + '.', 'bad');
         }
-        const thrashing = s.thrash > 0;
-        if (thrashing) s.thrash--;
-
-        const drag = fish.strength * (1 + s.depth / DRAG_DEPTH_K) * s.pull * (thrashing ? 1.6 : 1);
-        const reel = s.held ? REEL_FORCE * s.reelFactor : 0;
-        const slackPenalty = thrashing ? 0.25 : 0;
-
-        if (s.held) s.tension += ((drag - reel) * 0.9 + slackPenalty) * dt;
-        else s.tension *= TENSION_DECAY;
-        if (s.tension < 0) s.tension = 0;
-
-        s.depth -= (reel - drag * 0.5) * HAUL_GAIN;
-
-        if (s.tension > s.threshold) { s.over = true; s.result = 'snapped'; return dredgeEnd(g); }
-        if (s.depth >= s.startDepth * 1.4) { s.over = true; s.result = 'escaped'; return dredgeEnd(g); }
-        if (s.depth <= 0) { s.depth = 0; s.over = true; s.result = 'landed'; return dredgeEnd(g); }
+        bus.emit('NEMESIS_ALERT', { faction: faction, threat: threatLevel });
     }
 
-    function dredgeEnd(g) {
-        const s = g.dredge, p = g.p, fish = fishById(s.fishId);
-        if (s.result === 'snapped') {
-            log(g, `the line goes and the ${fish.name} takes it with it.`, 'bad');
-            const line = p.equipment.line;
-            if (line) {
-                line.durability.current -= 20;
-                if (line.durability.current <= 0) { p.equipment.line = null; log(g, `${line.name} is finished.`, 'bad'); }
-            }
-            sound('error');
-        } else if (s.result === 'escaped') {
-            log(g, `it goes back down and takes the hook with it. ${fish.name}, gone.`, 'warn');
-        } else {
-            p.stats.landed++;
-            if (fish.enemy) {
-                const tpl = foeById(fish.enemy);
-                log(g, `${fish.text}`, 'bad');
-                g.dredge = null;
-                return startFight(g, foeFromTemplate(tpl, 0), 'dredge');
-            }
-            p.coin += fish.value;
-            gainXp(g, Math.round(8 + fish.value * 0.7));
-            log(g, `landed: ${fish.name}. ${fish.text} +${fish.value} coin.`, 'good');
-            if (fish.sanity) {
-                const before = p.vitals.sanity;
-                p.vitals.sanity = clamp(p.vitals.sanity + fish.sanity, 0, maxSanity(p));
-                if (fish.sanity < 0) log(g, `it looks at you on the way into the box. ${p.vitals.sanity - before} sanity.`, 'bad');
-            }
-            for (const m in (fish.drop || {})) { p.materials[m] = (p.materials[m] || 0) + fish.drop[m]; }
-            if (fish.codex) unlockCodex(g, fish.codex);
-            if (fish.rune && chance(g.rng, fish.rune)) {
-                const rune = pick(g.rng, D.runes);
-                p.runes.push(rune.id);
-                log(g, `there was a rune in it: ${rune.name}.`, 'good');
-            }
-            if (fish.band === 'relic') achieve('echoes-relic');
-            sound('ding');
-        }
-        g.dredge = null;
-        g.screen = 'hub';
-        if (checkSanityFloor(g)) return;
-        save(g);
-        render(g);
-    }
+    // ---------- the deep forge (GDD Module 4.1) ----------
+    // Quality is heat accuracy out of 60 plus three hammer strikes out of 40,
+    // which lands on the document's 0–100 scale and its four bands.
+    const HEAT_WEIGHT = 60, STRIKE_WEIGHT = 40;
 
-    // ---------- the forge (GDD §4.2) ----------
-    function startForge(g, recipe) {
-        const p = g.p;
-        if (!canForge(p, recipe)) { log(g, 'not enough material for that.', 'warn'); return render(g); }
-        const rank = rankOf(p, 'marrow_furnace');
-        const bw = clamp(0.16 - 0.018 * recipe.tier + 0.012 * rank, 0.05, 0.22);
+    function startForge(g, recipeId) {
+        const p = g.p, recipe = recipeById(recipeId);
+        if (!recipe || !canCraft(p, recipe)) { log(g, 'you cannot make that yet.', 'warn'); return render(g); }
+        const material = D.materials.find(m => m.tier === recipe.tier && !m.reagent) || D.materials[0];
+        const window = material.heat;
+        const optimal = (window[0] + window[1]) / 2;
+        const tolerance = (window[1] - window[0]) / 2 + passive(p, 'forgeTolerance');
         g.forge = {
-            recipeId: recipe.id,
+            recipe_id: recipe.id, material_id: material.id,
             phase: 'heat',
-            heat: 0,
-            rate: (1.4 - 0.02 * recipe.tier) / 60,
-            bandLo: 0.70 - bw / 2, bandHi: 0.70 + bw / 2,
-            heatScore: 0, strikeScore: 0,
-            strike: 0, marker: 0, dir: 1,
-            sweetLo: 0, sweetHi: 0,
+            temp: 0,
+            rate: (window[1] * 1.35) / (7.5 * 60),      // reaches burn-out in about seven seconds
+            optimal: optimal, tolerance: tolerance, window: window,
+            heatScore: 0, strikeScore: 0, strike: 0,
+            marker: 0, dir: 1, sweet: [0.4, 0.56],
             done: false
         };
-        rollSweet(g);
+        rollSweetSpot(g);
         g.screen = 'forge';
         render(g);
     }
-    function rollSweet(g) {
+    function rollSweetSpot(g) {
         const f = g.forge;
-        const w = 0.16 - f.strike * 0.02;
-        const lo = 0.10 + g.rng() * (0.80 - w);
-        f.sweetLo = lo; f.sweetHi = lo + w;
+        const w = 0.18 - f.strike * 0.025 + Math.min(0.06, passive(g.p, 'forgeTolerance') / 600);
+        const lo = 0.08 + g.rng() * (0.9 - w);
+        f.sweet = [lo, lo + w];
     }
     function forgeStep(g) {
         const f = g.forge;
         if (!f || f.done) return;
         if (f.phase === 'heat') {
-            f.heat += f.rate;
-            if (f.heat >= 1.15) { f.heatScore = 0; f.phase = 'quench'; }
-        } else if (f.phase === 'quench') {
-            f.marker += f.dir * 0.014;
+            f.temp += f.rate;
+            if (f.temp > f.window[1] * 1.35) { f.heatScore = 0; f.phase = 'strike'; }
+        } else if (f.phase === 'strike') {
+            f.marker += f.dir * 0.016;
             if (f.marker >= 1) { f.marker = 1; f.dir = -1; }
             if (f.marker <= 0) { f.marker = 0; f.dir = 1; }
         }
@@ -1311,755 +1763,871 @@
         const f = g.forge;
         if (!f || f.done) return;
         if (f.phase === 'heat') {
-            const centre = (f.bandLo + f.bandHi) / 2;
-            const half = (f.bandHi - f.bandLo) / 2;
-            const off = Math.abs(f.heat - centre);
-            f.heatScore = off <= half ? 3 : off <= half * 2 ? 2 : off <= half * 3.5 ? 1 : 0;
-            f.phase = 'quench';
+            const off = Math.abs(f.temp - f.optimal);
+            f.heatScore = Math.round(HEAT_WEIGHT * Math.max(0, 1 - off / (f.tolerance * 2.2)));
+            f.pulledAt = Math.round(f.temp);
+            f.phase = 'strike';
             sound('click');
             return;
         }
-        const hit = f.marker >= f.sweetLo && f.marker <= f.sweetHi;
-        if (hit) f.strikeScore++;
+        const centre = (f.sweet[0] + f.sweet[1]) / 2;
+        const half = (f.sweet[1] - f.sweet[0]) / 2;
+        const off = Math.abs(f.marker - centre);
+        f.strikeScore += (STRIKE_WEIGHT / 3) * Math.max(0, 1 - off / (half * 2.4));
         f.strike++;
-        sound(hit ? 'click' : 'error');
+        sound(off <= half ? 'click' : 'error');
         if (f.strike >= 3) return forgeFinish(g);
-        rollSweet(g);
+        rollSweetSpot(g);
     }
     function forgeFinish(g) {
         const f = g.forge, p = g.p;
         f.done = true;
-        const recipe = recipeById(f.recipeId);
-        let quality = clamp(f.heatScore + f.strikeScore, 0, 6);
-        if (p.faction === 'ironclad') quality = Math.min(6, quality + 1);
-        if (chance(g.rng, skillEffect(p, 'rarityBias'))) quality = Math.min(6, quality + 1);
+        const recipe = recipeById(f.recipe_id);
+        let quality = clamp(Math.round(f.heatScore + f.strikeScore), 0, 100);
+        quality += passive(p, 'qualityBonus');
+        if (p.faction === 'syndicate') quality += D.factions.syndicate.bonus.forgeQuality;
+        quality = clamp(quality, 0, 100);
+
         payFor(p, recipe);
-        const item = makeItem(g, recipe, quality);
+        const item = makeItem(g, recipe, { qualityScore: quality, materialId: f.material_id, forged: true, rarityBias: quality / 100 });
         p.inventory.push(item);
-        if (p.knownRecipes.indexOf(recipe.id) < 0) p.knownRecipes.push(recipe.id);
-        advanceClock(g, 1);
-        log(g, `off the anvil: ${item.name} (${item.rarity}, quality ${quality}/6).`, item.rarity === 'masterwork' ? 'good' : item.rarity === 'cursed' ? 'warn' : '');
-        if (item.rarity === 'masterwork') achieve('echoes-masterwork');
+        gainLifeSkill(g, 'smithing', 40 + recipe.tier * 25 + quality);
+        advanceDay(g, 0);
+        const band = bandFor(quality);
+        log(g, 'off the anvil: ' + item.name + ' — ' + band.name + ' (' + quality + '/100). ' + band.text,
+            band.id === 'abyssal_forged' ? 'good' : band.id === 'defective' ? 'warn' : '');
+        if (band.id === 'abyssal_forged') achieve('echoes-masterwork');
+        bus.emit('ITEM_CRAFTED', item);
         g.forge = null;
-        g.screen = 'forge-done';
         g.lastForged = item;
+        g.screen = 'forge_done';
         save(g);
         render(g);
     }
 
-    // ---------- codex & dialogue ----------
+    // ---------- angling (GDD Module 4.2) ----------
+    function rodStrengthOf(p) { return 10 + gearStat(p, 'rodStrength') + Math.round(p.attributes.might * 0.6); }
+    function reelSpeedOf(p) { return 12 + Math.round(p.attributes.might * 0.5 + p.attributes.finesse * 0.3); }
+
+    function startAngling(g, spotId) {
+        const p = g.p, rng = g.rng;
+        const spot = byId(D.fishingSpots, spotId);
+        if (!spot) return;
+        const c = spot.conditions;
+        if (c.sanity_drain_per_cast) {
+            const bite = sanityLoss(p, c.sanity_drain_per_cast);
+            p.vitals.sanity -= bite;
+            if (bite) log(g, 'the cast costs you ' + bite + ' sanity.', 'warn');
+        }
+        if (c.monster_encounter_chance_pct && chance(rng, c.monster_encounter_chance_pct / 100)) {
+            log(g, 'something comes up the line that was not on the end of it.', 'bad');
+            const tpl = pickFoeTemplate(g, spot.realm, 2);
+            return startFight(g, [foeFromTemplate(tpl, 1.1)], 'angling');
+        }
+        const entry = weighted(rng, spot.loot_pool, e => e.weight * (1 + passive(p, 'dredgeLuck') * 0.12 * (catchById(e.catch_id).tier || 1)));
+        const fish = catchById(entry.catch_id);
+        g.angling = {
+            spot_id: spot.id, catch_id: fish.id,
+            stamina: fish.stamina, max_stamina: fish.stamina,
+            tension: 0, holding: false,
+            pull: fish.pull, rod: rodStrengthOf(p), reel: reelSpeedOf(p),
+            burst: 0, nextBurst: 90 + Math.floor(rng() * 150), ticks: 0,
+            over: false, result: null
+        };
+        g.screen = 'angling';
+        log(g, 'something takes the hook at ' + spot.depth_meters + ' metres.');
+        render(g);
+    }
+
+    // one integration step at 60 Hz: tension climbs while you reel against
+    // the fish and falls when you give it slack; the green band is the only
+    // place its stamina goes down
+    function anglingStep(g) {
+        const s = g.angling;
+        if (!s || s.over) return;
+        const dt = 1 / 60;
+        s.ticks++;
+        if (s.ticks >= s.nextBurst) {
+            s.burst = 45;
+            s.nextBurst = s.ticks + 150 + Math.floor(g.rng() * 210);
+            // the surge arrives as a jerk, not a ramp — this is the whole
+            // reason a heavier rod is worth carrying
+            if (s.holding) s.tension += s.pull * 1.7 * 20 / (s.rod + 20);
+        }
+        const bursting = s.burst > 0;
+        if (bursting) s.burst--;
+
+        const force = s.pull * (bursting ? 1.7 : 1);
+        const rise = force * 60 / (s.rod + 20) + s.reel * 0.22;
+        s.tension += (s.holding ? rise : -42) * dt;
+        s.tension = clamp(s.tension, 0, TENSION_MAX + 1);
+
+        const inGreen = s.tension >= TENSION_GREEN[0] && s.tension <= TENSION_GREEN[1];
+        if (inGreen) s.stamina -= (14 + s.reel * 0.5) * dt;
+        else if (s.tension < TENSION_GREEN[0]) s.stamina = Math.min(s.max_stamina, s.stamina + 7 * dt);
+
+        if (s.tension > TENSION_MAX) { s.over = true; s.result = 'snapped'; return anglingEnd(g); }
+        if (s.stamina <= 0) { s.stamina = 0; s.over = true; s.result = 'landed'; return anglingEnd(g); }
+    }
+
+    function anglingEnd(g) {
+        const s = g.angling, p = g.p, fish = catchById(s.catch_id);
+        if (s.result === 'snapped') {
+            log(g, 'the line goes, and the ' + fish.name + ' takes it with it.', 'bad');
+            const rod = p.equipment.off_hand;
+            if (rod && rod.durability) {
+                rod.durability.current -= 15;
+                if (rod.durability.current <= 0) { p.equipment.off_hand = null; log(g, rod.name + ' is finished.', 'bad'); }
+            }
+            sound('error');
+            g.angling = null;
+            g.screen = 'hub';
+            return (save(g), render(g));
+        }
+        p.stats.landed++;
+        gainLifeSkill(g, 'fishing', 30 + fish.tier * 40);
+        if (fish.encounter) {
+            const tpl = foeById(fish.encounter);
+            log(g, fish.text, 'bad');
+            g.angling = null;
+            return startFight(g, [foeFromTemplate(tpl, 1)], 'angling');
+        }
+        p.coin += fish.value;
+        gainXp(g, Math.round(60 + fish.value * 1.4));
+        log(g, 'landed: ' + fish.name + '. ' + fish.text + ' +' + fish.value + ' coin.', 'good');
+        if (fish.material) for (const m in fish.material) p.materials[m] = (p.materials[m] || 0) + fish.material[m];
+        if (fish.codex) unlockCodex(g, fish.codex);
+        if (fish.salvage && fish.rolls) {
+            const r = fish.rolls;
+            if (r.coin) { const c = ri(g.rng, r.coin[0], r.coin[1]); p.coin += c; log(g, 'the box holds ' + c + ' coin.', 'good'); }
+            if (r.rareMaterial) {
+                const mat = pick(g.rng, D.materials.filter(m => !m.reagent && m.tier >= 3));
+                p.materials[mat.id] = (p.materials[mat.id] || 0) + r.rareMaterial;
+                log(g, 'and ' + r.rareMaterial + ' × ' + mat.name + '.', 'good');
+            }
+            if (r.runeChance && chance(g.rng, r.runeChance)) { const rn = pick(g.rng, D.runes); p.runes.push(rn.id); log(g, 'and a rune: ' + rn.name + '.', 'good'); }
+            if (r.blueprintChance && chance(g.rng, r.blueprintChance)) {
+                const rec = pick(g.rng, D.recipes.filter(x => p.known_recipes.indexOf(x.id) < 0));
+                if (rec) { p.known_recipes.push(rec.id); log(g, 'and a blueprint: ' + rec.name + '.', 'good'); }
+            }
+            achieve('echoes-relic');
+        }
+        if (fish.onEat) p.inventory.push({ item_id: 'consumable_' + fish.id + '_' + (g.itemSeq++), name: fish.name, consumable: fish.onEat, slot: null, weight: 0.5, rarity: 'common', rarity_name: 'Common', value: fish.value });
+        clampVitals(p);
+        sound('ding');
+        g.angling = null;
+        g.screen = 'hub';
+        save(g);
+        render(g);
+    }
+
+    // ---------- codex ----------
     function unlockCodex(g, id) {
         if (!id || g.p.codex.indexOf(id) >= 0) return;
         g.p.codex.push(id);
         const entry = byId(D.codex, id);
-        log(g, `codex: ${entry ? entry.title : id}.`, 'lore');
+        log(g, 'codex: ' + (entry ? entry.title : id) + '.', 'lore');
         if (g.p.codex.length >= D.codex.length) achieve('echoes-codex');
+        bus.emit('CODEX_UNLOCKED', id);
     }
 
-    function startDialogue(g, treeId) {
-        const tree = D.dialogue[treeId];
-        if (!tree) return;
-        g.dialogue = { tree: treeId, node: tree.start, roll: null };
+    // ---------- dialogue (GDD Module 1.4) ----------
+    function dialogueNode(id) { return D.dialogue[id] || null; }
+    function dialogueBody(g, node) {
+        if (node.sanity_threshold && g.p.vitals.sanity < node.sanity_threshold && node.sanity_altered_text) {
+            return { text: node.sanity_altered_text, altered: true };
+        }
+        return { text: node.entry_text, altered: false };
+    }
+    function optionAvailable(g, opt) {
+        const p = g.p, c = opt.condition;
+        if (!c) return { ok: true };
+        if (c.required_item && (p.quest_items[c.required_item] || 0) < 1) {
+            return { ok: false, why: 'you do not have it' };
+        }
+        if (c.min_reputation) {
+            const have = p.faction_reputation[c.min_reputation.faction] || 0;
+            if (have < c.min_reputation.value) return { ok: false, why: D.factions[c.min_reputation.faction].short + ' standing ' + have + '/' + c.min_reputation.value };
+        }
+        return { ok: true };
+    }
+
+    function startDialogue(g, dialogueId) {
+        if (!dialogueNode(dialogueId)) return;
+        g.dialogue = { node_id: dialogueId, roll: null };
         g.screen = 'dialogue';
         render(g);
     }
 
-    function dialogueChoose(g, idx) {
+    function chooseOption(g, index) {
         const dl = g.dialogue;
         if (!dl) return;
-        const tree = D.dialogue[dl.tree];
-        const node = tree.nodes[dl.node];
-        const choice = node.choices[idx];
-        if (!choice) return;
-        const p = g.p;
+        const node = dialogueNode(dl.node_id);
+        const opt = node.options[index];
+        if (!opt) return;
+        const avail = optionAvailable(g, opt);
+        if (!avail.ok) { dl.roll = { text: avail.why + '.', pass: false }; return render(g); }
 
-        if (choice.require) {
-            const r = choice.require;
-            if (r.attunement && p.attributes.attunement < r.attunement) { dl.roll = { text: 'you do not understand enough of it to ask.' }; return render(g); }
-            if (r.codexComplete && p.codex.length < D.codex.length) { dl.roll = { text: 'there is too much you have not read to know what to ask.' }; return render(g); }
-        }
-        if (choice.cost && choice.cost.coin && p.coin < choice.cost.coin) {
-            dl.roll = { text: `you do not have ${choice.cost.coin} coin.` };
-            return render(g);
-        }
-
-        let next = choice.goto;
-        if (choice.check) {
-            const mod = skillMod(p, choice.check.skill);
-            const res = d20check(g.rng, mod, choice.check.dc);
+        if (opt.skill_check) {
+            const sc = opt.skill_check;
+            const res = skillCheck(g.rng, g.p.attributes[sc.attribute], sc.difficulty);
             dl.roll = {
-                text: `[${choice.check.skill.replace('_', ' ')}] d20 ${res.roll} + ${mod} vs ${res.dc} — ${res.pass ? 'pass' : 'fail'}${res.nat ? (res.roll === 20 ? ' (natural 20)' : ' (natural 1)') : ''}`,
+                text: '[' + sc.attribute + '] d20 ' + res.roll + ' + ' + Math.floor(g.p.attributes[sc.attribute] / 2)
+                    + ' = ' + res.total + ' vs ' + sc.difficulty + ' — ' + (res.pass ? 'pass' : 'fail')
+                    + (res.critical ? ' (critical ' + res.critical + ')' : ''),
                 pass: res.pass
             };
-            next = res.pass ? choice.pass : choice.fail;
-            if (res.pass && choice.cost && choice.cost.coin) p.coin -= choice.cost.coin;
-        } else {
-            dl.roll = null;
-            if (choice.cost && choice.cost.coin) p.coin -= choice.cost.coin;
+            // a critical success is worth something beyond the branch
+            if (res.critical === 'success') { gainXp(g, 250); dl.roll.text += ' — and you learn something on the way past.'; }
+            if (res.critical === 'failure') {
+                const bite = sanityLoss(g.p, 6);
+                g.p.vitals.sanity -= bite;
+            }
+            const target = res.pass ? sc.success_target : sc.failure_target;
+            if (target && dialogueNode(target)) { dl.node_id = target; save(g); return render(g); }
+            g.dialogue = null; g.screen = 'hub'; save(g); return render(g);
         }
 
-        applyEffect(g, choice.effect);
-        if (g.ended) return;
-        if (!next || !tree.nodes[next] || !tree.nodes[next].choices.length && !tree.nodes[next].text) {
-            g.dialogue = null;
-            g.screen = 'hub';
-            save(g);
-            return render(g);
-        }
-        dl.node = next;
-        const arrived = tree.nodes[next];
-        applyEffect(g, arrived.effect);
-        if (g.ended) return;
-        if (!arrived.choices.length) {
-            g.dialogue = { tree: dl.tree, node: next, roll: dl.roll, terminal: true };
-        }
+        dl.roll = null;
+        runActions(g, opt.actions || []);
         save(g);
         render(g);
     }
 
-    function applyEffect(g, e) {
-        if (!e) return;
+    function runActions(g, actions) {
         const p = g.p;
-        if (e.flag) p.storyFlags[e.flag] = true;
-        if (e.flag2) p.storyFlags[e.flag2] = true;
-        if (e.codex) unlockCodex(g, e.codex);
-        if (e.codex2) unlockCodex(g, e.codex2);
-        if (e.coin) p.coin = Math.max(0, p.coin + e.coin);
-        if (e.rep) for (const k in e.rep) p.factionReputation[k] = clamp((p.factionReputation[k] || 0) + e.rep[k], -100, 100);
-        if (e.join) {
-            p.faction = e.join;
-            log(g, `you signed with ${D.factions[e.join].name}. "${D.factions[e.join].creed}"`, 'good');
-            achieve('echoes-faction');
+        for (const a of actions) {
+            switch (a.type) {
+                case 'remove_item':
+                    p.quest_items[a.item_id] = Math.max(0, (p.quest_items[a.item_id] || 0) - (a.count || 1));
+                    break;
+                case 'give_item': {
+                    const recipe = recipeById(a.item_id);
+                    if (recipe) {
+                        const item = makeItem(g, recipe, { rarity: rarityById('abyssal_rare'), qualityScore: 80, forged: true });
+                        p.inventory.push(item);
+                        log(g, 'you are handed ' + item.name + '.', 'good');
+                    } else {
+                        p.quest_items[a.item_id] = (p.quest_items[a.item_id] || 0) + (a.count || 1);
+                    }
+                    break;
+                }
+                case 'add_reputation':
+                    p.faction_reputation[a.faction] = clamp((p.faction_reputation[a.faction] || 0) + a.value, -100, 100);
+                    log(g, D.factions[a.faction].short + ' standing ' + (a.value > 0 ? '+' : '') + a.value + '.', a.value > 0 ? 'good' : 'warn');
+                    break;
+                case 'modify_sanity':
+                    p.vitals.sanity = clamp(p.vitals.sanity + a.value, 0, p.vitals.max_sanity);
+                    break;
+                case 'add_coin': p.coin += a.value; break;
+                case 'add_xp': gainXp(g, a.value); break;
+                case 'set_flag': p.world_state.story_flags[a.flag] = true; break;
+                case 'unlock_codex': unlockCodex(g, a.codex_id); break;
+                case 'unlock_realm':
+                    if (p.realms_unlocked.indexOf(a.realm) < 0) {
+                        p.realms_unlocked.push(a.realm);
+                        log(g, realmById(a.realm).name + ' is on your chart now.', 'good');
+                    }
+                    break;
+                case 'advance_act':
+                    if (a.act > p.act) { p.act = a.act; log(g, 'Act ' + a.act + ' — ' + D.acts[a.act - 1].title + '.', 'lore'); }
+                    break;
+                case 'join_faction':
+                    p.faction = a.faction;
+                    log(g, 'you signed with ' + D.factions[a.faction].name + '. "' + D.factions[a.faction].creed + '"', 'good');
+                    achieve('echoes-faction');
+                    break;
+                case 'trigger_nemesis_alert': triggerNemesisAlert(g, a.faction, a.threat_level || 1); break;
+                case 'trigger_ending': return endRun(g, a.ending_id);
+                case 'link_dialogue':
+                    if (dialogueNode(a.target)) { g.dialogue = { node_id: a.target, roll: g.dialogue && g.dialogue.roll }; return; }
+                    break;
+                case 'exit_dialogue': g.dialogue = null; g.screen = 'hub'; return;
+            }
         }
-        if (e.sanity) { p.vitals.sanity = clamp(p.vitals.sanity + e.sanity, 0, maxSanity(p)); if (checkSanityFloor(g)) return; }
-        if (e.notorietyLine) p.notoriety++;
-        if (e.unlock && p.realmsUnlocked.indexOf(e.unlock) < 0) {
-            p.realmsUnlocked.push(e.unlock);
-            log(g, `${realmById(e.unlock).name} is on your chart now.`, 'good');
-        }
-        if (e.act && e.act > p.act) { p.act = e.act; log(g, `Act ${e.act}: ${D.acts[e.act - 1].title}.`, 'lore'); }
-        if (e.end) endRun(g, e.end);
+        // an option with actions but no link and no exit closes the conversation
+        g.dialogue = null;
+        g.screen = 'hub';
     }
 
-    // ---------- profile (GDD §6.1) ----------
-    function newProfile(name, seed) {
-        return {
-            $schema: 'echoes/player/1',
-            id: 'p_' + seed.toString(36) + Date.now().toString(36).slice(-4),
-            name: name.slice(0, 18),
-            seed: seed >>> 0,
-            level: 1, xp: 0,
-            attributes: { might: ATTR_START, finesse: ATTR_START, attunement: ATTR_START, fortitude: ATTR_START, perception: ATTR_START },
-            unspentAttributePoints: ATTR_FREE,
-            skillPoints: 1,
-            skills: {},
-            vitals: { hp: 0, stamina: 0, sanity: 0 },
-            equipment: { mainHand: null, offHand: null, head: null, body: null, line: null, trinket: null },
-            inventory: [],
-            materials: { scrap_iron: 10, brine_salt: 4 },
-            runes: [],
-            knownRecipes: [],
-            factionReputation: { ironclad: 0, dredgers: 0, inquisitors: 0 },
-            faction: null,
-            coin: 60,
-            clock: { day: 1, tick: 1 },
-            realm: 'rust_shallows',
-            realmsUnlocked: ['rust_shallows'],
-            act: 1,
-            storyFlags: {},
-            codex: ['the_tide'],
-            notoriety: 0,
-            stats: { kills: 0, deaths: 0, fled: 0, landed: 0 }
-        };
-    }
-
-    function forgeable(p) {
-        let maxTier = 1;
-        if (p.realmsUnlocked.indexOf('whispering_reefs') >= 0) maxTier = 2;
-        if (p.realmsUnlocked.indexOf('leviathan_trench') >= 0) maxTier = 3;
-        if (p.realmsUnlocked.indexOf('drowned_spire') >= 0) maxTier = 4;
-        if ((p.materials.celestial_core || 0) > 0) maxTier = 5;
-        return D.recipes.filter(r => r.tier <= maxTier && (!r.faction || r.faction === p.faction));
-    }
-
-    // ---------- persistence (GDD §6.4) ----------
-    const KEYMAP = {
-        attributes: 'A', unspentAttributePoints: 'U', skillPoints: 'K', skills: 'S', vitals: 'V',
-        equipment: 'E', inventory: 'I', materials: 'M', knownRecipes: 'R', factionReputation: 'F',
-        storyFlags: 'G', realmsUnlocked: 'L', codex: 'C', notoriety: 'N', stats: 'T', clock: 'O',
-        baseStats: 'b', affixes: 'x', sockets: 'k', durability: 'd', damageType: 'y', rarity: 'r',
-        recipeId: 'c', memories: 'm', weaknesses: 'w', strengths: 'g', scars: 's', traits: 't',
-        warCry: 'W', taunts: 'u', rankProgress: 'P', baseCreature: 'B', hpMultiplier: 'H',
-        armourTier: 'a', permanentKill: 'p', lastSeenDay: 'D', mainHand: '1', offHand: '2',
-        head: '3', body: '4', line: '5', trinket: '6', might: 'q', finesse: 'e', attunement: 'z',
-        fortitude: 'f', perception: 'v', critRating: 'j', pressureRating: 'o', lineStrength: 'n',
-        armour: 'h', damage: 'i', penetration: 'l', immuneTo: 'J', stamina: 'Y', sanity: 'Z'
-    };
-    const UNMAP = (function () { const o = {}; for (const k in KEYMAP) o[KEYMAP[k]] = k; return o; })();
-
-    function remap(v, table) {
-        if (Array.isArray(v)) return v.map(x => remap(x, table));
-        if (v && typeof v === 'object') {
-            const o = {};
-            for (const k in v) o[table[k] || k] = remap(v[k], table);
-            return o;
-        }
-        return v;
-    }
-
-    function save(g) {
-        if (!g.p) return;
-        try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify({
-                $schema: SAVE_SCHEMA,
-                s: g.rng.state(), q: g.lordSeq, w: g.itemSeq, e: g.ended || null,
-                p: remap(g.p, KEYMAP), n: remap(g.roster, KEYMAP)
-            }));
-        } catch (err) { /* a full quota is not worth an exception mid-fight */ }
-    }
-
-    function load() {
-        let raw = null;
-        try { raw = localStorage.getItem(SAVE_KEY); } catch (err) { return null; }
-        if (!raw) return null;
-        let doc;
-        try { doc = JSON.parse(raw); } catch (err) { return null; }
-        // a loader that meets an unknown version keeps the raw JSON and
-        // starts a new run rather than half-reading it
-        if (!doc || doc.$schema !== SAVE_SCHEMA) {
-            try { localStorage.setItem(SAVE_KEY + '-unreadable', raw); localStorage.removeItem(SAVE_KEY); } catch (err) { }
-            return null;
-        }
-        return {
-            p: remap(doc.p, UNMAP), roster: remap(doc.n, UNMAP),
-            state: doc.s, lordSeq: doc.q || 0, itemSeq: doc.w || 0, ended: doc.e || null
-        };
-    }
-
-    // characters lost to the deep come back in the next run from the same seed
-    const DROWNED_KEY = SAVE_KEY + '-drowned';
-    function recordDrowned(g) {
-        try {
-            const all = JSON.parse(localStorage.getItem(DROWNED_KEY) || '[]');
-            all.push({
-                seed: g.p.seed, name: g.p.name, level: g.p.level,
-                gear: SLOTS.map(s => g.p.equipment[s]).filter(Boolean).map(i => i.name),
-                realm: g.p.realm, day: g.p.clock.day
-            });
-            localStorage.setItem(DROWNED_KEY, JSON.stringify(all.slice(-20)));
-        } catch (err) { }
-    }
-    function drownedFor(seed) {
-        try { return JSON.parse(localStorage.getItem(DROWNED_KEY) || '[]').filter(d => d.seed === seed); }
-        catch (err) { return []; }
-    }
-
-    // ---------- endings ----------
-    function endRun(g, id) {
-        if (g.ended) return;
-        g.ended = id;
-        g.screen = 'end';
-        if (id === 'recruited') {
-            recordDrowned(g);
-            log(g, 'the singing stops being outside you.', 'bad');
-        }
+    function endRun(g, endingId) {
+        g.ended = endingId;
+        g.dialogue = null;
+        g.screen = 'ending';
         achieve('echoes-end');
+        bus.emit('RUN_ENDED', endingId);
         save(g);
         render(g);
     }
 
-    // ---------- html helpers ----------
+    // ---------- profile (GDD Module 6.2) ----------
+    function newProfile(name, seed) {
+        const p = {
+            profile_id: 'usr_' + seed.toString(36) + Date.now().toString(36).slice(-4),
+            name: String(name).slice(0, 18),
+            seed: seed >>> 0,
+            level: 1,
+            experience: { current: 0, next_level: xpToNext(1) },
+            attributes: { might: ATTR_START, finesse: ATTR_START, attunement: ATTR_START, fortitude: ATTR_START, perception: ATTR_START, unallocated_points: 5 },
+            vitals: { hp: 0, max_hp: 0, stamina: 0, max_stamina: 0, marrow_mana: 0, max_marrow_mana: 0, sanity: SANITY_MAX, max_sanity: SANITY_MAX },
+            equipment: { main_hand: null, off_hand: null, head: null, body: null, lantern: null },
+            inventory: [],
+            materials: { scrap_iron: 12, fish_oil: 6, purified_oil: 1, flare: 2 },
+            runes: [],
+            quest_items: {},
+            known_recipes: D.recipes.filter(r => r.tier === 1).map(r => r.id),
+            skills: {},
+            skill_points: 1,
+            life_skills: { smithing: { level: 1, xp: 0 }, fishing: { level: 1, xp: 0 } },
+            faction_reputation: { syndicate: 0, dredgers: 0, inquisitors: 0 },
+            faction: null,
+            coin: 120,
+            realm: 'rust_shallows',
+            realms_unlocked: ['rust_shallows'],
+            act: 1,
+            codex: ['cdx_great_submersion'],
+            stats: { kills: 0, deaths: 0, fled: 0, landed: 0, lords_ended: 0 },
+            world_state: { current_day: 1, time_of_day: 'calm_day', current_realm: 'rust_shallows', story_flags: {} }
+        };
+        clampVitals(p);
+        p.vitals.hp = p.vitals.max_hp;
+        p.vitals.stamina = p.vitals.max_stamina;
+        p.vitals.marrow_mana = p.vitals.max_marrow_mana;
+        return p;
+    }
+
+    function craftable(p) {
+        return D.recipes.filter(r => p.known_recipes.indexOf(r.id) >= 0 || r.tier <= 1 + (p.realms_unlocked.length - 1));
+    }
+
+    // ---------- persistence ----------
+    function save(g) {
+        if (!g.p) return false;
+        const p = g.p;
+        p.world_state.current_realm = p.realm;
+        const player = {};
+        for (const k in p) if (k !== 'world_state') player[k] = p[k];
+        return saves.saveGame({
+            player: player,
+            world_state: p.world_state,
+            nemesis_roster: g.roster,
+            engine: {
+                rng_state: g.rng.state(), lord_seq: g.lordSeq, item_seq: g.itemSeq,
+                dungeon_seq: g.dungeonSeq, dungeon: g.dungeon, ended: g.ended || null
+            }
+        });
+    }
+
+    function loadInto(g) {
+        const doc = saves.loadGame();
+        if (!doc || !doc.player) return false;
+        g.p = doc.player;
+        g.p.world_state = doc.world_state || { current_day: 1, time_of_day: 'calm_day', current_realm: g.p.realm, story_flags: {} };
+        g.p.realm = g.p.world_state.current_realm || g.p.realm;
+        g.roster = doc.nemesis_roster || [];
+        const e = doc.engine || {};
+        g.rng = makeRng(g.p.seed);
+        if (e.rng_state) g.rng.seed(e.rng_state);
+        g.lordSeq = e.lord_seq || 1;
+        g.itemSeq = e.item_seq || 1;
+        g.dungeonSeq = e.dungeon_seq || 1;
+        g.dungeon = e.dungeon || null;
+        g.ended = e.ended || null;
+        clampVitals(g.p);
+        return true;
+    }
+
+    // ---------- html ----------
     function esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
-            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function bar(kind, cur, max, label) {
         const pct = clamp(max > 0 ? (cur / max) * 100 : 0, 0, 100);
-        return `<div class="et-bar"><div class="et-bar-fill ${kind}" style="width:${pct.toFixed(1)}%"></div><span>${esc(label)}</span></div>`;
+        return '<div class="et-bar"><div class="et-bar-fill ' + kind + '" style="width:' + pct.toFixed(1) + '%"></div><span>' + esc(label) + '</span></div>';
     }
-    function btn(action, label, opts) {
-        const o = opts || {};
-        return `<button class="et-btn${o.wide ? ' et-wide' : ''}" data-a="${esc(action)}"${o.arg !== undefined ? ` data-x="${esc(o.arg)}"` : ''}${o.disabled ? ' disabled' : ''}${o.title ? ` title="${esc(o.title)}"` : ''}>${esc(label)}</button>`;
+    function btn(action, label, o) {
+        o = o || {};
+        return '<button class="et-btn' + (o.wide ? ' et-wide' : '') + '" data-a="' + esc(action) + '"'
+            + (o.arg !== undefined ? ' data-x="' + esc(o.arg) + '"' : '')
+            + (o.disabled ? ' disabled' : '') + (o.title ? ' title="' + esc(o.title) + '"' : '')
+            + '>' + esc(label) + '</button>';
     }
-    function pct(v) { return (v * 100).toFixed(1) + '%'; }
+    const pctText = v => (v * 100).toFixed(1) + '%';
 
-    // ---------- screens ----------
+    // below 25 sanity the interface is not a reliable narrator
+    function shownHp(g, foe) {
+        if (sanityTier(g.p) !== 'illusions' && sanityTier(g.p) !== 'panic') return Math.max(0, foe.hp);
+        const jitter = 1 + (g.rng() - 0.5) * 0.5;
+        return Math.max(0, Math.round(foe.hp * jitter));
+    }
+
     function sideBar(g) {
         const p = g.p;
-        const realm = realmById(p.realm);
         const tier = sanityTier(p);
-        const lords = g.roster.filter(n => n.status !== 'dead').sort((a, b) => RANKS[b.rank] - RANKS[a.rank]).slice(0, 5);
-        return `<div class="et-side">
-            <div class="et-sheet">
-                <div class="et-name">${esc(p.name)} <span>lv ${p.level} · ${p.faction ? esc(D.factions[p.faction].short) : 'unaffiliated'}</span></div>
-                ${bar('hp', p.vitals.hp, maxHp(p), `hp ${p.vitals.hp} / ${maxHp(p)}`)}
-                ${bar('stam', p.vitals.stamina, maxStamina(p), `stamina ${p.vitals.stamina} / ${maxStamina(p)}`)}
-                ${bar('san', p.vitals.sanity, maxSanity(p), `sanity ${p.vitals.sanity} / ${maxSanity(p)} — ${SANITY_LABEL[tier]}`)}
-                ${bar('xp', p.xp, xpToNext(p.level), `xp ${p.xp} / ${xpToNext(p.level)}`)}
-                <div class="et-stats">
-                    ${D.attributes.map(a => `<div>${a.short} <b>${p.attributes[a.id]}</b></div>`).join('')}
-                    <div>ARM <b>${armourOf(p)}</b></div><div>PRS <b>${pressureRating(p)}</b></div>
-                </div>
-                <div class="et-coin">${p.coin} coin · day ${p.clock.day} · ${esc(timeOfDay(p))} · ${esc(tidePhase(p))} tide</div>
-            </div>
-            <div class="et-nem">
-                <div class="et-nem-head">the drowned lords</div>
-                ${lords.map(n => `<div class="et-nem-row"><b>${esc(lordName(n))}</b><span>${esc(n.rank)} · ${esc(realmById(n.realm).name)}</span><i>${n.traits.length ? esc(n.traits[n.traits.length - 1]) : ''}</i></div>`).join('') || '<div class="et-dim">nobody has noticed you yet.</div>'}
-                ${btn('screen:nemesis', 'the full roster', { wide: true })}
-            </div>
-            <div class="et-log">${g.log.slice(0, 14).map(l => `<div class="${esc(l.kind)}">${esc(l.text)}</div>`).join('')}</div>
-        </div>`;
+        const lords = g.roster.filter(n => n.status === 'active' || n.status === 'hunting')
+            .sort((a, b) => (b.tier - a.tier) || (b.power_index - a.power_index)).slice(0, 5);
+        return '<div class="et-side">'
+            + '<div class="et-sheet">'
+            + '<div class="et-name">' + esc(p.name) + ' <span>lv ' + p.level + ' · ' + (p.faction ? esc(D.factions[p.faction].short) : 'unaffiliated') + '</span></div>'
+            + bar('hp', p.vitals.hp, p.vitals.max_hp, 'hp ' + p.vitals.hp + ' / ' + p.vitals.max_hp)
+            + bar('stam', p.vitals.stamina, p.vitals.max_stamina, 'stamina ' + Math.round(p.vitals.stamina) + ' / ' + p.vitals.max_stamina)
+            + bar('marrow', p.vitals.marrow_mana, p.vitals.max_marrow_mana, 'marrow ' + Math.round(p.vitals.marrow_mana) + ' / ' + p.vitals.max_marrow_mana)
+            + bar('san', p.vitals.sanity, p.vitals.max_sanity, 'sanity ' + p.vitals.sanity + ' / ' + p.vitals.max_sanity + ' — ' + tier)
+            + bar('xp', p.experience.current, xpToNext(p.level), 'xp ' + p.experience.current + ' / ' + xpToNext(p.level))
+            + '<div class="et-stats">'
+            + D.attributes.map(a => '<div>' + a.short + ' <b>' + p.attributes[a.id] + '</b></div>').join('')
+            + '<div>ARM <b>' + armourOf(p) + '</b></div><div>MIT <b>' + pctText(armourMitigation(armourOf(p))) + '</b></div>'
+            + '</div>'
+            + '<div class="et-coin">' + p.coin + ' coin · day ' + p.world_state.current_day + ' · ' + (isBlackTide(p) ? 'black tide' : 'calm day') + '</div>'
+            + '</div>'
+            + '<div class="et-nem"><div class="et-nem-head">the drowned admiralty</div>'
+            + (lords.map(n => '<div class="et-nem-row"><b>' + esc(lordDisplayName(n)) + '</b><span>' + esc(n.rank) + ' · ' + esc(realmById(n.current_zone).name) + '</span><i>pi ' + n.power_index + '</i></div>').join('')
+                || '<div class="et-dim">nobody has noticed you yet.</div>')
+            + btn('screen:nemesis', 'the full roster', { wide: true })
+            + '</div>'
+            + '<div class="et-log">' + g.log.slice(0, 14).map(l => '<div class="' + esc(l.kind) + '">' + esc(l.text) + '</div>').join('') + '</div>'
+            + '</div>';
     }
 
     function screenCreate(g) {
         const c = g.create;
-        const total = ATTR_FREE;
         const spent = D.attributes.reduce((s, a) => s + (c.attributes[a.id] - ATTR_START), 0);
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-title">echoes of the tide</div>
-            <div class="et-sub">leviathan's wake</div>
-            <div class="et-intro">Three hundred years ago the Celestial Sun came out of the sky and went into the trench, and the sea rose to meet the hole it left. It has never gone back down.<br><br>Roughly forty thousand people are still here. You are one of them, and this morning a line came up with a piece of worked brass on it, and the brass was warm.</div>
-            <div class="et-field"><label>name</label><input id="et-name" maxlength="18" value="${esc(c.name)}"></div>
-            <div class="et-field"><label>seed <span class="et-dim">— the same seed is the same world</span></label><input id="et-seed" maxlength="10" value="${esc(c.seed)}"></div>
-            <div class="et-h4">attributes — ${total - spent} of ${total} free points left</div>
-            <div class="et-stats">${D.attributes.map(a => `<div>${esc(a.name)} <b>${c.attributes[a.id]}</b>
-                ${btn('cre-', '−', { arg: a.id, disabled: c.attributes[a.id] <= ATTR_START })}
-                ${btn('cre+', '+', { arg: a.id, disabled: spent >= total })}
-                <i class="et-dim">${esc(a.governs)}</i></div>`).join('')}</div>
-            <div class="et-row">${btn('create', 'take the boat out', { wide: true })}</div>
-            <div class="et-dim">a faction picks you up in the Shallows. the Dredgers and the Inquisitors will not have each other.</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll">'
+            + '<div class="et-title">echoes of the tide</div><div class="et-sub">leviathan\'s wake</div>'
+            + '<div class="et-intro">Three hundred years ago the Celestial Sun broke out of the sky and fell into the deepest trench in the ocean. The seas rose to meet the hole it left and the continents went under entire.<br><br>What is left of us floats: iron rigs lashed together with chain, towns built on dead Leviathan skeletons, and a few rock towers that used to be mountains. You dredge scrap out of wrecks for a living, and this morning the harpoon line came up heavy and wrong.</div>'
+            + '<div class="et-field"><label>name</label><input id="et-name" maxlength="18" value="' + esc(c.name) + '"></div>'
+            + '<div class="et-field"><label>seed <span class="et-dim">— the same seed is the same admiralty</span></label><input id="et-seed" maxlength="10" value="' + esc(c.seed) + '"></div>'
+            + '<div class="et-h4">attributes — ' + (5 - spent) + ' of 5 free points left</div>'
+            + '<div class="et-stats">' + D.attributes.map(a => '<div>' + esc(a.name) + ' <b>' + c.attributes[a.id] + '</b> '
+                + btn('cre-', '−', { arg: a.id, disabled: c.attributes[a.id] <= ATTR_START })
+                + btn('cre+', '+', { arg: a.id, disabled: spent >= 5 })
+                + '<i class="et-dim">' + esc(a.governs) + '</i></div>').join('') + '</div>'
+            + '<div class="et-row">' + btn('create', 'take the boat out', { wide: true }) + '</div>'
+            + '<div class="et-row">' + btn('import', 'import a save string') + '</div>'
+            + '</div></div>';
     }
 
     function screenHub(g) {
         const p = g.p, realm = realmById(p.realm);
         const act = D.acts[p.act - 1];
-        const tree = D.dialogue[act.dialogue];
-        const storyDone = p.act > act.n || (act.n === 4 && g.ended);
-        const canStory = act.realm === p.realm && !storyDone;
-        const short = pressureShort(g, realm);
-        const weather = D.realms.indexOf(realm) >= 0 ? realm.weather[(p.clock.day + p.clock.tick) % realm.weather.length] : '';
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-place">
-                <div class="et-place-name">${esc(realm.name)}</div>
-                <div class="et-place-weather">${esc(weather)} · ${esc(realm.harbour)} · ${esc(timeOfDay(p))}, ${esc(tidePhase(p))} tide${leviathanTurns(p) ? ' — <b>the Leviathan is turning over</b>' : ''}</div>
-                <div class="et-place-blurb">${esc(realm.blurb)}</div>
-                ${short > 0 ? `<div class="et-place-blurb" style="color:#c0625a">pressure rating ${pressureRating(p)} against a requirement of ${realm.pressure}. every node down here costs you blood.</div>` : ''}
-            </div>
-            <div class="et-acts">
-                <div class="et-h4">Act ${act.n} — ${esc(act.title)}</div>
-                <div class="et-lore">${esc(act.goal)}</div>
-                ${canStory ? btn('story', tree ? 'go and see about it' : 'continue', { wide: true }) : `<div class="et-dim">${storyDone ? 'this act is behind you.' : 'this act is waiting for you in ' + esc(realmById(act.realm).name) + '.'}</div>`}
-            </div>
-            <div class="et-abils">
-                ${btn('voyage', 'take a voyage', { wide: true })}
-                ${btn('dredge', 'put a line in', { wide: true, disabled: !p.equipment.line, title: p.equipment.line ? '' : 'you need a line' })}
-                ${btn('screen:forgepick', 'the deep-forge', { wide: true })}
-                ${btn('rest', 'rest (4 hours)', { wide: true })}
-            </div>
-            <div class="et-abils">
-                ${btn('screen:sheet', 'character')}
-                ${btn('screen:skills', `skills${p.skillPoints ? ' (' + p.skillPoints + ')' : ''}`)}
-                ${btn('screen:gear', 'gear')}
-                ${btn('screen:realms', 'chart')}
-                ${btn('screen:codex', `codex (${p.codex.length}/${D.codex.length})`)}
-                ${btn('screen:factions', 'factions')}
-            </div>
-            <div class="et-dim">${p.stats.kills} kills · ${p.stats.deaths} deaths · ${p.stats.landed} landed · notoriety ${p.notoriety}</div>
-            <div class="et-row">${btn('newgame', 'abandon this run')}</div>
-        </div></div>`;
+        const h = realm.hazard;
+        const countered = SLOTS.some(s => p.equipment[s] && p.equipment[s].counters === h.id);
+        let storyBtn = '';
+        if (act.realm === p.realm) {
+            if (p.act === 2) {
+                const has = (p.quest_items.item_marrow_core_t3 || 0) > 0;
+                storyBtn = has
+                    ? Object.keys(act.choice.dialogues).map(k => btn('story', 'take the Core to ' + D.factions[k].short, { arg: act.choice.dialogues[k], wide: true })).join('')
+                    : '<div class="et-dim">the beacon core is somewhere under the Reefs. The Choir has it.</div>';
+            } else if (p.act === 3) {
+                storyBtn = p.world_state.story_flags['boss_boss_drowned_archon']
+                    ? btn('story', 'go to the Beacon', { arg: 'dlg_archon_final', wide: true })
+                    : '<div class="et-dim">the Archon keeps the last door, and the last door is at the bottom of the Spire.</div>';
+            } else {
+                storyBtn = btn('story', 'see about it', { arg: act.dialogue, wide: true });
+            }
+        } else {
+            storyBtn = '<div class="et-dim">this act is waiting for you in ' + esc(realmById(act.realm).name) + '.</div>';
+        }
+        return '<div class="et-main"><div class="et-scroll">'
+            + '<div class="et-place">'
+            + '<div class="et-place-name">' + esc(realm.name) + '</div>'
+            + '<div class="et-place-weather">' + esc(realm.depth[0]) + '–' + esc(realm.depth[1]) + ' m · ' + esc(realm.harbour) + ' · ' + esc(realm.weather[(p.world_state.current_day) % realm.weather.length]) + '</div>'
+            + '<div class="et-place-blurb">' + esc(realm.blurb) + '</div>'
+            + '<div class="et-place-blurb" style="color:' + (countered ? '#8fa38f' : '#c0625a') + '">' + esc(h.name) + ': ' + esc(h.text) + (countered ? ' — answered by your gear.' : ' You need ' + esc(h.counterName) + '.') + '</div>'
+            + '</div>'
+            + '<div class="et-acts"><div class="et-h4">Act ' + act.n + ' — ' + esc(act.title) + '</div>'
+            + '<div class="et-lore">' + esc(act.goal) + '</div>' + storyBtn + '</div>'
+            + '<div class="et-abils">'
+            + btn('voyage', 'take a voyage', { wide: true })
+            + btn('screen:angling', 'put a line in', { wide: true })
+            + btn('screen:forge_pick', 'the deep-forge', { wide: true })
+            + btn('rest', 'rest until the tide turns', { wide: true })
+            + '</div>'
+            + '<div class="et-abils">'
+            + btn('screen:sheet', 'character') + btn('screen:skills', 'skills' + (p.skill_points ? ' (' + p.skill_points + ')' : ''))
+            + btn('screen:gear', 'gear') + btn('screen:chart', 'chart')
+            + btn('screen:codex', 'codex (' + p.codex.length + '/' + D.codex.length + ')') + btn('screen:factions', 'guilds')
+            + '</div>'
+            + '<div class="et-dim">' + p.stats.kills + ' kills · ' + p.stats.deaths + ' deaths · ' + p.stats.landed + ' landed · ' + p.stats.lords_ended + ' lords ended · smithing ' + p.life_skills.smithing.level + ' · fishing ' + p.life_skills.fishing.level + '</div>'
+            + '<div class="et-row">' + btn('export', 'export save') + btn('newgame', 'abandon this run') + '</div>'
+            + '</div></div>';
     }
 
-    function screenFight(g) {
-        const f = g.fight, p = g.p, foe = f.foe;
-        const abilities = [];
-        for (const key of ['abyssal_bolt', 'harpoon', 'burn_oil', 'whisper', 'reel_in']) {
-            const v = abilityValue(p, key);
-            if (!v) continue;
-            const node = D.skillTrees.reduce((acc, t) => acc || t.nodes.find(n => n.ability === key), null);
-            abilities.push(btn(`act:${key}`, node.name, { disabled: f.over }));
+    function screenCombat(g) {
+        const f = g.fight, p = g.p;
+        const target = currentTarget(g);
+        const skills = [];
+        for (const tree of D.skillTrees) for (const node of tree.nodes) {
+            if (node.type !== 'active' || rankOf(p, node.id) < 1) continue;
+            const c = canUseSkill(g, node.id);
+            skills.push(btn('skill', node.name, { arg: node.id, disabled: f.over || !c.ok, title: c.ok ? node.text : c.why }));
         }
-        const traits = (foe.traits || []).map(t => {
-            const td = byId(D.traits, t);
-            return `<span class="et-trait known" title="${esc(td ? td.text : t)}">${esc(td ? td.name : t)}</span>`;
-        }).join('');
-        const known = foe.lord ? byId(g.roster, foe.nemesisId) : null;
-        const reveal = skillEffect(p, 'revealTraits');
-        const weakLine = (reveal > 0 || (known && known.weaknesses.length)) && known
-            ? `<div class="et-dim">weaknesses: ${esc((known.weaknesses.slice(0, Math.max(1, reveal)).join(' · ')) || 'none you can see')}</div>` : '';
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-foe">
-                <div class="et-foe-name">${esc(foe.name)} <span class="et-dim">lv ${foe.level}${foe.rank ? ' · ' + esc(foe.rank) : ''}</span></div>
-                ${bar('foe', Math.max(0, foe.hp), foe.maxHp, `${Math.max(0, foe.hp)} / ${foe.maxHp}`)}
-                <div class="et-foe-text">${esc(foe.text || '')}</div>
-                ${foe.immune && foe.immune.length ? `<div class="et-dim">immune: ${esc(foe.immune.join(', '))}</div>` : ''}
-                <div class="et-traits">${traits}</div>
-                ${weakLine}
-            </div>
-            <div class="et-abils">
-                ${btn('act:strike', 'strike', { disabled: f.over })}
-                ${btn('act:guard', 'guard', { disabled: f.over })}
-                ${abilities.join('')}
-                ${btn('act:flee', 'cut the line', { disabled: f.over })}
-            </div>
-            <div class="et-dim">round ${f.round} · your armour ${armourOf(p)} · crit ${pct(critChance(p.attributes.finesse, gearStat(p, 'critRating')))} · hit ${pct(clamp(1 - dodgeChance(p.attributes.finesse, foe.finesse), HIT_MIN, HIT_MAX))}</div>
-            <div class="et-fightlog">${f.log.map(l => `<div class="${esc(l.kind)}">${esc(l.text)}</div>`).join('')}</div>
-            ${f.over ? `<div class="et-row">${btn('fight-done', f.result === 'won' ? 'take what is left' : f.result === 'fled' ? 'go' : 'wake up', { wide: true })}</div>` : ''}
-        </div></div>`;
+        const harpoons = f.foes.some(x => x.phases && (x.phases[x.phase].mechanics || []).indexOf('interactable_harpoons') >= 0) && !f.arena.harpoonsUsed;
+        return '<div class="et-main"><div class="et-scroll">'
+            + f.foes.map((foe, i) => foe.hp <= 0 ? '' :
+                '<div class="et-foe' + (target === foe ? ' here' : '') + '" data-a="target" data-x="' + i + '">'
+                + '<div class="et-foe-name">' + esc(foe.name) + ' <span class="et-dim">lv ' + foe.level + (foe.rank ? ' · ' + esc(foe.rank) : '') + '</span></div>'
+                + bar('foe', shownHp(g, foe), foe.max_hp, shownHp(g, foe) + ' / ' + foe.max_hp)
+                + '<div class="et-foe-text">' + esc(foe.text || '') + '</div>'
+                + (foe.immune.length ? '<div class="et-dim">immune: ' + esc(foe.immune.join(', ')) + '</div>' : '')
+                + '<div class="et-traits">'
+                + ['immunities', 'enrage_triggers', 'vulnerabilities', 'phobias'].map(k => (foe.traits[k] || []).map(id => {
+                    const pool = D.nemesisTraits[k] || [];
+                    const t = byId(pool, id);
+                    return '<span class="et-trait known" title="' + esc(t ? t.text : id) + '">' + esc(t ? t.name : id) + '</span>';
+                }).join('')).join('')
+                + (foe.enraged ? '<span class="et-trait known" style="color:#c0625a">enraged</span>' : '')
+                + '</div></div>').join('')
+            + (f.arena.telegraph ? '<div class="et-lore" style="color:#c9a227">a red line is marked across the deck. Next turn, that line.</div>' : '')
+            + (f.barrier > 0 ? '<div class="et-dim">barrier ' + f.barrier + '</div>' : '')
+            + '<div class="et-abils">'
+            + btn('strike', 'strike (' + STRIKE_STAMINA + ')', { disabled: f.over })
+            + btn('guard', 'guard', { disabled: f.over })
+            + skills.join('')
+            + (harpoons ? btn('harpoon', 'pull the harpoon levers', { disabled: f.over }) : '')
+            + ((p.materials.flare || 0) > 0 ? btn('flare', 'flare (' + p.materials.flare + ')', { disabled: f.over }) : '')
+            + btn('flee', 'cut and run', { disabled: f.over })
+            + '</div>'
+            + '<div class="et-dim">round ' + f.round + ' · armour ' + armourOf(p) + ' (' + pctText(armourMitigation(armourOf(p))) + ' mitigation) · crit ' + pctText(critChance(p)) + ' ×' + critMultiplier(p).toFixed(2)
+            + ' · hit ' + pctText(clamp(BASE_HIT_CHANCE + hitRating(p) - (target ? target.dodge : 0), HIT_FLOOR, HIT_CEILING)) + '</div>'
+            + '<div class="et-fightlog">' + f.log.map(l => '<div class="' + esc(l.kind) + '">' + esc(l.text) + '</div>').join('') + '</div>'
+            + (f.over ? '<div class="et-row">' + btn('fight-done', f.result === 'won' ? 'take what is left' : f.result === 'fled' ? 'go' : 'wake up', { wide: true }) + '</div>' : '')
+            + '</div></div>';
     }
 
     function screenDungeon(g) {
         const d = g.dungeon, realm = realmById(d.realm);
-        const node = d.node || {};
-        const label = {
-            combat: 'something is in the way', elite: 'a drowned lord', treasure: 'sunken treasure',
-            rest: 'a rest rig', hazard: 'hazard', lore: 'somebody wrote this down',
-            descent: 'descent', boss: realm.name + ' — the thing at the bottom'
-        }[node.type] || node.type;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-station">
-                <div class="et-station-head">${esc(realm.name)}<span>depth ${d.depth} / ${d.maxDepth}</span></div>
-                <div class="et-room">
-                    <div class="et-h4">${esc(label)}</div>
-                    <div class="et-lore">${esc(node.text || D.nodeText.boss[0])}</div>
-                    ${btn('node', node.type === 'descent' ? 'go down' : node.type === 'boss' ? 'open the door' : 'take it', { wide: true })}
-                </div>
-            </div>
-            <div class="et-row">${btn('leave', 'put back in to harbour')}</div>
-            <div class="et-log">${g.log.slice(0, 10).map(l => `<div class="${esc(l.kind)}">${esc(l.text)}</div>`).join('')}</div>
-        </div></div>`;
-    }
-
-    function screenDredge(g) {
-        const s = g.dredge, fish = fishById(s.fishId);
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">the line is out</div>
-            <canvas class="et-canvas" id="et-canvas" width="300" height="220"></canvas>
-            <div class="et-dim">hold to reel — release to give slack. the line snaps above ${s.threshold.toFixed(2)}.</div>
-            <div class="et-abils">${btn('reel', 'hold the line', { wide: true })}</div>
-            <div class="et-dim">tide ${esc(tidePhase(g.p))} (pull ×${s.pull.toFixed(2)}) · line ${g.p.equipment.line ? esc(g.p.equipment.line.name) : 'none'}</div>
-            <div class="et-row">${btn('cut', 'cut it loose')}</div>
-        </div></div>`;
-    }
-
-    function screenForge(g) {
-        const f = g.forge, recipe = recipeById(f.recipeId);
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">${esc(recipe.name)}</div>
-            <canvas class="et-canvas" id="et-canvas" width="300" height="190"></canvas>
-            <div class="et-lore">${f.phase === 'heat' ? 'pull it out when the heat is in the band. tier ' + recipe.tier + ' wants a narrow band.' : `strike ${f.strike + 1} of 3 — hit the sweet spot.`}</div>
-            <div class="et-abils">${btn('forge-hit', f.phase === 'heat' ? 'pull it out' : 'strike', { wide: true })}</div>
-        </div></div>`;
-    }
-
-    function screenForgeDone(g) {
-        const it = g.lastForged;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">${esc(it.name)}</div>
-            ${itemCard(it, true)}
-            <div class="et-abils">${btn('equip', 'put it on', { arg: it.id })}${btn('screen:forgepick', 'forge again')}${btn('screen:hub', 'done')}</div>
-        </div></div>`;
+        const here = dungeonNode(d, d.current_node);
+        const options = here.cleared ? availableNodes(d) : [here];
+        const LABEL = { combat: 'something is in the way', elite: 'a drowned lord', salvage: 'sunken treasure', mystery: 'a choice', rest: 'a rest rig', boss: 'the thing at the bottom' };
+        return '<div class="et-main"><div class="et-scroll">'
+            + '<div class="et-station"><div class="et-station-head">' + esc(realm.name) + '<span>floor ' + d.current_floor + ' / ' + d.floors + '</span></div>'
+            + '<div class="et-room"><div class="et-h4">' + (here.cleared ? 'where next' : esc(LABEL[here.type])) + '</div>'
+            + '<div class="et-lore">' + esc(here.text) + '</div>'
+            + options.map(n => btn('node', (here.cleared ? '' : 'take it — ') + LABEL[n.type] + ' (floor ' + n.floor + ', ×' + n.stat_multiplier + ')', { arg: n.node_id, wide: true })).join('')
+            + (here.cleared && !options.length ? '<div class="et-dim">nothing connects onward from here.</div>' : '')
+            + '</div></div>'
+            + '<div class="et-dim">' + d.nodes.filter(n => n.cleared).length + ' of ' + d.nodes.length + ' rooms behind you</div>'
+            + '<div class="et-row">' + btn('leave', 'put back in to harbour') + '</div>'
+            + '<div class="et-log">' + g.log.slice(0, 10).map(l => '<div class="' + esc(l.kind) + '">' + esc(l.text) + '</div>').join('') + '</div>'
+            + '</div></div>';
     }
 
     function itemCard(it, full) {
+        if (!it) return '';
         const stats = [];
-        for (const k of ['damage', 'armour', 'critRating', 'pressureRating', 'lineStrength', 'sanityMax', 'staminaMax']) {
+        for (const k of ['damage', 'flatDamage', 'armour', 'maxHp', 'maxMarrow', 'sanityResist', 'blockValue', 'rodStrength']) {
             const v = itemStat(it, k);
-            if (v) stats.push(`${k} ${v > 0 ? '+' : ''}${v}`);
+            if (v) stats.push(k + ' +' + v);
         }
-        if (it.baseStats && it.baseStats.penetration) stats.push('pierces ' + Math.round(it.baseStats.penetration * 100) + '%');
-        const socketText = (it.sockets || []).map(s => s.runeId ? esc((runeById(s.runeId) || {}).name || s.runeId) : '(empty socket)').join(' · ');
-        const curses = (it.affixes || []).filter(a => a.curse);
-        return `<div class="et-item ${esc(it.rarity)}">
-            <b>${esc(it.name)}</b> <i>t${it.tier} ${esc(it.rarity)}</i>
-            <div class="et-dim">${esc(SLOT_NAMES[it.slot])} · ${esc(stats.join(' · ') || 'nothing worth listing')}</div>
-            ${socketText ? `<div class="et-dim">${socketText}</div>` : ''}
-            ${curses.length ? `<div class="et-dim" style="color:#c0625a">${esc(curses.map(c => c.text || c.name).join(' · '))}</div>` : ''}
-            ${full ? `<div class="et-dim">durability ${it.durability.current}/${it.durability.max} · ${it.weight}kg · ${it.value} coin</div>` : ''}
-        </div>`;
+        for (const k of ['critChancePct', 'dodgePct', 'hazardResistPct', 'burnDamagePct', 'marrowLeechPct']) {
+            const v = itemStat(it, k);
+            if (v) stats.push(k.replace('Pct', '') + ' +' + Math.round(v * 100) + '%');
+        }
+        const sockets = (it.sockets || []).map(s => s.gem_id ? esc((runeById(s.gem_id) || {}).name) : '(empty)').join(' · ');
+        const curse = it.curse ? byId(D.curses, it.curse) : null;
+        return '<div class="et-item ' + esc(it.rarity) + '">'
+            + '<b style="color:' + esc(it.rarity_colour || '#e8e0cc') + '">' + esc(it.name) + '</b> <i>t' + it.tier + ' ' + esc(it.rarity_name || it.rarity) + '</i>'
+            + '<div class="et-dim">' + esc(SLOT_NAMES[it.slot] || 'carried') + ' · ' + esc(stats.join(' · ') || 'nothing worth listing') + '</div>'
+            + (sockets ? '<div class="et-dim">sockets: ' + sockets + '</div>' : '')
+            + (curse ? '<div class="et-dim" style="color:#c0625a">' + esc(curse.text) + '</div>' : '')
+            + (full && it.durability ? '<div class="et-dim">durability ' + it.durability.current + '/' + it.durability.max + ' · ' + it.weight + 'kg · ' + it.value + ' coin' + (it.quality_score !== null && it.quality_score !== undefined ? ' · forged ' + it.quality_score + '/100' : '') + '</div>' : '')
+            + '</div>';
+    }
+
+    function screenAnglingPick(g) {
+        const p = g.p;
+        const spots = spotsIn(p.realm);
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">where to cast</div>'
+            + '<div class="et-patterns">' + spots.map(s => {
+                const c = s.conditions;
+                const wrongTide = (c.tide_phase === 'black_tide') !== isBlackTide(p);
+                return '<div class="et-pattern' + (wrongTide ? ' locked' : '') + '"' + (wrongTide ? '' : ' data-a="cast" data-x="' + esc(s.id) + '"') + '>'
+                    + '<b>' + esc(s.name) + '</b><span>' + s.depth_meters + ' m · bait tier ' + s.requires_bait_tier + '</span>'
+                    + '<i>' + (c.tide_phase === 'black_tide' ? 'black tide only' : 'calm day only') + (wrongTide ? ' — not now' : '') + '</i>'
+                    + '<i class="et-dim">−' + c.sanity_drain_per_cast + ' sanity a cast · ' + c.monster_encounter_chance_pct + '% something comes up instead</i>'
+                    + '</div>';
+            }).join('') + '</div>'
+            + '<div class="et-dim">rod ' + rodStrengthOf(p) + ' · reel ' + reelSpeedOf(p) + ' — a stronger rod raises tension more slowly.</div>'
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+    }
+
+    function screenAngling(g) {
+        const s = g.angling, fish = catchById(s.catch_id);
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">the line is out</div>'
+            + '<canvas class="et-canvas" id="et-canvas" width="300" height="210"></canvas>'
+            + '<div class="et-dim">hold to reel, release for slack. Keep the tension in the green band — that is the only place its stamina goes down — and do not let it reach 100.</div>'
+            + '<div class="et-abils">' + btn('reel', 'hold the line', { wide: true }) + '</div>'
+            + '<div class="et-row">' + btn('cut', 'cut it loose') + '</div></div></div>';
     }
 
     function screenForgePick(g) {
         const p = g.p;
-        const list = forgeable(p);
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">the deep-forge</div>
-            <div class="et-dim">${D.materials.filter(m => (p.materials[m.id] || 0) > 0).map(m => `${esc(m.name)} ×${p.materials[m.id]}`).join(' · ') || 'no material at all'}</div>
-            <div class="et-patterns">
-            ${list.map(r => {
-            const ok = canForge(p, r);
-            return `<div class="et-pattern${ok ? '' : ' locked'}" ${ok ? `data-a="forge" data-x="${esc(r.id)}"` : ''}>
-                    <b>${esc(r.name)}</b>
-                    <span>tier ${r.tier} · ${esc(SLOT_NAMES[r.slot])}</span>
-                    <i>${Object.keys(r.cost).map(m => `${(byId(D.materials, m) || {}).name} ×${r.cost[m]}`).join(', ')}</i>
-                    <i class="et-dim">${esc(r.text)}</i>
-                </div>`;
-        }).join('')}
-            </div>
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">the deep-forge</div>'
+            + '<div class="et-dim">smithing level ' + p.life_skills.smithing.level + ' · '
+            + (D.materials.filter(m => (p.materials[m.id] || 0) > 0).map(m => esc(m.name) + ' ×' + p.materials[m.id]).join(' · ') || 'no stock at all') + '</div>'
+            + '<div class="et-patterns">' + craftable(p).map(r => {
+                const ok = canCraft(p, r);
+                const mat = D.materials.find(m => m.tier === r.tier && !m.reagent) || D.materials[0];
+                return '<div class="et-pattern' + (ok ? '' : ' locked') + '"' + (ok ? ' data-a="forge" data-x="' + esc(r.id) + '"' : '') + '>'
+                    + '<b>' + esc(r.name) + '</b><span>tier ' + r.tier + ' · ' + esc(SLOT_NAMES[r.slot]) + ' · ' + mat.heat[0] + '–' + mat.heat[1] + '°C</span>'
+                    + '<i>' + Object.keys(r.cost).map(m => esc((materialById(m) || {}).name) + ' ×' + r.cost[m]).join(', ') + (r.skill > 1 ? ' · needs smithing ' + r.skill : '') + '</i>'
+                    + '<i class="et-dim">' + esc(r.text) + '</i></div>';
+            }).join('') + '</div>'
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
+    }
+
+    function screenForge(g) {
+        const f = g.forge, recipe = recipeById(f.recipe_id);
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">' + esc(recipe.name) + '</div>'
+            + '<canvas class="et-canvas" id="et-canvas" width="300" height="200"></canvas>'
+            + '<div class="et-lore">' + (f.phase === 'heat'
+                ? 'Pull it when the needle is in the band: ' + f.window[0] + '–' + f.window[1] + '°C.'
+                : 'Strike ' + (f.strike + 1) + ' of 3 — hit the sweet spot.') + '</div>'
+            + '<div class="et-abils">' + btn('forge-hit', f.phase === 'heat' ? 'pull it out' : 'strike', { wide: true }) + '</div>'
+            + '</div></div>';
+    }
+
+    function screenForgeDone(g) {
+        const it = g.lastForged;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">' + esc(it.name) + '</div>'
+            + itemCard(it, true)
+            + '<div class="et-abils">' + btn('equip', 'put it on', { arg: it.item_id }) + btn('screen:forge_pick', 'forge again') + btn('screen:hub', 'done') + '</div>'
+            + '</div></div>';
+    }
+
+    function screenEvent(g) {
+        const ev = g.pendingEvent;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">' + esc(ev.name) + '</div>'
+            + '<div class="et-lore">' + esc(ev.text) + '</div>'
+            + '<div class="et-abils">' + ev.options.map((o, i) => btn('event', o.text, { arg: i, wide: true })).join('') + '</div>'
+            + '</div></div>';
+    }
+
+    function screenDialogue(g) {
+        const dl = g.dialogue, node = dialogueNode(dl.node_id), p = g.p;
+        const body = dialogueBody(g, node);
+        return '<div class="et-main"><div class="et-scroll">'
+            + '<div class="et-h">' + esc(node.speaker_name) + '</div>'
+            + (body.altered ? '<div class="et-dim" style="color:#a2617d">— you are not hearing this correctly —</div>' : '')
+            + '<div class="et-lore" style="white-space:pre-wrap">' + esc(body.text) + '</div>'
+            + (dl.roll ? '<div class="et-dim" style="color:' + (dl.roll.pass === false ? '#c0625a' : '#8fa38f') + '">' + esc(dl.roll.text) + '</div>' : '')
+            + '<div class="et-abils">' + node.options.map((o, i) => {
+                const av = optionAvailable(g, o);
+                const label = o.skill_check
+                    ? o.text + '  (d20+' + Math.floor(p.attributes[o.skill_check.attribute] / 2) + ' vs ' + o.skill_check.difficulty + ')'
+                    : o.text;
+                return btn('say', label, { arg: i, wide: true, disabled: !av.ok, title: av.ok ? '' : av.why });
+            }).join('') + '</div></div></div>';
     }
 
     function screenSheet(g) {
         const p = g.p;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">${esc(p.name)}</div>
-            <div class="et-dim">level ${p.level} · seed ${p.seed} · ${p.faction ? esc(D.factions[p.faction].name) : 'unaffiliated'}</div>
-            <div class="et-h4">attributes${p.unspentAttributePoints ? ` — ${p.unspentAttributePoints} unspent` : ''}</div>
-            <div class="et-stats">${D.attributes.map(a => `<div>${esc(a.name)} <b>${p.attributes[a.id]}</b>
-                ${p.unspentAttributePoints && p.attributes[a.id] < ATTR_SOFT_CAP ? btn('attr', '+', { arg: a.id }) : ''}
-                <i class="et-dim">${esc(a.governs)}</i></div>`).join('')}</div>
-            <div class="et-h4">derived</div>
-            <div class="et-stats">
-                <div>max hp <b>${maxHp(p)}</b></div><div>max stamina <b>${maxStamina(p)}</b></div>
-                <div>max sanity <b>${maxSanity(p)}</b></div><div>carry <b>${carried(p)} / ${carryWeight(p)}</b></div>
-                <div>armour <b>${armourOf(p)}</b></div><div>pressure <b>${pressureRating(p)}</b></div>
-                <div>crit <b>${pct(critChance(p.attributes.finesse, gearStat(p, 'critRating')))}</b></div>
-                <div>crit mult <b>×${critMultiplier(p.attributes.finesse, skillEffect(p, 'critDmg')).toFixed(2)}</b></div>
-            </div>
-            <div class="et-h4">dialogue skills</div>
-            <div class="et-stats">${['abyssal_lore', 'strength', 'bribe', 'intimidate'].map(s => `<div>${esc(s.replace('_', ' '))} <b>+${skillMod(p, s)}</b></div>`).join('')}</div>
-            <div class="et-h4">standing</div>
-            <div class="et-stats">${Object.keys(p.factionReputation).map(k => `<div>${esc(D.factions[k].short)} <b>${p.factionReputation[k]}</b></div>`).join('')}</div>
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">' + esc(p.name) + '</div>'
+            + '<div class="et-dim">level ' + p.level + ' · seed ' + p.seed + ' · ' + (p.faction ? esc(D.factions[p.faction].name) : 'unaffiliated') + '</div>'
+            + '<div class="et-h4">attributes' + (p.attributes.unallocated_points ? ' — ' + p.attributes.unallocated_points + ' unspent' : '') + '</div>'
+            + '<div class="et-stats">' + D.attributes.map(a => '<div>' + esc(a.name) + ' <b>' + p.attributes[a.id] + '</b> '
+                + (p.attributes.unallocated_points ? btn('attr', '+', { arg: a.id }) : '')
+                + '<i class="et-dim">' + esc(a.governs) + '</i></div>').join('') + '</div>'
+            + '<div class="et-h4">derived</div><div class="et-stats">'
+            + '<div>max hp <b>' + p.vitals.max_hp + '</b></div><div>max stamina <b>' + p.vitals.max_stamina + '</b></div>'
+            + '<div>max marrow <b>' + p.vitals.max_marrow_mana + '</b></div><div>carry <b>' + carriedWeight(p) + ' / ' + carryCapacity(p) + '</b></div>'
+            + '<div>armour <b>' + armourOf(p) + '</b></div><div>mitigation <b>' + pctText(armourMitigation(armourOf(p))) + '</b></div>'
+            + '<div>crit <b>' + pctText(critChance(p)) + '</b></div><div>crit dmg <b>×' + critMultiplier(p).toFixed(2) + '</b></div>'
+            + '<div>hit <b>+' + pctText(hitRating(p)) + '</b></div><div>dodge <b>' + pctText(dodgeRating(p)) + '</b></div>'
+            + '<div>block <b>' + blockValue(p) + '</b></div><div>sanity resist <b>' + Math.round(sanityResist(p)) + '</b></div>'
+            + '</div>'
+            + '<div class="et-h4">standing</div><div class="et-stats">'
+            + Object.keys(p.faction_reputation).map(k => '<div>' + esc(D.factions[k].short) + ' <b>' + p.faction_reputation[k] + '</b></div>').join('') + '</div>'
+            + '<div class="et-h4">life skills</div><div class="et-stats">'
+            + '<div>smithing <b>' + p.life_skills.smithing.level + '</b></div><div>fishing <b>' + p.life_skills.fishing.level + '</b></div></div>'
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
     function screenSkills(g) {
         const p = g.p;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">skills <span class="et-dim">${p.skillPoints} point${p.skillPoints === 1 ? '' : 's'}</span></div>
-            ${D.skillTrees.map(tree => `
-                <div class="et-guild">
-                    <b>${esc(tree.name)}</b>
-                    <em>${esc(D.factions[tree.faction].name)}</em>
-                    <p>${esc(tree.blurb)}</p>
-                    ${tree.nodes.map(n => {
-            const r = rankOf(p, n.id);
-            const nextVal = r < 5 ? n.ranks[r] : n.ranks[4];
-            const shown = n.text.replace('{v}', typeof nextVal === 'number' && nextVal < 1 && nextVal > 0 ? Math.round(nextVal * 100) : nextVal).replace('{r}', r + 1);
-            return `<div class="et-rank">${esc(n.name)} <span>${r}/5</span>
-                            <i class="et-dim" style="display:block;font-style:normal">${esc(shown)}</i>
-                            ${r < 5 && p.skillPoints > 0 ? btn('skill', 'take a rank', { arg: n.id }) : ''}</div>`;
-        }).join('')}
-                </div>`).join('')}
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">skills <span class="et-dim">' + p.skill_points + ' point' + (p.skill_points === 1 ? '' : 's') + '</span></div>'
+            + D.skillTrees.map(tree => '<div class="et-guild"><b>' + esc(tree.name) + '</b><em>' + esc(D.factions[tree.faction].name) + ' · ' + esc(tree.role) + '</em>'
+                + '<p>' + esc(tree.blurb) + '</p>'
+                + tree.nodes.map(n => {
+                    const r = rankOf(p, n.id);
+                    const locked = !tierUnlocked(p, n.tier);
+                    const v = skillValue(p, n.id) || (n.ranks ? n.ranks[0] : (n.scaling ? n.scaling.baseMultiplier : 0));
+                    const shown = (n.text || '').replace('{v}', typeof v === 'number' ? (v < 1 && v > 0 ? v.toFixed(2) : Math.round(v * 100) / 100) : v)
+                        .replace('{p}', Math.round((typeof v === 'number' ? v : 0) * 100));
+                    return '<div class="et-rank">' + esc(n.name) + ' <span>t' + n.tier + ' · ' + r + '/' + n.maxRank + '</span>'
+                        + '<i class="et-dim" style="display:block;font-style:normal">' + esc(shown) + (n.cost ? ' — ' + Object.keys(n.cost).map(k => n.cost[k] + ' ' + k).join(', ') + (n.cooldown ? ', cd ' + n.cooldown : '') : '') + '</i>'
+                        + (locked ? '<i class="et-dim">unlocks at level ' + D.tierLevel[n.tier] + '</i>'
+                            : (r < n.maxRank && p.skill_points > 0 ? btn('skill-up', 'take a rank', { arg: n.id }) : ''))
+                        + '</div>';
+                }).join('') + '</div>').join('')
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
     function screenGear(g) {
         const p = g.p;
-        const socketable = p.inventory.concat(SLOTS.map(s => p.equipment[s]).filter(Boolean))
-            .filter(it => (it.sockets || []).some(s => !s.runeId));
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">gear</div>
-            <div class="et-gears">${SLOTS.map(slot => {
-            const it = p.equipment[slot];
-            return `<div class="et-gear"><span>${esc(SLOT_NAMES[slot])}</span>${it ? `<b>${esc(it.name)}</b><i>${esc(it.rarity)} · t${it.tier} · dur ${it.durability.current}/${it.durability.max}</i>` : '<b class="et-empty">— empty —</b>'}</div>`;
-        }).join('')}</div>
-            <div class="et-h4">pack — ${carried(p)} / ${carryWeight(p)} kg</div>
-            <div class="et-items">${p.inventory.length ? p.inventory.map(it => `<div data-a="equip" data-x="${esc(it.id)}" style="cursor:pointer">${itemCard(it)}</div>`).join('') : '<div class="et-empty">nothing but a knife and a bad idea.</div>'}</div>
-            ${p.runes.length ? `<div class="et-h4">runes</div><div class="et-items">${p.runes.map((rid, i) => {
-            const r = runeById(rid);
-            return `<div class="et-item"><b>${esc(r.name)}</b> <i>${esc(r.stat)} +${r.base}</i><div class="et-dim">${esc(r.text)}</div>
-                    ${socketable.length ? `<select data-rune="${i}">${socketable.map(it => `<option value="${esc(it.id)}">${esc(it.name)}</option>`).join('')}</select> ${btn('socket', 'set it', { arg: i })}` : '<div class="et-dim">nothing with an open socket.</div>'}</div>`;
-        }).join('')}</div>` : ''}
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        const socketable = p.inventory.concat(SLOTS.map(s => p.equipment[s]).filter(Boolean)).filter(it => (it.sockets || []).some(s => !s.gem_id));
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">gear</div>'
+            + '<div class="et-gears">' + SLOTS.map(slot => {
+                const it = p.equipment[slot];
+                const locked = slot === 'off_hand' && p.level < 10;
+                return '<div class="et-gear"><span>' + esc(SLOT_NAMES[slot]) + '</span>'
+                    + (it ? '<b style="color:' + esc(it.rarity_colour || '#e8e0cc') + '">' + esc(it.name) + '</b><i>' + esc(it.rarity_name) + ' · t' + it.tier + ' · dur ' + it.durability.current + '/' + it.durability.max + '</i>'
+                        : '<b class="et-empty">' + (locked ? '— locked until level 10 —' : '— empty —') + '</b>') + '</div>';
+            }).join('') + '</div>'
+            + '<div class="et-h4">pack — ' + carriedWeight(p) + ' / ' + carryCapacity(p) + ' kg</div>'
+            + '<div class="et-items">' + (p.inventory.length ? p.inventory.map(it =>
+                '<div data-a="' + (it.consumable ? 'consume' : 'equip') + '" data-x="' + esc(it.item_id) + '" style="cursor:pointer">' + itemCard(it) + '</div>').join('')
+                : '<div class="et-empty">nothing but a knife and a bad idea.</div>') + '</div>'
+            + (p.runes.length ? '<div class="et-h4">runes</div><div class="et-items">' + p.runes.map((rid, i) => {
+                const r = runeById(rid);
+                return '<div class="et-item"><b>' + esc(r.name) + '</b> <i>' + esc(r.stat) + ' +' + r.value + '</i><div class="et-dim">' + esc(r.text) + '</div>'
+                    + (socketable.length ? '<select data-rune="' + i + '">' + socketable.map(it => '<option value="' + esc(it.item_id) + '">' + esc(it.name) + '</option>').join('') + '</select> ' + btn('socket', 'set it', { arg: i })
+                        : '<div class="et-dim">nothing with an open socket.</div>') + '</div>';
+            }).join('') + '</div>' : '')
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
-    function screenRealms(g) {
+    function screenChart(g) {
         const p = g.p;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">the chart</div>
-            <div class="et-realms">${D.realms.map(r => {
-            const open = p.realmsUnlocked.indexOf(r.id) >= 0;
-            const here = p.realm === r.id;
-            const short = Math.max(0, r.pressure - pressureRating(p));
-            return `<div class="et-realm${here ? ' here' : ''}${open ? '' : ' locked'}" ${open && !here ? `data-a="travel" data-x="${esc(r.id)}"` : ''}>
-                    <b>${esc(r.name)}</b><i>tier ${r.tier}</i>
-                    <span>${esc(r.long)}</span>
-                    <span>${open ? (short > 0 ? `pressure ${r.pressure} required — you have ${pressureRating(p)}` : 'pressure cleared') : 'not on your chart yet'}</span>
-                    <span>${lordsIn(g, r.id).length} drowned lords · ${trackersIn(g, r.id).length} hunting you</span>
-                </div>`;
-        }).join('')}</div>
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">the chart</div>'
+            + '<div class="et-realms">' + D.realms.map(r => {
+                const open = p.realms_unlocked.indexOf(r.id) >= 0;
+                const here = p.realm === r.id;
+                return '<div class="et-realm' + (here ? ' here' : '') + (open ? '' : ' locked') + '"' + (open && !here ? ' data-a="travel" data-x="' + esc(r.id) + '"' : '') + '>'
+                    + '<b>' + esc(r.name) + '</b><i>' + r.depth[0] + '–' + r.depth[1] + ' m</i>'
+                    + '<span>' + esc(r.long) + '</span>'
+                    + '<span>' + esc(r.hazard.name) + ' — ' + esc(r.hazard.text) + '</span>'
+                    + '<span>' + lordsIn(g, r.id).length + ' drowned lords here</span></div>';
+            }).join('') + '</div>'
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
     function screenNemesis(g) {
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">the drowned lords</div>
-            <div class="et-dim">17 of them: twelve captains, four warlords and whatever is at the bottom of the Spire. They remember.</div>
-            ${g.roster.slice().sort((a, b) => RANKS[b.rank] - RANKS[a.rank]).map(n => `
-                <div class="et-nem-full${n.status === 'dead' ? ' dead' : ''}">
-                    <b>${esc(lordName(n))}</b>
-                    <span>${esc(n.rank)} · ${esc(realmById(n.realm).name)} · lv ${n.level} · ${esc(n.status)}</span>
-                    <i>"${esc(n.warCry)}"</i>
-                    <div class="et-nem-traits">
-                        ${n.traits.map(t => `<span>${esc((byId(D.traits, t) || {}).name || t)}</span>`).join('')}
-                        ${n.scars.map(s => `<span>${esc((byId(D.scars, s.id) || {}).name || s.id)}</span>`).join('')}
-                    </div>
-                    ${n.weaknesses.length ? `<i>weak: ${esc(n.weaknesses.join(' · '))}</i>` : ''}
-                    ${n.memories.length ? `<i>${esc(n.memories.slice(-3).map(m => `day ${m.day}: ${m.detail}`).join(' — '))}</i>` : ''}
-                    ${n.taunts.length ? `<i>"${esc(n.taunts[n.taunts.length - 1])}"</i>` : ''}
-                </div>`).join('')}
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">the drowned admiralty</div>'
+            + '<div class="et-dim">' + D.nemesisRanks.slice(1).map(r => r.slots + ' × ' + r.name).join(' · ') + '. The seats are alive.</div>'
+            + g.roster.slice().sort((a, b) => (b.tier - a.tier) || (b.power_index - a.power_index)).map(n =>
+                '<div class="et-nem-full' + (n.status === 'dead' || n.status === 'retired' ? ' dead' : '') + '">'
+                + '<b>' + esc(lordDisplayName(n)) + '</b>'
+                + '<span>' + esc(n.rank) + ' · ' + esc(realmById(n.current_zone).name) + ' · lv ' + n.level + ' · power ' + n.power_index + ' · ' + esc(n.status) + '</span>'
+                + '<i>"' + esc(n.dialogue_set.intro_encounter) + '"</i>'
+                + '<div class="et-nem-traits">'
+                + ['immunities', 'enrage_triggers', 'vulnerabilities', 'phobias'].map(k => (n.traits[k] || []).map(id => {
+                    const t = byId(D.nemesisTraits[k] || [], id);
+                    return '<span title="' + esc(t ? t.text : id) + '">' + esc(t ? t.name : id) + '</span>';
+                }).join('')).join('')
+                + (n.grudge ? '<span>grudge ' + n.grudge + '</span>' : '')
+                + '</div>'
+                + (n.memories.length ? '<i>' + esc(n.memories.slice(-3).map(m => 'day ' + m.timestamp_game_day + ': ' + m.detail).join(' — ')) + '</i>' : '')
+                + '</div>').join('')
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
     function screenCodex(g) {
         const p = g.p;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">codex <span class="et-dim">${p.codex.length} of ${D.codex.length}</span></div>
-            <div class="et-dim">every entry read is +1/6 to [Abyssal Lore]. All of them, and Attunement 40, is the fourth ending.</div>
-            ${D.codex.map(c => p.codex.indexOf(c.id) >= 0
-            ? `<details class="et-entry"><summary>${esc(c.title)}</summary><pre>${esc(c.text)}</pre></details>`
-            : `<div class="et-entry et-dim">— unread —</div>`).join('')}
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">codex <span class="et-dim">' + p.codex.length + ' of ' + D.codex.length + '</span></div>'
+            + D.codex.map(c => p.codex.indexOf(c.id) >= 0
+                ? '<details class="et-entry"><summary>' + esc(c.title) + '</summary><pre>' + esc(c.text) + '</pre></details>'
+                : '<div class="et-entry et-dim">— unread —</div>').join('')
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
     function screenFactions(g) {
         const p = g.p;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">the three tables</div>
-            ${Object.keys(D.factions).map(k => {
-            const f = D.factions[k];
-            return `<div class="et-guild${p.faction === k ? '' : ''}">
-                    <b>${esc(f.name)}</b><em>${esc(f.creed)}</em>
-                    <p>${esc(f.blurb)}</p>
-                    <i>${esc(f.perk)}</i>
-                    <u>standing ${p.factionReputation[k]}${f.hates ? ' · will not have ' + esc(D.factions[f.hates].short) : ''}</u>
-                    ${p.faction === k ? '<div class="et-dim">you signed here.</div>' : ''}
-                </div>`;
-        }).join('')}
-            ${!p.faction ? `<div class="et-row">${btn('hiring', 'go to the hiring floor', { wide: true })}</div>` : ''}
-            <div class="et-row">${btn('screen:hub', 'back')}</div>
-        </div></div>`;
-    }
-
-    function screenDialogue(g) {
-        const dl = g.dialogue, tree = D.dialogue[dl.tree], node = tree.nodes[dl.node];
-        const p = g.p;
-        return `<div class="et-main"><div class="et-scroll">
-            <div class="et-h">${esc(tree.title)}</div>
-            ${node.speaker ? `<div class="et-foe-name">${esc(node.speaker)}</div>` : ''}
-            <div class="et-lore" style="white-space:pre-wrap">${esc(node.text)}</div>
-            ${dl.roll ? `<div class="et-dim" style="color:${dl.roll.pass === false ? '#c0625a' : '#8fa38f'}">${esc(dl.roll.text)}</div>` : ''}
-            <div class="et-abils">${node.choices.length
-            ? node.choices.map((c, i) => {
-                const mod = c.check ? skillMod(p, c.check.skill) : null;
-                const label = c.check ? `${c.text}  (d20+${mod} vs ${c.check.dc})` : c.text;
-                return btn('say', label, { arg: i, wide: true });
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">the guilds of the rigs</div>'
+            + Object.keys(D.factions).map(k => {
+                const f = D.factions[k];
+                return '<div class="et-guild"><b>' + esc(f.name) + '</b><em>' + esc(f.leader) + ' · ' + esc(f.seat) + '</em>'
+                    + '<p>' + esc(f.blurb) + '</p><i>"' + esc(f.creed) + '"</i>'
+                    + '<u>' + esc(f.perk) + ' · standing ' + p.faction_reputation[k] + (f.hates ? ' · will not have ' + esc(D.factions[f.hates].short) : '') + '</u>'
+                    + (p.faction === k ? '<div class="et-dim">you signed here.</div>' : '') + '</div>';
             }).join('')
-            : btn('screen:hub', 'that is all of it', { wide: true })}</div>
-        </div></div>`;
+            + '<div class="et-row">' + btn('screen:hub', 'back') + '</div></div></div>';
     }
 
-    function screenEnd(g) {
+    function screenEnding(g) {
+        const e = byId(D.endings, g.ended) || D.endings[0];
         const p = g.p;
-        if (g.ended === 'recruited') {
-            return `<div class="et-main"><div class="et-scroll et-endscreen">
-                <div class="et-title">recruited</div>
-                <div class="et-endtext">Sanity does not run out. It runs somewhere.
-
-You are not lost and you were never drowned. You were recruited, and the singing that has been getting louder for eleven days is not outside you any more, and it has a part for you, and you know it already.
-
-${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will be waiting in ${esc(realmById(p.realm).name)}, wearing what you were wearing.</div>
-                <div class="et-row">${btn('newgame', 'begin again', { wide: true })}</div>
-            </div></div>`;
-        }
-        const ending = byId(D.endings, g.ended) || D.endings[0];
-        return `<div class="et-main"><div class="et-scroll et-endscreen">
-            <div class="et-title">${esc(ending.name)}</div>
-            <div class="et-endtext">${esc(ending.text)}</div>
-            <div class="et-dim">day ${p.clock.day} · level ${p.level} · ${p.stats.kills} kills · ${p.stats.deaths} deaths · ${p.stats.landed} landed · ${p.codex.length}/${D.codex.length} codex · ${p.notoriety} lords ended for good</div>
-            <div class="et-row">${btn('newgame', 'begin again', { wide: true })}</div>
-        </div></div>`;
+        return '<div class="et-main"><div class="et-scroll et-endscreen">'
+            + '<div class="et-title">' + esc(e.name) + '</div>'
+            + '<div class="et-endtext">' + esc(e.text) + '</div>'
+            + '<div class="et-dim">day ' + p.world_state.current_day + ' · level ' + p.level + ' · ' + p.stats.kills + ' kills · ' + p.stats.deaths + ' deaths · ' + p.stats.landed + ' landed · ' + p.codex.length + '/' + D.codex.length + ' codex · ' + p.stats.lords_ended + ' lords ended for good</div>'
+            + '<div class="et-row">' + btn('newgame', 'begin again', { wide: true }) + '</div></div></div>';
     }
 
     // ---------- canvas ----------
-    function drawDredge(g) {
+    function drawAngling(g) {
         const cv = g.body && g.body.querySelector('#et-canvas');
-        if (!cv) return;
-        const c = cv.getContext('2d'), s = g.dredge;
-        if (!s) return;
-        const W = cv.width, H = cv.height;
+        if (!cv || !g.angling) return;
+        const c = cv.getContext('2d'), s = g.angling, W = cv.width, H = cv.height;
         const grad = c.createLinearGradient(0, 0, 0, H);
         grad.addColorStop(0, '#12222b'); grad.addColorStop(1, '#04090d');
         c.fillStyle = grad; c.fillRect(0, 0, W, H);
 
-        // depth column
-        const colX = 46, colW = 16, top = 18, bot = H - 26;
-        c.fillStyle = '#0a1319'; c.fillRect(colX, top, colW, bot - top);
-        const dpct = clamp(s.depth / (s.startDepth * 1.4), 0, 1);
-        const y = top + dpct * (bot - top);
-        c.fillStyle = '#1d3a45'; c.fillRect(colX, top, colW, y - top);
-        c.fillStyle = s.held ? '#c9a227' : '#6f8f9c';
-        c.fillRect(colX - 5, y - 3, colW + 10, 6);
-        c.fillStyle = '#7f9080'; c.font = '10px monospace';
-        c.fillText('surface', 4, top + 4);
-        c.fillText('deep', 12, bot);
-        c.fillStyle = '#e8e0cc';
-        c.fillText(Math.round(s.depth) + ' fathoms', colX + colW + 8, y + 3);
-
-        // tension bar
-        const bx = 100, by = 30, bw = W - 120, bh = 14;
+        // tension gauge with the green band marked
+        const bx = 24, by = 26, bw = W - 48, bh = 22;
         c.fillStyle = '#0a1319'; c.fillRect(bx, by, bw, bh);
-        const tp = clamp(s.tension / s.threshold, 0, 1);
-        c.fillStyle = tp > 0.85 ? '#b8514a' : tp > 0.6 ? '#c9a227' : '#5a8fb8';
-        c.fillRect(bx, by, bw * tp, bh);
-        c.strokeStyle = '#b8514a'; c.beginPath(); c.moveTo(bx + bw, by - 3); c.lineTo(bx + bw, by + bh + 3); c.stroke();
+        c.fillStyle = 'rgba(90,160,110,0.30)';
+        c.fillRect(bx + bw * (TENSION_GREEN[0] / TENSION_MAX), by, bw * ((TENSION_GREEN[1] - TENSION_GREEN[0]) / TENSION_MAX), bh);
+        const t = clamp(s.tension / TENSION_MAX, 0, 1);
+        c.fillStyle = s.tension > TENSION_GREEN[1] ? '#b8514a' : s.tension < TENSION_GREEN[0] ? '#5a8fb8' : '#7fbf7f';
+        c.fillRect(bx, by, bw * t, bh);
+        c.strokeStyle = '#b8514a'; c.beginPath(); c.moveTo(bx + bw, by - 4); c.lineTo(bx + bw, by + bh + 4); c.stroke();
         c.fillStyle = '#8fa38f'; c.font = '10px monospace';
-        c.fillText('line tension', bx, by - 5);
-        c.fillText(s.tension.toFixed(2) + ' / ' + s.threshold.toFixed(2), bx, by + bh + 12);
+        c.fillText('line tension ' + Math.round(s.tension) + ' / 100', bx, by - 6);
 
-        if (s.thrash > 0) {
-            c.fillStyle = 'rgba(184,81,74,' + (0.10 + 0.12 * Math.sin(s.ticks * 0.4)) + ')';
+        // the fish's stamina
+        const sy = by + bh + 26;
+        c.fillStyle = '#0a1319'; c.fillRect(bx, sy, bw, 16);
+        c.fillStyle = '#a2617d';
+        c.fillRect(bx, sy, bw * clamp(s.stamina / s.max_stamina, 0, 1), 16);
+        c.fillStyle = '#8fa38f';
+        c.fillText('its stamina ' + Math.round(s.stamina) + ' / ' + s.max_stamina, bx, sy - 5);
+
+        c.fillStyle = s.holding ? '#c9a227' : '#55645a';
+        c.fillText(s.holding ? 'reeling' : 'slack', bx, H - 40);
+        c.fillStyle = '#7f9080';
+        c.fillText('rod ' + s.rod + ' · reel ' + s.reel + ' · pull ' + s.pull, bx, H - 24);
+        if (s.burst > 0) {
+            c.fillStyle = 'rgba(184,81,74,' + (0.10 + 0.10 * Math.sin(s.ticks * 0.4)) + ')';
             c.fillRect(0, 0, W, H);
             c.fillStyle = '#e0b8c8';
-            c.fillText('it is running', bx, by + bh + 30);
+            c.fillText('it is running', bx, H - 8);
         }
-        c.fillStyle = s.held ? '#c9a227' : '#55645a';
-        c.fillText(s.held ? 'reeling' : 'slack', bx, H - 12);
     }
 
     function drawForge(g) {
         const cv = g.body && g.body.querySelector('#et-canvas');
-        if (!cv) return;
-        const c = cv.getContext('2d'), f = g.forge;
-        if (!f) return;
-        const W = cv.width, H = cv.height;
+        if (!cv || !g.forge) return;
+        const c = cv.getContext('2d'), f = g.forge, W = cv.width, H = cv.height;
         c.fillStyle = '#100b08'; c.fillRect(0, 0, W, H);
         const bx = 20, bw = W - 40, bh = 26;
-
         if (f.phase === 'heat') {
-            const by = 70;
+            const by = 78, span = f.window[1] * 1.35;
             c.fillStyle = '#1a1310'; c.fillRect(bx, by, bw, bh);
             c.fillStyle = 'rgba(201,162,39,0.30)';
-            c.fillRect(bx + bw * f.bandLo, by - 6, bw * (f.bandHi - f.bandLo), bh + 12);
-            const heat = clamp(f.heat, 0, 1);
+            c.fillRect(bx + bw * (f.window[0] / span), by - 6, bw * ((f.window[1] - f.window[0]) / span), bh + 12);
             const hg = c.createLinearGradient(bx, 0, bx + bw, 0);
-            hg.addColorStop(0, '#5a2c1a'); hg.addColorStop(0.6, '#c9622a'); hg.addColorStop(1, '#f0d98a');
-            c.fillStyle = hg; c.fillRect(bx, by, bw * heat, bh);
+            hg.addColorStop(0, '#3a1a10'); hg.addColorStop(0.55, '#c9622a'); hg.addColorStop(1, '#fff3c4');
+            c.fillStyle = hg; c.fillRect(bx, by, bw * clamp(f.temp / span, 0, 1), bh);
             c.fillStyle = '#e8e0cc'; c.font = '11px monospace';
-            c.fillText('heat', bx, by - 12);
-            c.fillText(Math.round(f.heat * 100) + '%', bx + bw - 34, by - 12);
+            c.fillText(Math.round(f.temp) + '°C', bx, by - 14);
             c.fillStyle = '#8fa38f'; c.font = '10px monospace';
-            c.fillText('band ' + Math.round(f.bandLo * 100) + '–' + Math.round(f.bandHi * 100) + '%', bx, by + bh + 16);
-            if (f.heat > 1) { c.fillStyle = '#b8514a'; c.fillText('over-worked', bx, by + bh + 30); }
+            c.fillText('band ' + f.window[0] + '–' + f.window[1] + '°C', bx, by + bh + 16);
+            if (f.temp > f.window[1]) { c.fillStyle = '#b8514a'; c.fillText('over-worked', bx, by + bh + 30); }
         } else {
-            const by = 80;
+            const by = 86;
             c.fillStyle = '#1a1310'; c.fillRect(bx, by, bw, bh);
             c.fillStyle = 'rgba(90,143,184,0.35)';
-            c.fillRect(bx + bw * f.sweetLo, by, bw * (f.sweetHi - f.sweetLo), bh);
+            c.fillRect(bx + bw * f.sweet[0], by, bw * (f.sweet[1] - f.sweet[0]), bh);
             c.fillStyle = '#f0d98a';
             c.fillRect(bx + bw * f.marker - 2, by - 8, 4, bh + 16);
             c.fillStyle = '#e8e0cc'; c.font = '11px monospace';
             c.fillText('quench — strike ' + (f.strike + 1) + ' / 3', bx, by - 16);
             c.fillStyle = '#8fa38f'; c.font = '10px monospace';
-            c.fillText('heat ' + f.heatScore + '/3 · strikes ' + f.strikeScore + '/3', bx, by + bh + 18);
+            c.fillText('heat ' + Math.round(f.heatScore) + '/' + HEAT_WEIGHT + (f.pulledAt ? ' (pulled at ' + f.pulledAt + '°C)' : '')
+                + ' · strikes ' + Math.round(f.strikeScore) + '/' + STRIKE_WEIGHT, bx, by + bh + 18);
         }
     }
 
@@ -2068,7 +2636,7 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
         const step = () => {
             g.raf = 0;
             if (!g.open) return;
-            if (g.screen === 'dredge' && g.dredge) { dredgeStep(g); drawDredge(g); }
+            if (g.screen === 'angling' && g.angling) { anglingStep(g); drawAngling(g); }
             else if (g.screen === 'forge' && g.forge) { forgeStep(g); drawForge(g); }
             else return;
             g.raf = requestAnimationFrame(step);
@@ -2077,31 +2645,21 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
     }
 
     // ---------- render ----------
+    const SCREENS = {
+        create: screenCreate, hub: screenHub, combat: screenCombat, dungeon: screenDungeon,
+        angling: screenAngling, forge: screenForge, forge_done: screenForgeDone,
+        forge_pick: screenForgePick, event: screenEvent, dialogue: screenDialogue,
+        sheet: screenSheet, skills: screenSkills, gear: screenGear, chart: screenChart,
+        codex: screenCodex, factions: screenFactions, nemesis: screenNemesis, ending: screenEnding
+    };
+    SCREENS.angling_pick = screenAnglingPick;
+
     function render(g) {
         if (!g.body) return;
-        let main;
-        switch (g.screen) {
-            case 'create': main = screenCreate(g); break;
-            case 'fight': main = screenFight(g); break;
-            case 'dungeon': main = screenDungeon(g); break;
-            case 'dredge': main = screenDredge(g); break;
-            case 'forge': main = screenForge(g); break;
-            case 'forge-done': main = screenForgeDone(g); break;
-            case 'forgepick': main = screenForgePick(g); break;
-            case 'sheet': main = screenSheet(g); break;
-            case 'skills': main = screenSkills(g); break;
-            case 'gear': main = screenGear(g); break;
-            case 'realms': main = screenRealms(g); break;
-            case 'nemesis': main = screenNemesis(g); break;
-            case 'codex': main = screenCodex(g); break;
-            case 'factions': main = screenFactions(g); break;
-            case 'dialogue': main = screenDialogue(g); break;
-            case 'end': main = screenEnd(g); break;
-            default: main = screenHub(g);
-        }
-        const withSide = g.screen !== 'create' && g.screen !== 'end';
-        g.body.innerHTML = `<div class="et-body"><div class="et-two">${withSide ? sideBar(g) : ''}${main}</div></div>`;
-        if (g.screen === 'dredge' || g.screen === 'forge') ensureLoop(g);
+        const fn = SCREENS[g.screen] || screenHub;
+        const withSide = g.screen !== 'create' && g.screen !== 'ending';
+        g.body.innerHTML = '<div class="et-body"><div class="et-two">' + (withSide ? sideBar(g) : '') + fn(g) + '</div></div>';
+        if (g.screen === 'angling' || g.screen === 'forge') ensureLoop(g);
         if (window.FX && FX.on() && withSide) {
             const els = g.body.querySelectorAll('.et-main .et-btn');
             if (els.length) FX.reveal(els, { each: 0.02, duration: 140 });
@@ -2116,37 +2674,60 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
         const x = holder.getAttribute('data-x');
         const p = g.p;
 
-        if (a.indexOf('screen:') === 0) { g.screen = a.slice(7); sound('click'); return render(g); }
-        if (a.indexOf('act:') === 0) { playerAction(g, a.slice(4)); if (!g.fight || !g.fight.over) render(g); else render(g); return; }
-
+        if (a.indexOf('screen:') === 0) {
+            const target = a.slice(7);
+            g.screen = target === 'angling' ? 'angling_pick' : target;
+            sound('click');
+            return render(g);
+        }
         switch (a) {
-            // the character sheet re-renders on every point spent, which
-            // rebuilds the two inputs — so whatever has been typed into them
-            // has to be carried across or the name goes back to the default
             case 'cre+': syncCreate(g); g.create.attributes[x]++; return render(g);
             case 'cre-': syncCreate(g); g.create.attributes[x]--; return render(g);
             case 'create': return startNewGame(g);
             case 'newgame': return confirmNew(g);
-            case 'story': return startDialogue(g, D.acts[p.act - 1].dialogue);
-            case 'hiring': return startDialogue(g, 'recruit');
-            case 'say': return dialogueChoose(g, parseInt(x, 10));
+            case 'export': return exportSave(g);
+            case 'import': return importSave(g);
+            case 'story': return startDialogue(g, x);
+            case 'say': return chooseOption(g, parseInt(x, 10));
+            case 'event': return resolveEvent(g, parseInt(x, 10));
             case 'voyage': return startVoyage(g);
-            case 'dredge': return startDredge(g);
-            case 'node': return enterNode(g);
+            case 'cast': return startAngling(g, x);
+            case 'cut': g.angling.over = true; g.angling.result = 'snapped'; return anglingEnd(g);
+            case 'node': return enterNode(g, x);
             case 'leave': return leaveDungeon(g);
-            case 'fight-done': return endFight(g);
             case 'rest': return rest(g);
-            case 'forge': return startForge(g, recipeById(x));
+            case 'forge': return startForge(g, x);
             case 'forge-hit': return forgeInput(g);
-            case 'cut': g.dredge.over = true; g.dredge.result = 'escaped'; return dredgeEnd(g);
             case 'travel': return travel(g, x);
             case 'attr': return spendAttribute(g, x);
-            case 'skill': return spendSkill(g, x);
+            case 'skill-up': return spendSkill(g, x);
+            case 'strike': case 'guard': case 'flee': case 'harpoon': case 'flare': return playerAction(g, a);
+            case 'target': return playerAction(g, 'target', x);
+            case 'skill': return playerAction(g, 'skill', x);
+            case 'fight-done': return endFight(g);
             case 'equip': {
-                const it = p.inventory.find(i => i.id === x) || (g.lastForged && g.lastForged.id === x ? g.lastForged : null);
+                const it = p.inventory.find(i => i.item_id === x) || (g.lastForged && g.lastForged.item_id === x ? g.lastForged : null);
                 if (it) { if (p.inventory.indexOf(it) < 0) p.inventory.push(it); equip(g, it); save(g); }
-                // putting on the thing you just forged is the end of the forge
-                if (g.screen === 'forge-done') g.screen = 'hub';
+                if (g.screen === 'forge_done') g.screen = 'hub';
+                return render(g);
+            }
+            case 'consume': {
+                const idx = p.inventory.findIndex(i => i.item_id === x);
+                if (idx >= 0) {
+                    const it = p.inventory[idx];
+                    const c = it.consumable || {};
+                    if (c.hp) p.vitals.hp = Math.min(p.vitals.max_hp, p.vitals.hp + c.hp);
+                    if (c.stamina) p.vitals.stamina = Math.min(p.vitals.max_stamina, p.vitals.stamina + c.stamina);
+                    if (c.marrow) p.vitals.marrow_mana = Math.min(p.vitals.max_marrow_mana, p.vitals.marrow_mana + c.marrow);
+                    if (c.sanity) p.vitals.sanity = clamp(p.vitals.sanity + c.sanity, 0, p.vitals.max_sanity);
+                    if (c.empowerRandomSkill) {
+                        const learned = Object.keys(p.skills).filter(k => p.skills[k] > 0 && p.skills[k] < 5);
+                        if (learned.length) { const k = pick(g.rng, learned); p.skills[k]++; log(g, 'something in it knows ' + skillNode(k).name + ' better than you do. Rank ' + p.skills[k] + '.', 'good'); }
+                    }
+                    p.inventory.splice(idx, 1);
+                    log(g, 'you eat the ' + it.name + '.', 'good');
+                    save(g);
+                }
                 return render(g);
             }
             case 'socket': return socketRune(g, parseInt(x, 10));
@@ -2155,55 +2736,39 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
 
     function syncCreate(g) {
         if (!g.body || !g.create) return;
-        const name = g.body.querySelector('#et-name');
-        const seed = g.body.querySelector('#et-seed');
-        if (name) g.create.name = name.value;
-        if (seed) g.create.seed = seed.value;
-    }
-
-    function confirmNew(g) {
-        const go = () => { g.p = null; g.ended = null; g.create = freshCreate(); g.screen = 'create'; try { localStorage.removeItem(SAVE_KEY); } catch (e) { } render(g); };
-        if (window.showRetroDialog) {
-            showRetroDialog({
-                title: 'abandon the run?',
-                lines: ['the roster remembers you either way.', 'the seed is what carries over, not the character.'],
-                okLabel: 'abandon', cancelLabel: 'stay', onOk: go
-            });
-        } else go();
+        const n = g.body.querySelector('#et-name'), s = g.body.querySelector('#et-seed');
+        if (n) g.create.name = n.value;
+        if (s) g.create.seed = s.value;
     }
 
     function rest(g) {
         const p = g.p;
-        advanceClock(g, 2);
-        if (g.ended) return;
-        const heal = Math.round(maxHp(p) * 0.5);
-        p.vitals.hp = Math.min(maxHp(p), p.vitals.hp + heal);
-        p.vitals.stamina = maxStamina(p);
-        p.vitals.sanity = Math.min(maxSanity(p), p.vitals.sanity + 12);
-        log(g, `four hours on a dry cleat. +${heal} hp, +12 sanity.`, 'good');
-        // resting is not free: the roster moves while you sleep
-        const lords = lordsIn(g, p.realm);
-        if (lords.length && chance(g.rng, 0.18)) {
-            const n = pick(g.rng, lords);
-            log(g, `${lordName(n)} came looking while you slept.`, 'bad');
-            return startFight(g, nemesisStats(n), 'ambush');
+        advanceDay(g, 1);
+        p.vitals.hp = Math.min(p.vitals.max_hp, p.vitals.hp + Math.round(p.vitals.max_hp * 0.5));
+        p.vitals.stamina = p.vitals.max_stamina;
+        p.vitals.marrow_mana = p.vitals.max_marrow_mana;
+        p.vitals.sanity = Math.min(p.vitals.max_sanity, p.vitals.sanity + 15);
+        log(g, 'you sleep until the tide turns. It is ' + (isBlackTide(p) ? 'black tide' : 'daylight, of a kind') + '.', 'good');
+        const ambusher = rollAmbush(g, p.realm);
+        if (ambusher) {
+            log(g, ambusher.dialogue_set.intro_encounter, 'bad');
+            return startFight(g, [lordToFoe(ambusher)], 'ambush');
         }
         save(g);
         render(g);
     }
 
     function travel(g, realmId) {
-        const realm = realmById(realmId);
-        if (!realm || g.p.realmsUnlocked.indexOf(realmId) < 0) return;
-        g.p.realm = realmId;
-        advanceClock(g, 2);
-        if (g.ended) return;
-        log(g, `you make the crossing to ${realm.name}.`);
-        const trackers = trackersIn(g, realmId);
-        if (trackers.length && chance(g.rng, 0.22)) {
-            const n = pick(g.rng, trackers);
-            log(g, `${lordName(n)} met the boat.`, 'bad');
-            return startFight(g, nemesisStats(n), 'ambush');
+        const p = g.p;
+        if (p.realms_unlocked.indexOf(realmId) < 0) return;
+        p.realm = realmId;
+        p.world_state.current_realm = realmId;
+        advanceDay(g, 1);
+        log(g, 'you make the crossing to ' + realmById(realmId).name + '.');
+        const ambusher = rollAmbush(g, realmId);
+        if (ambusher) {
+            log(g, ambusher.dialogue_set.intro_encounter, 'bad');
+            return startFight(g, [lordToFoe(ambusher)], 'ambush');
         }
         g.screen = 'hub';
         save(g);
@@ -2212,124 +2777,109 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
 
     function spendAttribute(g, id) {
         const p = g.p;
-        if (!p.unspentAttributePoints || p.attributes[id] >= ATTR_SOFT_CAP) return;
-        p.unspentAttributePoints--;
+        if (!p.attributes.unallocated_points) return;
+        p.attributes.unallocated_points--;
         p.attributes[id]++;
-        p.vitals.hp = Math.min(maxHp(p), p.vitals.hp + (id === 'fortitude' ? 6 : 0));
+        clampVitals(p);
         save(g);
         render(g);
     }
-
     function spendSkill(g, nodeId) {
         const p = g.p, node = skillNode(nodeId);
-        if (!node || !p.skillPoints || rankOf(p, nodeId) >= 5) return;
-        p.skillPoints--;
+        if (!node || !p.skill_points || rankOf(p, nodeId) >= node.maxRank || !tierUnlocked(p, node.tier)) return;
+        p.skill_points--;
         p.skills[nodeId] = rankOf(p, nodeId) + 1;
-        log(g, `${node.name} rank ${p.skills[nodeId]}.`, 'good');
+        log(g, node.name + ' rank ' + p.skills[nodeId] + '.', 'good');
+        save(g);
+        render(g);
+    }
+    function socketRune(g, runeIdx) {
+        const p = g.p;
+        const sel = g.body.querySelector('select[data-rune="' + runeIdx + '"]');
+        if (!sel) return;
+        const all = p.inventory.concat(SLOTS.map(s => p.equipment[s]).filter(Boolean));
+        const item = all.find(i => i.item_id === sel.value);
+        const runeId = p.runes[runeIdx];
+        if (!item || !runeId) return;
+        const socket = (item.sockets || []).find(s => !s.gem_id);
+        if (!socket) { log(g, 'no open socket on that.', 'warn'); return render(g); }
+        const rune = runeById(runeId);
+        socket.gem_id = runeId;
+        socket.bonus = rune.stat + ' +' + rune.value;
+        p.runes.splice(runeIdx, 1);
+        log(g, rune.name + ' set into ' + item.name + '.', 'good');
         save(g);
         render(g);
     }
 
-    function socketRune(g, runeIdx) {
-        const p = g.p;
-        const sel = g.body.querySelector(`select[data-rune="${runeIdx}"]`);
-        if (!sel) return;
-        const all = p.inventory.concat(SLOTS.map(s => p.equipment[s]).filter(Boolean));
-        const item = all.find(i => i.id === sel.value);
-        const runeId = p.runes[runeIdx];
-        if (!item || !runeId) return;
-        const socket = (item.sockets || []).find(s => !s.runeId);
-        if (!socket) { log(g, 'no open socket on that.', 'warn'); return render(g); }
-        socket.runeId = runeId;
-        p.runes.splice(runeIdx, 1);
-        log(g, `${(runeById(runeId) || {}).name} set into ${item.name}. resonance holds.`, 'good');
+    function exportSave(g) {
         save(g);
+        const s = saves.exportSaveString();
+        if (!s) { log(g, 'nothing to export.', 'warn'); return render(g); }
+        if (window.showRetroDialog) {
+            showRetroDialog({ title: 'save string', lines: ['copy this somewhere safe. It restores the run, the admiralty and the seed.'], preview: s, okLabel: 'done' });
+        } else log(g, s);
+    }
+    function importSave(g) {
+        const s = window.prompt ? window.prompt('paste a save string') : null;
+        if (!s) return;
+        const doc = saves.importSaveString(s);
+        if (!doc) { log(g, 'that save string did not verify: ' + (saves.lastError || 'unreadable') + '.', 'bad'); return render(g); }
+        if (loadInto(g)) { g.screen = g.ended ? 'ending' : 'hub'; log(g, 'save imported.', 'good'); }
         render(g);
+    }
+    function confirmNew(g) {
+        const go = () => { saves.clear(); g.p = null; g.ended = null; g.roster = []; g.create = freshCreate(); g.screen = 'create'; render(g); };
+        if (window.showRetroDialog) {
+            showRetroDialog({ title: 'abandon the run?', lines: ['the admiralty is generated from the seed. The same seed is the same twelve captains.'], okLabel: 'abandon', cancelLabel: 'stay', onOk: go });
+        } else go();
     }
 
     // ---------- new game ----------
     function freshCreate() {
         return {
-            name: 'dredger',
+            name: 'brine diver',
             seed: String(Math.floor(Math.random() * 4294967295) >>> 0),
             attributes: { might: ATTR_START, finesse: ATTR_START, attunement: ATTR_START, fortitude: ATTR_START, perception: ATTR_START }
         };
     }
 
     function startNewGame(g) {
-        const nameEl = g.body.querySelector('#et-name');
-        const seedEl = g.body.querySelector('#et-seed');
-        const name = ((nameEl && nameEl.value) || 'dredger').trim().slice(0, 18) || 'dredger';
-        let seed = parseInt((seedEl && seedEl.value) || '', 10);
+        syncCreate(g);
+        const name = (g.create.name || 'brine diver').trim().slice(0, 18) || 'brine diver';
+        let seed = parseInt(g.create.seed, 10);
         if (!isFinite(seed) || seed <= 0) seed = Math.floor(Math.random() * 4294967295);
         seed = seed >>> 0;
 
         g.rng = makeRng(seed);
-        g.lordSeq = 1; g.itemSeq = 1;
+        g.lordSeq = 1; g.itemSeq = 1; g.dungeonSeq = 1;
         g.p = newProfile(name, seed);
         for (const k in g.create.attributes) g.p.attributes[k] = g.create.attributes[k];
-        g.p.unspentAttributePoints = ATTR_FREE - D.attributes.reduce((s, a) => s + (g.create.attributes[a.id] - ATTR_START), 0);
-        g.p.vitals.hp = maxHp(g.p);
-        g.p.vitals.stamina = maxStamina(g.p);
-        g.p.vitals.sanity = maxSanity(g.p);
-        g.roster = birthRoster(g);
+        g.p.attributes.unallocated_points = 5 - D.attributes.reduce((s, a) => s + (g.create.attributes[a.id] - ATTR_START), 0);
+        g.roster = birthAdmiralty(g);
         g.ended = null;
         g.log = [];
+        g.dungeon = null;
 
-        // a character the deep recruited on this seed is on the roster now
-        for (const d of drownedFor(seed)) {
-            const realm = realmById(d.realm) || D.realms[0];
-            const lord = makeLord(g, realm, 'warlord');
-            lord.name = d.name;
-            lord.epithet = 'the Twice-Drowned';
-            lord.title = D.titles.sanity;
-            lord.level = Math.max(6, d.level);
-            lord.traits.push('tracker');
-            lord.weaknesses.push('it was you, and it fights the way you do.');
-            remember(lord, 'promoted', 0, realm.id, 'was ' + d.name + ', until the singing');
-            g.roster.push(lord);
-            log(g, `${d.name} is on the roster. They went under on this seed on day ${d.day}.`, 'bad');
+        for (const id of ['rcp_rig_hook', 'rcp_plate_vest', 'rcp_welders_hood', 'rcp_hemp_rod', 'rcp_tar_lantern']) {
+            const item = makeItem(g, recipeById(id), { rarity: rarityById('sturdy'), qualityScore: 55, forged: true });
+            g.p.inventory.push(item);
+            if (item.slot !== 'off_hand') equip(g, item);
         }
+        clampVitals(g.p);
+        g.p.vitals.hp = g.p.vitals.max_hp;
+        g.p.vitals.stamina = g.p.vitals.max_stamina;
+        g.p.vitals.marrow_mana = g.p.vitals.max_marrow_mana;
 
-        // starting kit
-        const hook = makeItem(g, recipeById('rig_hook'), 3);
-        const line = makeItem(g, recipeById('tarred_line'), 3);
-        const vest = makeItem(g, recipeById('plate_vest'), 3);
-        const hood = makeItem(g, recipeById('welders_hood'), 2);
-        g.p.inventory.push(hook, line, vest, hood);
-        equip(g, hook); equip(g, line); equip(g, vest); equip(g, hood);
-
-        log(g, 'a line came up with a piece of worked brass on it, and the brass was warm.', 'lore');
+        log(g, 'the harpoon line comes up heavy and wrong.', 'lore');
         g.screen = 'hub';
         achieve('echoes');
+        bus.emit('RUN_STARTED', { seed: seed });
         save(g);
         render(g);
     }
 
     // ---------- boot ----------
-    function boot(g) {
-        const saved = load();
-        if (saved && saved.p) {
-            g.p = saved.p;
-            g.roster = saved.roster || [];
-            g.rng = makeRng(saved.p.seed);
-            g.rng.seed(saved.state);
-            g.lordSeq = saved.lordSeq;
-            g.itemSeq = saved.itemSeq;
-            g.ended = saved.ended;
-            g.screen = g.ended ? 'end' : 'hub';
-            // vitals can arrive stale if gear changed the maxima
-            g.p.vitals.hp = clamp(g.p.vitals.hp, 1, maxHp(g.p));
-            g.p.vitals.stamina = clamp(g.p.vitals.stamina, 0, maxStamina(g.p));
-            g.p.vitals.sanity = clamp(g.p.vitals.sanity, 0, maxSanity(g.p));
-            log(g, `day ${g.p.clock.day}, ${timeOfDay(g.p)}. ${realmById(g.p.realm).name}.`);
-        } else {
-            g.create = freshCreate();
-            g.screen = 'create';
-        }
-        render(g);
-    }
-
     let current = null;
 
     function startEchoes() {
@@ -2337,35 +2887,32 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
             current.win.style.zIndex = (parseInt(current.win.style.zIndex, 10) || 200) + 1;
             return;
         }
-        const { body, win } = createAppWindow('echoes of the tide', { icon: 'explore', width: 720 });
+        const { body, win } = createAppWindow('echoes of the tide', { icon: 'explore', width: 760 });
         const g = {
             body: body, win: win, open: true,
             p: null, roster: [], log: [], screen: 'create',
-            fight: null, dungeon: null, dredge: null, forge: null, dialogue: null,
-            rng: makeRng(1), lordSeq: 1, itemSeq: 1, ended: null, raf: 0,
+            fight: null, dungeon: null, angling: null, forge: null, dialogue: null, pendingEvent: null,
+            rng: makeRng(1), lordSeq: 1, itemSeq: 1, dungeonSeq: 1, ended: null, raf: 0,
             create: freshCreate(), lastForged: null
         };
         current = g;
 
         body.addEventListener('click', e => onClick(g, e));
-        // the reel is a hold, not a click
         const hold = down => e => {
-            const t = e.target.closest('[data-a="reel"]');
-            if (!t) return;
+            if (!e.target.closest('[data-a="reel"]')) return;
             e.preventDefault();
-            if (g.dredge) g.dredge.held = down;
+            if (g.angling) g.angling.holding = down;
         };
         body.addEventListener('pointerdown', hold(true));
         body.addEventListener('pointerup', hold(false));
         body.addEventListener('pointercancel', hold(false));
         body.addEventListener('pointerleave', hold(false));
         const keyDown = e => {
-            if (!g.open) return;
-            if (e.code !== 'Space') return;
-            if (g.screen === 'dredge' && g.dredge) { e.preventDefault(); g.dredge.held = true; }
+            if (!g.open || e.code !== 'Space') return;
+            if (g.screen === 'angling' && g.angling) { e.preventDefault(); g.angling.holding = true; }
             else if (g.screen === 'forge' && g.forge) { e.preventDefault(); forgeInput(g); render(g); }
         };
-        const keyUp = e => { if (g.open && e.code === 'Space' && g.dredge) g.dredge.held = false; };
+        const keyUp = e => { if (g.open && e.code === 'Space' && g.angling) g.angling.holding = false; };
         document.addEventListener('keydown', keyDown);
         document.addEventListener('keyup', keyUp);
 
@@ -2378,32 +2925,44 @@ ${esc(p.name)} is on the roster now. Start a run on seed ${p.seed} and they will
             if (current === g) current = null;
         };
 
-        boot(g);
+        if (loadInto(g)) {
+            g.screen = g.ended ? 'ending' : (g.dungeon ? 'dungeon' : 'hub');
+            log(g, 'day ' + g.p.world_state.current_day + ' in ' + realmById(g.p.realm).name + '.');
+        } else {
+            g.create = freshCreate();
+            g.screen = 'create';
+        }
+        render(g);
     }
 
     window.startEchoes = startEchoes;
 
-    // the headless surface the tests drive: everything a balance pass needs,
-    // and nothing that touches the DOM
+    // the headless surface the balance run drives: everything a simulation
+    // needs and nothing that touches the DOM
     window.ET_ENGINE = {
-        D: D, makeRng: makeRng, ri: ri, pick: pick, chance: chance, clamp: clamp,
-        MITIGATION_FACTOR: MITIGATION_FACTOR, CRIT_CAP: CRIT_CAP, CRIT_K: CRIT_K,
-        DODGE_CAP: DODGE_CAP, DODGE_K: DODGE_K, REEL_FORCE: REEL_FORCE,
-        xpToNext: xpToNext, maxHp: maxHp, maxStamina: maxStamina, maxSanity: maxSanity,
-        carryWeight: carryWeight, armourOf: armourOf, pressureRating: pressureRating,
-        rollDamage: rollDamage, critChance: critChance, critMultiplier: critMultiplier,
-        dodgeChance: dodgeChance, hitChance: hitChance, elementMult: elementMult,
-        d20check: d20check, skillMod: skillMod, sanityLoss: sanityLoss, sanityTier: sanityTier,
-        timeOfDay: timeOfDay, tidePhase: tidePhase, isNight: isNight, tidePull: tidePull,
-        newProfile: newProfile, makeItem: makeItem, itemStat: itemStat, gearStat: gearStat,
-        birthRoster: birthRoster, makeLord: makeLord, nemesisStats: nemesisStats,
-        lordKilledPlayer: lordKilledPlayer, lordSawYouRun: lordSawYouRun,
-        lordSurvived: lordSurvived, lordDefeated: lordDefeated, checkPromotion: checkPromotion,
-        rosterDayPasses: rosterDayPasses, foeFromTemplate: foeFromTemplate,
-        startFight: startFight, playerAction: playerAction, dealToFoe: dealToFoe,
-        pickFish: pickFish, pickFoe: pickFoe, dredgeStep: dredgeStep, newDredgeState: newDredgeState, advanceClock: advanceClock,
-        forgeable: forgeable, canForge: canForge, skillEffect: skillEffect,
-        remap: remap, KEYMAP: KEYMAP, UNMAP: UNMAP, gainXp: gainXp, log: log,
-        NEMESIS_SCALE: NEMESIS_SCALE, RANKS: RANKS, SLOTS: SLOTS, TIME_OF_DAY: TIME_OF_DAY, TIDE_PHASE: TIDE_PHASE
+        D: D, saves: saves, bus: bus, NEMESIS_SCALE: NEMESIS_SCALE, lordById: lordById,
+        makeRng: makeRng, ri: ri, pick: pick, chance: chance, clamp: clamp, weighted: weighted,
+        ARMOR_K: ARMOR_K, BASE_HIT_CHANCE: BASE_HIT_CHANCE, GLANCING_WINDOW: GLANCING_WINDOW,
+        GLANCING_MULTIPLIER: GLANCING_MULTIPLIER, VARIANCE: VARIANCE, CRIT_BASE_MULTIPLIER: CRIT_BASE_MULTIPLIER,
+        DEPTH_SCALE: DEPTH_SCALE, ROOM_SCALE: ROOM_SCALE, AMBUSH_BASE: AMBUSH_BASE,
+        AMBUSH_PER_GRUDGE: AMBUSH_PER_GRUDGE, AMBUSH_CAP: AMBUSH_CAP, TENSION_GREEN: TENSION_GREEN,
+        SANITY_ILLUSION: SANITY_ILLUSION, PANIC_SKIP_CHANCE: PANIC_SKIP_CHANCE, SLOTS: SLOTS,
+        XP_ANCHORS: XP_ANCHORS, xpToNext: xpToNext, LEVEL_UNLOCKS: LEVEL_UNLOCKS,
+        armourMitigation: armourMitigation, computeDamage: computeDamage, resolveSwing: resolveSwing,
+        elementMultiplier: elementMultiplier, skillCheck: skillCheck, sanityLoss: sanityLoss, sanityTier: sanityTier,
+        maxHp: maxHp, maxStamina: maxStamina, maxMarrow: maxMarrow, armourOf: armourOf, critChance: critChance,
+        critMultiplier: critMultiplier, hitRating: hitRating, dodgeRating: dodgeRating, blockValue: blockValue,
+        carryCapacity: carryCapacity, itemStat: itemStat, gearStat: gearStat, allAffixes: allAffixes,
+        newProfile: newProfile, makeItem: makeItem, rollRarity: rollRarity, canCraft: canCraft, craftable: craftable,
+        makeLord: makeLord, birthAdmiralty: birthAdmiralty, lordToFoe: lordToFoe, refreshLordProfile: refreshLordProfile,
+        promoteOnKill: promoteOnKill, tryPromote: tryPromote, lordSawYouRun: lordSawYouRun,
+        lordSurvived: lordSurvived, lordDefeated: lordDefeated, ambushChance: ambushChance, rollAmbush: rollAmbush,
+        foeFromTemplate: foeFromTemplate, startFight: startFight, playerAction: playerAction,
+        generateDungeon: generateDungeon, dungeonNode: dungeonNode, availableNodes: availableNodes,
+        pickFoeTemplate: pickFoeTemplate, applyHazard: applyHazard, gainXp: gainXp, advanceDay: advanceDay,
+        anglingStep: anglingStep, rodStrengthOf: rodStrengthOf, reelSpeedOf: reelSpeedOf,
+        forgeStep: forgeStep, bandFor: bandFor, dialogueBody: dialogueBody, optionAvailable: optionAvailable,
+        runActions: runActions, save: save, loadInto: loadInto, log: log, clampVitals: clampVitals,
+        rankOf: rankOf, skillValue: skillValue, passive: passive, tierUnlocked: tierUnlocked
     };
 })();

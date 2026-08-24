@@ -469,7 +469,9 @@ function etLoadScripts() {
         document.head.appendChild(s);
     });
     // data first: the engine reads RZ at definition time
-    etLoading = load('games/echoes-data.js').then(() => load('games/echoes.js'));
+    etLoading = load('games/echoes-core.js')
+        .then(() => load('games/echoes-data.js'))
+        .then(() => load('games/echoes.js'));
     return etLoading;
 }
 

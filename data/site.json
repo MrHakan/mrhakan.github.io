@@ -1,8 +1,8 @@
 {
     "status": {
-        "text": "under thirty thousand feet of black water",
-        "emoji": "🌊",
-        "updated": "2026-08-23"
+        "text": "rebuilding the trench to spec",
+        "emoji": "⚓",
+        "updated": "2026-08-24"
     },
     "now": {
         "updated": "2026-08-07",
@@ -163,6 +163,23 @@
         { "name": "poolsuite fm", "url": "https://poolsuite.net", "note": "retro internet radio" }
     ],
     "changelog": [
+        {
+            "version": "8.8",
+            "date": "2026-08-24",
+            "changes": [
+                "echoes of the tide, rebuilt to a full six-module design spec. the armour model is now a curve — Armour/(Armour+350), so 350 armour is exactly half mitigation and 1050 is exactly three quarters, and stacking it approaches 100% without ever arriving. nothing in the game, on either side, is untouchable.",
+                "a third resource: Marrow. stamina swings the weapon, Marrow casts, sanity is the one the deep attacks. below 25 sanity the interface stops being a reliable narrator and shows you the wrong enemy health and the wrong weaknesses. at zero the Tide picks three turns in ten for you.",
+                "hit and dodge are 85% plus the gap between the two, and a miss by up to ten points is a glancing blow: half damage, no crit. you are never quite as safe as the number says and never quite as helpless either.",
+                "the nemesis system now starts at the bottom. a nameless Brine Scum that lands the killing blow has a name by morning, a seat among the twelve Deck Captains, and a title taken from how you died — the Carver, the Kindled, the Hollow, the Anvil, the Patient, the Chorus. if all twelve seats are taken it shoulders the weakest one out.",
+                "two kills and it looks at the seat above it. promotion takes a Warlord's chair off the incumbent, who is demoted rather than deleted and who remembers it. survive its fire and it grows Pyre-Scarred and may develop a phobia of the stuff. take its eye and attacks from behind land 50% harder for ever after. run, and it learns your knot: +25% to meet your boat.",
+                "dungeons are a directed acyclic graph now, not a queue — branching floors, every room reachable from one entrance, a boss at the bottom, and forty generated graphs checked for cycles and orphans on every push.",
+                "the forge runs on temperature: hold the metal in the material's real window (300–450 °C for scrap iron, 1400 and up for a celestial core), then three hammer strikes at a moving sweet spot. score out of 100 into four bands — Defective, Standard, Masterwork, and Abyssal-Forged, which comes off the anvil humming.",
+                "six rarity tiers with prefix and suffix naming, so you carry a Brine-Hardened Chitin Harpoon of the Mind-Eater rather than a Rare Harpoon. Cursed gear is deliberately the strongest thing you can hold: Leaking Seals is +50% physical damage for four sanity every turn of every fight.",
+                "angling is a tension sim with a green band at 40–80 — the only place the fish's stamina goes down — and a surge that arrives as a jerk rather than a ramp, which is the entire reason a heavier rod is worth carrying. hold on to a trench fish with hemp tackle and you lose the line.",
+                "saves have a DJB2 checksum, a backup slot written from the previous good save rather than the current one, base64 export/import of a whole run, and a migration loop that walks an old save forward one version at a time and refuses one from the future.",
+                "the design document is in the repo at games/ECHOES-GDD.md and 155 automated checks hold the code to it — the armour curve, the published XP table to the digit, the nine named skills with their exact costs, Morvath's three phases mechanic for mechanic, the seat counts, and a few thousand simulated fights. where the spec and a playable game could not both be had, the doc says so and shows the measurement."
+            ]
+        },
         {
             "version": "8.7",
             "date": "2026-08-23",

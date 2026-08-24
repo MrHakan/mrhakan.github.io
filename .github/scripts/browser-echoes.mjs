@@ -45,7 +45,7 @@ async function click(text, opts) {
 }
 const has = async text => (await page.locator('.et-body', { hasText: text }).count()) > 0;
 const state = () => page.evaluate(() => {
-    const raw = localStorage.getItem('mrhakan98-echoes');
+    const raw = localStorage.getItem('ECHOES_OF_THE_TIDE_SAVE');
     return raw ? JSON.parse(raw) : null;
 });
 
@@ -54,7 +54,7 @@ try {
     await page.goto(BASE, { waitUntil: 'load' });
     await page.keyboard.press('Enter');
     await page.waitForTimeout(900);
-    await page.evaluate(() => { window.soundEnabled = false; localStorage.removeItem('mrhakan98-echoes'); });
+    await page.evaluate(() => { window.soundEnabled = false; localStorage.removeItem('ECHOES_OF_THE_TIDE_SAVE'); localStorage.removeItem('ECHOES_OF_THE_TIDE_SAVE_BACKUP'); });
     await page.evaluate(() => window.openEchoes());
     await page.waitForSelector('.et-body', { timeout: 15000 });
     ok('the window opens and the game files load');
@@ -70,22 +70,22 @@ try {
         await page.locator('.et-stats button[data-a="cre+"][data-x="might"]').first().click();
         await page.waitForTimeout(90);
     }
-    const spent = await page.locator('.et-main', { hasText: '0 of 3 free points left' }).count();
+    const spent = await page.locator('.et-main', { hasText: '2 of 5 free points left' }).count();
     expect(spent > 0, 'the free attribute points are spendable');
     // spending a point re-renders the sheet; the typed name must survive it
     expect(await page.inputValue('#et-name') === 'ci dredger' && await page.inputValue('#et-seed') === '20260823',
         'and spending them does not wipe the name and seed you typed');
-    await click('take the boat out', { wait: 700 });
+    await click('take the boat out', { wait: 900 });
     expect(await has('The Rust Shallows'), 'the run starts in the Rust Shallows');
     expect(await has('Act 1'), 'act one is on the board');
     const s0 = await state();
-    expect(s0 && s0.$schema === 'echoes/save/1', 'it saved immediately, with a schema version');
-    expect(s0 && s0.n && s0.n.length === 17, 'the roster of 17 drowned lords was born', s0 ? String(s0.n.length) : 'no save');
+    expect(s0 && s0.save_version && s0.checksum, 'it saved immediately, with a version and a checksum');
+    expect(s0 && s0.nemesis_roster && s0.nemesis_roster.length === 17, 'the admiralty of 17 was born', s0 && s0.nemesis_roster ? String(s0.nemesis_roster.length) : 'no roster');
     await page.screenshot({ path: SHOTS + '/echoes-2-harbour.png' });
 
     section('the drowned lords are on the wall');
     await click('the full roster');
-    expect(await has('twelve captains'), 'the roster screen renders');
+    expect(await has('Deck Captain'), 'the roster screen renders');
     const lordRows = await page.locator('.et-nem-full').count();
     expect(lordRows === 17, 'seventeen lords listed', String(lordRows));
     expect(await has('"'), 'each one has a war-cry');
@@ -94,7 +94,7 @@ try {
 
     section('a voyage, and whatever is in the corridor');
     await click('take a voyage', { wait: 500 });
-    expect(await has('depth'), 'the dungeon deals a node');
+    expect(await has('floor 1 /'), 'the dungeon deals a node');
     let fought = false, nodes = 0;
     while (nodes++ < 14 && !fought) {
         if (await page.locator('.et-body button', { hasText: 'strike' }).count()) { fought = true; break; }
@@ -148,8 +148,11 @@ try {
     expect(await has('take a voyage'), 'and putting it on returns you to the harbour');
 
     section('a line in the water');
-    if (await page.locator('.et-body button[data-a="dredge"]:not([disabled])').count()) {
+    {
         await click('put a line in', { wait: 500 });
+        // pick the first castable spot for the current tide
+        const spot = page.locator('.et-pattern[data-a="cast"]').first();
+        if (await spot.count()) { await spot.click(); await page.waitForTimeout(600); }
         if (await page.locator('.et-body button[data-a="reel"]').count()) {
             expect(true, 'the dredging minigame opens');
             await page.screenshot({ path: SHOTS + '/echoes-6-dredge.png' });
@@ -169,8 +172,6 @@ try {
         } else {
             expect(await has('nothing is biting'), 'nothing was biting, which is a legal outcome');
         }
-    } else {
-        ok('no line equipped, so dredging is correctly disabled');
     }
 
     section('it survives a reload');
@@ -183,7 +184,7 @@ try {
     expect(await has('ci dredger'), 'the character comes back after a reload');
     expect(await has('The Rust Shallows'), 'in the realm they were left in');
     const after = await state();
-    expect(before && after && before.p.seed === after.p.seed, 'and on the same seed');
+    expect(before && after && before.player.seed === after.player.seed, 'and on the same seed');
     await page.screenshot({ path: SHOTS + '/echoes-7-reloaded.png' });
 
     section('the codex and the skill trees render');
@@ -192,7 +193,7 @@ try {
         'all three trees are on the page');
     await click('back');
     await click('codex');
-    expect(await has('The Tide'), 'the codex has its first entry');
+    expect(await has('The Great Submersion'), 'the codex has its first entry');
     await click('back');
     await click('chart');
     expect(await has('The Whispering Reefs'), 'the chart shows the realms you cannot reach yet');
