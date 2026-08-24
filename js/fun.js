@@ -55,6 +55,7 @@ const ACHIEVEMENTS = {
     'echoes-relic': { icon: '🧭', name: 'relic band', desc: 'landed something that should not have been down there' },
     'echoes-codex': { icon: '📖', name: 'read it all', desc: 'completed the codex of the Sunken Firmament' },
     'echoes-end': { icon: '🌅', name: 'the heart', desc: 'reached the Heart of the Sunken Beacon and decided' },
+    'echoes-courier': { icon: '📮', name: 'the courier', desc: 'sent a Drowned Lord after somebody else, or took one they sent you' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }

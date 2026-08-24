@@ -28,9 +28,9 @@ const ROOT = process.cwd();
 
 // themes.js registers themeValidate on the module exports; theme-scan.js
 // looks it up as a global, so publish it before loading the scanner.
-const themes = require(path.join(ROOT, 'themes.js'));
+const themes = require(path.join(ROOT, 'js/themes.js'));
 globalThis.themeValidate = themes.themeValidate;
-const scan = require(path.join(ROOT, 'theme-scan.js'));
+const scan = require(path.join(ROOT, 'js/theme-scan.js'));
 
 const VT_KEY = process.env.VIRUSTOTAL_API_KEY || '';
 const files = process.argv.slice(2).filter(Boolean);

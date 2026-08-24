@@ -277,6 +277,7 @@ function appActions() {
         wizardzbot: () => openWizardz('bot'),
         netplay: () => openNetplay(),
         defrag: openDefrag,
+        documents: openDocuments,
         devlog: openDevlog,
         find: openFindFiles,
         rss: () => window.open('feed.xml', '_blank', 'noopener')
@@ -425,6 +426,9 @@ function execRunCommand() {
         'cards': openSolitaire,
         'klondike': openSolitaire,
         'defrag': openDefrag,
+        'documents': openDocuments,
+        'docs': openDocuments,
+        'saves': openDocuments,
         'blog': openDevlog,
         'posts': openDevlog,
         'search': openFindFiles,
@@ -1555,7 +1559,7 @@ async function mountGiscus() {
     s.setAttribute('data-input-position', 'top');
     // the frame is on another origin, so style.css cannot reach into it —
     // giscus takes a theme by url and this one is served from this repo
-    s.setAttribute('data-theme', new URL('giscus-win98.css', location.href).href);
+    s.setAttribute('data-theme', new URL('css/giscus-win98.css', location.href).href);
     s.setAttribute('data-lang', 'en');
     s.setAttribute('data-loading', 'lazy');
     mount.appendChild(s);
@@ -1661,10 +1665,25 @@ function fallbackCopy(value) {
     ta.remove();
 }
 
+// a dialog has to sit above whatever is already on the desktop. app windows
+// start at z-index 100 and climb every time one is clicked, and the ie
+// windows start at 200, so a fixed number in the stylesheet loses that race
+// — which is why the export dialog inside a game window was being drawn
+// behind it. take the top of the stack and go one better.
+function topWindowZ() {
+    let top = 0;
+    document.querySelectorAll('.app-window, .ie-window, .np-window').forEach(el => {
+        const z = parseInt(el.style.zIndex || getComputedStyle(el).zIndex, 10);
+        if (isFinite(z) && z > top) top = z;
+    });
+    return top;
+}
+
 function showRetroDialog({ title, lines, preview, okLabel, cancelLabel, onOk }) {
     document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
     const overlay = document.createElement('div');
     overlay.className = 'retro-dialog-overlay';
+    overlay.style.zIndex = String(Math.max(topWindowZ() + 1, 9000));
     const dialog = document.createElement('div');
     dialog.className = 'retro-dialog bevel-out';
     const titleBar = document.createElement('div');

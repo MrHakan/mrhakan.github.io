@@ -164,6 +164,16 @@
     ],
     "changelog": [
         {
+            "version": "9.2",
+            "date": "2026-08-24",
+            "changes": [
+                "my documents. every game on this site kept its progress in localStorage, which is per browser and gone the moment somebody clears their site data \u2014 and only echoes had an export button, so anyone who changed laptop lost a jokerz run, a become user playthrough, a troll problem meta and a wizard. there is a folder for all of it now: what each save holds in a line you can read, export or delete one at a time, and one code that is the whole desktop. it refuses a code from somewhere else, a damaged one, and any key that is not ours \u2014 a backup is not a licence to put arbitrary things in your storage.",
+                "drowned lords travel now. one that has killed you can be sent after somebody else: it arrives on their wall hunting them, carrying your name and everything it learned from you, and when they end it a receipt comes back and your copy dies too. no server \u2014 it is a code, same as a save. what arrives is a stranger's json that becomes a creature and a name on your screen, so its id is reissued, its strings are cut and stripped, its ids are checked against the content file, its numbers are clamped to what the game could have made, and its combat profile is thrown away and recomputed on your side.",
+                "the project got tidy. thirteen loose scripts moved into js/, the stylesheets into css/, and the express guestbook backend that nothing has talked to since the guestbook moved onto a gist is gone along with its five unused dependencies. there is a readme now that says where things are and what will bite you.",
+                "and three things the tidying turned up: the icon font 404'd the moment style.css moved, because a relative url() in a stylesheet resolves against the stylesheet; the syntax check quietly stopped covering thirteen files when they moved; and the retro dialog was z-index 95 while app windows start at 100 and climb, so every dialog opened from inside a window \u2014 the echoes save export, for as long as it has existed \u2014 was being drawn behind it. all three now have a check that fails the build."
+            ]
+        },
+        {
             "version": "9.1",
             "date": "2026-08-24",
             "changes": [

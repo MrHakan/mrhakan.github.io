@@ -843,6 +843,136 @@ expect(firstWins / FIRST >= 0.80, 'a level-1 diver wins their first fight at lea
 expect(firstWins / FIRST < 0.995, 'but it is still a fight', (firstWins / FIRST * 100).toFixed(1) + '%');
 
 // ===================================================================
+section('the courier');
+// ===================================================================
+// A Drowned Lord can be sent to another player as a code. What comes back
+// is a stranger's JSON that becomes a creature which fights you and a name
+// that gets drawn on your screen, so the interesting tests are all about
+// what it refuses.
+{
+    const g = makeGame(31);
+    g.p = E.newProfile('sender', 1234);
+    g.p.world_state = { current_day: 9, time_of_day: 'calm_day', current_realm: 'rust_shallows', story_flags: {} };
+    g.roster = [];
+    const lord = E.makeLord(g, { tier: 2, realm: 'rust_shallows', level: 12 });
+    lord.grudge = 3;
+    g.roster.push(lord);
+
+    const code = E.packLord(g, lord);
+    expect(typeof code === 'string' && code.length > 100, 'a lord packs into a code', String(code).slice(0, 20));
+
+    // the receiver is a different run
+    const mk = () => {
+        const r = makeGame(77);
+        r.p = E.newProfile('receiver', 4321);
+        r.p.world_state = { current_day: 3, time_of_day: 'calm_day', current_realm: 'rust_shallows', story_flags: {} };
+        r.roster = [];
+        return r;
+    };
+
+    {
+        const r = mk();
+        const got = E.unpackLord(r, code);
+        expect(got.ok, 'and unpacks on the other side', got.error);
+        expect(got.lord.name === lord.name && got.lord.tier === lord.tier && got.lord.level === lord.level,
+            'carrying who it is');
+        expect(got.lord.sent_by === 'sender', 'and who sent it', got.lord.sent_by);
+        expect(got.lord.nemesis_id !== lord.nemesis_id,
+            'but not its id — an incoming lord must not be able to name itself over one of yours');
+        expect(got.lord.status === 'hunting', 'it arrives hunting');
+        // the numbers are recomputed here, never read out of the envelope
+        const local = E.refreshLordProfile(JSON.parse(JSON.stringify(got.lord)));
+        expect(got.lord.combat_profile.max_hp === local.combat_profile.max_hp,
+            'and its stats are computed here rather than taken on trust');
+    }
+
+    // a lord cannot be sent back to the run it came from
+    {
+        const self = makeGame(31);
+        self.p = E.newProfile('sender', 1234);
+        self.roster = [];
+        expect(!E.unpackLord(self, code).ok, 'your own lord is refused coming back to you');
+    }
+
+    // garbage, and the shapes of garbage
+    {
+        const r = mk();
+        expect(!E.unpackLord(r, 'hello there').ok, 'a paste of something else is refused');
+        expect(!E.unpackLord(r, '').ok, 'and so is nothing at all');
+        const foreign = Buffer.from(JSON.stringify({ format: 'elsewhere', lord: {} }), 'utf8').toString('base64');
+        expect(E.unpackLord(r, foreign).error === 'that code is from somewhere else', 'a code from another site says so');
+        const future = Buffer.from(JSON.stringify({
+            format: E.LORD_FORMAT, version: E.LORD_FORMAT_VERSION + 3, lord: { name: 'x' }
+        }), 'utf8').toString('base64');
+        expect(!E.unpackLord(r, future).ok, 'and one from a newer version is refused');
+        // tampering: the checksum is the only thing that can catch it
+        const env = JSON.parse(Buffer.from(code, 'base64').toString('utf8'));
+        env.lord.level = 50;
+        const tampered = Buffer.from(JSON.stringify(env), 'utf8').toString('base64');
+        expect(!E.unpackLord(r, tampered).ok, 'a hand-edited lord is refused');
+    }
+
+    // a lord built to be unfair, signed correctly, still comes out sane
+    {
+        const r = mk();
+        const env = JSON.parse(Buffer.from(code, 'base64').toString('utf8'));
+        env.lord.level = 9999;
+        env.lord.power_index = 999999;
+        env.lord.tier = 99;
+        env.lord.grudge = 500;
+        env.lord.base_creature = 'cr_not_a_thing';
+        env.lord.current_zone = '../../etc';
+        env.lord.traits.immunities = ['immune_to_everything', 'also_this'];
+        env.lord.memories = new Array(500).fill({ event_type: 'x', timestamp_game_day: 1, location: 'y', detail: 'z' });
+        env.lord.name = '<img src=x onerror=alert(1)>'.repeat(20);
+        env.lord.dialogue_set.intro_encounter = 'a'.repeat(5000);
+        env.lord.sender = '\u0000\u200b evil \u2028 name';
+        env.checksum = E.courierSum(JSON.stringify(env.lord));
+        const got = E.unpackLord(r, Buffer.from(JSON.stringify(env), 'utf8').toString('base64'));
+        expect(got.ok, 'a correctly signed but hostile lord still opens', got.error);
+        expect(got.lord.level <= 50 && got.lord.power_index <= 90 && got.lord.tier < D.nemesisRanks.length,
+            'with its numbers clamped to what this game could have made',
+            JSON.stringify([got.lord.level, got.lord.power_index, got.lord.tier]));
+        expect(got.lord.grudge <= 5, 'and its grudge inside the scale', String(got.lord.grudge));
+        expect(!!D.lordCreatures.find(c => c.id === got.lord.base_creature),
+            'a creature that does not exist becomes one that does', got.lord.base_creature);
+        expect(!!D.realms.find(x => x.id === got.lord.current_zone), 'and a realm that does not exist likewise',
+            got.lord.current_zone);
+        expect(got.lord.traits.immunities.every(id => D.nemesisTraits.immunities.some(t => t.id === id)),
+            'invented traits are dropped', got.lord.traits.immunities.join(', '));
+        expect(got.lord.memories.length <= 6, 'and five hundred memories become six', String(got.lord.memories.length));
+        expect(got.lord.name.length <= 24, 'a very long name is cut', String(got.lord.name.length));
+        expect(got.lord.dialogue_set.intro_encounter.length <= 160, 'and so is a very long line');
+        expect(!/[\u0000-\u001f\u200b-\u200f\u2028\u2029]/.test(got.lord.sent_by),
+            'control characters and zero-width tricks come out of the sender name', JSON.stringify(got.lord.sent_by));
+        // and it still makes a legal fight
+        const foe = E.lordToFoe(got.lord);
+        expect(foe.hp > 0 && foe.damage > 0 && isFinite(foe.armour), 'and it is still a fightable creature',
+            JSON.stringify([foe.hp, foe.damage, foe.armour]));
+    }
+
+    // the receipt goes back the other way
+    {
+        const r = mk();
+        const arrived = E.receiveLord(r, code);
+        expect(arrived.ok, 'a lord can be taken onto the wall', arrived.error);
+        expect(r.roster.length === 1 && r.roster[0].status === 'hunting', 'and it is hunting there');
+        expect(!E.receiveLord(r, code).ok, 'the same lord cannot arrive twice');
+
+        const receipt = E.packReceipt(r, r.roster[0]);
+        const back = E.readReceipt(g, receipt);
+        expect(back.ok, 'and the sender can read the receipt', back.error);
+        expect(lord.status === 'dead', 'which kills their copy too');
+        expect(back.ender === 'receiver', 'and says who did it', back.ender);
+        expect(!E.readReceipt(g, receipt).ok, 'a receipt only counts once');
+        const other = makeGame(5);
+        other.p = E.newProfile('nobody', 999);
+        other.roster = [];
+        expect(!E.readReceipt(other, receipt).ok, 'and cannot be redeemed by somebody else');
+    }
+}
+
+// ===================================================================
 section('the sprite atlas');
 // ===================================================================
 const SPR = win.ECHOES_SPRITES;
@@ -1004,16 +1134,16 @@ expect(gameFiles.every(f => sw.includes("'/games/" + f + "'")),
     'the service worker precaches all five game files',
     gameFiles.filter(f => !sw.includes("'/games/" + f + "'")).join(', '));
 expect(/CACHE = 'mrhakan98-v(\d+)'/.test(sw), 'the cache name is versioned');
-const extras = read('extras.js');
+const extras = read('js/extras.js');
 const loadOrder = gameFiles.map(f => extras.indexOf("load('games/" + f + "')"));
 expect(loadOrder.every(i => i >= 0) && loadOrder.every((v, i) => i === 0 || v > loadOrder[i - 1]),
-    'extras.js lazy-loads all five, in dependency order', loadOrder.join(','));
+    'js/extras.js lazy-loads all five, in dependency order', loadOrder.join(','));
 expect(extras.includes("'echoes of the tide'"), 'the game is in find:files');
-const indexJs = read('index.js');
+const indexJs = read('js/index.js');
 expect(/echoes:\s*\(\)\s*=>\s*openEchoes\(\)/.test(indexJs), 'the desktop icon opens it');
 expect(['echoes', 'tide', 'rpg', 'leviathan'].every(a => indexJs.includes("'" + a + "'")), 'the run box knows its aliases');
 expect(read('index.html').includes("startMenuAction('echoes')"), 'it is in the start menu');
-const fun = read('fun.js');
+const fun = read('js/fun.js');
 const achievements = ['echoes', 'echoes-ten', 'echoes-lord', 'echoes-boss', 'echoes-masterwork',
     'echoes-relic', 'echoes-faction', 'echoes-codex', 'echoes-end'];
 const missingAch = achievements.filter(id => !new RegExp("'?" + id.replace(/-/g, '\\-') + "'?\\s*:").test(fun));

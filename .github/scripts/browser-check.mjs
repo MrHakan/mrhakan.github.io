@@ -541,7 +541,7 @@ try {
     expect(disk.w > 0 && disk.h > 0 && disk.dark > 2000,
         'the disk map is drawn, and it is a mess', JSON.stringify({ w: disk.w, dark: disk.dark, light: disk.light }));
     expect(disk.frag > 40, 'and it starts in a state worth defragmenting', disk.frag + '%');
-    expect(disk.files.some(n => /index\.js$/.test(n)) && disk.files.some(n => /style\.css$/.test(n)),
+    expect(disk.files.some(n => /js\/index\.js$/.test(n)) && disk.files.some(n => /css\/style\.css$/.test(n)),
         'the clusters are the files this page really loaded', disk.files.slice(0, 6).join(', '));
     expect(/\d+ files/.test(disk.label), 'and it says how many', disk.label);
 
@@ -588,8 +588,8 @@ try {
             const t = el.textContent.trim();
             if (/^[a-z0-9_]+$/.test(t)) names.add(t);
         });
-        for (const f of ['index.js', 'apps.js', 'fun.js', 'pages.js', 'extras.js', 'themes.js',
-            'theme-maker.js', 'games/netplay.js', 'games/wizardz.js', 'games/wizardz-data.js']) {
+        for (const f of ['js/index.js', 'js/apps.js', 'js/fun.js', 'js/pages.js', 'js/extras.js', 'js/themes.js',
+            'js/theme-maker.js', 'games/netplay.js', 'games/wizardz.js', 'games/wizardz-data.js']) {
             const src = await fetch(f).then(r => r.text()).catch(() => '');
             for (const m of src.matchAll(/icon: '([a-z0-9_]+)'/g)) names.add(m[1]);
             for (const m of src.matchAll(/material-symbols-outlined[^>]*>([a-z0-9_]+)</g)) names.add(m[1]);
@@ -847,7 +847,7 @@ try {
             JSON.stringify({ form: on.form, mount: on.mount }));
         expect(!!on.attrs && on.attrs['data-repo-id'] === 'R_kgDOTEST01' && on.attrs['data-category-id'] === 'DIC_kwDOTEST01',
             'with the ids from the config on the script', JSON.stringify(on.attrs));
-        expect(!!on.attrs && /giscus-win98\.css$/.test(on.attrs['data-theme'] || ''),
+        expect(!!on.attrs && /css\/giscus-win98\.css$/.test(on.attrs['data-theme'] || ''),
             'and the win98 theme, since the frame cannot see style.css', on.attrs && on.attrs['data-theme']);
 
         const half = await board('half', {

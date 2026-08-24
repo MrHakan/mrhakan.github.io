@@ -72,8 +72,7 @@ getting the two ids, in order:
 5. paste them into `data/site.json` and commit.
 
 the frame is on giscus.app, so `style.css` cannot reach into it. giscus
-takes a theme by url instead, and `giscus-win98.css` in the repo root is
-that theme: the same bevels, greys and title bars as the window it sits
+takes a theme by url instead, and `css/giscus-win98.css` is that theme: the same bevels, greys and title bars as the window it sits
 in. it is passed as `data-theme` automatically.
 
 what this costs, honestly: the comment box is an iframe from giscus.app,

@@ -442,6 +442,107 @@ try {
         await click('back');
     }
 
+    section('sending a drowned lord after somebody');
+    {
+        // a lord only becomes sendable once it has your blood on it, so give
+        // one a grudge the way the game would and come back to the wall
+        await page.evaluate(() => {
+            const se = new window.SaveEngine('ECHOES_OF_THE_TIDE_SAVE');
+            const doc = se.loadGame();
+            doc.nemesis_roster[0].grudge = 3;
+            doc.nemesis_roster[0].memories.push({
+                event_type: 'killed_player', timestamp_game_day: 2,
+                location: doc.player.realm, detail: 'killed you by physical'
+            });
+            se.saveGame({ player: doc.player, world_state: doc.world_state, nemesis_roster: doc.nemesis_roster, engine: doc.engine });
+        });
+        await page.reload({ waitUntil: 'load' });
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(900);
+        await page.evaluate(() => window.openEchoes());
+        await page.waitForSelector('.et-body', { timeout: 15000 });
+        await click('admiralty');
+
+        expect(await has('the courier'), 'the wall explains the courier');
+        const sendables = await page.locator('.et-body button[data-a="lord-send"]').count();
+        expect(sendables === 1, 'and only the lord that has actually killed you can be sent',
+            sendables + ' sendable');
+
+        await page.locator('.et-body button[data-a="lord-send"]').first().click();
+        await page.waitForTimeout(400);
+        const code = (await page.locator('.retro-dialog-pre').first().textContent()).trim();
+        expect(code.length > 100, 'sending one produces a code', code.length + ' chars');
+        await page.locator('.retro-dialog-overlay button').last().click();
+        await page.waitForTimeout(200);
+
+        // a second player, with their own storage and their own seed
+        const other = await ctx.browser().newContext({ viewport: { width: 1180, height: 900 } });
+        await other.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
+        const p2 = await other.newPage();
+        const errs2 = [];
+        p2.on('pageerror', e => errs2.push(e.message));
+        await p2.goto(BASE, { waitUntil: 'load' });
+        await p2.keyboard.press('Enter');
+        await p2.waitForTimeout(900);
+        await p2.evaluate(() => { window.soundEnabled = false; localStorage.removeItem('ECHOES_OF_THE_TIDE_SAVE'); });
+        await p2.evaluate(() => window.openEchoes());
+        await p2.waitForSelector('.et-body', { timeout: 15000 });
+        await p2.fill('#et-name', 'the other one');
+        await p2.fill('#et-seed', '80808');
+        await p2.locator('.et-body button', { hasText: 'take the boat out' }).first().click();
+        await p2.waitForTimeout(900);
+        await p2.locator('.et-body button', { hasText: 'admiralty' }).first().click();
+        await p2.waitForTimeout(300);
+
+        const before = await p2.locator('.et-nem-full').count();
+        p2.once('dialog', d => d.accept(code));
+        await p2.locator('.et-body button[data-a="lord-recv"]').first().click();
+        await p2.waitForTimeout(700);
+        const arrived = await p2.evaluate(() => {
+            const doc = new window.SaveEngine('ECHOES_OF_THE_TIDE_SAVE').loadGame();
+            const n = (doc.nemesis_roster || []).find(x => x.sent_by);
+            return n ? { name: n.name, sent_by: n.sent_by, status: n.status, level: n.level, hp: n.combat_profile.max_hp } : null;
+        });
+        expect(!!arrived, 'and pasting it puts the lord on the other player\'s wall', JSON.stringify(arrived));
+        expect(arrived && arrived.sent_by === 'ci dredger', 'carrying the name of whoever sent it',
+            arrived && arrived.sent_by);
+        expect(arrived && arrived.status === 'hunting', 'and it arrives hunting them');
+        expect(arrived && arrived.hp > 0, 'with a combat profile computed on their side', arrived && String(arrived.hp));
+        const after = await p2.locator('.et-nem-full').count();
+        expect(after === before + 1, 'the wall is one longer', before + ' -> ' + after);
+
+        // the arrival dialog is on top of the window now, which is the point —
+        // close it before reaching for anything behind it
+        const closeDialog = async () => {
+            const btn = p2.locator('.retro-dialog-overlay button').last();
+            if (await btn.count()) { await btn.click(); await p2.waitForTimeout(250); }
+        };
+        expect(await p2.locator('.retro-dialog-overlay').count() === 1,
+            'the arrival is announced in a dialog, in front of the window it came from');
+        await closeDialog();
+
+        // the same lord cannot arrive twice
+        p2.once('dialog', d => d.accept(code));
+        await p2.locator('.et-body button[data-a="lord-recv"]').first().click();
+        await p2.waitForTimeout(600);
+        await closeDialog();
+        const twice = await p2.locator('.et-nem-full').count();
+        expect(twice === after, 'and it cannot arrive a second time', after + ' -> ' + twice);
+
+        // and a paste of something else is refused rather than swallowed
+        p2.once('dialog', d => d.accept('this is not a lord'));
+        await p2.locator('.et-body button[data-a="lord-recv"]').first().click();
+        await p2.waitForTimeout(600);
+        await closeDialog();
+        expect(await p2.locator('.et-nem-full').count() === twice, 'a paste of something else changes nothing');
+
+        expect(errs2.length === 0, 'and none of it threw', errs2.slice(0, 3).join('; '));
+        await p2.screenshot({ path: SHOTS + '/echoes-8-courier.png' });
+        await other.close();
+        // and put the first player back where the rest of the run expects them
+        await click('back');
+    }
+
     section('the codex and the skill trees render');
     await click('skills');
     expect(await has('Marrow-Smith') && await has('Tide-Weaver') && await has('Harpooner'),

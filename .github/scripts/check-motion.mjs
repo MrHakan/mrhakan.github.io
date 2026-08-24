@@ -71,10 +71,10 @@ function makeWindow(opts) {
 const load = (w, file) => new Function('window', 'localStorage', 'document', 'CSS', read(file))(w, w.localStorage, w.document, w.CSS);
 
 // ===================================================================
-section('fx.js runs without a dom');
+section('js/fx.js runs without a dom');
 // ===================================================================
 const win = makeWindow();
-try { load(win, 'fx.js'); ok('fx.js loads'); } catch (e) { bad('fx.js loads', e.message); process.exit(1); }
+try { load(win, 'js/fx.js'); ok('js/fx.js loads'); } catch (e) { bad('js/fx.js loads', e.message); process.exit(1); }
 const FX = win.FX;
 expect(typeof FX.animate === 'function' && typeof FX.stagger === 'function' && typeof FX.inView === 'function',
     'it exposes the motion.dev shape: animate, stagger, inView');
@@ -124,7 +124,7 @@ section('springs');
         String(Math.max.apply(null, points)));
 
     const noLinear = makeWindow({ linear: false });
-    load(noLinear, 'fx.js');
+    load(noLinear, 'js/fx.js');
     expect(/^cubic-bezier/.test(noLinear.FX.spring({})), 'a browser without linear() gets a bezier instead',
         noLinear.FX.spring({}));
 }
@@ -140,7 +140,7 @@ section('and it stops when asked');
         ['the system asks for reduced motion', makeWindow({ reduced: true })],
         ['the visitor unticks window animations', makeWindow({ store: [['motion-off', '1']] })]
     ]) {
-        load(w, 'fx.js');
+        load(w, 'js/fx.js');
         const el = fakeElement();
         const a = w.FX.animate(el, [{ opacity: 0 }, { opacity: 1, transform: 'scale(1)' }]);
         expect(el.calls.length === 0, name + ': nothing animates');
@@ -150,13 +150,13 @@ section('and it stops when asked');
         expect(w.FX.on() === false, name + ': FX.on() says so');
     }
     const w = makeWindow({ store: [['motion-off', '1']] });
-    load(w, 'fx.js');
+    load(w, 'js/fx.js');
     expect(w.FX.enabled() === false, 'the tickbox reads its own setting');
     w.FX.setEnabled(true);
     expect(w.FX.enabled() === true && w.FX.on() === true, 'and flipping it takes effect immediately');
     // the system setting is not something a tickbox may override
     const sys = makeWindow({ reduced: true });
-    load(sys, 'fx.js');
+    load(sys, 'js/fx.js');
     sys.FX.setEnabled(true);
     expect(sys.FX.on() === false, 'ticking the box cannot override the system setting');
 }
@@ -171,17 +171,17 @@ section('css transitions hear about it too');
 // ===================================================================
 {
     const quiet = makeWindow({ store: [['motion-off', '1']] });
-    load(quiet, 'fx.js');
+    load(quiet, 'js/fx.js');
     expect(quiet.document.documentElement.classes.has('no-motion'),
         'motion off publishes .no-motion on the root element');
     quiet.FX.setEnabled(true);
     expect(!quiet.document.documentElement.classes.has('no-motion'), 'and ticking the box takes it off again');
 
     const sys = makeWindow({ reduced: true });
-    load(sys, 'fx.js');
+    load(sys, 'js/fx.js');
     expect(sys.document.documentElement.classes.has('no-motion'), 'the system setting publishes it too');
 
-    const css = read('style.css');
+    const css = read('css/style.css');
     expect(/\.no-motion \.bj-card/.test(css) && /transition: none !important/.test(css),
         'and the stylesheet turns the card transitions off when it sees it');
 }
@@ -195,7 +195,7 @@ section('jokerz 98');
 // ===================================================================
 {
     const jwin = makeWindow();
-    load(jwin, 'fx.js');
+    load(jwin, 'js/fx.js');
     try { load(jwin, 'games/balatro-fx.js'); ok('balatro-fx.js loads'); }
     catch (e) { bad('balatro-fx.js loads', e.message); }
     const BJ = jwin.BJFX;
@@ -242,17 +242,17 @@ section('jokerz 98');
         'and the money float cannot subtract a number that is not there yet');
     expect(/balLastScreen !== g\.screen/.test(game), 'a new screen animates in, a redraw of the same one does not');
 
-    const loader = read('extras.js');
+    const loader = read('js/extras.js');
     expect(/balatro-fx\.js'\)\)[\s\S]{0,80}balatro\.js/.test(loader),
         'the loader pulls the animation layer in before the engine');
     expect(read('sw.js').includes('/games/balatro-fx.js'), 'and the service worker precaches it');
 }
 
 // ===================================================================
-section('charts.js');
+section('js/charts.js');
 // ===================================================================
 const cwin = makeWindow();
-try { load(cwin, 'charts.js'); ok('charts.js loads'); } catch (e) { bad('charts.js loads', e.message); }
+try { load(cwin, 'js/charts.js'); ok('js/charts.js loads'); } catch (e) { bad('js/charts.js loads', e.message); }
 const Charts = cwin.Charts;
 function fakeCanvas(w, h) {
     const calls = [];
@@ -291,7 +291,7 @@ function fakeCanvas(w, h) {
     const retina = { clientWidth: 100, clientHeight: 50, width: 0, height: 0, getContext: () => fakeCanvas(1, 1).getContext() };
     cwin.devicePixelRatio = 2;
     const rwin = makeWindow({ dpr: 2 });
-    load(rwin, 'charts.js');
+    load(rwin, 'js/charts.js');
     rwin.Charts.surface(retina);
     expect(retina.width === 200 && retina.height === 100, 'and a retina screen gets real pixels',
         `${retina.width}x${retina.height}`);
@@ -313,17 +313,17 @@ function fakeCanvas(w, h) {
 section('wired into the desktop');
 // ===================================================================
 {
-    const indexJs = read('index.js');
+    const indexJs = read('js/index.js');
     const sw = read('sw.js');
-    for (const f of ['/fx.js', '/charts.js']) {
+    for (const f of ['/js/fx.js', '/js/charts.js']) {
         expect(sw.includes(`'${f}'`), 'the service worker precaches ' + f);
     }
     // index.js reaches for FX on every page it runs on, so every page
     // that loads index.js has to load fx.js first — that is the whole
     // failure mode of a global helper
     for (const page of fs.readdirSync(ROOT).filter(f => f.endsWith('.html'))) {
-        if (!/<script src="index\.js"/.test(read(page))) continue;
-        expect(/<script src="fx\.js"[^>]*>[\s\S]*?<script src="index\.js"/.test(read(page)),
+        if (!/<script src="js\/index\.js"/.test(read(page))) continue;
+        expect(/<script src="js\/fx\.js"[^>]*>[\s\S]*?<script src="js\/index\.js"/.test(read(page)),
             page + ' loads fx.js before index.js');
     }
     expect(/FX\.openWindow\(win\)/.test(indexJs), 'windows animate open');
@@ -336,14 +336,14 @@ section('wired into the desktop');
     expect(/if \(!FX\.on\(\)\) \{ win\.remove\(\); return; \}/.test(indexJs),
         'and with motion off it just goes');
 
-    const apps = read('apps.js');
+    const apps = read('js/apps.js');
     expect(/id="cp-motion"/.test(apps) && /FX\.setEnabled/.test(apps),
         'display properties can turn window animations off');
     expect(/prefers-reduced-motion: reduce/.test(apps) && /mo\.disabled = true/.test(apps),
         'and defers to the system setting instead of lying about it');
     expect(/if \(!FX\.on\(\)\) return;/.test(indexJs), 'cursor sparkles respect it too');
 
-    const css = read('style.css');
+    const css = read('css/style.css');
     expect(/\.tm-canvas/.test(css) && /\.tm-perf/.test(css), 'the performance tab has styles');
     expect(/id="tm-cpu"/.test(indexJs) && /Charts\.history/.test(indexJs), 'and a chart in it');
     expect(/clearInterval\(ticker\)/.test(indexJs), 'whose ticker is cleaned up with the window');
@@ -354,4 +354,44 @@ console.log(`\n${checks - failures}/${checks} checks passed`);
 if (failures) {
     console.log(`${failures} failed`);
     process.exit(1);
+}// ===================================================================
+section('a dialog is on top of the desktop');
+// ===================================================================
+// The retro dialog was z-index 95 while app windows start at 100 and climb
+// on every click. Every dialog opened from inside a window — the save
+// export, the courier, my documents' backup — was drawn behind it.
+{
+    const css = read('css/style.css');
+    const overlay = (css.match(/\.retro-dialog-overlay\s*\{[\s\S]*?\}/) || [''])[0];
+    const z = parseInt((overlay.match(/z-index:\s*(\d+)/) || [])[1], 10);
+    const windowZ = parseInt((((css.match(/^\.app-window\s*\{[\s\S]*?\}/m) || [''])[0])
+        .match(/z-index:\s*(\d+)/) || [])[1], 10);
+    expect(isFinite(z) && isFinite(windowZ), 'both the dialog and the app window declare a z-index',
+        z + ' / ' + windowZ);
+    expect(z > windowZ, 'and the dialog is above the window in the stylesheet', z + ' vs ' + windowZ);
+    const idx = read('js/index.js');
+    expect(/function topWindowZ/.test(idx), 'index.js works out what is actually on top');
+    expect(/overlay\.style\.zIndex/.test(idx),
+        'and raises the dialog past it, since the windows climb every time one is clicked');
 }
+
+// ===================================================================
+section('the stylesheet\'s own links');
+// ===================================================================
+// style.css lives in css/ now, so a relative url() inside it resolves
+// against css/ and not the site root. That is how the icon font started
+// 404ing at /css/src/fonts/... — silently, because a missing font just
+// renders as a box.
+{
+    const css = read('css/style.css');
+    const urls = [...css.matchAll(/url\((['"]?)([^)'"]+)\1\)/g)].map(m => m[2].trim());
+    const relative = urls.filter(u => !/^(data:|https?:|\/|#)/.test(u));
+    expect(relative.length === 0,
+        'every url() in the stylesheet is absolute, so moving the file cannot break it',
+        relative.join(', '));
+    const assets = urls.filter(u => /^\//.test(u)).map(u => u.split('?')[0].replace(/^\//, ''));
+    const missing = assets.filter(a => !fs.existsSync(path.join(ROOT, a)));
+    expect(missing.length === 0, 'and every file it points at is actually there', missing.join(', '));
+}
+
+

@@ -39,14 +39,14 @@ function makeWindow(opts) {
     win.window = win;
     return win;
 }
-const load = w => new Function('window', 'performance', 'location', 'document', read('defrag.js'))
+const load = w => new Function('window', 'performance', 'location', 'document', read('js/defrag.js'))
     (w, w.performance, w.location, w.document);
 
 // ===================================================================
-section('defrag.js loads without a browser');
+section('js/defrag.js loads without a browser');
 // ===================================================================
 const win = makeWindow();
-try { load(win); ok('defrag.js runs'); } catch (e) { bad('defrag.js runs', e.message); process.exit(1); }
+try { load(win); ok('js/defrag.js runs'); } catch (e) { bad('js/defrag.js runs', e.message); process.exit(1); }
 const D = win.DEFRAG;
 expect(!!D && typeof win.openDefrag === 'function', 'it exposes the app and its parts');
 expect(D.TOTAL === D.COLS * D.ROWS, 'the disk is a grid', `${D.COLS}x${D.ROWS}`);
@@ -63,9 +63,9 @@ section('what is on the disk');
 
     const real = makeWindow({
         resources: [
-            { name: 'https://mrhakan.github.io/index.js', decodedBodySize: 90000 },
-            { name: 'https://mrhakan.github.io/style.css', decodedBodySize: 140000 },
-            { name: 'https://mrhakan.github.io/style.css', decodedBodySize: 140000 },   // asked for twice
+            { name: 'https://mrhakan.github.io/js/index.js', decodedBodySize: 90000 },
+            { name: 'https://mrhakan.github.io/css/style.css', decodedBodySize: 148000 },
+            { name: 'https://mrhakan.github.io/css/style.css', decodedBodySize: 148000 },   // asked for twice
             { name: 'data:image/png;base64,AAAA', decodedBodySize: 40 },                 // not a file
             { name: 'https://mrhakan.github.io/nothing.js', decodedBodySize: 0 },        // never arrived
             { name: 'https://mrhakan.github.io/games/wizardz.js', transferSize: 60000 }
@@ -75,9 +75,9 @@ section('what is on the disk');
     load(real);
     const files = real.DEFRAG.realFiles();
     const names = files.map(f => f.name);
-    expect(names.includes('/index.js') && names.includes('/games/wizardz.js'),
+    expect(names.includes('/js/index.js') && names.includes('/games/wizardz.js'),
         'the real files this page downloaded are the disk', names.join(', '));
-    expect(names.filter(n => n === '/style.css').length === 1, 'a file fetched twice is one file');
+    expect(names.filter(n => n === '/css/style.css').length === 1, 'a file fetched twice is one file');
     expect(!names.some(n => /^data:/.test(n)), 'inline data is not a file');
     expect(!names.includes('/nothing.js'), 'and neither is something that weighed nothing');
     expect(names[0] === '/index.html', 'the page itself is on its own disk', names[0]);
@@ -87,9 +87,9 @@ section('what is on the disk');
 section('laying it out badly');
 // ===================================================================
 const FILES = [
-    { name: '/index.html', bytes: 96000 }, { name: '/style.css', bytes: 150000 },
-    { name: '/index.js', bytes: 92000 }, { name: '/apps.js', bytes: 38000 },
-    { name: '/extras.js', bytes: 44000 }, { name: '/games/wizardz.js', bytes: 120000 },
+    { name: '/index.html', bytes: 96000 }, { name: '/css/style.css', bytes: 150000 },
+    { name: '/js/index.js', bytes: 92000 }, { name: '/js/apps.js', bytes: 38000 },
+    { name: '/js/extras.js', bytes: 44000 }, { name: '/games/wizardz.js', bytes: 120000 },
     { name: '/games/balatro.js', bytes: 96000 }, { name: '/sw.js', bytes: 4000 },
     { name: '/src/emoj/troll.png', bytes: 220000 }
 ];
@@ -107,7 +107,7 @@ const FILES = [
 
     // the scaffolding of the site is pinned down, the way the swap file was
     const locked = disk.files.filter(f => f.locked).map(f => f.name);
-    expect(locked.includes('/index.html') && locked.includes('/sw.js') && locked.includes('/style.css'),
+    expect(locked.includes('/index.html') && locked.includes('/sw.js') && locked.includes('/css/style.css'),
         'the files that hold the site up cannot be moved', locked.join(', '));
     expect(!locked.includes('/games/wizardz.js'), 'and the rest can');
     expect(disk.cells.filter(c => c === D.BAD).length === 3, 'every disk has a few bad clusters');
@@ -218,27 +218,27 @@ section('wired into the desktop');
 // ===================================================================
 {
     const html = read('index.html');
-    expect(/<script src="defrag\.js"/.test(html), 'index.html loads defrag.js');
+    expect(/<script src="js\/defrag\.js"/.test(html), 'index.html loads defrag.js');
     expect(/startMenuAction\('defrag'\)/.test(html), 'and it is in the start menu');
-    const idx = read('index.js');
+    const idx = read('js/index.js');
     expect(/defrag: openDefrag/.test(idx) && /'defrag': openDefrag/.test(idx),
         'the app table and the run box both know it');
-    expect(read('sw.js').includes("'/defrag.js'"), 'the service worker precaches it');
-    expect(/\/defrag\.js/.test(read('sw.js')) && /mrhakan98-v\d+/.test(read('sw.js')),
+    expect(read('sw.js').includes("'/js/defrag.js'"), 'the service worker precaches it');
+    expect(/\/js\/defrag\.js/.test(read('sw.js')) && /mrhakan98-v\d+/.test(read('sw.js')),
         'behind a bumped cache version');
 
     // the old one is gone, along with its styles
-    const extras = read('extras.js');
-    expect(!/^function openDefrag/m.test(extras), 'extras.js no longer defines a second defragmenter');
+    const extras = read('js/extras.js');
+    expect(!/^function openDefrag/m.test(extras), 'js/extras.js no longer defines a second defragmenter');
     expect(/openDefrag\(\)/.test(extras), 'but find: files still finds this one');
-    const css = read('style.css');
+    const css = read('css/style.css');
     expect(!/^\.df-/m.test(css), 'and the old defrag styles went with it');
     expect(/\.dfg-map/.test(css) && /\.dfg-fill/.test(css), 'the new one has styles');
     expect(/\.no-motion \.dfg-fill/.test(css), 'that respect the reduced-motion setting');
 
     // the achievement it unlocks has to be one that exists
-    const fun = read('fun.js');
-    expect(/defrag: \{ icon:/.test(fun) && /unlockAchievement\('defrag'\)/.test(read('defrag.js')),
+    const fun = read('js/fun.js');
+    expect(/defrag: \{ icon:/.test(fun) && /unlockAchievement\('defrag'\)/.test(read('js/defrag.js')),
         'it unlocks an achievement the site actually has');
 }
 
