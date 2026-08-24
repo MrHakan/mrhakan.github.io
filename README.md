@@ -20,6 +20,8 @@ js/                   everything the pages load
   apps.js  fun.js       the accessories and the toys
   pages.js  charts.js   /now, /uses, /colophon, and the graphs on them
   fx.js                 the motion layer, and the reduced-motion promise
+  touch.js              the site on a phone: device detection, the
+                        on-screen pad, long press for the right click
   defrag.js             disk defragmenter, on a real disk
   documents.js          my documents: every game's save, exportable
   guestbook.js          composing and reading a board entry, and the
@@ -84,6 +86,11 @@ exits non-zero if anything drifted.
   does not exist.
 - **`data/github.json` is generated**, once a day by
   `.github/workflows/github-data.yml`. Do not hand-edit it.
+- **`window.innerWidth` is not the viewport on a phone.** If anything
+  overflows horizontally the browser widens the layout viewport to fit it
+  and `innerWidth` widens too — measured at 1648 on a 412px screen. Use
+  `TOUCH.viewportWidth()`, which reads `documentElement.clientWidth` and
+  agrees with the media queries.
 - **`node_modules/` is disposable.** The site has no dependencies and
   neither does the test suite; the only thing that lands there is
   Playwright, installed with `--no-save` for the browser runs.

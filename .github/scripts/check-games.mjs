@@ -574,6 +574,73 @@ const missingPre = precache.split('\n').map(l => (l.match(/'([^']+)'/) || [])[1]
 expect(!missingPre.length, 'every precached file exists', missingPre.join(', '));
 
 // ===================================================================
+section('the touch layer');
+// ===================================================================
+// Half these games were built for a keyboard, which a phone does not have.
+// The layer that fixes that is only useful if it detects the device
+// honestly and if every game that needs it actually asks for it.
+{
+    const win = {
+        matchMedia: q => ({ matches: /coarse/.test(q), addEventListener() { }, addListener() { } }),
+        addEventListener() { }, removeEventListener() { },
+        navigator: { maxTouchPoints: 5 },
+        document: {
+            documentElement: { clientWidth: 412, classList: { toggle() { } } },
+            addEventListener() { }, createElement: () => ({
+                classList: { toggle() { }, add() { }, remove() { } }, dataset: {}, style: {},
+                setAttribute() { }, appendChild() { }, addEventListener() { }, remove() { },
+                children: [], querySelector: () => null
+            })
+        }
+    };
+    win.window = win;
+    try {
+        // eslint-disable-next-line no-new-func
+        new Function('window', 'document', 'navigator', read('js/touch.js'))(win, win.document, win.navigator);
+        ok('touch.js runs');
+    } catch (e) { bad('touch.js runs', e.message); }
+
+    const T = win.TOUCH;
+    if (T) {
+        expect(T.coarse() === true, 'a coarse pointer is detected as touch');
+        // the width the layout is actually done at, which is not innerWidth
+        expect(T.viewportWidth() === 412, 'the viewport is measured from documentElement.clientWidth',
+            String(T.viewportWidth()));
+        expect(T.narrow() === true, 'and 412px counts as narrow');
+        // innerWidth lies on a phone when anything overflows: it must not be
+        // the thing layout decisions are made from
+        win.innerWidth = 1648;
+        expect(T.viewportWidth() === 412, 'even when innerWidth has been widened by an overflow',
+            String(T.viewportWidth()));
+        expect(typeof T.pad === 'function' && typeof T.longPress === 'function',
+            'the pad and the long press are both there');
+        expect(T.pad(null, {}) === null, 'a pad with nowhere to go is not built');
+    }
+
+    // and the sources: every game that needed a hand actually got one
+    const echoes = read('games/echoes/echoes.js');
+    expect(/TOUCH\.pad|T\.pad\(/.test(echoes), 'echoes builds a pad — it is walked with the arrow keys');
+    expect(/et-padhost/.test(echoes), 'and the world screen has somewhere to put it');
+    expect(/g\.world\.held\[dir\] = down/.test(echoes),
+        'and the pad sets the same held flags the keyboard sets, rather than a second movement path');
+
+    const apps = read('js/apps.js');
+    expect(/snake-padhost/.test(apps), 'snake has a pad');
+    expect(/swipe|swipeX/.test(apps), 'and a swipe across the board');
+    expect(/pointermove/.test(apps) && /touchAction/.test(apps), 'pong follows a dragged finger');
+
+    expect(/TOUCH\.longPress\(cell/.test(indexJs), 'minesweeper flags with a long press, since a finger has no right button');
+    expect(/viewportWidth\(\) < 768/.test(indexJs), 'and windows are placed from the real viewport width');
+    expect(!/window\.innerWidth < 768/.test(indexJs), 'with no innerWidth width tests left to go wrong');
+
+    const css = read('css/style.css');
+    expect(/\.is-touch \.tp-pad/.test(css), 'the pad only shows where there is a finger');
+    expect(/max-width: 100%/.test(css), 'and an image cannot push the page wider than the screen');
+    expect(read('index.html').includes('js/touch.js'), 'index.html loads the layer');
+    expect(read('sw.js').includes("'/js/touch.js'"), 'and the service worker precaches it');
+}
+
+// ===================================================================
 section('my documents');
 // ===================================================================
 // Every game keeps its progress in localStorage, which is per browser and

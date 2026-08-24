@@ -107,7 +107,10 @@ function openSnake() {
         <div class="game-hud"><span>score: <b id="snake-score">0</b></span>
         <span>best: <b id="snake-best">0</b></span></div>
         <canvas id="snake-canvas" class="bevel-in game-canvas" width="260" height="260"></canvas>
-        <p class="game-hint">arrows / wasd to move &middot; click canvas first</p>`;
+        <div class="snake-padhost"></div>
+        <p class="game-hint">${window.TOUCH && TOUCH.coarse()
+            ? 'the pad steers &middot; or swipe the board'
+            : 'arrows / wasd to move &middot; click canvas first'}</p>`;
     const cv = body.querySelector('#snake-canvas'), ctx = cv.getContext('2d');
     const scoreEl = body.querySelector('#snake-score'), bestEl = body.querySelector('#snake-best');
     const CELL = 13, W = 20, H = 20;
@@ -166,10 +169,35 @@ function openSnake() {
     };
     document.addEventListener('keydown', keyHandler);
     cv.addEventListener('click', () => { if (dead) { reset(); draw(); } });
+
+    // a phone has no arrow keys. the pad turns the snake, and so does a
+    // swipe across the board, which is what a thumb reaches for first
+    const turn = (x, y) => {
+        if (x === -dir.x && y === -dir.y) return;   // no turning back on itself
+        nextDir = { x: x, y: y };
+    };
+    const VEC = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    const pad = window.TOUCH && TOUCH.pad(body.querySelector('.snake-padhost'), {
+        onDir: (d, down) => { if (down) turn(VEC[d][0], VEC[d][1]); }
+    });
+    let swipeX = 0, swipeY = 0;
+    cv.addEventListener('pointerdown', e => { swipeX = e.clientX; swipeY = e.clientY; });
+    cv.addEventListener('pointerup', e => {
+        const dx = e.clientX - swipeX, dy = e.clientY - swipeY;
+        if (Math.abs(dx) < 22 && Math.abs(dy) < 22) return;      // a tap, not a swipe
+        if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 1 : -1, 0);
+        else turn(0, dy > 0 ? 1 : -1);
+    });
+
     reset(); draw();
     loop = setInterval(step, 130);
     const orig = win._cleanup;
-    win._cleanup = () => { clearInterval(loop); document.removeEventListener('keydown', keyHandler); orig && orig(); };
+    win._cleanup = () => {
+        clearInterval(loop);
+        document.removeEventListener('keydown', keyHandler);
+        if (pad) pad.destroy();
+        orig && orig();
+    };
 }
 
 // ---------- pong.exe ----------
@@ -178,16 +206,23 @@ function openPong() {
     body.innerHTML = `
         <div class="game-hud"><span>you: <b id="pong-p">0</b></span><span>cpu: <b id="pong-c">0</b></span></div>
         <canvas id="pong-canvas" class="bevel-in game-canvas" width="300" height="200"></canvas>
-        <p class="game-hint">move your mouse over the court</p>`;
+        <p class="game-hint">${window.TOUCH && TOUCH.coarse()
+            ? 'drag your finger up and down the court'
+            : 'move your mouse over the court'}</p>`;
     const cv = body.querySelector('#pong-canvas'), ctx = cv.getContext('2d');
     const pEl = body.querySelector('#pong-p'), cEl = body.querySelector('#pong-c');
     const PH = 46, PW = 6;
     let py = 77, cy = 77, bx = 150, by = 100, bvx = 2.6, bvy = 1.8, ps = 0, cs = 0, raf;
 
-    cv.addEventListener('mousemove', (e) => {
+    // pointer rather than mouse, so a dragged finger moves the paddle too.
+    // touch-action on the canvas stops the drag scrolling the page instead.
+    cv.style.touchAction = 'none';
+    const aim = (e) => {
         const r = cv.getBoundingClientRect();
         py = Math.max(0, Math.min(cv.height - PH, (e.clientY - r.top) * (cv.height / r.height) - PH / 2));
-    });
+    };
+    cv.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons || e.pressure) aim(e); });
+    cv.addEventListener('pointerdown', e => { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); aim(e); });
     function serve(dir) { bx = 150; by = 100; bvx = 2.6 * dir; bvy = (Math.random() * 3 - 1.5); }
     function frame() {
         raf = requestAnimationFrame(frame);

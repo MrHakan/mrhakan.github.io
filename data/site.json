@@ -164,6 +164,17 @@
     ],
     "changelog": [
         {
+            "version": "9.3",
+            "date": "2026-08-24",
+            "changes": [
+                "the games work on a phone now. half of them were built for a keyboard \u2014 echoes of the tide is walked with the arrow keys, snake is steered with them, minesweeper puts flags down with a right click \u2014 and on a touchscreen none of that exists, so those were not hard on a phone, they were unplayable.",
+                "there is an on-screen pad now: a d-pad and buttons, in the same grey plastic as everything else, that set exactly the same flags the keyboard sets. one movement path, and the pad is just another way of pressing it. it appears where there is a finger and goes away when you plug a mouse in, because it asks the browser whether the thing pointing at the screen is coarse instead of guessing from the window width.",
+                "echoes gets a d-pad and an A button for looking at what you are facing, with the board on top and the character sheet under it \u2014 the order a handheld puts them in. snake gets a pad and a swipe across the board. pong follows a dragged finger. minesweeper flags with a long press, since a finger has no right button.",
+                "and the reason none of this worked before: on a phone, one image with no size on it widens the whole layout viewport to fit, and window.innerWidth widens with it. measured on a 412px phone, innerWidth read 1648 \u2014 so every window opened 628px from the left of a 412px screen, which is to say off the side of it. windows are placed from the real viewport width now, and no image can push the page wider than the screen.",
+                "170 headless checks on the touch layer, and a browser run on a real phone profile: the page must not scroll sideways, a window must land on the screen, the pad must be on screen with the map rather than below the fold, holding a key must walk the diver, and a finger sliding off a key must stop the walk instead of jamming it down."
+            ]
+        },
+        {
             "version": "9.2",
             "date": "2026-08-24",
             "changes": [

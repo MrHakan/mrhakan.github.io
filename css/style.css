@@ -8024,6 +8024,30 @@ body.disco-floor::after {
     .et-two { flex-direction: column; }
     .et-side { width: 100%; }
     .et-acts { grid-template-columns: 1fr; }
+
+    /* the character sheet stacked above the game, which put the map and the
+       pad below the fold — a game you have to scroll to play is not one you
+       can play. the board comes first on a phone and the sheet reads under
+       it, which is the order a handheld puts them in anyway. */
+    .et-two { flex-direction: column-reverse; }
+
+    /* and the map shrinks to fit the width rather than setting it */
+    .et-world,
+    .et-battle { width: 100%; }
+}
+
+/* the pad has to be reachable with the board still on screen, so the panel
+   scrolls and the pad does not go with it */
+.is-narrow .et-main > .et-scroll {
+    max-height: none;
+}
+
+.is-narrow .et-padhost {
+    position: sticky;
+    bottom: 0;
+    background: #0d1114;
+    padding-top: 4px;
+    z-index: 4;
 }
 
 /* ---------- echoes: the pieces the tide brought in ---------- */
@@ -8191,4 +8215,107 @@ body.disco-floor::after {
     display: flex;
     gap: 6px;
     margin-top: 6px;
+}
+
+/* an image with no size on it renders at its intrinsic width, and one
+   oversized image is enough to push a phone's layout viewport wider than
+   the screen — which is what put app windows off the side of the display.
+   the sizing normally comes from tailwind, off a cdn; this is the floor
+   under it for when that cdn is slow, blocked, or having a bad day. */
+img,
+video,
+canvas {
+    max-width: 100%;
+}
+
+/* the game canvases keep their own aspect ratio while they shrink */
+.game-canvas,
+.et-canvas {
+    height: auto;
+}
+
+/* ===================================================================
+   THE ON-SCREEN PAD (.tp-)
+   half these games are walked with the arrow keys, which a phone does
+   not have. keys are 52px because a fingertip is about 45.
+   =================================================================== */
+.tp-pad {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 8px 6px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* it only exists where there is a finger to use it */
+.is-touch .tp-pad { display: flex; }
+
+.tp-dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+    flex-shrink: 0;
+}
+
+.tp-key,
+.tp-btn {
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    color: #000;
+    font-family: inherit;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tp-key.down,
+.tp-btn.down {
+    border-color: #808080 #fff #fff #808080;
+    background: #b0b0b0;
+}
+
+.tp-up { grid-area: 1 / 2; }
+.tp-left { grid-area: 2 / 1; }
+.tp-right { grid-area: 2 / 3; }
+.tp-down { grid-area: 3 / 2; }
+
+.tp-acts {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.tp-btn {
+    min-width: 58px;
+    min-height: 52px;
+    padding: 0 12px;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* a narrow phone cannot spare the width for a roomy pad */
+@media (max-width: 420px) {
+    .tp-dpad { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); }
+    .tp-btn { min-width: 50px; min-height: 46px; padding: 0 8px; }
+    .tp-pad { gap: 6px; }
+}
+
+/* in fullscreen the pad is the only way back out of the game, so it stays
+   pinned to the bottom rather than scrolling away with the board */
+.fs-active .tp-pad {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
 }
