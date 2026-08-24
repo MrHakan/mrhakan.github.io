@@ -512,13 +512,50 @@ generated dungeons do not all satisfy both.
                    └──► [💀 elite] ──┴──► [⚔ combat] ─┘
 ```
 
-Node weights: **combat 40 · elite 15 · salvage 15 · mystery 15 · rest 10**,
-with elite rising and rest falling as you descend, and combat rising on
-the Black Tide.
+The graph is what a voyage *is*; the floor you walk is how it is drawn.
+Each node on a floor becomes a room, on a stalk down to a spine corridor,
+with an entrance room at the bottom holding the dive lift back to the
+surface. Rooms your route cannot reach are behind welded hatches. The
+creature, the wreck, the shrine or the bunk stands in the middle of its
+room, and looking at it is what enters the node. Clearing a room turns
+what was standing in it into the stairs down.
 
 ```
-StatMultiplier = 1 + (Depth × 0.25) + (Room × 0.08)
+   [ ⚔ ]        [ 📦 ]        [ ✖ sealed ]
+     │            │              ╎
+     └────────────┴──────────────┘        the spine
+                  │
+              [ entrance ]
+                  ▼ dive lift → the surface
 ```
+
+Node weights: **combat 40 · elite 15 · salvage 15 · mystery 15 · rest 10**,
+with elite rising and rest falling as you descend, and combat rising on
+the Black Tide. Elite is forced to zero on floor one: a Drowned Lord in
+room one is a death sentence the player did not agree to.
+
+```
+StatMultiplier = 1 + (floor − 1) / (floors − 1) × 0.28
+PairChance     = 0.10 + (floor − 1) / (floors − 1) × 0.25
+```
+
+> **Correction to the original formula.** The published version was
+> `1 + Depth × 0.25 + Room × 0.08`, which counts depth twice: the
+> bestiary is *already* scaled per realm, so multiplying by the realm's
+> layer again on top of it made a level-appropriate diver's win rate in
+> a Trench dungeon **4%**, and in the Spire **0%** — while the balance
+> suite, which measured bare templates at ×1.00, reported 92%. Nothing
+> in the game is ever fought at ×1.00.
+>
+> The ramp now runs from the mouth of a voyage to the bottom of it,
+> relative to that voyage's own length. Every dungeon opens
+> level-appropriate and closes 28% worse, wherever it is. The second
+> creature in a combat room ramps the same way, from 10% at the mouth to
+> the intended 35% at the bottom, instead of 35% flat from room one.
+
+**Which Drowned Lord turns up** at an elite node is the one with the
+biggest score to settle *out of those within three levels of you*. Grudge
+decides who; reach decides whether it is a fight or an execution.
 
 **Which creature turns up** is drawn from the realm's roster weighted by
 distance from your own level, decaying steeply upward:
@@ -671,6 +708,9 @@ if any of these drift.
 | --- | --- | --- |
 | level-appropriate encounter | 80–90% | **88 / 85 / 90 / 87%** |
 | the first fight of a run | — | **88%** |
+| at the mouth of a voyage | 80–95% | **93 / 84 / 93 / 88%** |
+| in a voyage's deepest room | 20–70% | **76 / 46 / 53 / 36%** |
+| a level-one diver, room one | 65–95% | **70%** |
 | one realm ahead | 35–55% | **59 / 5 / 3%** *(deviation)* |
 | a Deck Captain at level | — | **79%** |
 | a Trench Warlord | 45–60% | **54%** |
@@ -691,6 +731,14 @@ if any of these drift.
 > into the Trench without the pressure suit and it takes 3% of your
 > maximum health every turn. The water does the arithmetic before the
 > monsters get a turn.
+
+> **What the bare-template measurement missed.** For a long time the four
+> rows above were taken at ×1.00 — the bestiary as authored. But a
+> creature is only ever met inside a voyage, and a voyage scales it. Read
+> at the multipliers the game actually deals, the Trench was a 4% fight
+> and the Spire a 0% one. The suite now measures both ends of a voyage
+> and the very first room a new character is ever shown, which is the
+> only reading that corresponds to anything a player experiences.
 
 ### 6.6 Presentation — the overworld and the battle screen
 

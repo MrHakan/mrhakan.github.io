@@ -35,7 +35,13 @@
     const PANIC_SKIP_CHANCE = 0.30;      // at zero sanity, per turn
 
     // Module 5 — procedural difficulty: M = 1 + (D * 0.25) + (k * 0.08)
-    const DEPTH_SCALE = 0.25, ROOM_SCALE = 0.08;
+    // A voyage gets harder the further down it you go — but the realm's own
+    // depth is already in the bestiary, so putting it in here as well was
+    // counting it twice and made the Trench and the Spire unwinnable. The
+    // ramp is now relative to the voyage's own length: the mouth of every
+    // dungeon is level-appropriate, the bottom of it is 28% worse.
+    const VOYAGE_RAMP = 0.28;
+    const DEPTH_SCALE = 0.25, ROOM_SCALE = 0.08;   // kept for the save format
 
     // Module 3 — ambush
     const AMBUSH_BASE = 0.05, AMBUSH_PER_GRUDGE = 0.04, AMBUSH_CAP = 0.65;
@@ -1388,6 +1394,8 @@
         p.vitals.stamina = p.vitals.max_stamina;
         p.vitals.sanity = Math.max(10, p.vitals.sanity);
         g.dungeon = null;
+        surface(g);
+        g.screen = 'combat';
         fightLog(g, 'you wake on the nearest Rest Rig, ' + lost + ' coin lighter.', 'bad');
         log(g, 'you died in ' + realmById(p.realm).name + '. It cost you ' + lost + ' coin, and the killer got a promotion out of it.', 'bad');
         advanceDay(g, 1);
@@ -1409,7 +1417,7 @@
         }
         const lost = f.result === 'lost';
         g.fight = null;
-        g.screen = (!lost && g.dungeon) ? 'dungeon' : 'world';
+        g.screen = 'world';
         save(g);
         render(g);
     }
@@ -1487,11 +1495,24 @@
                 it.durability.current = Math.max(0, it.durability.current - Math.ceil(n * 1));
             }
         }
-        if (p.vitals.hp <= 0) { p.vitals.hp = 1; log(g, 'you surface with blood in both ears.', 'bad'); g.dungeon = null; g.screen = 'world'; }
+        if (p.vitals.hp <= 0) { p.vitals.hp = 1; log(g, 'you surface with blood in both ears.', 'bad'); g.dungeon = null; surface(g); }
     }
 
     // ---------- the dungeon graph (GDD Module 5) ----------
     const NODE_WEIGHTS = { combat: 40, elite: 15, salvage: 15, mystery: 15, rest: 10 };
+    const LORD_REACH = 3;                    // how far above you a lord may be
+
+    // how far down a voyage a floor is, as a fraction of the whole descent
+    function voyageRamp(floor, floors) {
+        return floors <= 1 ? 0 : ((floor - 1) / (floors - 1)) * VOYAGE_RAMP;
+    }
+    // a flat 35% chance of a second creature from room one was what actually
+    // killed new divers; it ramps with the voyage now and still tops out there
+    const PAIR_FLOOR = 0.10, PAIR_CEILING = 0.35;
+    function pairChance(floor, floors) {
+        const t = floors <= 1 ? 0 : (floor - 1) / (floors - 1);
+        return PAIR_FLOOR + (PAIR_CEILING - PAIR_FLOOR) * t;
+    }
 
     function generateDungeon(g, realmId) {
         const rng = g.rng, realm = realmById(realmId);
@@ -1507,7 +1528,9 @@
                 const id = 'node_' + (++seq).toString().padStart(2, '0');
                 const type = isLast ? 'boss' : weighted(rng, Object.keys(NODE_WEIGHTS), t => {
                     let w = NODE_WEIGHTS[t];
-                    if (t === 'elite') w += floor * 4;
+                    // a Drowned Lord in room one is a death sentence you did
+                    // not agree to; they wait until you are properly inside
+                    if (t === 'elite') w = floor <= 1 ? 0 : w + floor * 4;
                     if (t === 'rest') w -= floor * 2;
                     if (t === 'combat' && isBlackTide(g.p)) w += 12;
                     return w;
@@ -1515,7 +1538,7 @@
                 const node = {
                     node_id: id, type: type, floor: floor, connections: [],
                     cleared: false, text: pick(rng, D.nodeText[type] || D.nodeText.combat),
-                    stat_multiplier: Math.round((1 + realm.layer * DEPTH_SCALE + seq * ROOM_SCALE) * 100) / 100
+                    stat_multiplier: Math.round((1 + voyageRamp(floor, floors)) * 100) / 100
                 };
                 if (type === 'mystery') node.event_id = pick(rng, D.mysteryEvents).id;
                 if (type === 'salvage') node.loot_tier = realm.layer;
@@ -1545,6 +1568,7 @@
             environmental_hazard: realm.hazard,
             floors: floors,
             current_floor: 1,
+            view_floor: 1,
             current_node: nodes[0].node_id,
             entered: [nodes[0].node_id],
             nodes: nodes
@@ -1583,7 +1607,25 @@
             for (let i = 0; i < Math.min(2, n); i++) party.push(foeFromTemplate(pickFoeTemplate(g, p.realm, 1), 1));
             return startFight(g, party, 'ambush');
         }
-        g.screen = 'dungeon';
+        enterWorld(g, DUNGEON_MAP);
+        render(g);
+    }
+
+    // down the stairs in the room you just cleared
+    function descendFloor(g) {
+        const d = g.dungeon;
+        if (!d) return;
+        const here = dungeonNode(d, d.current_node);
+        if (!here || !here.cleared) return;
+        if (dungeonFloor(d) >= d.floors) return leaveDungeon(g);
+        d.view_floor = dungeonFloor(d) + 1;
+        invalidateDungeonMap(g);
+        applyHazard(g, 1);
+        if (!g.dungeon) return render(g);
+        log(g, 'you go down. floor ' + d.view_floor + ' of ' + d.floors + '.');
+        sound('navigate');
+        enterWorld(g, DUNGEON_MAP);
+        save(g);
         render(g);
     }
 
@@ -1596,8 +1638,10 @@
         if (here && here.cleared && here.connections.indexOf(nodeId) < 0) return;
         d.current_node = nodeId;
         d.current_floor = node.floor;
+        d.view_floor = node.floor;
         if (d.entered.indexOf(nodeId) < 0) d.entered.push(nodeId);
         node.cleared = true;
+        invalidateDungeonMap(g);
         applyHazard(g, 1);
         if (!g.dungeon) return render(g);
 
@@ -1606,13 +1650,18 @@
 
         if (node.type === 'combat') {
             const party = [foeFromTemplate(pickFoeTemplate(g, d.realm, node.floor), m)];
-            if (chance(g.rng, 0.35)) party.push(foeFromTemplate(pickFoeTemplate(g, d.realm, node.floor), m * 0.9));
+            // things come in pairs the deeper you are, not from the first room
+            if (chance(g.rng, pairChance(node.floor, d.floors))) {
+                party.push(foeFromTemplate(pickFoeTemplate(g, d.realm, node.floor), m * 0.9));
+            }
             return startFight(g, party, 'dungeon');
         }
         if (node.type === 'elite') {
-            const lords = lordsIn(g, d.realm);
-            if (lords.length) {
-                const n = lords.sort((a, b) => b.grudge - a.grudge)[0];
+            // the lord with the biggest score to settle, out of the ones who
+            // are actually a fight rather than an execution
+            const reach = lordsIn(g, d.realm).filter(n => n.level <= p.level + LORD_REACH);
+            if (reach.length) {
+                const n = reach.sort((a, b) => b.grudge - a.grudge)[0];
                 n.current_zone = d.realm;
                 return startFight(g, [lordToFoe(n)], 'dungeon');
             }
@@ -1686,16 +1735,18 @@
             log(g, opt.text, 'lore');
         }
         clampVitals(p);
-        g.screen = g.dungeon ? 'dungeon' : 'world';
+        g.screen = 'world';
         save(g);
         render(g);
     }
 
     function leaveDungeon(g) {
         g.dungeon = null;
-        g.screen = 'world';
+        invalidateDungeonMap(g);
         advanceDay(g, 1);
         log(g, 'you put in at the harbour with what you have got.');
+        enterWorld(g, W.REALM_MAP[g.p.realm]);
+        g.screen = 'world';
         save(g);
         render(g);
     }
@@ -2149,9 +2200,12 @@
     const ENCOUNTER_CHANCE = 0.11;
     const ENCOUNTER_GRACE = 3;               // steps of quiet after one fires
     const STORY_OPENING_STEPS = 14;          // let the player walk before act I
+    const PROP_SCALE = 2;                    // what stands in a dungeon room
+
+    const DUNGEON_MAP = '@dungeon';
 
     function enterWorld(g, mapId, spawn) {
-        const map = W.mapById(mapId);
+        const map = mapId === DUNGEON_MAP ? dungeonMap(g) : W.mapById(mapId);
         if (!map) return;
         const at = spawn || map.spawn;
         g.world = {
@@ -2165,7 +2219,85 @@
         g.screen = 'world';
     }
 
-    function worldMap(g) { return W.mapById(g.world.map); }
+    function worldMap(g) {
+        if (!g.world) return null;
+        if (g.world.map !== DUNGEON_MAP) return W.mapById(g.world.map);
+        // the voyage can end under the player's feet — a death, a hazard —
+        // and there is no floor left to stand on when it does
+        return g.dungeon ? dungeonMap(g) : W.mapById(W.REALM_MAP[g.p.realm]);
+    }
+
+    // put the diver back on the harbour they sailed from
+    function surface(g) {
+        invalidateDungeonMap(g);
+        if (g.world && g.world.map === DUNGEON_MAP) enterWorld(g, W.REALM_MAP[g.p.realm]);
+    }
+
+    // ---------- a voyage, as a floor you walk ----------
+    // The node graph stays the source of truth for what is in each room;
+    // this only decides where the rooms are and which of them are open.
+    const NODE_PROP = {
+        salvage: 'prop_wreck', mystery: 'prop_shrine', rest: 'prop_bunk'
+    };
+    const NODE_LABEL = {
+        combat: 'something is in the way', elite: 'a drowned lord', salvage: 'sunken salvage',
+        mystery: 'something you have to decide about', rest: 'a rest rig', boss: 'the thing at the bottom'
+    };
+
+    // which nodes you may walk into from where you are standing
+    function openNodeIds(d) {
+        const here = dungeonNode(d, d.current_node);
+        if (!here) return [];
+        return here.cleared ? here.connections.slice() : [here.node_id];
+    }
+
+    function dungeonFloor(d) { return d.view_floor || d.current_floor || 1; }
+
+    // the room prop: a wreck, a shrine, a bunk — or the creature itself
+    function nodeProp(g, node) {
+        if (NODE_PROP[node.type]) return { sprite: NODE_PROP[node.type], palette: null };
+        if (node.type === 'boss') {
+            const boss = foeById(node.boss_id);
+            return { sprite: (boss && FOE_SPRITE[boss.id]) || 'arch_hulk', palette: null, big: true };
+        }
+        if (node.type === 'elite') {
+            const lord = lordsIn(g, g.dungeon.realm).sort((a, b) => b.grudge - a.grudge)[0];
+            if (lord) return { sprite: CREATURE_SPRITE[lord.base_creature] || 'arch_humanoid', palette: foePalette(g, { nemesis_id: lord.nemesis_id }), big: true };
+            return { sprite: 'arch_wraith', palette: null, big: true };
+        }
+        const tpl = D.bestiary.filter(b => b.realm === g.dungeon.realm);
+        const pickOne = tpl.length ? tpl[node.floor % tpl.length] : null;
+        return { sprite: (pickOne && FOE_SPRITE[pickOne.id]) || 'arch_humanoid', palette: null, big: true };
+    }
+
+    function dungeonMap(g) {
+        const d = g.dungeon;
+        if (!d) return null;
+        const floor = dungeonFloor(d);
+        const key = d.dungeon_id + '|' + floor + '|' + d.current_node + '|' + d.nodes.filter(n => n.cleared).length;
+        if (g._dmapKey === key && g._dmap) return g._dmap;
+        const open = openNodeIds(d);
+        const rooms = d.nodes.filter(n => n.floor === floor).map(n => {
+            const state = n.cleared ? 'cleared' : (open.indexOf(n.node_id) >= 0 ? 'open' : 'sealed');
+            const room = {
+                node_id: n.node_id, state: state, label: NODE_LABEL[n.type] || n.type,
+                last: floor >= d.floors
+            };
+            if (state === 'open') {
+                const pr = nodeProp(g, n);
+                room.prop = pr.sprite; room.palette = pr.palette; room.big = pr.big;
+            }
+            return room;
+        });
+        g._dmap = W.buildDungeonMap({
+            id: DUNGEON_MAP, realm: d.realm, name: realmById(d.realm).name,
+            rooms: rooms
+        });
+        g._dmapKey = key;
+        return g._dmap;
+    }
+
+    function invalidateDungeonMap(g) { g._dmap = null; g._dmapKey = null; }
 
     // one frame of the overworld: finish a step, start a step, roll for
     // whatever is living in the kelp
@@ -2201,6 +2333,7 @@
     function arriveAt(g) {
         const s = g.world, map = worldMap(g);
         s.steps++;
+        if (g.world.map === DUNGEON_MAP) return;
         // Act I opens itself, but not before the landing has had a chance to
         // be a place: let the player walk it first, then the line comes up
         if (g.p.act === 1 && !g.p.world_state.story_flags.act1_relic_found && s.steps >= STORY_OPENING_STEPS) {
@@ -2242,6 +2375,10 @@
                 save(g);
                 return render(g);
             }
+            case 'node': return enterNode(g, what.marker.node_id);
+            case 'descend': return descendFloor(g);
+            case 'surface': return leaveDungeon(g);
+            case 'sealed': return say(g, null, ['The hatch is welded shut. Whatever route you took down, it was not this one.']);
             case 'angle': g.screen = 'angling_pick'; return render(g);
             case 'forge': g.screen = 'forge_pick'; return render(g);
             case 'voyage':
@@ -2317,6 +2454,16 @@
         ctx.fillRect(0, 0, VIEW_W, VIEW_H);
         W.drawMap(ctx, map, cam, { w: VIEW_W, h: VIEW_H }, SPR);
 
+        // the thing standing in a dungeon room, drawn at twice the tile size
+        // and stood on the marker's own tile so it fills the room
+        for (const pr of map.props || []) {
+            const size = (pr.big ? 28 : W.TILE) * PROP_SCALE;
+            const sx = pr.x * W.TILE - cam.x + (W.TILE - size) / 2;
+            const sy = (pr.y + 1) * W.TILE - cam.y - size;
+            if (sx < -size || sy < -size || sx > VIEW_W + size || sy > VIEW_H + size) continue;
+            const bob = pr.big ? Math.sin(s.frame * 0.06 + pr.x) * 1.5 : 0;
+            SPR.draw(ctx, pr.sprite, sx, sy + bob, { scale: PROP_SCALE, palette: pr.palette || undefined });
+        }
         for (const npc of map.npcs || []) {
             const sx = npc.x * W.TILE - cam.x, sy = npc.y * W.TILE - cam.y - 2;
             if (sx < -20 || sy < -24 || sx > VIEW_W + 20 || sy > VIEW_H + 24) continue;
@@ -2354,7 +2501,9 @@
         ctx.font = '11px monospace';
         ctx.fillText(worldMap(g).name, 8, 14);
         ctx.fillStyle = '#8fa38f';
-        const right = 'day ' + p.world_state.current_day + ' · ' + (isBlackTide(p) ? 'black tide' : 'calm day');
+        const right = g.dungeon
+            ? 'floor ' + dungeonFloor(g.dungeon) + ' / ' + g.dungeon.floors + ' · ' + g.dungeon.nodes.filter(n => n.cleared).length + ' cleared'
+            : 'day ' + p.world_state.current_day + ' · ' + (isBlackTide(p) ? 'black tide' : 'calm day');
         ctx.fillText(right, w - ctx.measureText(right).width - 8, 14);
 
         if (!s.say) return;
@@ -2672,24 +2821,6 @@
             + ' · hit ' + pctText(clamp(BASE_HIT_CHANCE + hitRating(p) - (target ? target.dodge : 0), HIT_FLOOR, HIT_CEILING)) + '</div>'
             + '<div class="et-fightlog">' + f.log.map(l => '<div class="' + esc(l.kind) + '">' + esc(l.text) + '</div>').join('') + '</div>'
             + (f.over ? '<div class="et-row">' + btn('fight-done', f.result === 'won' ? 'take what is left' : f.result === 'fled' ? 'go' : 'wake up', { wide: true }) + '</div>' : '')
-            + '</div></div>';
-    }
-
-    function screenDungeon(g) {
-        const d = g.dungeon, realm = realmById(d.realm);
-        const here = dungeonNode(d, d.current_node);
-        const options = here.cleared ? availableNodes(d) : [here];
-        const LABEL = { combat: 'something is in the way', elite: 'a drowned lord', salvage: 'sunken treasure', mystery: 'a choice', rest: 'a rest rig', boss: 'the thing at the bottom' };
-        return '<div class="et-main"><div class="et-scroll">'
-            + '<div class="et-station"><div class="et-station-head">' + esc(realm.name) + '<span>floor ' + d.current_floor + ' / ' + d.floors + '</span></div>'
-            + '<div class="et-room"><div class="et-h4">' + (here.cleared ? 'where next' : esc(LABEL[here.type])) + '</div>'
-            + '<div class="et-lore">' + esc(here.text) + '</div>'
-            + options.map(n => btn('node', (here.cleared ? '' : 'take it — ') + LABEL[n.type] + ' (floor ' + n.floor + ', ×' + n.stat_multiplier + ')', { arg: n.node_id, wide: true })).join('')
-            + (here.cleared && !options.length ? '<div class="et-dim">nothing connects onward from here.</div>' : '')
-            + '</div></div>'
-            + '<div class="et-dim">' + d.nodes.filter(n => n.cleared).length + ' of ' + d.nodes.length + ' rooms behind you</div>'
-            + '<div class="et-row">' + btn('leave', 'put back in to harbour') + '</div>'
-            + '<div class="et-log">' + g.log.slice(0, 10).map(l => '<div class="' + esc(l.kind) + '">' + esc(l.text) + '</div>').join('') + '</div>'
             + '</div></div>';
     }
 
@@ -3038,7 +3169,7 @@
         // the overworld replaces the hub menu: everything the buttons used
         // to do is a thing you walk up to and press a key at
         create: screenCreate, world: screenWorld,
-        combat: screenCombat, dungeon: screenDungeon,
+        combat: screenCombat,
         angling: screenAngling, forge: screenForge, forge_done: screenForgeDone,
         forge_pick: screenForgePick, event: screenEvent, dialogue: screenDialogue,
         sheet: screenSheet, skills: screenSkills, gear: screenGear, chart: screenChart,
@@ -3085,7 +3216,6 @@
             case 'voyage': return startVoyage(g);
             case 'cast': return startAngling(g, x);
             case 'cut': g.angling.over = true; g.angling.result = 'snapped'; return anglingEnd(g);
-            case 'node': return enterNode(g, x);
             case 'leave': return leaveDungeon(g);
             case 'rest': return rest(g);
             case 'forge': return startForge(g, x);
@@ -3332,7 +3462,7 @@
         if (loadInto(g)) {
             log(g, 'day ' + g.p.world_state.current_day + ' in ' + realmById(g.p.realm).name + '.');
             if (g.ended) g.screen = 'ending';
-            else if (g.dungeon) { enterWorld(g, W.REALM_MAP[g.p.realm]); g.screen = 'dungeon'; }
+            else if (g.dungeon) enterWorld(g, DUNGEON_MAP);
             else enterWorld(g, W.REALM_MAP[g.p.realm]);
         } else {
             g.create = freshCreate();
@@ -3350,7 +3480,8 @@
         makeRng: makeRng, ri: ri, pick: pick, chance: chance, clamp: clamp, weighted: weighted,
         ARMOR_K: ARMOR_K, BASE_HIT_CHANCE: BASE_HIT_CHANCE, GLANCING_WINDOW: GLANCING_WINDOW,
         GLANCING_MULTIPLIER: GLANCING_MULTIPLIER, VARIANCE: VARIANCE, CRIT_BASE_MULTIPLIER: CRIT_BASE_MULTIPLIER,
-        DEPTH_SCALE: DEPTH_SCALE, ROOM_SCALE: ROOM_SCALE, AMBUSH_BASE: AMBUSH_BASE,
+        DEPTH_SCALE: DEPTH_SCALE, ROOM_SCALE: ROOM_SCALE, VOYAGE_RAMP: VOYAGE_RAMP, voyageRamp: voyageRamp, pairChance: pairChance,
+        PAIR_FLOOR: PAIR_FLOOR, PAIR_CEILING: PAIR_CEILING, LORD_REACH: LORD_REACH, NODE_WEIGHTS: NODE_WEIGHTS, AMBUSH_BASE: AMBUSH_BASE,
         AMBUSH_PER_GRUDGE: AMBUSH_PER_GRUDGE, AMBUSH_CAP: AMBUSH_CAP, TENSION_GREEN: TENSION_GREEN,
         SANITY_ILLUSION: SANITY_ILLUSION, PANIC_SKIP_CHANCE: PANIC_SKIP_CHANCE, SLOTS: SLOTS,
         XP_ANCHORS: XP_ANCHORS, xpToNext: xpToNext, LEVEL_UNLOCKS: LEVEL_UNLOCKS,
@@ -3370,6 +3501,9 @@
         forgeStep: forgeStep, bandFor: bandFor, dialogueBody: dialogueBody, optionAvailable: optionAvailable,
         runActions: runActions, save: save, loadInto: loadInto, log: log, clampVitals: clampVitals,
         rankOf: rankOf, skillValue: skillValue, passive: passive, tierUnlocked: tierUnlocked,
+        // the map the diver is standing on, generated floors included, so a
+        // test can route across one without duplicating the layout rules
+        map: function () { return current && current.world ? worldMap(current) : null; },
         // a read-only snapshot of where the diver is standing, so a test can
         // walk the overworld without guessing at frame timings
         where: function () {
@@ -3377,6 +3511,7 @@
             if (!s) return null;
             return {
                 screen: current.screen,
+                dungeon: current.dungeon ? { floor: dungeonFloor(current.dungeon), floors: current.dungeon.floors } : null,
                 map: s.map, x: s.x, y: s.y, dir: s.dir, steps: s.steps, walking: !!s.step,
                 saying: !!s.say,
                 say: s.say ? { name: s.say.name, line: s.say.lines[s.say.index] || '' } : null

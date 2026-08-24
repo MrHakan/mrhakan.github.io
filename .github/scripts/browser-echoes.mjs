@@ -95,7 +95,9 @@ async function pathTo(tx, ty) {
     const here = await where();
     if (!here) return null;
     return page.evaluate(([mapId, sx, sy, gx, gy]) => {
-        const W = window.ECHOES_WORLD, map = W.mapById(mapId);
+        const W = window.ECHOES_WORLD;
+        // a dungeon floor is generated, so take the live one rather than a lookup
+        const map = window.ET_ENGINE.map() || W.mapById(mapId);
         const seen = { [sx + ',' + sy]: null };
         const queue = [[sx, sy]];
         while (queue.length) {
@@ -237,20 +239,50 @@ try {
     await page.screenshot({ path: SHOTS + '/echoes-3-lords.png' });
     await click('back');
 
-    section('a voyage, and whatever is in the corridor');
+    section('a voyage, walked');
     // the boat is moored at 10,16; you take it by standing beside it and looking at it
     expect(await walkTo(11, 16), 'the diver can walk down to the mooring');
     await faceAndAct(10, 16);
-    expect(await has('floor 1 /'), 'looking at the boat deals a dungeon node');
-    let fought = false, nodes = 0;
-    while (nodes++ < 14 && !fought) {
-        if (await page.locator('.et-body button', { hasText: 'strike' }).count()) { fought = true; break; }
-        const take = page.locator('.et-body button[data-a="node"]').first();
-        if (!await take.count()) break;
-        await take.click();
-        await page.waitForTimeout(420);
+    {
+        const down = await where();
+        expect(down && down.map === '@dungeon' && down.dungeon && down.dungeon.floor === 1,
+            'looking at the boat puts you on the first floor of a voyage', JSON.stringify(down));
+        const floor = await page.evaluate(() => window.ET_ENGINE.map());
+        expect(floor && floor.rows.length > 8, 'the floor is a map, not a menu');
+        expect(!await page.locator('.et-body button[data-a="node"]').count(),
+            'and there is no node list left to click');
+        const lift = floor.rows.some(r => r.indexOf('<') >= 0);
+        expect(lift, 'the dive lift back to the surface is on it');
+        await page.screenshot({ path: SHOTS + '/echoes-3b-voyage.png' });
     }
-    expect(fought, 'a voyage runs into a fight within fourteen nodes');
+    // walk into the room, look at what is in it, and fight whatever that is
+    let fought = false, turns = 0;
+    while (turns++ < 12 && !fought) {
+        const st = await where();
+        if (!st || st.map !== '@dungeon') break;
+        if (st.screen === 'event') { await page.locator('.et-body button[data-a="event"]').first().click(); await page.waitForTimeout(450); continue; }
+        if (st.screen !== 'world') break;
+        const live = await page.evaluate(() => window.ET_ENGINE.map());
+        const node = Object.keys(live.markers || {}).find(k => live.markers[k].kind === 'node');
+        if (node) {
+            const [mx, my] = node.split(',').map(Number);
+            if (await walkTo(mx, my + 1) !== true) break;
+            await faceAndAct(mx, my);
+            const now = await where();
+            if (now && now.screen === 'combat') { fought = true; break; }
+            continue;
+        }
+        // the room is cleared: the stairs down are where the creature was
+        let stairs = null;
+        for (let y = 0; y < live.rows.length && !stairs; y++) {
+            const x = live.rows[y].indexOf('>');
+            if (x >= 0) stairs = [x, y];
+        }
+        if (!stairs) break;
+        if (await walkTo(stairs[0], stairs[1] + 1) !== true) break;
+        await faceAndAct(stairs[0], stairs[1]);
+    }
+    expect(fought, 'walking into a room starts the fight that is in it');
     if (fought) {
         expect(await page.locator('#et-battle').count() === 1, 'the fight is drawn on a battle canvas');
         const painted = await page.evaluate(() => {
@@ -279,8 +311,23 @@ try {
         await done.click();
         await page.waitForTimeout(450);
     }
-    // back out to the landing whichever screen we ended on
-    if (await page.locator('.et-body button[data-a="leave"]').count()) await click('put back in to harbour', { wait: 400 });
+    // out of the voyage whichever way it ended — the lift, or waking up
+    {
+        for (let i = 0; i < 8; i++) {
+            const st = await where();
+            if (!st || st.map !== '@dungeon') break;
+            if (st.screen === 'event') { await page.locator('.et-body button[data-a="event"]').first().click(); await page.waitForTimeout(450); continue; }
+            if (st.screen !== 'world') break;
+            const live = await page.evaluate(() => window.ET_ENGINE.map());
+            let lift = null;
+            for (let y = 0; y < live.rows.length && !lift; y++) { const x = live.rows[y].indexOf('<'); if (x >= 0) lift = [x, y]; }
+            if (!lift) break;
+            if (await walkTo(lift[0], lift[1] - 1) !== true) break;
+            await faceAndAct(lift[0], lift[1]);
+        }
+        const out = await where();
+        expect(out && out.map !== '@dungeon' && !out.dungeon, 'the dive lift puts you back on the surface', JSON.stringify(out));
+    }
     expect(await page.locator('#et-world').count() === 1, 'and you come back up onto the overworld');
 
     section('through the door into the Grand Anvil');

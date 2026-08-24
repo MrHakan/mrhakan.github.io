@@ -37,7 +37,14 @@ window.ECHOES_WORLD = (function () {
         'F': { sprite: 'tile_forge', name: 'the furnace', solid: true, face: 'forge' },
         'L': { sprite: 'tile_lamp', name: 'a lamp post', solid: true },
         'B': { sprite: 'tile_deck', name: 'the boat', solid: true, face: 'voyage', overlay: 'boat' },
-        'R': { sprite: 'tile_deck', name: 'a rest bunk', solid: true, face: 'rest', overlay: 'bunk' }
+        'R': { sprite: 'tile_deck', name: 'a rest bunk', solid: true, face: 'rest', overlay: 'bunk' },
+        // --- and the tiles a voyage is walked on ---
+        '=': { sprite: 'tile_dungeon', name: 'wet plating' },
+        'O': { sprite: 'tile_dungeon', name: 'the room', solid: true, face: 'node' },
+        'X': { sprite: 'tile_hatch', name: 'a welded hatch', solid: true, face: 'sealed' },
+        '>': { sprite: 'tile_descend', name: 'a way further down', solid: true, face: 'descend' },
+        '<': { sprite: 'tile_lift', name: 'the dive lift', solid: true, face: 'surface' },
+        '%': { sprite: 'tile_bulkhead', name: 'bulkhead', solid: true }
     };
 
     // ---------- the maps ----------
@@ -272,11 +279,74 @@ window.ECHOES_WORLD = (function () {
         const npc = npcAt(map, t.x, t.y);
         if (npc) return { kind: 'npc', npc: npc, x: t.x, y: t.y };
         const key = t.x + ',' + t.y;
+        if (map.markers && map.markers[key]) {
+            const mk = map.markers[key];
+            return { kind: mk.kind || 'node', marker: mk, x: t.x, y: t.y };
+        }
         if (map.warps && map.warps[key]) return { kind: 'warp', warp: map.warps[key], x: t.x, y: t.y };
         if (map.signs && map.signs[key]) return { kind: 'sign', text: map.signs[key], x: t.x, y: t.y };
         const tile = tileAt(map, t.x, t.y);
         if (tile.face) return { kind: tile.face, tile: tile, x: t.x, y: t.y };
         return { kind: 'nothing', tile: tile, x: t.x, y: t.y };
+    }
+
+    // ---------- a voyage, laid out as a floor you walk ----------
+    // One room per node on the floor, each on a stalk down to a spine
+    // corridor, and an entrance room at the bottom with the lift back to
+    // the surface. The caller decides which rooms are open, sealed, or
+    // already behind it; this only draws the consequence.
+    const DUNGEON_W = 31, DUNGEON_H = 17;
+    const ROOM_W = 7, ROOM_H = 5, ROOM_GAP = 3;
+    const SPINE_Y = 9, ENTRY_X = 15, MARKER_Y = 4;
+    // one room reads better in the middle; two read better apart
+    const SLOTS_FOR = { 1: [1], 2: [0, 2], 3: [0, 1, 2] };
+
+    function buildDungeonMap(spec) {
+        const grid = [];
+        for (let y = 0; y < DUNGEON_H; y++) grid.push(new Array(DUNGEON_W).fill('%'));
+        const put = (x, y, ch) => { if (y >= 0 && y < DUNGEON_H && x >= 0 && x < DUNGEON_W) grid[y][x] = ch; };
+        const carve = (x0, y0, x1, y1, ch) => {
+            for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, ch || '=');
+        };
+
+        const rooms = spec.rooms.slice(0, 3);
+        const slots = SLOTS_FOR[rooms.length] || SLOTS_FOR[3];
+        const markers = {}, props = [];
+        const centres = [];
+
+        rooms.forEach((room, i) => {
+            const ox = 2 + slots[i] * (ROOM_W + ROOM_GAP);
+            const cx = ox + Math.floor(ROOM_W / 2);
+            centres.push(cx);
+            carve(ox, 1, ox + ROOM_W - 1, ROOM_H);
+            carve(cx, ROOM_H + 1, cx, SPINE_Y - 1);
+            if (room.state === 'sealed') put(cx, ROOM_H + 1, 'X');
+            if (room.state === 'open') {
+                put(cx, MARKER_Y, 'O');
+                markers[cx + ',' + MARKER_Y] = { kind: 'node', node_id: room.node_id, label: room.label };
+                if (room.prop) props.push({ x: cx, y: MARKER_Y, sprite: room.prop, palette: room.palette || null, big: !!room.big });
+            }
+            if (room.state === 'cleared') {
+                put(cx, 1, room.last ? '<' : '>');
+                if (room.last) markers[cx + ',1'] = { kind: 'surface' };
+            }
+        });
+
+        // the spine, and the stalk down from it into the entrance room
+        const lo = Math.min.apply(null, centres.concat([ENTRY_X]));
+        const hi = Math.max.apply(null, centres.concat([ENTRY_X]));
+        carve(lo, SPINE_Y, hi, SPINE_Y);
+        carve(ENTRY_X, SPINE_Y + 1, ENTRY_X, 11);
+        carve(ENTRY_X - 3, 12, ENTRY_X + 3, 15);
+        put(ENTRY_X, 15, '<');
+
+        return {
+            id: spec.id, realm: spec.realm, name: spec.name, interior: true, generated: true,
+            rows: grid.map(r => r.join('')),
+            spawn: { x: ENTRY_X, y: 14, dir: 'up' },
+            warps: {}, npcs: [], signs: spec.signs || {},
+            markers: markers, props: props
+        };
     }
 
     // ---------- drawing ----------
@@ -308,6 +378,7 @@ window.ECHOES_WORLD = (function () {
     return {
         TILE: TILE, TILES: TILES, MAPS: MAPS, REALM_MAP: REALM_MAP, DIRS: DIRS,
         mapById: mapById, tileChar: tileChar, tileAt: tileAt, npcAt: npcAt,
-        walkable: walkable, ahead: ahead, facing: facing, drawMap: drawMap
+        walkable: walkable, ahead: ahead, facing: facing, drawMap: drawMap,
+        buildDungeonMap: buildDungeonMap, DUNGEON_W: DUNGEON_W, DUNGEON_H: DUNGEON_H
     };
 })();

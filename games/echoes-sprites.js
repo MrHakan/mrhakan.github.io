@@ -783,6 +783,152 @@ window.ECHOES_SPRITES = (function () {
         'oooooooooooooooo'
     ];
 
+    // --- dungeon tiles and the things standing in the rooms, 16x16 ---
+    ART.tile_dungeon = [
+        'Nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnNnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnrnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnNnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnNnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn'
+    ];
+    ART.tile_bulkhead = [
+        'oooooooooooooooo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'oooooooooooooooo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'obbbbbbbobbbbbbo',
+        'oooooooooooooooo'
+    ];
+    ART.tile_hatch = [
+        'oooooooooooooooo',
+        'onnnnnnnnnnnnnno',
+        'onNNNNNNNNNNNNno',
+        'onNrRnnnnnnRrNno',
+        'onNnrRnnnnRrnNno',
+        'onNnnrRnnRrnnNno',
+        'onNnnnrRRrnnnNno',
+        'onNnnnnRRnnnnNno',
+        'onNnnnnRRnnnnNno',
+        'onNnnnrRRrnnnNno',
+        'onNnnrRnnRrnnNno',
+        'onNnrRnnnnRrnNno',
+        'onNrRnnnnnnRrNno',
+        'onNNNNNNNNNNNNno',
+        'onnnnnnnnnnnnnno',
+        'oooooooooooooooo'
+    ];
+    ART.tile_descend = [
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn',
+        'nnoooooooooooonn',
+        'nnoooooooooooonn',
+        'nnoNNNNNNNNNNonn',
+        'nnoooooooooooonn',
+        'nnoooooooooooonn',
+        'nnoNNNNNNNNNNonn',
+        'nnoooooooooooonn',
+        'nnoooooooooooonn',
+        'nnoNNNNNNNNNNonn',
+        'nnoooooooooooonn',
+        'nnoooooooooooonn',
+        'nnoooooooooooonn',
+        'nnnnnnnnnnnnnnnn',
+        'nnnnnnnnnnnnnnnn'
+    ];
+    ART.tile_lift = [
+        'nnnnnnnnnnnnnnnn',
+        'nyyyyyyyyyyyyyyn',
+        'nyooooooooooooyn',
+        'nyoNooNooNooNoyn',
+        'nyoNooNooNooNoyn',
+        'nyoNooNooNooNoyn',
+        'nyooooooooooooyn',
+        'nyoYYYYYYYYYYoyn',
+        'nyoYYYYYYYYYYoyn',
+        'nyooooooooooooyn',
+        'nyoNooNooNooNoyn',
+        'nyoNooNooNooNoyn',
+        'nyoNooNooNooNoyn',
+        'nyooooooooooooyn',
+        'nyyyyyyyyyyyyyyn',
+        'nnnnnnnnnnnnnnnn'
+    ];
+    ART.prop_wreck = [
+        '................',
+        '....o......o....',
+        '...oWo....oWo...',
+        '..ooKoo..ooKoo..',
+        '.oKKKKKooKKKKKo.',
+        'oKKyyKKooKKyyKKo',
+        'oKKyyKKooKKyyKKo',
+        'oKKKKKKooKKKKKKo',
+        'oKKKKKKooKKKKKKo',
+        'oooooooooooooooo',
+        'oWWWWWWWWWWWWWWo',
+        'oyKKKKKKKKKKKKyo',
+        'oyKKyyKKKKyyKKyo',
+        'oyKKKKKKKKKKKKyo',
+        'oooooooooooooooo',
+        '................'
+    ];
+    ART.prop_shrine = [
+        '................',
+        '.......oo.......',
+        '......oMMo......',
+        '.....oMMMMo.....',
+        '.....oMmmMo.....',
+        '....oMmWWmMo....',
+        '....oMmWWmMo....',
+        '.....oMmmMo.....',
+        '.....oMMMMo.....',
+        '......oMMo......',
+        '.......oo.......',
+        '......oooo......',
+        '.....okkkko.....',
+        '....okKKKKko....',
+        '....oooooooo....',
+        '................'
+    ];
+    ART.prop_bunk = [
+        '................',
+        '................',
+        '..oooooooooooo..',
+        '..okkkkkkkkkko..',
+        '..okwwwwwwwwko..',
+        '..okwWWWWWWwko..',
+        '..okwwwwwwwwko..',
+        '..okKKKKKKKKko..',
+        '..okkkkkkkkkko..',
+        '..oooooooooooo..',
+        '..o.o......o.o..',
+        '..o.o......o.o..',
+        '................',
+        '................',
+        '................',
+        '................'
+    ];
+
     // --- overworld people, 16x18 ---
     ART.npc_smith = [
         '.....oooooo.....',
