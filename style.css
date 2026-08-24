@@ -8022,6 +8022,11 @@ body.disco-floor::after {
 
 /* ---------- echoes: the pieces the tide brought in ---------- */
 .et-bar-fill.san { background: linear-gradient(90deg, #3b2a55, #7a5fa8); }
+.et-bar-fill.marrow { background: linear-gradient(90deg, #4a3a1f, #c98a2a); }
+
+/* the foe you are actually swinging at, when there is more than one */
+.et-foe.here { border-left-color: #c9a227; background: #1d1418; }
+.et-foe { cursor: pointer; }
 
 /* log tone. the deep gets its own colour so a war-cry does not read as
    damage, and a phase change does not read as flavour */
