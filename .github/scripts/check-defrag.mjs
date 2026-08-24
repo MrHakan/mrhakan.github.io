@@ -68,14 +68,14 @@ section('what is on the disk');
             { name: 'https://mrhakan.github.io/css/style.css', decodedBodySize: 148000 },   // asked for twice
             { name: 'data:image/png;base64,AAAA', decodedBodySize: 40 },                 // not a file
             { name: 'https://mrhakan.github.io/nothing.js', decodedBodySize: 0 },        // never arrived
-            { name: 'https://mrhakan.github.io/games/wizardz.js', transferSize: 60000 }
+            { name: 'https://mrhakan.github.io/games/wizardz/wizardz.js', transferSize: 60000 }
         ],
         navigation: [{ decodedBodySize: 96000 }]
     });
     load(real);
     const files = real.DEFRAG.realFiles();
     const names = files.map(f => f.name);
-    expect(names.includes('/js/index.js') && names.includes('/games/wizardz.js'),
+    expect(names.includes('/js/index.js') && names.includes('/games/wizardz/wizardz.js'),
         'the real files this page downloaded are the disk', names.join(', '));
     expect(names.filter(n => n === '/css/style.css').length === 1, 'a file fetched twice is one file');
     expect(!names.some(n => /^data:/.test(n)), 'inline data is not a file');
@@ -89,8 +89,8 @@ section('laying it out badly');
 const FILES = [
     { name: '/index.html', bytes: 96000 }, { name: '/css/style.css', bytes: 150000 },
     { name: '/js/index.js', bytes: 92000 }, { name: '/js/apps.js', bytes: 38000 },
-    { name: '/js/extras.js', bytes: 44000 }, { name: '/games/wizardz.js', bytes: 120000 },
-    { name: '/games/balatro.js', bytes: 96000 }, { name: '/sw.js', bytes: 4000 },
+    { name: '/js/extras.js', bytes: 44000 }, { name: '/games/wizardz/wizardz.js', bytes: 120000 },
+    { name: '/games/jokerz/balatro.js', bytes: 96000 }, { name: '/sw.js', bytes: 4000 },
     { name: '/src/emoj/troll.png', bytes: 220000 }
 ];
 {
@@ -109,7 +109,7 @@ const FILES = [
     const locked = disk.files.filter(f => f.locked).map(f => f.name);
     expect(locked.includes('/index.html') && locked.includes('/sw.js') && locked.includes('/css/style.css'),
         'the files that hold the site up cannot be moved', locked.join(', '));
-    expect(!locked.includes('/games/wizardz.js'), 'and the rest can');
+    expect(!locked.includes('/games/wizardz/wizardz.js'), 'and the rest can');
     expect(disk.cells.filter(c => c === D.BAD).length === 3, 'every disk has a few bad clusters');
 
     // the same seed twice is the same mess, or a redraw would reshuffle it

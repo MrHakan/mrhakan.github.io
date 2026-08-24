@@ -589,7 +589,7 @@ try {
             if (/^[a-z0-9_]+$/.test(t)) names.add(t);
         });
         for (const f of ['js/index.js', 'js/apps.js', 'js/fun.js', 'js/pages.js', 'js/extras.js', 'js/themes.js',
-            'js/theme-maker.js', 'games/netplay.js', 'games/wizardz.js', 'games/wizardz-data.js']) {
+            'js/theme-maker.js', 'games/netplay.js', 'games/wizardz/wizardz.js', 'games/wizardz/wizardz-data.js']) {
             const src = await fetch(f).then(r => r.text()).catch(() => '');
             for (const m of src.matchAll(/icon: '([a-z0-9_]+)'/g)) names.add(m[1]);
             for (const m of src.matchAll(/material-symbols-outlined[^>]*>([a-z0-9_]+)</g)) names.add(m[1]);

@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v16';
+const CACHE = 'mrhakan98-v18';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -27,30 +27,30 @@ const PRECACHE = [
     '/js/themes.js',
     '/js/theme-scan.js',
     '/js/theme-maker.js',
-    '/games/balatro-data.js',
-    '/games/balatro-fx.js',
-    '/games/balatro.js',
-    '/games/troll-problem-data.js',
-    '/games/troll-problem.js',
-    '/games/become-user-data.js',
-    '/games/become-user.js',
-    '/games/echoes-core.js',
-    '/games/echoes-sprites.js',
-    '/games/echoes-world.js',
-    '/games/echoes-data.js',
-    '/games/echoes.js',
+    '/games/jokerz/balatro-data.js',
+    '/games/jokerz/balatro-fx.js',
+    '/games/jokerz/balatro.js',
+    '/games/troll-problem/troll-problem-data.js',
+    '/games/troll-problem/troll-problem.js',
+    '/games/become-user/become-user-data.js',
+    '/games/become-user/become-user.js',
+    '/games/echoes/echoes-core.js',
+    '/games/echoes/echoes-sprites.js',
+    '/games/echoes/echoes-world.js',
+    '/games/echoes/echoes-data.js',
+    '/games/echoes/echoes.js',
     '/games/netplay.js',
-    '/games/wizardz-data.js',
-    '/games/wizardz.js',
+    '/games/wizardz/wizardz-data.js',
+    '/games/wizardz/wizardz.js',
     '/links.html',
     '/guestbook.html',
     '/404.html',
-    '/src/js/typed.umd.js',
+    '/js/vendor/typed.umd.js',
     '/css/giscus-win98.css',
     '/data/site.json',
     '/data/posts.json',
     '/data/github.json',
-    '/src/projects.json',
+    '/data/projects.json',
     '/src/fonts/material-symbols-subset.woff2',
     '/src/emoj/dusung.png',
     '/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png'

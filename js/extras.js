@@ -340,9 +340,9 @@ function balLoadScripts() {
         document.head.appendChild(s);
     });
     // data first: the engine reads BAL at definition time
-    balLoading = load('games/balatro-data.js')
-        .then(() => load('games/balatro-fx.js'))
-        .then(() => load('games/balatro.js'));
+    balLoading = load('games/jokerz/balatro-data.js')
+        .then(() => load('games/jokerz/balatro-fx.js'))
+        .then(() => load('games/jokerz/balatro.js'));
     return balLoading;
 }
 
@@ -373,7 +373,7 @@ function tgLoadScripts() {
         s.onerror = () => rej(new Error(src));
         document.head.appendChild(s);
     });
-    tgLoading = load('games/troll-problem-data.js').then(() => load('games/troll-problem.js'));
+    tgLoading = load('games/troll-problem/troll-problem-data.js').then(() => load('games/troll-problem/troll-problem.js'));
     return tgLoading;
 }
 
@@ -403,7 +403,7 @@ function buLoadScripts() {
         s.onerror = () => rej(new Error(src));
         document.head.appendChild(s);
     });
-    buLoading = load('games/become-user-data.js').then(() => load('games/become-user.js'));
+    buLoading = load('games/become-user/become-user-data.js').then(() => load('games/become-user/become-user.js'));
     return buLoading;
 }
 
@@ -469,11 +469,11 @@ function etLoadScripts() {
         document.head.appendChild(s);
     });
     // data first: the engine reads RZ at definition time
-    etLoading = load('games/echoes-core.js')
-        .then(() => load('games/echoes-sprites.js'))
-        .then(() => load('games/echoes-world.js'))
-        .then(() => load('games/echoes-data.js'))
-        .then(() => load('games/echoes.js'));
+    etLoading = load('games/echoes/echoes-core.js')
+        .then(() => load('games/echoes/echoes-sprites.js'))
+        .then(() => load('games/echoes/echoes-world.js'))
+        .then(() => load('games/echoes/echoes-data.js'))
+        .then(() => load('games/echoes/echoes.js'));
     return etLoading;
 }
 

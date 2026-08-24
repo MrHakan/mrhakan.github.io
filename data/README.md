@@ -41,44 +41,80 @@ but a visitor signs in with github and comments in one click. the thread
 is a [github discussion](https://docs.github.com/discussions) on this
 repo rather than a gist.
 
-it is off until it is configured. `data/site.json`:
+**each board is separate.** the guestbook and the shoutbox get their own
+discussion category and their own thread, and each one falls back to its
+gist until *both* of its fields are filled in — so you can switch one
+over and leave the other alone.
 
 ```json
 "giscus": {
     "repo": "MrHakan/mrhakan.github.io",
-    "repoId": "",
-    "category": "Guestbook",
-    "categoryId": ""
+    "repoId": "MDEwOlJlcG9zaXRvcnkzNDk4MjY5NjQ=",
+    "category": "Announcements",
+    "categoryId": "",
+    "guestbook": { "term": "Guestbook" },
+    "shouts":    { "term": "Shoutbox" }
 }
 ```
 
-with `repoId` or `categoryId` empty the site uses the gist board, so
-nothing breaks while it is half set up. filling both in switches the
-guestbook over on the next load — no other change.
+both boards live in one category and are told apart by the discussion
+**title**, which is each board's `term`. everything above is already
+correct except `categoryId` — one value, and both boards switch over at
+once. a board can still override `category` / `categoryId` if you ever
+want them in separate categories.
 
-getting the two ids, in order:
+### getting them
 
-1. **repo settings → features → tick Discussions.** this is a repo
-   setting; nobody but the owner can do it.
-2. in **discussions → categories**, add one called `Guestbook`, format
-   **announcement** (only maintainers open threads, anyone replies —
-   which is what a guestbook is).
+1. **repo settings → features → tick Discussions.** already done.
+2. in **discussions → categories**, make a category per board.
+   **announcement** format is the right one: only maintainers can open a
+   discussion in it, so visitors cannot start new threads there —
+   commenting is unaffected, and giscus opens the thread itself through
+   its app. *general* works too, it just lets the category fill up with
+   threads nobody asked for.
 3. install the **[giscus app](https://github.com/apps/giscus)** on this
-   repo. it needs write access to discussions, and only to this repo.
-4. go to **<https://giscus.app>**, put `MrHakan/mrhakan.github.io` in,
-   pick the `Guestbook` category, and mapping **"specific term"** with
-   the term `guestbook`. it prints a `<script>` block — the two values
-   you want out of it are `data-repo-id` and `data-category-id`.
+   repo. it needs write access to discussions, and only here.
+4. go to **<https://giscus.app>**, put in `MrHakan/mrhakan.github.io`,
+   pick a category, and read `data-category` and `data-category-id` out
+   of the snippet it prints. repeat for the second category.
 5. paste them into `data/site.json` and commit.
 
-the frame is on giscus.app, so `style.css` cannot reach into it. giscus
-takes a theme by url instead, and `css/giscus-win98.css` is that theme: the same bevels, greys and title bars as the window it sits
-in. it is passed as `data-theme` automatically.
+### the thing that actually catches people
 
-what this costs, honestly: the comment box is an iframe from giscus.app,
-so the page now depends on a third party staying up, and a visitor has to
-have a github account and be willing to sign in. the gist flow needed an
-account too, so that part is a wash — the click count is the difference.
+giscus finds a board's thread by the discussion's **title**, and that
+title is the `term` field. so if you opened the discussion by hand and
+called it something with a capital letter or an emoji in it, put that
+exact string in `term`:
+
+```json
+"guestbook": {
+    "category": "Guestbook",
+    "categoryId": "DIC_…",
+    "term": "📝 Ziyaretçi Defteri"
+}
+```
+
+otherwise leave `term` alone and either title the discussion exactly
+`guestbook` / `shoutbox`, or let giscus open the thread itself on the
+first comment.
+
+(strict matching, which hashes the term instead of using it literally,
+is deliberately **off** here — with it on, giscus would walk straight
+past a discussion opened by hand.)
+
+### the theme
+
+the frame is on giscus.app, so `css/style.css` cannot reach into it.
+giscus takes a theme by url instead, and `css/giscus-win98.css` is that
+theme: the same bevels, greys and title bars as the window it sits in.
+it is passed automatically.
+
+### what this costs
+
+the comment box is an iframe from giscus.app, so the page depends on a
+third party staying up, and a visitor needs a github account and has to
+be willing to sign in. the gist flow needed an account too, so that part
+is a wash — the click count is the difference.
 
 ## setting up the gists
 

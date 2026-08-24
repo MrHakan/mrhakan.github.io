@@ -22,7 +22,7 @@
 //          when nobody is awake to play with you.
 //
 // Games register themselves here and get a lobby for free — see
-// NP.CATALOG at the bottom and games/wizardz.js for a worked example.
+// NP.CATALOG at the bottom and games/wizardz/wizardz.js for a worked example.
 // ===================================================================
 (function () {
     'use strict';
@@ -917,7 +917,7 @@
             icon: 'auto_fix_high',
             min: 2, max: 2,
             blurb: 'draw sigils to sling 50 spells at another wizard',
-            scripts: ['games/wizardz-data.js', 'games/wizardz.js']
+            scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz.js']
         }
     ];
     NP.games = {};

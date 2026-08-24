@@ -22,15 +22,20 @@ js/                   everything the pages load
   fx.js                 the motion layer, and the reduced-motion promise
   defrag.js             disk defragmenter, on a real disk
   documents.js          my documents: every game's save, exportable
-  guestbook.js          composing and reading a board entry
+  guestbook.js          composing and reading a board entry, and the
+                        giscus config for both boards
   themes.js  theme-maker.js  theme-scan.js
+  vendor/               third-party scripts, vendored
 css/
   style.css             all of it, with 95 marked sections
   giscus-win98.css      the theme the giscus iframe loads, since style.css
                         cannot reach into another origin
-games/                the six games and the netplay layer
-data/                 site content, board config, the github snapshot
-src/                  images, fonts, music
+games/                one folder per game, plus the shared netplay layer
+  echoes/  jokerz/  wizardz/  become-user/  troll-problem/
+  netplay.js
+data/                 site content, board config, the projects list, the
+                      github snapshot
+src/                  assets only: images, fonts, music
 server/               the optional self-hosted netplay relay
 .github/scripts/      the test suite — no dependencies, same as the site
 ```
@@ -79,3 +84,6 @@ exits non-zero if anything drifted.
   does not exist.
 - **`data/github.json` is generated**, once a day by
   `.github/workflows/github-data.yml`. Do not hand-edit it.
+- **`node_modules/` is disposable.** The site has no dependencies and
+  neither does the test suite; the only thing that lands there is
+  Playwright, installed with `--no-save` for the browser runs.

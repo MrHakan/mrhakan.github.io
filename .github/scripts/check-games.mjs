@@ -40,12 +40,24 @@ section('javascript parses');
 // checking thirteen files, which is not a thing a syntax check should be
 // able to do silently.
 const JS_DIRS = ['', 'js', 'games', 'server'];
-const JS_FILES = JS_DIRS.flatMap(dir => {
+// games/ has a folder per game, so this walks rather than lists — the last
+// time it only listed, thirteen files quietly stopped being checked
+function jsUnder(dir, depth) {
     const abs = dir ? path.join(ROOT, dir) : ROOT;
     if (!fs.existsSync(abs)) return [];
-    return fs.readdirSync(abs).filter(f => f.endsWith('.js')).map(f => (dir ? dir + '/' + f : f));
-});
+    const out = [];
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+        const rel = dir ? dir + '/' + entry.name : entry.name;
+        if (entry.isDirectory()) {
+            if (depth > 0 && dir) out.push(...jsUnder(rel, depth - 1));
+        } else if (entry.name.endsWith('.js')) out.push(rel);
+    }
+    return out;
+}
+const JS_FILES = JS_DIRS.flatMap(dir => jsUnder(dir, 2));
 expect(JS_FILES.length >= 30, 'the syntax check can see the whole site', JS_FILES.length + ' files');
+expect(JS_FILES.some(f => /^games\/[a-z-]+\//.test(f)),
+    'including the games in their own folders', JS_FILES.filter(f => f.startsWith('games/')).join(', '));
 expect(JS_FILES.some(f => f.startsWith('js/')) && JS_FILES.some(f => f.startsWith('games/')),
     'including both js/ and games/');
 for (const f of JS_FILES) {
@@ -86,10 +98,10 @@ function loadInto(w, file) {
 }
 try { loadInto(win, 'games/netplay.js'); ok('games/netplay.js runs without a dom'); }
 catch (e) { bad('games/netplay.js runs without a dom', e.message); }
-try { loadInto(win, 'games/wizardz-data.js'); ok('games/wizardz-data.js runs'); }
-catch (e) { bad('games/wizardz-data.js runs', e.message); }
-try { loadInto(win, 'games/wizardz.js'); ok('games/wizardz.js runs'); }
-catch (e) { bad('games/wizardz.js runs', e.message); }
+try { loadInto(win, 'games/wizardz/wizardz-data.js'); ok('games/wizardz/wizardz-data.js runs'); }
+catch (e) { bad('games/wizardz/wizardz-data.js runs', e.message); }
+try { loadInto(win, 'games/wizardz/wizardz.js'); ok('games/wizardz/wizardz.js runs'); }
+catch (e) { bad('games/wizardz/wizardz.js runs', e.message); }
 
 const WZ = win.WZ;
 const ENGINE = win.WZ_ENGINE;
@@ -369,7 +381,7 @@ section('the faces you play against');
         // window — which is right for the browser and useless here, so
         // the harness asks for it on the way out
         new Function('window', 'localStorage', 'performance',
-            read('games/balatro-data.js') + '\n;window.BAL = BAL;')(w2, w2.localStorage, w2.performance);
+            read('games/jokerz/balatro-data.js') + '\n;window.BAL = BAL;')(w2, w2.localStorage, w2.performance);
         BALD = w2.BAL;
         expect(!!BALD, 'balatro-data.js loads');
     } catch (e) { bad('balatro-data.js loads', e.message); }
@@ -538,7 +550,7 @@ const sw = read('sw.js');
 const html = read('index.html');
 const indexJs = read('js/index.js');
 const extras = read('js/extras.js');
-['games/netplay.js', 'games/wizardz-data.js', 'games/wizardz.js'].forEach(f =>
+['games/netplay.js', 'games/wizardz/wizardz-data.js', 'games/wizardz/wizardz.js'].forEach(f =>
     expect(sw.includes('/' + f), 'service worker precaches ' + f));
 expect(/const CACHE = 'mrhakan98-v(\d+)'/.test(sw), 'service worker has a cache version');
 expect(html.includes("startMenuAction('wizardz')"), 'wizardz is in the start menu');
@@ -605,8 +617,8 @@ section('my documents');
             expect(ids.indexOf(want) >= 0, want + ' has a document');
         }
         // the keys have to be the ones the games really write
-        const realKeys = [read('games/echoes-core.js'), read('games/balatro.js'), read('games/become-user.js'),
-            read('games/troll-problem.js'), read('games/wizardz.js')].join('\n');
+        const realKeys = [read('games/echoes/echoes-core.js'), read('games/jokerz/balatro.js'), read('games/become-user/become-user.js'),
+            read('games/troll-problem/troll-problem.js'), read('games/wizardz/wizardz.js')].join('\n');
         const wrong = ['ECHOES_OF_THE_TIDE_SAVE', 'jokerz98-run', 'becomeuser-run-v1',
             'trollproblem-run-v2', 'mrhakan98-wizardz-avatar'].filter(k => !realKeys.includes(k));
         expect(wrong.length === 0, 'and each one names a key its game really writes', wrong.join(', '));

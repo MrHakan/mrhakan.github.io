@@ -1399,7 +1399,7 @@ async function fetchManualProjects() {
     const container = document.getElementById('manual-projects');
     if (!container) return;
     try {
-        const res = await fetch('src/projects.json');
+        const res = await fetch('data/projects.json');
         const projects = await res.json();
         container.innerHTML = projects.map(project => `
             <div class="bg-white border-2 border-black p-2 shadow-[2px_2px_0_rgba(0,0,0,0.5)] hover:bg-[#f0f0f0]">
@@ -1524,24 +1524,28 @@ async function boardConfig() {
 // pasting it. Same "no backend" idea, four fewer steps. Until the two ids
 // are in data/site.json the gist board is what runs, so nothing here can
 // leave the page with an empty box where the guestbook was.
-let giscusCache = null;
-async function giscusConfig() {
-    if (giscusCache) return giscusCache;
-    let site = {};
+let siteCache = null;
+async function giscusSite() {
+    if (siteCache) return siteCache;
     try {
-        site = (typeof loadSiteData === 'function')
+        siteCache = (typeof loadSiteData === 'function')
             ? await loadSiteData()
             : await (await fetch('data/site.json')).json();
-    } catch (e) { /* no config, no giscus */ }
-    giscusCache = GUESTBOOK.giscusConfig(site);
-    return giscusCache;
+    } catch (e) { siteCache = {}; }
+    return siteCache;
+}
+async function giscusConfig(kind) {
+    return GUESTBOOK.giscusConfig(await giscusSite(), kind || 'guestbook');
 }
 
-// mount it into #giscus-mount and return whether it went up
-async function mountGiscus() {
-    const mount = document.getElementById('giscus-mount');
-    if (!mount || mount.dataset.mounted) return !!(mount && mount.dataset.mounted);
-    const cfg = await giscusConfig();
+// mount a board's thread into a container. Each board has its own category
+// and its own discussion, so the guestbook and the shoutbox never end up
+// sharing one thread.
+async function mountGiscus(kind, mountId) {
+    const mount = document.getElementById(mountId || 'giscus-mount');
+    if (!mount) return false;
+    if (mount.dataset.mounted) return true;
+    const cfg = await giscusConfig(kind);
     if (!cfg.ready) return false;
     const s = document.createElement('script');
     s.src = 'https://giscus.app/client.js';
@@ -1551,9 +1555,13 @@ async function mountGiscus() {
     s.setAttribute('data-repo-id', cfg.repoId);
     if (cfg.category) s.setAttribute('data-category', cfg.category);
     s.setAttribute('data-category-id', cfg.categoryId);
+    // the board's thread is the discussion whose *title* is this term. strict
+    // matching hashes the term instead of using it literally, which would
+    // walk straight past a discussion opened by hand — so it stays off, and
+    // the discussion just has to be titled "guestbook" or "shoutbox".
     s.setAttribute('data-mapping', 'specific');
-    s.setAttribute('data-term', 'guestbook');
-    s.setAttribute('data-strict', '1');
+    s.setAttribute('data-term', cfg.term);
+    s.setAttribute('data-strict', '0');
     s.setAttribute('data-reactions-enabled', '1');
     s.setAttribute('data-emit-metadata', '0');
     s.setAttribute('data-input-position', 'top');
@@ -1565,6 +1573,26 @@ async function mountGiscus() {
     mount.appendChild(s);
     mount.dataset.mounted = '1';
     return true;
+}
+
+// hide the copy-paste half of a board and show the giscus half
+function showGiscusBoard(kind) {
+    // the guestbook's copy-paste half is marked data-board="gist" and the
+    // shoutbox's is data-board="shouts"; only the one being replaced goes
+    const hide = kind === 'shouts' ? 'shouts' : 'gist';
+    document.querySelectorAll('[data-board="' + hide + '"]').forEach(el => {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+    });
+    const mountId = kind === 'shouts' ? 'shout-giscus-mount' : 'giscus-mount';
+    const mount = document.getElementById(mountId);
+    const shown = [mount].concat(kind === 'shouts' ? []
+        : [...document.querySelectorAll('p[data-board="giscus"]')]);
+    shown.forEach(el => {
+        if (!el) return;
+        el.classList.remove('hidden');
+        el.style.display = '';
+    });
 }
 
 // one request for the whole board: the gist's comment thread
@@ -1735,6 +1763,12 @@ function showRetroDialog({ title, lines, preview, okLabel, cancelLabel, onOk }) 
 async function fetchShoutbox() {
     const container = document.getElementById('shoutbox-messages');
     if (!container) return;
+    // the shoutbox can be a discussion thread too, on its own category
+    if (await mountGiscus('shouts', 'shout-giscus-mount')) {
+        showGiscusBoard('shouts');
+        container.innerHTML = '';
+        return;
+    }
     container.innerHTML = '<div class="text-center text-gray-500">loading shouts...</div>';
     try {
         const messages = await fetchBoard('shouts');
@@ -1808,17 +1842,10 @@ async function loadGuestbook() {
     const container = document.getElementById('guestbook-entries');
     if (!container) return;
     // if giscus is set up, it is the guestbook: one click, no copy-paste
-    if (await mountGiscus()) {
+    if (await mountGiscus('guestbook', 'giscus-mount')) {
         // .hidden is a tailwind utility off a cdn, and which board shows is
         // not something to leave to whether that cdn answered
-        document.querySelectorAll('[data-board="gist"]').forEach(el => {
-            el.classList.add('hidden');
-            el.style.display = 'none';
-        });
-        document.querySelectorAll('[data-board="giscus"]').forEach(el => {
-            el.classList.remove('hidden');
-            el.style.display = '';
-        });
+        showGiscusBoard('guestbook');
         container.innerHTML = '';
         return;
     }

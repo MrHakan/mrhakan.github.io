@@ -29,7 +29,7 @@
   <link rel="me" href="https://steamcommunity.com/id/prufski/" />
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="css/style.css" rel="stylesheet" />
-  <script src="src/js/typed.umd.js" defer></script>
+  <script src="js/vendor/typed.umd.js" defer></script>
   <script src="js/fx.js" defer></script>
   <script src="js/charts.js" defer></script>
   <script src="js/defrag.js" defer></script>
@@ -443,12 +443,14 @@
         <div id="shoutbox-header" class="draggable-header bg-purple-800 px-2 py-1 mb-1 border-b border-black">
           <h3 class="text-white font-bold font-header text-xs text-center">.: shoutbox :.</h3>
         </div>
-        <div id="shoutbox-messages"
+        <div id="shout-giscus-mount" data-board="giscus"
+          class="hidden flex-1 bg-white bevel-in p-1 overflow-y-auto mb-2" style="display:none"></div>
+        <div id="shoutbox-messages" data-board="shouts"
           class="flex-1 bg-white bevel-in p-2 overflow-y-auto font-pixel text-xs space-y-3 mb-2"
           style="background-image: linear-gradient(#f0f0ff 1px, transparent 1px); background-size: 100% 18px;">
           <div class="text-center text-gray-500">loading shouts...</div>
         </div>
-        <div class="flex flex-col gap-1">
+        <div class="flex flex-col gap-1" data-board="shouts">
           <input id="shout-name" class="w-full text-xs font-pixel p-1 border border-gray-400 bg-white text-black"
             placeholder="name" type="text" />
           <input id="shout-message" class="w-full text-xs font-pixel p-1 border border-gray-400 bg-white text-black"

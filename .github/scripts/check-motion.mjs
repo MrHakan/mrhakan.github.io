@@ -196,7 +196,7 @@ section('jokerz 98');
 {
     const jwin = makeWindow();
     load(jwin, 'js/fx.js');
-    try { load(jwin, 'games/balatro-fx.js'); ok('balatro-fx.js loads'); }
+    try { load(jwin, 'games/jokerz/balatro-fx.js'); ok('balatro-fx.js loads'); }
     catch (e) { bad('balatro-fx.js loads', e.message); }
     const BJ = jwin.BJFX;
     if (BJ) {
@@ -218,7 +218,7 @@ section('jokerz 98');
             'the ones the game awaits always hand back a promise');
     }
 
-    const game = read('games/balatro.js');
+    const game = read('games/jokerz/balatro.js');
     expect(/el\.classList\.toggle\('sel', picked\)/.test(game) && /balUpdateReadout\(g\)/.test(game),
         'selecting a card touches that card and the readout, not the whole table');
     expect(!/g\.selected\.sort[\s\S]{0,200}balRender\(\);\n    \}\);/.test(game),
@@ -245,7 +245,7 @@ section('jokerz 98');
     const loader = read('js/extras.js');
     expect(/balatro-fx\.js'\)\)[\s\S]{0,80}balatro\.js/.test(loader),
         'the loader pulls the animation layer in before the engine');
-    expect(read('sw.js').includes('/games/balatro-fx.js'), 'and the service worker precaches it');
+    expect(read('sw.js').includes('/games/jokerz/balatro-fx.js'), 'and the service worker precaches it');
 }
 
 // ===================================================================
