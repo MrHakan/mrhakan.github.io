@@ -488,8 +488,10 @@ try {
             headSrc: head ? head.src.split('/').pop() : '',
             headLoaded: head ? (head.complete && head.naturalWidth > 0) : false
         };
-        // it lands on them, then leaves
-        await new Promise(r => setTimeout(r, 1500));
+        // it lands on them, then leaves. the drop is a shade over a second,
+        // but a busy machine stretches wall-clock animations — wait for it to
+        // actually go rather than for a number of milliseconds to pass
+        for (let i = 0; i < 60 && document.querySelector('.bj-bonk'); i++) await new Promise(r => setTimeout(r, 100));
         out.headGone = !document.querySelector('.bj-bonk');
         out.stillThere = !!document.querySelector('.bj-victim .bj-face');
         return out;
@@ -756,6 +758,105 @@ try {
     }
     expect(noticed, 'the host notices when the other wizard vanishes (heartbeat)');
     await host.close();
+
+    section('the github grid without the github api');
+    {
+        // The snapshot exists so the page does not depend on sixty anonymous
+        // requests an hour. Block the API outright: if the grid and the
+        // user.dat panel still fill in, they are reading the committed file.
+        const offline = await ctx.newPage();
+        const blocked = [];
+        await offline.route('**://api.github.com/users/**', r => { blocked.push(r.request().url()); r.abort(); });
+        await offline.route('**://api.github.com/users/mrhakan/repos**', r => { blocked.push(r.request().url()); r.abort(); });
+        await offline.goto(BASE, { waitUntil: 'load' });
+        await offline.keyboard.press('Enter');
+        await offline.waitForTimeout(2200);
+
+        const cards = await offline.locator('#github-repos > div').count();
+        expect(cards > 0, 'the repo grid fills in with the api unreachable', cards + ' cards');
+        expect(await offline.locator('#github-repos .text-red-500').count() === 0,
+            'and does not show the rate-limit error');
+        const repos = (await offline.locator('#gh-repos').textContent().catch(() => '')).trim();
+        const followers = (await offline.locator('#gh-followers').textContent().catch(() => '')).trim();
+        expect(/^\d+$/.test(repos) && /^\d+$/.test(followers),
+            'and user.dat shows real numbers rather than question marks', repos + ' / ' + followers);
+        expect(await offline.locator('#user-stats.hidden').count() === 0, 'and the panel is on screen');
+        await offline.screenshot({ path: SHOTS + '/9-github-offline.png' });
+        await offline.close();
+    }
+    section('the guestbook, both ways round');
+    {
+        // giscus is off until two ids are in data/site.json. Serve a patched
+        // config to see the configured half without committing one, and never
+        // let either page actually reach giscus.app.
+        const board = async (label, giscus) => {
+            // the service worker caches data/site.json and its fetches are not
+            // page requests, so a route on this page would never see them —
+            // this section needs a context where it is the only thing serving
+            const gctx = await browser.newContext({
+                viewport: { width: 900, height: 900 },
+                serviceWorkers: 'block'
+            });
+            await gctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
+            const page = await gctx.newPage();
+            let reached = null;
+            await page.route('**://giscus.app/**', r => { reached = r.request().url(); r.abort(); });
+            if (giscus) {
+                await page.route('**/data/site.json', async r => {
+                    const body = await (await r.fetch()).json();
+                    body.giscus = giscus;
+                    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+                });
+            }
+            await page.goto(BASE.replace(/index\.html$/, 'guestbook.html'), { waitUntil: 'load' });
+            await page.waitForTimeout(2200);
+            // giscus.app is blocked, so the mount has no iframe and no height:
+            // ask whether it is displayed, not whether it is painted
+            const shown = sel => page.evaluate(q => {
+                const el = document.querySelector(q);
+                return el ? getComputedStyle(el).display !== 'none' : null;
+            }, sel);
+            const out = {
+                form: await shown('#guestbook-form'),
+                mount: await shown('#giscus-mount'),
+                reached: reached,
+                attrs: await page.evaluate(() => {
+                    const s2 = document.querySelector('#giscus-mount script');
+                    if (!s2) return null;
+                    const o = {};
+                    for (const a of s2.attributes) o[a.name] = a.value;
+                    return o;
+                })
+            };
+            await page.screenshot({ path: SHOTS + '/10-guestbook-' + label + '.png', fullPage: true });
+            await page.close();
+            await gctx.close();
+            return out;
+        };
+
+        const off = await board('gist', null);
+        expect(off.form === true && off.mount === false, 'with no giscus config the gist board is what you get',
+            JSON.stringify(off));
+        expect(off.reached === null, 'and nothing is asked of giscus.app');
+
+        const on = await board('giscus', {
+            repo: 'MrHakan/mrhakan.github.io', repoId: 'R_kgDOTEST01',
+            category: 'Guestbook', categoryId: 'DIC_kwDOTEST01'
+        });
+        expect(on.mount === true && on.form === false, 'configured, giscus takes over and the copy-paste form goes',
+            JSON.stringify({ form: on.form, mount: on.mount }));
+        expect(!!on.attrs && on.attrs['data-repo-id'] === 'R_kgDOTEST01' && on.attrs['data-category-id'] === 'DIC_kwDOTEST01',
+            'with the ids from the config on the script', JSON.stringify(on.attrs));
+        expect(!!on.attrs && /giscus-win98\.css$/.test(on.attrs['data-theme'] || ''),
+            'and the win98 theme, since the frame cannot see style.css', on.attrs && on.attrs['data-theme']);
+
+        const half = await board('half', {
+            repo: 'MrHakan/mrhakan.github.io', repoId: 'R_kgDOTEST01',
+            category: 'Guestbook', categoryId: ''
+        });
+        expect(half.form === true && half.mount === false && half.reached === null,
+            'a half-filled config falls back rather than showing an empty box', JSON.stringify(half));
+    }
 } catch (e) {
     bad('the run fell over', e.stack || e.message);
 }

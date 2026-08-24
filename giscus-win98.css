@@ -1,0 +1,218 @@
+/* ===================================================================
+ * giscus-win98.css — the guestbook, wearing the rest of the site
+ *
+ * giscus renders inside an iframe on giscus.app, so none of style.css
+ * reaches it. What it does support is a theme by URL: point
+ * data-theme at this file and it loads it inside the frame. This is
+ * that file — the same bevels, the same greys, the same pixel type as
+ * the window it sits in.
+ *
+ * It is served from this repo, so it has to stay a plain stylesheet
+ * with no imports and no external fonts: the frame is on another
+ * origin and will not fetch them.
+ * =================================================================== */
+
+:root {
+    --w98-face: #c0c0c0;
+    --w98-light: #ffffff;
+    --w98-shadow: #808080;
+    --w98-dark: #000000;
+    --w98-field: #ffffff;
+    --w98-ink: #000000;
+    --w98-dim: #555555;
+    --w98-link: #0000cc;
+    --w98-title: #000080;
+    --w98-titletext: #ffffff;
+    --w98-accent: #008080;
+
+    color-scheme: light;
+}
+
+/* giscus reads these for its own components */
+:root {
+    --color-prettylights-syntax-comment: #6e7781;
+    --color-prettylights-syntax-constant: #0550ae;
+    --color-prettylights-syntax-entity: #8250df;
+    --color-prettylights-syntax-string: #0a3069;
+    --color-prettylights-syntax-keyword: #cf222e;
+    --color-btn-text: var(--w98-ink);
+    --color-btn-bg: var(--w98-face);
+    --color-btn-border: var(--w98-shadow);
+    --color-btn-shadow: none;
+    --color-btn-inset-shadow: none;
+    --color-btn-hover-bg: #d4d0c8;
+    --color-btn-hover-border: var(--w98-shadow);
+    --color-btn-active-bg: #b0b0b0;
+    --color-btn-active-border: var(--w98-shadow);
+    --color-btn-primary-text: var(--w98-ink);
+    --color-btn-primary-bg: var(--w98-face);
+    --color-btn-primary-border: var(--w98-shadow);
+    --color-btn-primary-hover-bg: #d4d0c8;
+    --color-btn-primary-hover-border: var(--w98-shadow);
+    --color-btn-primary-disabled-text: var(--w98-shadow);
+    --color-btn-primary-disabled-bg: var(--w98-face);
+    --color-btn-primary-disabled-border: var(--w98-shadow);
+    --color-fg-default: var(--w98-ink);
+    --color-fg-muted: var(--w98-dim);
+    --color-fg-subtle: var(--w98-shadow);
+    --color-canvas-default: var(--w98-face);
+    --color-canvas-overlay: var(--w98-face);
+    --color-canvas-inset: var(--w98-field);
+    --color-canvas-subtle: #dfdfdf;
+    --color-border-default: var(--w98-shadow);
+    --color-border-muted: #a0a0a0;
+    --color-neutral-muted: #dfdfdf;
+    --color-accent-fg: var(--w98-link);
+    --color-accent-emphasis: var(--w98-title);
+    --color-accent-muted: #a8c0e0;
+    --color-accent-subtle: #e4ecf6;
+    --color-success-fg: #007000;
+    --color-danger-fg: #a00000;
+    --color-primer-shadow-inset: none;
+    --color-scale-gray-1: #dfdfdf;
+}
+
+/* ---------- the page inside the frame ---------- */
+main,
+.gsc-main {
+    background: var(--w98-face);
+    color: var(--w98-ink);
+    font-family: "MS Sans Serif", Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    padding: 6px;
+}
+
+body {
+    margin: 0;
+    background: var(--w98-face);
+}
+
+a,
+.gsc-comment-author-avatar + a,
+.gsc-comment-author a {
+    color: var(--w98-link);
+    text-decoration: underline;
+}
+
+/* ---------- the bevels ---------- */
+.gsc-comment > div,
+.gsc-comment-box,
+.gsc-reply-box,
+.gsc-pagination-button,
+.gsc-social-reaction-summary-item,
+.gsc-reactions-count {
+    background: var(--w98-face) !important;
+    border: 2px solid var(--w98-dark) !important;
+    border-top-color: var(--w98-light) !important;
+    border-left-color: var(--w98-light) !important;
+    border-right-color: var(--w98-shadow) !important;
+    border-bottom-color: var(--w98-shadow) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.gsc-comment > div {
+    margin-bottom: 6px;
+    padding: 4px;
+}
+
+/* the author line reads like a title bar */
+.gsc-comment-header {
+    background: linear-gradient(to right, var(--w98-title), #1084d0);
+    color: var(--w98-titletext);
+    padding: 2px 4px;
+    margin: -4px -4px 4px -4px;
+}
+
+.gsc-comment-header a,
+.gsc-comment-author-name {
+    color: var(--w98-titletext) !important;
+    font-weight: bold;
+}
+
+.gsc-comment-author-avatar img,
+img.gsc-comment-author-avatar {
+    border: 1px solid var(--w98-dark);
+    border-radius: 0 !important;
+    image-rendering: pixelated;
+}
+
+/* ---------- writing one ---------- */
+.gsc-comment-box-tabs,
+.gsc-comment-box-write,
+.gsc-comment-box-preview {
+    background: var(--w98-face);
+    border-radius: 0;
+}
+
+.gsc-comment-box-textarea,
+textarea {
+    background: var(--w98-field) !important;
+    color: var(--w98-ink) !important;
+    border: 2px solid var(--w98-shadow) !important;
+    border-top-color: var(--w98-dark) !important;
+    border-left-color: var(--w98-dark) !important;
+    border-right-color: var(--w98-light) !important;
+    border-bottom-color: var(--w98-light) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: "Courier New", monospace;
+    font-size: 13px;
+}
+
+button,
+.btn,
+.gsc-comment-box-btn,
+.gsc-pagination-button {
+    background: var(--w98-face) !important;
+    color: var(--w98-ink) !important;
+    border: 2px solid var(--w98-dark) !important;
+    border-top-color: var(--w98-light) !important;
+    border-left-color: var(--w98-light) !important;
+    border-right-color: var(--w98-shadow) !important;
+    border-bottom-color: var(--w98-shadow) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: "MS Sans Serif", Tahoma, sans-serif;
+    font-weight: bold;
+    padding: 2px 10px;
+}
+
+button:active,
+.btn:active,
+.gsc-comment-box-btn:active {
+    border-top-color: var(--w98-shadow) !important;
+    border-left-color: var(--w98-shadow) !important;
+    border-right-color: var(--w98-light) !important;
+    border-bottom-color: var(--w98-light) !important;
+    transform: translateY(1px);
+}
+
+/* ---------- the bits that give away that it is a modern web app ---------- */
+.gsc-reactions,
+.gsc-header,
+.gsc-timeline-tail,
+.gsc-comment-box-tabs .gsc-comment-box-preview {
+    border-radius: 0;
+}
+
+.gsc-loading-image {
+    display: none;
+}
+
+.gsc-loading-text::after {
+    content: " (please wait...)";
+}
+
+/* the frame is dropped into a white bevel on the page, so it should not
+   also paint its own outer margin */
+.gsc-comments > .gsc-header {
+    padding: 0 0 4px 0;
+}
+
+/* the site is legible in either scheme; giscus is not asked to be */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: light;
+    }
+}

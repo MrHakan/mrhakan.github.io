@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v13';
+const CACHE = 'mrhakan98-v14';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -45,8 +45,10 @@ const PRECACHE = [
     '/guestbook.html',
     '/404.html',
     '/src/js/typed.umd.js',
+    '/giscus-win98.css',
     '/data/site.json',
     '/data/posts.json',
+    '/data/github.json',
     '/src/projects.json',
     '/src/fonts/material-symbols-subset.woff2',
     '/src/emoj/dusung.png',

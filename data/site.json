@@ -164,6 +164,16 @@
     ],
     "changelog": [
         {
+            "version": "9.1",
+            "date": "2026-08-24",
+            "changes": [
+                "the repo grid and user.dat used to call the github api anonymously, which is sixty requests an hour per ip \u2014 a budget shared by everyone behind one address. so \"repos: ?\" and \"error loading git objects\" were what a lot of people actually saw. a workflow now takes a snapshot once a day with a token, writes data/github.json and commits it; the page reads a static file, and it is still there when the connection is not.",
+                "the fetcher refuses to write a private repository into that file, and the checks verify the committed one carries none \u2014 a snapshot of a public site is not a place to find out afterwards.",
+                "the guestbook can be one click now. giscus keeps the same no-backend idea \u2014 github holds the words, nothing is committed here \u2014 but a visitor signs in and comments instead of copying an entry, opening a gist and pasting it. it is off until two ids are in data/site.json, so the gist board keeps running until then, and a half-filled config falls back rather than showing an empty box.",
+                "the frame is on giscus.app so style.css cannot reach into it \u2014 giscus-win98.css is passed as its theme instead: same bevels, same greys, same title bars as the window it sits in."
+            ]
+        },
+        {
             "version": "9.0",
             "date": "2026-08-24",
             "changes": [
@@ -435,5 +445,12 @@
         "guestbook": "498b5a262bbba0289a344d0d75cc1683",
         "shouts": "73cb5a6e7e8325e0858427b255a95a87",
         "note": "each board is a public gist, and its comment thread is the board. paste the gist id (the hex blob in its url) here — see data/README.md."
+    },
+    "giscus": {
+        "repo": "MrHakan/mrhakan.github.io",
+        "repoId": "",
+        "category": "Guestbook",
+        "categoryId": "",
+        "note": "sign the guestbook in one click instead of copy-paste-into-a-gist. needs Discussions on in the repo settings and the giscus app installed on it, then paste the two ids from giscus.app here. leave repoId or categoryId empty and the gist board is used instead — see data/README.md."
     }
 }
