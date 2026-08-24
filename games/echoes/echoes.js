@@ -2757,7 +2757,10 @@
         const p = g.p;
         return '<div class="et-main"><div class="et-scroll">'
             + '<canvas class="et-canvas et-world" id="et-world" width="' + (VIEW_W * WORLD_SCALE) + '" height="' + (VIEW_H * WORLD_SCALE) + '"></canvas>'
-            + '<div class="et-dim">arrow keys or wasd to walk · space to look at what you are facing</div>'
+            + '<div class="et-padhost"></div>'
+            + '<div class="et-dim">' + (window.TOUCH && TOUCH.coarse()
+                ? 'the pad walks · A looks at what you are facing'
+                : 'arrow keys or wasd to walk · space to look at what you are facing') + '</div>'
             + '<div class="et-abils">'
             + btn('screen:sheet', 'character') + btn('screen:skills', 'skills' + (p.skill_points ? ' (' + p.skill_points + ')' : ''))
             + btn('screen:gear', 'gear') + btn('screen:chart', 'chart')
@@ -3433,6 +3436,9 @@
         const withSide = g.screen !== 'create' && g.screen !== 'ending';
         g.body.innerHTML = '<div class="et-body"><div class="et-two">' + (withSide ? sideBar(g) : '') + fn(g) + '</div></div>';
         if (['angling', 'forge', 'world', 'combat'].indexOf(g.screen) >= 0) ensureLoop(g);
+        // render() replaces the whole body, so the pad goes with it and has
+        // to be put back — and only on the screen that walks
+        if (g.refreshPad) g.refreshPad();
         if (window.FX && FX.on() && withSide) {
             const els = g.body.querySelectorAll('.et-main .et-btn');
             if (els.length) FX.reveal(els, { each: 0.02, duration: 140 });
@@ -3774,9 +3780,31 @@
         document.addEventListener('keydown', keyDown);
         document.addEventListener('keyup', keyUp);
 
+        // A phone has no arrow keys, so the overworld was not merely awkward
+        // there — it could not be walked at all. The pad sets the same held
+        // flags the keyboard sets and calls the same interact, so there is
+        // one movement path and the pad is just another way of pressing it.
+        const T = window.TOUCH;
+        const padFor = () => {
+            if (g.pad) { g.pad.destroy(); g.pad = null; }
+            if (!T || g.screen !== 'world' || !g.world) return;
+            g.pad = T.pad(body.querySelector('.et-padhost'), {
+                onDir: (dir, down) => {
+                    if (!g.world || g.screen !== 'world') return;
+                    g.world.held[dir] = down;
+                },
+                buttons: [
+                    { label: 'A', title: 'look at what you are facing', onPress: () => { if (g.screen === 'world') worldInteract(g); } },
+                    { label: '☰', title: 'the menu', onPress: () => { g.screen = 'sheet'; render(g); } }
+                ]
+            });
+        };
+        g.refreshPad = padFor;
+
         win._cleanup = () => {
             g.open = false;
             if (g.raf) cancelAnimationFrame(g.raf);
+            if (g.pad) { g.pad.destroy(); g.pad = null; }
             document.removeEventListener('keydown', keyDown);
             document.removeEventListener('keyup', keyUp);
             if (g.p) save(g);

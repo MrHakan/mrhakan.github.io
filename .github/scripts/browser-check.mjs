@@ -10,7 +10,7 @@
 //
 // Needs a static server on :8099 and playwright's chromium.
 // ===================================================================
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import fs from 'fs';
 
 const BASE = process.env.SITE_URL || 'http://localhost:8099/index.html';
@@ -856,6 +856,86 @@ try {
         });
         expect(half.form === true && half.mount === false && half.reached === null,
             'a half-filled config falls back rather than showing an empty box', JSON.stringify(half));
+    }
+    section('on a phone');
+    {
+        // A real device profile, not a narrow desktop window: coarse pointer,
+        // a device pixel ratio, and the touch events that come with it.
+        const phone = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' });
+        await phone.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
+        const p = await phone.newPage();
+        const perrs = [];
+        p.on('pageerror', e => perrs.push(e.message));
+        await p.goto(BASE, { waitUntil: 'load' });
+        await p.keyboard.press('Enter');
+        await p.waitForTimeout(1800);
+
+        const seen = await p.evaluate(() => ({
+            coarse: window.TOUCH.coarse(),
+            narrow: window.TOUCH.narrow(),
+            classes: document.documentElement.className,
+            vw: window.TOUCH.viewportWidth(),
+            scrollW: document.documentElement.scrollWidth
+        }));
+        expect(seen.coarse === true, 'the site knows it is on a touch device', JSON.stringify(seen));
+        expect(/is-touch/.test(seen.classes), 'and says so on the root element', seen.classes);
+        // one unsized image is enough to widen a phone's layout viewport, which
+        // is what used to put app windows off the side of the screen
+        expect(seen.scrollW <= seen.vw + 4, 'and the page does not scroll sideways',
+            seen.scrollW + ' wide on a ' + seen.vw + 'px screen');
+
+        await p.evaluate(() => { window.soundEnabled = false; localStorage.removeItem('ECHOES_OF_THE_TIDE_SAVE'); });
+        await p.evaluate(() => window.openEchoes());
+        await p.waitForSelector('.et-body', { timeout: 15000 });
+
+        // the window has to land on the screen, not beside it
+        const winBox = await p.locator('.app-window').last().boundingBox();
+        expect(winBox && winBox.x >= -2 && winBox.x + winBox.width <= seen.vw + 4,
+            'an app window opens on the screen rather than off the side of it',
+            JSON.stringify(winBox));
+
+        await p.fill('#et-name', 'thumb');
+        await p.fill('#et-seed', '5');
+        await p.locator('.et-body button', { hasText: 'take the boat out' }).first().click();
+        await p.waitForTimeout(1000);
+
+        const key = p.locator('.tp-key.tp-down');
+        expect(await key.isVisible(), 'the overworld gets an on-screen pad');
+        const kb = await key.boundingBox();
+        expect(kb && kb.width >= 44 && kb.height >= 44, 'with keys a fingertip can actually hit',
+            kb && Math.round(kb.width) + 'x' + Math.round(kb.height));
+        expect(kb && kb.y + kb.height <= p.viewportSize().height,
+            'and it is on screen with the map, not below the fold',
+            kb && Math.round(kb.y + kb.height) + ' vs ' + p.viewportSize().height);
+
+        const where = () => p.evaluate(() => window.ET_ENGINE.where());
+        const from = await where();
+        await p.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2);
+        await p.mouse.down();
+        await p.waitForTimeout(500);
+        await p.mouse.up();
+        await p.waitForTimeout(300);
+        const to = await where();
+        expect(to && to.y > from.y, 'holding a key on the pad walks the diver',
+            JSON.stringify([from && from.y, to && to.y]));
+
+        // a finger that slides off the key must not leave it walking forever
+        await p.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2);
+        await p.mouse.down();
+        await p.waitForTimeout(150);
+        await p.mouse.move(4, 4);
+        await p.mouse.up();
+        await p.waitForTimeout(500);
+        const restA = await where();
+        await p.waitForTimeout(500);
+        const restB = await where();
+        expect(restA && restB && restA.x === restB.x && restA.y === restB.y,
+            'and a finger sliding off it stops the walk rather than jamming the key down',
+            JSON.stringify([restA, restB]));
+
+        await p.screenshot({ path: SHOTS + '/11-phone.png' });
+        expect(perrs.length === 0, 'and nothing threw on the way', perrs.slice(0, 3).join('; '));
+        await phone.close();
     }
 } catch (e) {
     bad('the run fell over', e.stack || e.message);

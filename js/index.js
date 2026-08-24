@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof initScreensaver === 'function') initScreensaver();
     initAssistant();
 
-    if (window.innerWidth < 768) {
+    if (viewportWidth() < 768) {
         const mainWindow = document.getElementById('main-window');
         if (mainWindow) mainWindow.style.position = 'relative';
         console.log('PDA mode detected - drag disabled');
@@ -1278,7 +1278,7 @@ function openIEWindow(url, title) {
     const win = document.createElement('div');
     win.className = 'ie-window bevel-out';
     win.id = id;
-    const isMobile = window.innerWidth < 768;
+    const isMobile = viewportWidth() < 768;
     win.style.left = isMobile ? '2vw' : `${60 + (ieWindowCount * 35) % 220}px`;
     win.style.top = isMobile ? '60px' : `${70 + (ieWindowCount * 30) % 160}px`;
     win.style.zIndex = ++ieHighestZ;
@@ -1897,6 +1897,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // generic app window manager (used by minesweeper / paint / task mgr)
 // ===================================================================
 let appWinCount = 0;
+// the width css is actually laid out at. window.innerWidth is not it on a
+// phone — see the note in js/touch.js. This is the same function, kept here
+// so index.js still lays windows out correctly if touch.js has not loaded.
+function viewportWidth() {
+    if (window.TOUCH && TOUCH.viewportWidth) return TOUCH.viewportWidth();
+    return (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 0;
+}
+
 function createAppWindow(title, opts = {}) {
     appWinCount++;
     ieHighestZ = (typeof ieHighestZ === 'number' ? ieHighestZ : 200) + 1;
@@ -1904,10 +1912,10 @@ function createAppWindow(title, opts = {}) {
     const win = document.createElement('div');
     win.className = 'app-window bevel-out';
     win.id = id;
-    const isMobile = window.innerWidth < 768;
+    const isMobile = viewportWidth() < 768;
     const w = opts.width || 320;
     win.style.width = isMobile ? '94vw' : `${w}px`;
-    win.style.left = isMobile ? '3vw' : `${Math.max(10, (window.innerWidth - w) / 2 + (appWinCount * 24) % 120 - 60)}px`;
+    win.style.left = isMobile ? '3vw' : `${Math.max(10, (viewportWidth() - w) / 2 + (appWinCount * 24) % 120 - 60)}px`;
     win.style.top = isMobile ? '54px' : `${70 + (appWinCount * 26) % 130}px`;
     win.style.zIndex = ieHighestZ;
 
@@ -2124,7 +2132,9 @@ function openMinesweeper() {
             <div class="ms-counter" id="ms-timer">000</div>
         </div>
         <div class="ms-grid bevel-in" id="ms-grid"></div>
-        <p class="text-[10px] font-pixel text-black mt-1 text-center">left: dig &middot; right: flag</p>`;
+        <p class="text-[10px] font-pixel text-black mt-1 text-center">${window.TOUCH && TOUCH.coarse()
+            ? 'tap: dig &middot; hold: flag'
+            : 'left: dig &middot; right: flag'}</p>`;
     const gridEl = body.querySelector('#ms-grid');
     const faceEl = body.querySelector('#ms-face');
     const minesEl = body.querySelector('#ms-mines');
@@ -2215,6 +2225,8 @@ function openMinesweeper() {
             }
             cell.addEventListener('click', () => reveal(r, c));
             cell.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleFlag(r, c); });
+            // a finger has no right button, so holding still is the flag
+            if (window.TOUCH) TOUCH.longPress(cell, () => toggleFlag(r, c));
             gridEl.appendChild(cell);
         }
     }
