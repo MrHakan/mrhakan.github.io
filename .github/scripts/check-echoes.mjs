@@ -72,7 +72,7 @@ function loadInto(w, file) {
     new Function('window', 'localStorage', 'document', 'btoa', 'atob', read(file))(w, w.localStorage, w.document, w.btoa, w.atob);
 }
 // load order matters: the engine reads the world's tile size at module scope
-for (const f of ['games/echoes-core.js', 'games/echoes-sprites.js', 'games/echoes-world.js', 'games/echoes-data.js', 'games/echoes.js']) {
+for (const f of ['games/echoes/echoes-core.js', 'games/echoes/echoes-sprites.js', 'games/echoes/echoes-world.js', 'games/echoes/echoes-data.js', 'games/echoes/echoes.js']) {
     try { loadInto(win, f); ok(f + ' runs'); }
     catch (e) { bad(f + ' runs', e.message); }
 }
@@ -613,7 +613,7 @@ expect(migrated && migrated.save_version === se.currentVersion, 'an old save mig
 expect(migrated.player.life_skills && migrated.player.vitals.max_marrow_mana !== undefined && migrated.nemesis_roster,
     'and arrives with every field the current version expects');
 expect(se.migrate({ save_version: '9.9.9', player: {}, world_state: {} }) === null, 'a save from the future is refused');
-expect(read('games/echoes.js').includes("'ECHOES_OF_THE_TIDE_SAVE'"), 'the game uses the document\'s storage key');
+expect(read('games/echoes/echoes.js').includes("'ECHOES_OF_THE_TIDE_SAVE'"), 'the game uses the document\'s storage key');
 
 // a real profile with gear, runes and a mutated roster survives the trip
 const rg = makeGame(555);
@@ -1113,7 +1113,7 @@ section('the overworld maps');
     // the act-two choice is made by talking to three people, so all three
     // have to actually be standing somewhere
     // the chart tells you what is down there; the hauler is what takes you
-    const engineSrc = read('games/echoes.js');
+    const engineSrc = read('games/echoes/echoes.js');
     expect(/case 'travel': g\.screen = 'berth'/.test(engineSrc), 'looking at the hauler opens the berth');
     expect(/chartCards\(g, false\)/.test(engineSrc) && /chartCards\(g, true\)/.test(engineSrc),
         'and the chart itself no longer sails you anywhere');
@@ -1129,7 +1129,8 @@ section('the overworld maps');
 section('wired into the desktop');
 // ===================================================================
 const sw = read('sw.js');
-const gameFiles = ['echoes-core.js', 'echoes-sprites.js', 'echoes-world.js', 'echoes-data.js', 'echoes.js'];
+const gameFiles = ['echoes-core.js', 'echoes-sprites.js', 'echoes-world.js', 'echoes-data.js', 'echoes.js']
+    .map(f => 'echoes/' + f);
 expect(gameFiles.every(f => sw.includes("'/games/" + f + "'")),
     'the service worker precaches all five game files',
     gameFiles.filter(f => !sw.includes("'/games/" + f + "'")).join(', '));
@@ -1148,7 +1149,7 @@ const achievements = ['echoes', 'echoes-ten', 'echoes-lord', 'echoes-boss', 'ech
     'echoes-relic', 'echoes-faction', 'echoes-codex', 'echoes-end'];
 const missingAch = achievements.filter(id => !new RegExp("'?" + id.replace(/-/g, '\\-') + "'?\\s*:").test(fun));
 expect(missingAch.length === 0, 'every achievement the game unlocks exists in fun.js', missingAch.join(', '));
-expect(read('games/ECHOES-GDD.md').length > 12000, 'the design document is in the repo');
+expect(read('games/echoes/ECHOES-GDD.md').length > 12000, 'the design document is in the repo');
 
 // ===================================================================
 console.log(`\n${checks - failures}/${checks} checks passed`);

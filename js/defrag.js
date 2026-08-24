@@ -72,7 +72,7 @@
             { name: '/index.html', bytes: 96000 }, { name: '/css/style.css', bytes: 148000 },
             { name: '/js/index.js', bytes: 112000 }, { name: '/js/apps.js', bytes: 31000 },
             { name: '/js/extras.js', bytes: 42000 }, { name: '/js/fun.js', bytes: 38000 },
-            { name: '/games/wizardz.js', bytes: 120000 }, { name: '/games/balatro.js', bytes: 96000 },
+            { name: '/games/wizardz/wizardz.js', bytes: 120000 }, { name: '/games/jokerz/balatro.js', bytes: 96000 },
             { name: '/sw.js', bytes: 4000 }
         ];
     }

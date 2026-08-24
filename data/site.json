@@ -458,9 +458,11 @@
     },
     "giscus": {
         "repo": "MrHakan/mrhakan.github.io",
-        "repoId": "",
-        "category": "Guestbook",
+        "repoId": "MDEwOlJlcG9zaXRvcnkzNDk4MjY5NjQ=",
+        "category": "Announcements",
         "categoryId": "",
-        "note": "sign the guestbook in one click instead of copy-paste-into-a-gist. needs Discussions on in the repo settings and the giscus app installed on it, then paste the two ids from giscus.app here. leave repoId or categoryId empty and the gist board is used instead — see data/README.md."
+        "guestbook": { "term": "Guestbook" },
+        "shouts": { "term": "Shoutbox" },
+        "note": "one click instead of copy-paste-into-a-gist. both boards live in the Announcements category and are told apart by the discussion TITLE, which is each board's \u0022term\u0022. everything here is already correct except categoryId \u2014 get that one value from https://giscus.app (pick Announcements; it prints data-category-id) and both boards switch over at once. until it is there, both fall back to their gists. see data/README.md."
     }
 }

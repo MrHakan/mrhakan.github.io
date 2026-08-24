@@ -149,16 +149,34 @@
     // configured once both ids are there — giscus cannot mount without
     // them, and a half-filled config should fall back to the gist board
     // rather than render an empty box.
-    function giscusConfig(site) {
+    // Each board gets its own discussion category, so the guestbook and the
+    // shoutbox can be switched over one at a time. The old shape — a single
+    // category at the top level — still reads as the guestbook's, so a
+    // config written before this keeps working.
+    function giscusConfig(site, kind) {
         const g = (site && site.giscus) || {};
+        const board = kind || 'guestbook';
+        const per = g[board] || (board === 'guestbook' ? g : {});
+        // both boards can live in one category — they are told apart by the
+        // discussion title, not the category — so a category set at the top
+        // level is inherited by any board that does not name its own
+        const pick = (k) => (per[k] !== undefined && per[k] !== '' ? per[k] : g[k]);
         const repo = String(g.repo || '');
+        const id = v => (/^[A-Za-z0-9_=-]{4,120}$/.test(String(v || '')) ? String(v) : '');
         const cfg = {
+            board: board,
             // owner/name, and nothing that is not one
             repo: /^[A-Za-z0-9._-]{1,39}\/[A-Za-z0-9._-]{1,100}$/.test(repo) ? repo : '',
             // giscus node ids are opaque; allow what GitHub actually issues
-            repoId: /^[A-Za-z0-9_=-]{4,120}$/.test(String(g.repoId || '')) ? String(g.repoId) : '',
-            category: String(g.category || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60),
-            categoryId: /^[A-Za-z0-9_=-]{4,120}$/.test(String(g.categoryId || '')) ? String(g.categoryId) : ''
+            repoId: id(g.repoId),
+            category: String(pick('category') || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60),
+            categoryId: id(pick('categoryId')),
+            // the discussion each board maps onto, so two boards in one repo
+            // do not end up sharing a thread. giscus finds it by the
+            // discussion's title, so if you opened one by hand and called it
+            // something else, say so here rather than renaming it.
+            term: String(per.term || (board === 'shouts' ? 'shoutbox' : 'guestbook'))
+                .replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80)
         };
         cfg.ready = !!(cfg.repo && cfg.repoId && cfg.categoryId);
         return cfg;
