@@ -28,18 +28,19 @@
   <link rel="me" href="https://www.youtube.com/@MrHakanYT" />
   <link rel="me" href="https://steamcommunity.com/id/prufski/" />
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <link href="style.css" rel="stylesheet" />
+  <link href="css/style.css" rel="stylesheet" />
   <script src="src/js/typed.umd.js" defer></script>
-  <script src="fx.js" defer></script>
-  <script src="charts.js" defer></script>
-  <script src="defrag.js" defer></script>
-  <script src="guestbook.js" defer></script>
-  <script src="index.js" defer></script>
-  <script src="themes.js" defer></script>
-  <script src="apps.js" defer></script>
-  <script src="fun.js" defer></script>
-  <script src="pages.js" defer></script>
-  <script src="extras.js" defer></script>
+  <script src="js/fx.js" defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="js/defrag.js" defer></script>
+  <script src="js/documents.js" defer></script>
+  <script src="js/guestbook.js" defer></script>
+  <script src="js/index.js" defer></script>
+  <script src="js/themes.js" defer></script>
+  <script src="js/apps.js" defer></script>
+  <script src="js/fun.js" defer></script>
+  <script src="js/pages.js" defer></script>
+  <script src="js/extras.js" defer></script>
   <script>
     // offline support: open the site once and it keeps working with the cable out
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
@@ -501,6 +502,8 @@
                 class="material-symbols-outlined text-green-700">public</span>dial-up networking</button>
             <button onclick="startMenuAction('defrag')" class="start-item"><span
                 class="material-symbols-outlined text-blue-600">storage</span>disk defragmenter</button>
+            <button onclick="startMenuAction('documents')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-600">folder</span>my documents</button>
           </div>
         </div>
         <div class="start-sub">

@@ -380,7 +380,33 @@ who remembers it — `+2 grudge` and a `demoted` memory.
 | phobia | Terrified of Flares | a flare or Sun relic makes it cower two turns |
 | phobia | Phobia: Ash Fire | it has burned once and will not stand for it again |
 
-### 3.4 Ambush
+### 3.4 The courier — a lord that travels
+
+A Drowned Lord that has your blood on it can be sent after somebody else.
+There is no server behind this: the lord travels as a base64 code, the
+same way a save does, and the other player pastes it into their
+admiralty. It arrives *hunting* them, carrying your name, its grudge, and
+whatever it learned from killing you. When they end it, a receipt goes
+back the other way and your copy dies too.
+
+What arrives is a stranger's JSON that becomes a creature which fights
+you and a name that gets drawn on your screen, so nothing in it is taken
+on trust:
+
+| field | what happens to it |
+| --- | --- |
+| `nemesis_id` | thrown away and reissued — an incoming lord must not be able to name itself over one already on your wall |
+| `name`, `title`, dialogue | stripped of control characters and zero-width tricks, cut to 24 / 160 characters |
+| `level`, `power_index`, `tier`, `grudge` | clamped to what this game could actually have produced |
+| `base_creature`, `current_zone`, every trait id | checked against the content file; anything invented is replaced or dropped |
+| `memories` | capped at six |
+| `combat_profile` | **ignored entirely** and recomputed locally from the identity |
+
+A checksum catches a hand-edited code; a lord cannot be sent back to the
+run it came from, cannot arrive twice, and a receipt can only be redeemed
+by the seed that sent the lord, once.
+
+### 3.5 Ambush
 
 ```
 P(ambush) = clamp(0.05 + 0.04 × grudge + CowardScent(0.25) + hunting(0.08), 0, 0.65)

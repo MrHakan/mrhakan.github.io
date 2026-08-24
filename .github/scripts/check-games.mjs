@@ -35,9 +35,19 @@ function section(name) { console.log('\n== ' + name + ' =='); }
 // ===================================================================
 section('javascript parses');
 // ===================================================================
-const JS_FILES = fs.readdirSync(ROOT).filter(f => f.endsWith('.js'))
-    .concat(fs.readdirSync(path.join(ROOT, 'games')).filter(f => f.endsWith('.js')).map(f => 'games/' + f))
-    .concat(fs.existsSync(path.join(ROOT, 'server')) ? fs.readdirSync(path.join(ROOT, 'server')).filter(f => f.endsWith('.js')).map(f => 'server/' + f) : []);
+// every directory that holds this site's own javascript. Named rather than
+// discovered: the scripts moved into js/ once and this quietly stopped
+// checking thirteen files, which is not a thing a syntax check should be
+// able to do silently.
+const JS_DIRS = ['', 'js', 'games', 'server'];
+const JS_FILES = JS_DIRS.flatMap(dir => {
+    const abs = dir ? path.join(ROOT, dir) : ROOT;
+    if (!fs.existsSync(abs)) return [];
+    return fs.readdirSync(abs).filter(f => f.endsWith('.js')).map(f => (dir ? dir + '/' + f : f));
+});
+expect(JS_FILES.length >= 30, 'the syntax check can see the whole site', JS_FILES.length + ' files');
+expect(JS_FILES.some(f => f.startsWith('js/')) && JS_FILES.some(f => f.startsWith('games/')),
+    'including both js/ and games/');
 for (const f of JS_FILES) {
     try {
         execFileSync(process.execPath, ['--check', path.join(ROOT, f)], { stdio: 'pipe' });
@@ -526,8 +536,8 @@ section('wired into the desktop');
 // ===================================================================
 const sw = read('sw.js');
 const html = read('index.html');
-const indexJs = read('index.js');
-const extras = read('extras.js');
+const indexJs = read('js/index.js');
+const extras = read('js/extras.js');
 ['games/netplay.js', 'games/wizardz-data.js', 'games/wizardz.js'].forEach(f =>
     expect(sw.includes('/' + f), 'service worker precaches ' + f));
 expect(/const CACHE = 'mrhakan98-v(\d+)'/.test(sw), 'service worker has a cache version');
@@ -536,10 +546,10 @@ expect(html.includes("startMenuAction('netplay')"), 'the lobby is in the start m
 expect(/wizardz: \(\) => openWizardz\(\)/.test(indexJs), 'wizardz is in the app action table');
 expect(/netplay: \(\) => openNetplay\(\)/.test(indexJs), 'the lobby is in the app action table');
 expect(/'wizardz':/.test(indexJs) && /'lobby':/.test(indexJs), 'both are reachable from the run box');
-expect(/function openWizardz/.test(extras), 'extras.js has the wizardz loader');
-expect(/function openNetplay/.test(extras), 'extras.js has the lobby loader');
+expect(/function openWizardz/.test(extras), 'js/extras.js has the wizardz loader');
+expect(/function openNetplay/.test(extras), 'js/extras.js has the lobby loader');
 expect(/\['wizardz 98', 'game'/.test(extras), 'wizardz is in find: files');
-const css = read('style.css');
+const css = read('css/style.css');
 expect(/\.wz-canvas/.test(css) && /\.np-code/.test(css), 'the stylesheet has the game and lobby styles');
 
 // every precached url has to actually be there, or the service worker
@@ -550,6 +560,102 @@ const missingPre = precache.split('\n').map(l => (l.match(/'([^']+)'/) || [])[1]
     .map(u => decodeURIComponent(u))
     .filter(u => u !== '/' && !exists(u.replace(/^\//, '')));
 expect(!missingPre.length, 'every precached file exists', missingPre.join(', '));
+
+// ===================================================================
+section('my documents');
+// ===================================================================
+// Every game keeps its progress in localStorage, which is per browser and
+// gone when somebody clears their site data. This folder is the only way
+// any of it leaves the machine, so its envelope has to be strict about
+// what it will write back.
+{
+    const store = new Map();
+    const win = {
+        localStorage: {
+            getItem: k => (store.has(k) ? store.get(k) : null),
+            setItem: (k, v) => store.set(k, String(v)),
+            removeItem: k => store.delete(k)
+        },
+        btoa: str => Buffer.from(str, 'binary').toString('base64'),
+        atob: str => Buffer.from(str, 'base64').toString('binary'),
+        unescape: unescape, escape: escape,
+        encodeURIComponent: encodeURIComponent, decodeURIComponent: decodeURIComponent
+    };
+    win.window = win;
+    try {
+        // eslint-disable-next-line no-new-func
+        new Function('window', 'localStorage', 'btoa', 'atob', read('js/documents.js'))(
+            win, win.localStorage, win.btoa, win.atob);
+        ok('documents.js runs without a dom');
+    } catch (e) { bad('documents.js runs without a dom', e.message); }
+
+    const DOC = win.DOCUMENTS;
+    if (DOC) {
+        const ids = DOC.DOCS.map(d => d.id);
+        expect(new Set(ids).size === ids.length, 'every document has its own id', ids.join(', '));
+        // a key owned by two documents means deleting one silently guts the other
+        const owner = {}, shared = [];
+        for (const d of DOC.DOCS) for (const k of d.keys) {
+            if (owner[k]) shared.push(k + ' (' + owner[k] + ' + ' + d.id + ')');
+            owner[k] = d.id;
+        }
+        expect(shared.length === 0, 'and no key belongs to two of them', shared.join(', '));
+        // the games the site actually has should all be in the folder
+        for (const want of ['echoes', 'jokerz', 'becomeuser', 'trollproblem', 'wizardz']) {
+            expect(ids.indexOf(want) >= 0, want + ' has a document');
+        }
+        // the keys have to be the ones the games really write
+        const realKeys = [read('games/echoes-core.js'), read('games/balatro.js'), read('games/become-user.js'),
+            read('games/troll-problem.js'), read('games/wizardz.js')].join('\n');
+        const wrong = ['ECHOES_OF_THE_TIDE_SAVE', 'jokerz98-run', 'becomeuser-run-v1',
+            'trollproblem-run-v2', 'mrhakan98-wizardz-avatar'].filter(k => !realKeys.includes(k));
+        expect(wrong.length === 0, 'and each one names a key its game really writes', wrong.join(', '));
+
+        // a document with nothing saved reports nothing, not a broken row
+        expect(DOC.DOCS.every(d => !DOC.present(d)), 'an empty machine has no documents');
+        expect(DOC.DOCS.every(d => DOC.summaryOf(d) === null), 'and no summaries to show');
+
+        // the envelope
+        win.localStorage.setItem('snake-best', '412');
+        win.localStorage.setItem('ECHOES_OF_THE_TIDE_SAVE', JSON.stringify({ player: { name: 'x', level: 3 } }));
+        const code = DOC.pack(null);
+        const back = DOC.unpack(code);
+        expect(back.ok && Object.keys(back.files).length === 2, 'a backup packs and unpacks',
+            JSON.stringify(back.error || Object.keys(back.files)));
+        expect(!DOC.unpack('hello there').ok, 'a paste of something else is refused');
+        expect(!DOC.unpack(win.btoa(JSON.stringify({ format: 'elsewhere', files: {} }))).ok,
+            'and so is a code from another site');
+        expect(DOC.unpack(win.btoa(JSON.stringify({
+            format: DOC.ENVELOPE, version: DOC.ENVELOPE_VERSION + 5, files: { 'snake-best': '1' }
+        }))).error === 'that backup is newer than this site', 'a backup from the future says so');
+        // tampering has to be caught: the checksum is the only thing that can
+        const tampered = JSON.parse(DOC.decode(code));
+        tampered.files['snake-best'] = '999999';
+        expect(!DOC.unpack(DOC.encode(JSON.stringify(tampered))).ok, 'and a damaged one is refused');
+        // and a valid backup may not put arbitrary keys in somebody's storage
+        const smuggled = JSON.parse(DOC.decode(code));
+        smuggled.files['not-ours'] = 'evil';
+        smuggled.checksum = DOC.checksum(JSON.stringify(smuggled.files));
+        const opened = DOC.unpack(DOC.encode(JSON.stringify(smuggled)));
+        expect(opened.ok && (opened.skipped || []).indexOf('not-ours') >= 0 && !opened.files['not-ours'],
+            'a key this site does not own is dropped rather than written',
+            JSON.stringify(opened.skipped));
+
+        // and it survives a real round trip
+        const saved = win.localStorage.getItem('ECHOES_OF_THE_TIDE_SAVE');
+        DOC.wipe(DOC.DOCS.find(d => d.id === 'echoes'));
+        expect(win.localStorage.getItem('ECHOES_OF_THE_TIDE_SAVE') === null, 'deleting a document deletes it');
+        DOC.restore(DOC.unpack(code).files);
+        expect(win.localStorage.getItem('ECHOES_OF_THE_TIDE_SAVE') === saved, 'and restoring brings it back byte for byte');
+    }
+
+    expect(/<script src="js\/documents\.js"/.test(read('index.html')), 'index.html loads it');
+    expect(/startMenuAction\('documents'\)/.test(read('index.html')), 'and it is in the start menu');
+    expect(/documents: openDocuments/.test(indexJs) && /'documents': openDocuments/.test(indexJs),
+        'the app table and the run box both know it');
+    expect(read('sw.js').includes("'/js/documents.js'"), 'the service worker precaches it');
+    expect(/openDocuments\(\)/.test(read('js/extras.js')), 'and find: files finds it');
+}
 
 // ===================================================================
 section('the github snapshot');
@@ -576,7 +682,7 @@ if (exists('data/github.json')) {
             thin.slice(0, 3).map(r => r.name).join(', '));
     }
 }
-expect(/fetch\('data\/github\.json'/.test(indexJs), 'index.js reads the snapshot');
+expect(/fetch\('data\/github\.json'/.test(indexJs), 'js/index.js reads the snapshot');
 expect(indexJs.indexOf("fetch('data/github.json'") < indexJs.indexOf("fetch('https://api.github.com/users/mrhakan/repos"),
     'and reaches for it before it reaches for the api');
 expect(/api\.github\.com\/users\/mrhakan/.test(indexJs), 'with the live api still there as a fallback');

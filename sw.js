@@ -7,25 +7,26 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v14';
+const CACHE = 'mrhakan98-v16';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
     '/',
     '/index.html',
-    '/style.css',
-    '/index.js',
-    '/guestbook.js',
-    '/fx.js',
-    '/charts.js',
-    '/defrag.js',
-    '/apps.js',
-    '/fun.js',
-    '/pages.js',
-    '/extras.js',
-    '/themes.js',
-    '/theme-scan.js',
-    '/theme-maker.js',
+    '/css/style.css',
+    '/js/index.js',
+    '/js/guestbook.js',
+    '/js/fx.js',
+    '/js/charts.js',
+    '/js/defrag.js',
+    '/js/documents.js',
+    '/js/apps.js',
+    '/js/fun.js',
+    '/js/pages.js',
+    '/js/extras.js',
+    '/js/themes.js',
+    '/js/theme-scan.js',
+    '/js/theme-maker.js',
     '/games/balatro-data.js',
     '/games/balatro-fx.js',
     '/games/balatro.js',
@@ -45,7 +46,7 @@ const PRECACHE = [
     '/guestbook.html',
     '/404.html',
     '/src/js/typed.umd.js',
-    '/giscus-win98.css',
+    '/css/giscus-win98.css',
     '/data/site.json',
     '/data/posts.json',
     '/data/github.json',

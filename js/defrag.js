@@ -69,9 +69,9 @@
         if (out.length > 4) return out;
         // a browser that will not say, or a page opened from a file://
         return [
-            { name: '/index.html', bytes: 96000 }, { name: '/style.css', bytes: 140000 },
-            { name: '/index.js', bytes: 92000 }, { name: '/apps.js', bytes: 38000 },
-            { name: '/extras.js', bytes: 44000 }, { name: '/fun.js', bytes: 34000 },
+            { name: '/index.html', bytes: 96000 }, { name: '/css/style.css', bytes: 148000 },
+            { name: '/js/index.js', bytes: 112000 }, { name: '/js/apps.js', bytes: 31000 },
+            { name: '/js/extras.js', bytes: 42000 }, { name: '/js/fun.js', bytes: 38000 },
             { name: '/games/wizardz.js', bytes: 120000 }, { name: '/games/balatro.js', bytes: 96000 },
             { name: '/sw.js', bytes: 4000 }
         ];

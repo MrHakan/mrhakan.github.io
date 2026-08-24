@@ -1,16 +1,13 @@
 {
-    "name": "retro-portfolio-backend",
+    "name": "mrhakan.github.io",
     "version": "1.0.0",
-    "description": "Backend for mrhakan's retro portfolio",
-    "main": "server.js",
+    "description": "a retro personal site with no build step: plain html, css and javascript, served straight off github pages. the scripts here are its test suite and the optional multiplayer relay, not a build.",
+    "private": true,
     "scripts": {
-        "start": "node server.js"
+        "test": "node .github/scripts/check-games.mjs && node .github/scripts/check-guestbook.mjs && node .github/scripts/check-motion.mjs && node .github/scripts/check-defrag.mjs && node .github/scripts/check-echoes.mjs && node server/relay-smoke.mjs",
+        "relay": "node server/relay.js",
+        "serve": "python3 -m http.server 8099"
     },
-    "dependencies": {
-        "body-parser": "^1.20.2",
-        "cors": "^2.8.5",
-        "express": "^4.18.2",
-        "express-rate-limit": "^8.2.1",
-        "xss": "^1.0.15"
-    }
+    "devDependencies": {},
+    "dependencies": {}
 }

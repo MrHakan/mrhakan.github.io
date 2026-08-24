@@ -574,6 +574,221 @@
     function rosterCount(g, tier) { return g.roster.filter(n => n.tier === tier && n.status === 'active').length; }
 
     // A nameless thing that kills a diver is a Deck Captain by morning.
+    // ---------- the courier ----------
+    // A Drowned Lord that killed you can be sent after somebody else. There
+    // is no server behind this: the lord travels as a code, the same way a
+    // save does, and the other player pastes it into their admiralty.
+    //
+    // Everything that arrives is a stranger's JSON. It becomes a creature
+    // that fights you and a name that gets drawn on your screen, so nothing
+    // in it is taken on trust: the strings are cut to length and stripped,
+    // every id is checked against the content file, the numbers are clamped
+    // to what this game could actually have produced, and the combat profile
+    // is recomputed here from scratch rather than read out of the envelope.
+    const LORD_FORMAT = 'echoes-drowned-lord';
+    const LORD_FORMAT_VERSION = 1;
+    const RECEIPT_FORMAT = 'echoes-lord-ended';
+    const MAX_NAME = 24, MAX_LINE = 160, MAX_MEMORIES = 6, MAX_SENDER = 24;
+    const COURIER_MAX_LEVEL = MAX_LEVEL, COURIER_MAX_POWER = 90;
+
+    const b64 = {
+        encode: s => btoa(unescape(encodeURIComponent(s))),
+        decode: s => decodeURIComponent(escape(atob(s)))
+    };
+    function courierSum(str) {
+        let h = 5381;
+        for (let i = 0; i < str.length; i++) { h = ((h << 5) + h) + str.charCodeAt(i); h = h & h; }
+        return Math.abs(h).toString(16);
+    }
+    // one line of somebody else's text, with the control characters and the
+    // zero-width tricks taken out and a hard cap on the length
+    function courierText(v, max) {
+        return String(v === null || v === undefined ? '' : v)
+            .replace(/[\u0000-\u001f\u007f]/g, ' ')
+            .replace(/[\u200b-\u200f\u2028\u2029\ufeff]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, max);
+    }
+    const courierInt = (v, lo, hi, fallback) => {
+        const n = Math.round(Number(v));
+        return isFinite(n) ? clamp(n, lo, hi) : fallback;
+    };
+    // an id is only an id if the content file has one by that name
+    const courierId = (v, list, fallback) => (byId(list, String(v || '')) ? String(v) : fallback);
+    const courierIds = (arr, list) => (Array.isArray(arr) ? arr : [])
+        .map(x => String(x || ''))
+        .filter((x, i, a) => byId(list, x) && a.indexOf(x) === i)
+        .slice(0, 4);
+
+    function packLord(g, n) {
+        const p = g.p;
+        const body = {
+            name: courierText(n.name, MAX_NAME),
+            title: courierText(n.title, MAX_NAME),
+            rank: n.rank,
+            tier: n.tier,
+            level: n.level,
+            power_index: n.power_index,
+            grudge: n.grudge,
+            base_creature: n.base_creature,
+            current_zone: n.current_zone,
+            faction_origin: n.faction_origin,
+            traits: {
+                immunities: n.traits.immunities || [],
+                enrage_triggers: n.traits.enrage_triggers || [],
+                vulnerabilities: n.traits.vulnerabilities || [],
+                phobias: n.traits.phobias || []
+            },
+            dialogue_set: {
+                intro_encounter: courierText(n.dialogue_set.intro_encounter, MAX_LINE),
+                on_kill_player: courierText(n.dialogue_set.on_kill_player, MAX_LINE),
+                on_flee: courierText(n.dialogue_set.on_flee, MAX_LINE)
+            },
+            memories: (n.memories || []).slice(-MAX_MEMORIES).map(m => ({
+                event_type: courierText(m.event_type, 32),
+                timestamp_game_day: courierInt(m.timestamp_game_day, 0, 99999, 1),
+                location: courierText(m.location, 32),
+                detail: courierText(m.detail, MAX_LINE)
+            })),
+            sender: courierText(p.name, MAX_SENDER),
+            sender_seed: p.seed,
+            origin_id: n.nemesis_id
+        };
+        const raw = JSON.stringify(body);
+        return b64.encode(JSON.stringify({
+            format: LORD_FORMAT, version: LORD_FORMAT_VERSION,
+            sent_at: new Date().toISOString(), checksum: courierSum(raw), lord: body
+        }));
+    }
+
+    // returns { ok, lord, sender, error }. Never throws, never half-applies.
+    function unpackLord(g, code) {
+        let env;
+        try { env = JSON.parse(b64.decode(String(code || '').trim())); }
+        catch (e) { return { ok: false, error: 'that is not a lord' }; }
+        if (!env || env.format !== LORD_FORMAT) return { ok: false, error: 'that code is from somewhere else' };
+        if (env.version > LORD_FORMAT_VERSION) return { ok: false, error: 'that lord is from a newer tide' };
+        const body = env.lord;
+        if (!body || typeof body !== 'object') return { ok: false, error: 'there is nothing in it' };
+        if (env.checksum && env.checksum !== courierSum(JSON.stringify(body))) {
+            return { ok: false, error: 'that lord arrived damaged' };
+        }
+        if (g.p && body.sender_seed === g.p.seed) return { ok: false, error: 'that one is already yours' };
+
+        const rank = D.nemesisRanks.find(r => r.name === body.rank) || D.nemesisRanks[1];
+        const tier = courierInt(body.tier, 1, D.nemesisRanks.length - 1, 1);
+        const creature = courierId(body.base_creature, D.lordCreatures, D.lordCreatures[0].id);
+        const realm = realmById(body.current_zone) ? body.current_zone : (g.p ? g.p.realm : D.realms[0].id);
+        const n = {
+            // a fresh id: an incoming one must not be able to name itself
+            // over a lord already on your wall
+            nemesis_id: 'nem_' + (g.lordSeq++).toString(36) + 'x',
+            name: courierText(body.name, MAX_NAME) || 'Something',
+            title: courierText(body.title, MAX_NAME) || null,
+            rank: rank.name,
+            tier: tier,
+            power_index: courierInt(body.power_index, 1, COURIER_MAX_POWER, 10),
+            faction_origin: courierText(body.faction_origin, 32) || 'feral',
+            current_zone: realm,
+            status: 'hunting',
+            base_creature: creature,
+            level: courierInt(body.level, 1, COURIER_MAX_LEVEL, 5),
+            visual_traits: { scar: null, mutation: null, weapon: (byId(D.lordCreatures, creature) || {}).weapon },
+            combat_profile: { max_hp: 0, current_hp: 0, base_damage: 0, armor: 0, speed: 10 },
+            traits: {
+                immunities: courierIds(body.traits && body.traits.immunities, D.nemesisTraits.immunities),
+                enrage_triggers: courierIds(body.traits && body.traits.enrage_triggers, D.nemesisTraits.enrages),
+                vulnerabilities: courierIds(body.traits && body.traits.vulnerabilities, D.nemesisTraits.vulnerabilities),
+                phobias: courierIds(body.traits && body.traits.phobias, D.nemesisTraits.phobias)
+            },
+            memories: (Array.isArray(body.memories) ? body.memories : []).slice(0, MAX_MEMORIES).map(m => ({
+                event_type: courierText(m && m.event_type, 32) || 'travelled',
+                timestamp_game_day: courierInt(m && m.timestamp_game_day, 0, 99999, 1),
+                location: courierText(m && m.location, 32),
+                detail: courierText(m && m.detail, MAX_LINE)
+            })),
+            grudge: courierInt(body.grudge, 0, 5, 1),
+            dialogue_set: {
+                intro_encounter: courierText(body.dialogue_set && body.dialogue_set.intro_encounter, MAX_LINE)
+                    || pick(g.rng, D.lordDialogue.intro),
+                on_kill_player: courierText(body.dialogue_set && body.dialogue_set.on_kill_player, MAX_LINE)
+                    || pick(g.rng, D.lordDialogue.onKill),
+                on_flee: courierText(body.dialogue_set && body.dialogue_set.on_flee, MAX_LINE)
+                    || pick(g.rng, D.lordDialogue.onFlee)
+            },
+            sent_by: courierText(body.sender, MAX_SENDER) || 'somebody',
+            origin_id: courierText(body.origin_id, 40),
+            origin_seed: courierInt(body.sender_seed, 0, 4294967295, 0)
+        };
+        // the numbers are ours, computed from the identity — never theirs
+        refreshLordProfile(n);
+        return { ok: true, lord: n, sender: n.sent_by };
+    }
+
+    // a lord you have been sent joins the wall, hunting you
+    function receiveLord(g, code) {
+        const got = unpackLord(g, code);
+        if (!got.ok) return got;
+        const n = got.lord;
+        if (g.roster.some(x => x.origin_id && x.origin_id === n.origin_id)) {
+            g.lordSeq--;
+            return { ok: false, error: 'that one has already found you once' };
+        }
+        remember(n, 'travelled', g.p.world_state.current_day, n.current_zone,
+            'sent after you by ' + n.sent_by);
+        n.current_zone = g.p.realm;
+        g.roster.push(n);
+        log(g, lordDisplayName(n) + ' has come a long way to find you. ' + n.sent_by + ' sent it.', 'bad');
+        bus.emit('NEMESIS_ARRIVED', n);
+        achieve('echoes-courier');
+        save(g);
+        return { ok: true, lord: n };
+    }
+
+    // and when you end it, a receipt goes back the other way
+    function packReceipt(g, n) {
+        const body = {
+            origin_id: courierText(n.origin_id, 40),
+            origin_seed: n.origin_seed || 0,
+            name: courierText(lordDisplayName(n), MAX_NAME + MAX_NAME + 2),
+            ender: courierText(g.p.name, MAX_SENDER),
+            day: g.p.world_state.current_day
+        };
+        const raw = JSON.stringify(body);
+        return b64.encode(JSON.stringify({
+            format: RECEIPT_FORMAT, version: LORD_FORMAT_VERSION,
+            checksum: courierSum(raw), receipt: body
+        }));
+    }
+
+    function readReceipt(g, code) {
+        let env;
+        try { env = JSON.parse(b64.decode(String(code || '').trim())); }
+        catch (e) { return { ok: false, error: 'that is not a receipt' }; }
+        if (!env || env.format !== RECEIPT_FORMAT) return { ok: false, error: 'that code is from somewhere else' };
+        const body = env.receipt;
+        if (!body || typeof body !== 'object') return { ok: false, error: 'there is nothing in it' };
+        if (env.checksum && env.checksum !== courierSum(JSON.stringify(body))) {
+            return { ok: false, error: 'that receipt arrived damaged' };
+        }
+        if (g.p && body.origin_seed && body.origin_seed !== g.p.seed) {
+            return { ok: false, error: 'that receipt is for somebody else\'s lord' };
+        }
+        const n = g.roster.find(x => x.nemesis_id === courierText(body.origin_id, 40));
+        if (!n) return { ok: false, error: 'no lord of yours by that name' };
+        if (n.status === 'dead') return { ok: false, error: lordDisplayName(n) + ' was already ended' };
+        const ender = courierText(body.ender, MAX_SENDER) || 'somebody';
+        n.status = 'dead';
+        remember(n, 'ended_elsewhere', g.p.world_state.current_day, n.current_zone, 'ended by ' + ender);
+        g.p.stats.lords_ended = (g.p.stats.lords_ended || 0) + 1;
+        log(g, lordDisplayName(n) + ' is dead. ' + ender + ' finished it, a long way from here.', 'good');
+        bus.emit('NEMESIS_ENDED_ELSEWHERE', n);
+        achieve('echoes-courier');
+        save(g);
+        return { ok: true, lord: n, ender: ender };
+    }
+
     function promoteOnKill(g, foe, deathType) {
         const p = g.p;
         let n = foe.nemesis_id ? lordById(g.roster, foe.nemesis_id) : null;
@@ -3042,12 +3257,21 @@
     }
 
     function screenNemesis(g) {
+        // a lord that has your blood on it is worth sending somewhere else
+        const sendable = n => n.status !== 'dead' && n.status !== 'retired'
+            && (n.grudge > 0 || n.memories.some(m => m.event_type === 'killed_player'));
         return '<div class="et-main"><div class="et-scroll"><div class="et-h">the drowned admiralty</div>'
             + '<div class="et-dim">' + D.nemesisRanks.slice(1).map(r => r.slots + ' × ' + r.name).join(' · ') + '. The seats are alive.</div>'
+            + '<div class="et-place"><div class="et-place-name">the courier</div>'
+            + '<div class="et-place-blurb">a lord that has killed you can be sent after somebody else. it arrives on their wall'
+            + ' carrying your name and whatever it learned from you. when they end it, they can send a receipt back.</div>'
+            + '<div class="et-abils">' + btn('lord-recv', 'somebody sent one after me', { wide: true })
+            + btn('lord-receipt', 'read a receipt', { wide: true }) + '</div></div>'
             + g.roster.slice().sort((a, b) => (b.tier - a.tier) || (b.power_index - a.power_index)).map(n =>
                 '<div class="et-nem-full' + (n.status === 'dead' || n.status === 'retired' ? ' dead' : '') + '">'
                 + '<b>' + esc(lordDisplayName(n)) + '</b>'
-                + '<span>' + esc(n.rank) + ' · ' + esc(realmById(n.current_zone).name) + ' · lv ' + n.level + ' · power ' + n.power_index + ' · ' + esc(n.status) + '</span>'
+                + '<span>' + esc(n.rank) + ' · ' + esc(realmById(n.current_zone).name) + ' · lv ' + n.level + ' · power ' + n.power_index + ' · ' + esc(n.status)
+                + (n.sent_by ? ' · sent by ' + esc(n.sent_by) : '') + '</span>'
                 + '<i>"' + esc(n.dialogue_set.intro_encounter) + '"</i>'
                 + '<div class="et-nem-traits">'
                 + ['immunities', 'enrage_triggers', 'vulnerabilities', 'phobias'].map(k => (n.traits[k] || []).map(id => {
@@ -3057,6 +3281,8 @@
                 + (n.grudge ? '<span>grudge ' + n.grudge + '</span>' : '')
                 + '</div>'
                 + (n.memories.length ? '<i>' + esc(n.memories.slice(-3).map(m => 'day ' + m.timestamp_game_day + ': ' + m.detail).join(' — ')) + '</i>' : '')
+                + (sendable(n) ? '<div class="et-row">' + btn('lord-send', 'send it after somebody', { arg: n.nemesis_id }) + '</div>' : '')
+                + (n.sent_by && n.status === 'dead' ? '<div class="et-row">' + btn('lord-receipt-out', 'send the receipt back', { arg: n.nemesis_id }) + '</div>' : '')
                 + '</div>').join('')
             + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
@@ -3234,6 +3460,10 @@
             case 'newgame': return confirmNew(g);
             case 'export': return exportSave(g);
             case 'import': return importSave(g);
+            case 'lord-send': return sendLord(g, x);
+            case 'lord-recv': return receiveLordPrompt(g);
+            case 'lord-receipt': return readReceiptPrompt(g);
+            case 'lord-receipt-out': return sendReceipt(g, x);
             case 'story': return startDialogue(g, x);
             case 'say': return chooseOption(g, parseInt(x, 10));
             case 'event': return resolveEvent(g, parseInt(x, 10));
@@ -3376,6 +3606,74 @@
         if (loadInto(g)) { g.screen = g.ended ? 'ending' : 'world'; log(g, 'save imported.', 'good'); }
         render(g);
     }
+    // ---------- the courier, at the wall ----------
+    function sendLord(g, id) {
+        const n = lordById(g.roster, id);
+        if (!n) return;
+        const code = packLord(g, n);
+        if (window.showRetroDialog) {
+            showRetroDialog({
+                title: 'send ' + lordDisplayName(n),
+                lines: [
+                    'give this to somebody else playing. it puts ' + lordDisplayName(n) + ' on their wall, hunting them,',
+                    'with your name on it and everything it learned from you.',
+                    'it stays on your wall too — you are sending a copy, not giving it away.'
+                ],
+                preview: code, okLabel: 'done'
+            });
+        } else log(g, code);
+        achieve('echoes-courier');
+    }
+
+    function receiveLordPrompt(g) {
+        const code = window.prompt ? window.prompt('paste the lord somebody sent you') : null;
+        if (!code) return;
+        const got = receiveLord(g, code);
+        if (!got.ok) { log(g, got.error + '.', 'bad'); sound('error'); return render(g); }
+        sound('notify');
+        if (window.showRetroDialog) {
+            showRetroDialog({
+                title: lordDisplayName(got.lord) + ' has arrived',
+                lines: [
+                    got.lord.sent_by + ' sent it after you.',
+                    '"' + got.lord.dialogue_set.intro_encounter + '"',
+                    'it is hunting in ' + realmById(got.lord.current_zone).name + ' now. it will find you.'
+                ],
+                okLabel: 'good'
+            });
+        }
+        render(g);
+    }
+
+    function sendReceipt(g, id) {
+        const n = lordById(g.roster, id);
+        if (!n) return;
+        const code = packReceipt(g, n);
+        if (window.showRetroDialog) {
+            showRetroDialog({
+                title: 'the receipt for ' + lordDisplayName(n),
+                lines: ['send this back to ' + (n.sent_by || 'whoever sent it') + '. it tells them their lord is dead and who did it.'],
+                preview: code, okLabel: 'done'
+            });
+        } else log(g, code);
+    }
+
+    function readReceiptPrompt(g) {
+        const code = window.prompt ? window.prompt('paste a receipt') : null;
+        if (!code) return;
+        const got = readReceipt(g, code);
+        if (!got.ok) { log(g, got.error + '.', 'bad'); sound('error'); return render(g); }
+        sound('ding');
+        if (window.showRetroDialog) {
+            showRetroDialog({
+                title: lordDisplayName(got.lord) + ' is dead',
+                lines: [got.ender + ' ended it, a long way from here. it does not come back.'],
+                okLabel: 'good'
+            });
+        }
+        render(g);
+    }
+
     function confirmNew(g) {
         const go = () => { saves.clear(); g.p = null; g.ended = null; g.roster = []; g.create = freshCreate(); g.screen = 'create'; render(g); };
         if (window.showRetroDialog) {
@@ -3527,6 +3825,9 @@
         forgeStep: forgeStep, bandFor: bandFor, dialogueBody: dialogueBody, optionAvailable: optionAvailable,
         runActions: runActions, save: save, loadInto: loadInto, log: log, clampVitals: clampVitals,
         rankOf: rankOf, skillValue: skillValue, passive: passive, tierUnlocked: tierUnlocked,
+        LORD_FORMAT: LORD_FORMAT, LORD_FORMAT_VERSION: LORD_FORMAT_VERSION, RECEIPT_FORMAT: RECEIPT_FORMAT,
+        packLord: packLord, unpackLord: unpackLord, receiveLord: receiveLord,
+        packReceipt: packReceipt, readReceipt: readReceipt, courierText: courierText, courierSum: courierSum,
         // the map the diver is standing on, generated floors included, so a
         // test can route across one without duplicating the layout rules
         map: function () { return current && current.world ? worldMap(current) : null; },

@@ -517,7 +517,7 @@ function tmLoadScripts() {
         s.onerror = () => rej(new Error(src));
         document.head.appendChild(s);
     });
-    tmLoading = load('theme-scan.js').then(() => load('theme-maker.js'));
+    tmLoading = load('js/theme-scan.js').then(() => load('js/theme-maker.js'));
     return tmLoading;
 }
 
@@ -873,6 +873,7 @@ function siteSearchIndex() {
         ['dial-up networking', 'program', () => openDialUp(), 'modem connect internet 56k'],
         ['task manager', 'program', () => openTaskManager(), 'processes kill ctrl alt del'],
         ['defrag.exe', 'program', () => openDefrag(), 'disk defragmenter drive c blocks'],
+        ['my documents', 'folder', () => openDocuments(), 'saves backup export import game progress'],
         ['display properties', 'settings', () => openControlPanel(), 'wallpaper theme screensaver background'],
         ['theme maker', 'settings', () => launchThemeMaker(), 'theme editor customize colours css skin publish share events schedule music upload scanner'],
         ['system properties', 'settings', () => openSystemProperties(), 'specs about pc'],
