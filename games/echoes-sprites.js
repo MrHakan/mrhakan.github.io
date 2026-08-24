@@ -802,6 +802,24 @@ window.ECHOES_SPRITES = (function () {
         'nnnnnnnnnnnnnnnn',
         'nnnnnnnnnnnnnnnn'
     ];
+    ART.tile_hauler = [
+        'tttttttttttttttt',
+        'tttttttoottttttt',
+        'ttttttoWWotttttt',
+        'ttttttoWWotttttt',
+        'tttttoooooottttt',
+        'ttttokkkkkkotttt',
+        'tttokKKKKKKkottt',
+        'ttokKKKKKKKKkott',
+        'tokKKKKKKKKKKkot',
+        'okkkkkkkkkkkkkko',
+        'okKKKKKKKKKKKKko',
+        'oooooooooooooooo',
+        'tttttttttttttttt',
+        'tTttttttttttttTt',
+        'tttttttttttttttt',
+        'tttttttttttttttt'
+    ];
     ART.tile_bulkhead = [
         'oooooooooooooooo',
         'obbbbbbbobbbbbbo',

@@ -971,7 +971,10 @@ section('the overworld maps');
         }
         return false;
     }
-    const wants = { 'a boat you can take out': 'B', 'an anvil you can reach': 'AF', 'water you can fish': '~' };
+    const wants = {
+        'a boat you can take out': 'B', 'an anvil you can reach': 'AF',
+        'water you can fish': '~', 'a hauler to cross from': 'T'
+    };
     for (const label of Object.keys(wants)) {
         const missing = D.realms.filter(r => !reachableMaps(r.id).some(id => standableBeside(id, wants[label])));
         expect(missing.length === 0, 'every realm has ' + label, missing.map(r => r.id).join(', '));
@@ -979,6 +982,12 @@ section('the overworld maps');
 
     // the act-two choice is made by talking to three people, so all three
     // have to actually be standing somewhere
+    // the chart tells you what is down there; the hauler is what takes you
+    const engineSrc = read('games/echoes.js');
+    expect(/case 'travel': g\.screen = 'berth'/.test(engineSrc), 'looking at the hauler opens the berth');
+    expect(/chartCards\(g, false\)/.test(engineSrc) && /chartCards\(g, true\)/.test(engineSrc),
+        'and the chart itself no longer sails you anywhere');
+
     const act2 = D.acts[1].choice.dialogues;
     const placed = new Set();
     for (const id of mapIds) for (const npc of W.MAPS[id].npcs || []) if (npc.dialogue) placed.add(npc.dialogue);

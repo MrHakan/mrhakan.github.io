@@ -412,6 +412,36 @@ try {
     expect(before && after && before.player.seed === after.player.seed, 'and on the same seed');
     await page.screenshot({ path: SHOTS + '/echoes-7-reloaded.png' });
 
+    section('the hauler and the chart');
+    {
+        // the hauler is moored at 12,16, one berth along from your own boat
+        expect(await walkTo(11, 16), 'the diver can walk to the berth');
+        await faceAndAct(12, 16);
+        const at = await where();
+        expect(at && at.screen === 'berth', 'looking at the hauler opens the berth', JSON.stringify(at));
+        expect(await has('the deep-water hauler'), 'and it names itself');
+        expect(await page.locator('.et-realm').count() === 4, 'all four realms are on the manifest');
+        // she offers exactly the realms you have been given, minus the one
+        // you are standing in — never more, whatever the story has unlocked
+        const save = await state();
+        const unlocked = (save && save.player.realms_unlocked) || [];
+        const wantSailable = unlocked.filter(r => r !== save.player.realm).length;
+        const sailable = await page.locator('.et-realm[data-a="travel"]').count();
+        expect(sailable === wantSailable, 'she offers the realms you have been given and no others',
+            sailable + ' offered, ' + wantSailable + ' earned (' + unlocked.join(', ') + ')');
+        const hereCard = await page.locator('.et-realm.here[data-a="travel"]').count();
+        expect(hereCard === 0, 'and does not offer to take you where you already are');
+        await page.screenshot({ path: SHOTS + '/echoes-7b-berth.png' });
+        await click('stay ashore', { wait: 300 });
+        expect(await page.locator('#et-world').count() === 1, 'staying ashore puts you back on the deck');
+
+        await click('chart');
+        expect(await has('go and stand at the hauler'), 'the chart says where crossings are made');
+        expect(await page.locator('.et-realm[data-a="travel"]').count() === 0,
+            'and does not make them itself');
+        await click('back');
+    }
+
     section('the codex and the skill trees render');
     await click('skills');
     expect(await has('Marrow-Smith') && await has('Tide-Weaver') && await has('Harpooner'),
@@ -423,6 +453,30 @@ try {
     await click('chart');
     expect(await has('The Whispering Reefs'), 'the chart shows the realms you cannot reach yet');
     await click('back');
+
+    section('the outer realms have somewhere to go');
+    {
+        // nothing here needs a save: walk the maps the module publishes
+        const trouble = await page.evaluate(() => {
+            const W = window.ECHOES_WORLD, out = [];
+            const want = {
+                whispering_reefs: 'echo_vault', leviathan_trench: 'heart_room', drowned_spire: 'ash_chapel'
+            };
+            for (const realm of Object.keys(want)) {
+                const hub = W.MAPS[W.REALM_MAP[realm]];
+                const inside = W.MAPS[want[realm]];
+                if (!inside) { out.push(realm + ' has no interior'); continue; }
+                const doors = Object.keys(hub.warps || {}).filter(k => hub.warps[k].map === want[realm]);
+                if (!doors.length) out.push(realm + ': no door from ' + hub.id + ' to ' + want[realm]);
+                if (!(inside.npcs || []).length) out.push(want[realm] + ' is empty');
+                const back = Object.keys(inside.warps || {}).some(k => inside.warps[k].map === hub.id);
+                if (!back) out.push(want[realm] + ' has no way back to ' + hub.id);
+            }
+            return out;
+        });
+        expect(trouble.length === 0, 'each outer realm has an interior with people in it and a door both ways',
+            trouble.join('; '));
+    }
 } catch (e) {
     bad('the run fell over', e.stack || e.message);
     await page.screenshot({ path: SHOTS + '/echoes-crash.png' }).catch(() => { });

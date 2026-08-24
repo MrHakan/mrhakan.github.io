@@ -1598,6 +1598,7 @@
         g.dungeon = generateDungeon(g, p.realm);
         advanceDay(g, 1);
         log(g, 'you take a boat out into ' + realmById(p.realm).name + '. ' + (isBlackTide(p) ? 'Black tide.' : 'Calm water, for now.'));
+        enterWorld(g, DUNGEON_MAP);
         const ambusher = rollAmbush(g, p.realm);
         if (ambusher) {
             log(g, ambusher.dialogue_set.intro_encounter, 'bad');
@@ -1607,7 +1608,6 @@
             for (let i = 0; i < Math.min(2, n); i++) party.push(foeFromTemplate(pickFoeTemplate(g, p.realm, 1), 1));
             return startFight(g, party, 'ambush');
         }
-        enterWorld(g, DUNGEON_MAP);
         render(g);
     }
 
@@ -2379,6 +2379,7 @@
             case 'descend': return descendFloor(g);
             case 'surface': return leaveDungeon(g);
             case 'sealed': return say(g, null, ['The hatch is welded shut. Whatever route you took down, it was not this one.']);
+            case 'travel': g.screen = 'berth'; return render(g);
             case 'angle': g.screen = 'angling_pick'; return render(g);
             case 'forge': g.screen = 'forge_pick'; return render(g);
             case 'voyage':
@@ -3002,19 +3003,42 @@
             + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
     }
 
-    function screenChart(g) {
+    // The chart is a reference: it tells you what is down there. Crossing to
+    // it is done at the hauler moored beside your own boat, which shows the
+    // same chart with the gangways down.
+    function chartCards(g, sailing) {
         const p = g.p;
+        return '<div class="et-realms">' + D.realms.map(r => {
+            const open = p.realms_unlocked.indexOf(r.id) >= 0;
+            const here = p.realm === r.id;
+            const canSail = sailing && open && !here;
+            return '<div class="et-realm' + (here ? ' here' : '') + (open ? '' : ' locked') + '"'
+                + (canSail ? ' data-a="travel" data-x="' + esc(r.id) + '"' : '') + '>'
+                + '<b>' + esc(r.name) + '</b><i>' + r.depth[0] + '–' + r.depth[1] + ' m</i>'
+                + '<span>' + esc(r.long) + '</span>'
+                + '<span>' + esc(r.hazard.name) + ' — ' + esc(r.hazard.text) + '</span>'
+                + '<span>' + lordsIn(g, r.id).length + ' drowned lords here</span>'
+                + (here ? '<span>you are here</span>' : canSail ? '<span>the hauler will take you</span>' : open ? '' : '<span>you have not been given the way down</span>')
+                + '</div>';
+        }).join('') + '</div>';
+    }
+
+    function screenChart(g) {
         return '<div class="et-main"><div class="et-scroll"><div class="et-h">the chart</div>'
-            + '<div class="et-realms">' + D.realms.map(r => {
-                const open = p.realms_unlocked.indexOf(r.id) >= 0;
-                const here = p.realm === r.id;
-                return '<div class="et-realm' + (here ? ' here' : '') + (open ? '' : ' locked') + '"' + (open && !here ? ' data-a="travel" data-x="' + esc(r.id) + '"' : '') + '>'
-                    + '<b>' + esc(r.name) + '</b><i>' + r.depth[0] + '–' + r.depth[1] + ' m</i>'
-                    + '<span>' + esc(r.long) + '</span>'
-                    + '<span>' + esc(r.hazard.name) + ' — ' + esc(r.hazard.text) + '</span>'
-                    + '<span>' + lordsIn(g, r.id).length + ' drowned lords here</span></div>';
-            }).join('') + '</div>'
+            + '<div class="et-dim">what is down there. to make a crossing, go and stand at the hauler.</div>'
+            + chartCards(g, false)
             + '<div class="et-row">' + btn('screen:world', 'back') + '</div></div></div>';
+    }
+
+    function screenBerth(g) {
+        const p = g.p;
+        const reachable = D.realms.filter(r => p.realms_unlocked.indexOf(r.id) >= 0 && r.id !== p.realm);
+        return '<div class="et-main"><div class="et-scroll"><div class="et-h">the deep-water hauler</div>'
+            + '<div class="et-dim">' + (reachable.length
+                ? 'she runs on the turn of the tide. pick a berth and she will take you down.'
+                : 'she is not going anywhere you can go yet. the way down is something you are given, not something you buy.') + '</div>'
+            + chartCards(g, true)
+            + '<div class="et-row">' + btn('screen:world', 'stay ashore') + '</div></div></div>';
     }
 
     function screenNemesis(g) {
@@ -3172,7 +3196,7 @@
         combat: screenCombat,
         angling: screenAngling, forge: screenForge, forge_done: screenForgeDone,
         forge_pick: screenForgePick, event: screenEvent, dialogue: screenDialogue,
-        sheet: screenSheet, skills: screenSkills, gear: screenGear, chart: screenChart,
+        sheet: screenSheet, skills: screenSkills, gear: screenGear, chart: screenChart, berth: screenBerth,
         codex: screenCodex, factions: screenFactions, nemesis: screenNemesis, ending: screenEnding
     };
     SCREENS.angling_pick = screenAnglingPick;
@@ -3287,13 +3311,15 @@
         p.world_state.current_realm = realmId;
         advanceDay(g, 1);
         log(g, 'you make the crossing to ' + realmById(realmId).name + '.');
+        // land first: whatever is waiting is waiting on the far side, and
+        // when the fight ends the map under you is the one you sailed to
+        enterWorld(g, W.REALM_MAP[realmId]);
+        save(g);
         const ambusher = rollAmbush(g, realmId);
         if (ambusher) {
             log(g, ambusher.dialogue_set.intro_encounter, 'bad');
             return startFight(g, [lordToFoe(ambusher)], 'ambush');
         }
-        enterWorld(g, W.REALM_MAP[realmId]);
-        save(g);
         render(g);
     }
 

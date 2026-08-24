@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v12';
+const CACHE = 'mrhakan98-v13';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [

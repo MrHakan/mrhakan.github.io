@@ -768,6 +768,7 @@ and what pressing a key while facing it *means*:
 | `k` `"` | kelp, marrow slick | *(walkable; rolls for encounters)* |
 | `~` | open water | opens the fishing spots |
 | `B` | the moored boat | starts a voyage |
+| `T` | the deep-water hauler | crosses to another realm |
 | `A` `F` | anvil, furnace | opens the deep-forge |
 | `D` `S` | door, stairs | warps to another map |
 | `R` | a rest bunk | rests until the tide turns |
@@ -781,11 +782,21 @@ encounter tiles only, with a three-step grace period so nothing jumps you
 twice in a row, and the Act I opening waits fourteen steps so the landing
 gets to be a place before the story interrupts it.
 
-Every realm has its own hub map, and the invariants are tested rather
-than trusted: every map rectangular, every character in the legend, every
-warp landing on a tile you can stand on, every walkable tile reachable
-from the spawn, and every realm with a boat, an anvil and open water
-within reach of where you arrive.
+Every realm has a hub map and at least one interior behind a door — the
+Grand Anvil and the Hiring Floor in the Shallows, the Echo Vault under
+the Reefs, the Heart Room inside the Leviathan, the Ash Chapel above the
+Spire — each with people in it who talk about the place they are standing
+in.
+
+Crossing between realms is a place, not a menu: a deep-water hauler is
+moored one berth along from your own boat on every hub. She lists the
+realms you have been given the way down to; the chart is a reference view
+that tells you what is down there and sails you nowhere.
+
+The invariants are tested rather than trusted: every map rectangular,
+every character in the legend, every warp landing on a tile you can stand
+on, every walkable tile reachable from the spawn, and every realm with a
+boat, an anvil, open water and a hauler beside a tile you can stand on.
 
 **The battle screen.** Your own back on the near platform, the enemy
 facing you on the far one, both on shadow ellipses, with health boxes in
