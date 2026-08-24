@@ -143,6 +143,27 @@
             shouts: id(b.shouts)
         };
     }
+    // giscus: the same "no backend" idea, one click instead of five steps.
+    // A visitor comments on a GitHub Discussion in the repo rather than
+    // copying an entry, opening a gist and pasting it in. It only counts as
+    // configured once both ids are there — giscus cannot mount without
+    // them, and a half-filled config should fall back to the gist board
+    // rather than render an empty box.
+    function giscusConfig(site) {
+        const g = (site && site.giscus) || {};
+        const repo = String(g.repo || '');
+        const cfg = {
+            // owner/name, and nothing that is not one
+            repo: /^[A-Za-z0-9._-]{1,39}\/[A-Za-z0-9._-]{1,100}$/.test(repo) ? repo : '',
+            // giscus node ids are opaque; allow what GitHub actually issues
+            repoId: /^[A-Za-z0-9_=-]{4,120}$/.test(String(g.repoId || '')) ? String(g.repoId) : '',
+            category: String(g.category || '').replace(/[\u0000-\u001f]/g, '').slice(0, 60),
+            categoryId: /^[A-Za-z0-9_=-]{4,120}$/.test(String(g.categoryId || '')) ? String(g.categoryId) : ''
+        };
+        cfg.ready = !!(cfg.repo && cfg.repoId && cfg.categoryId);
+        return cfg;
+    }
+
     const gistPage = (cfg, kind) => (cfg && cfg[kind])
         ? 'https://gist.github.com/' + (cfg.owner ? cfg.owner + '/' : '') + cfg[kind]
         : '';
@@ -172,7 +193,8 @@
         strip: strip, line: line, text: text, cleanUrl: cleanUrl,
         composeSignature: composeSignature, parseSignature: parseSignature,
         entryFromComment: entryFromComment,
-        boardConfig: boardConfig, gistPage: gistPage, gistCommentsUrl: gistCommentsUrl,
+        boardConfig: boardConfig, giscusConfig: giscusConfig,
+        gistPage: gistPage, gistCommentsUrl: gistCommentsUrl,
         mergeEntries: mergeEntries
     };
     if (typeof window !== 'undefined') window.GUESTBOOK = API;

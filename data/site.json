@@ -164,6 +164,28 @@
     ],
     "changelog": [
         {
+            "version": "9.1",
+            "date": "2026-08-24",
+            "changes": [
+                "the repo grid and user.dat used to call the github api anonymously, which is sixty requests an hour per ip \u2014 a budget shared by everyone behind one address. so \"repos: ?\" and \"error loading git objects\" were what a lot of people actually saw. a workflow now takes a snapshot once a day with a token, writes data/github.json and commits it; the page reads a static file, and it is still there when the connection is not.",
+                "the fetcher refuses to write a private repository into that file, and the checks verify the committed one carries none \u2014 a snapshot of a public site is not a place to find out afterwards.",
+                "the guestbook can be one click now. giscus keeps the same no-backend idea \u2014 github holds the words, nothing is committed here \u2014 but a visitor signs in and comments instead of copying an entry, opening a gist and pasting it. it is off until two ids are in data/site.json, so the gist board keeps running until then, and a half-filled config falls back rather than showing an empty box.",
+                "the frame is on giscus.app so style.css cannot reach into it \u2014 giscus-win98.css is passed as its theme instead: same bevels, same greys, same title bars as the window it sits in."
+            ]
+        },
+        {
+            "version": "9.0",
+            "date": "2026-08-24",
+            "changes": [
+                "a voyage is a floor you walk now, not a list of buttons. take the boat out and you are put down in a dungeon: rooms on stalks off a spine corridor, welded hatches over the routes you did not take, and the dive lift back to the surface in the entrance room. what stands in a room is what is in it \u2014 the creature itself, a burst crate of salvage, a shrine, a bunk. look at it and that is what you get. clear the room and what was standing there becomes the stairs down.",
+                "walking the dungeons instead of clicking them turned up a bug that had been in the game since the rebuild: a level-appropriate diver could not win a fight in a trench dungeon. measured, 4% on the first floor and 0% deeper. the spire was 0% everywhere. the room multiplier counted depth twice \u2014 the bestiary is already scaled per realm, and it was being multiplied by the realm's layer again on top of that. the balance suite never caught it because it measured bare templates at x1.00, and nothing in the game is ever fought at x1.00.",
+                "so the ramp runs from the mouth of a voyage to the bottom of it now, relative to that voyage's own length: every dungeon opens level-appropriate and closes 28% worse. 93/84/93/88% at the mouth, 76/46/53/36% in the deepest room. a second creature in a room ramps 10% to 35% with the descent instead of 35% flat from room one \u2014 that flat roll was what actually killed new divers. and no drowned lord waits in room one any more, which was a 20% chance of a death sentence you did not agree to.",
+                "the outer three realms have somewhere to go. the echo vault under the reefs, where dredgers file conversations that have not happened yet. the heart room inside the leviathan, where a two-hundred-year-dead heart does eleven beats a minute. the ash chapel above the spire, with a chained penitent who said the beacon was already lit and is waiting to hear whether that was heresy or a report.",
+                "crossing between realms is a place instead of a menu. a deep-water hauler is moored one berth along from your own boat on every hub; she lists the realms you have been given the way down to, and takes you. the chart is a reference now \u2014 it tells you what is down there and sails you nowhere.",
+                "186 headless checks and a browser run that walks a whole voyage: into the room, look at what is in it, fight it, take the stairs, ride the lift back up."
+            ]
+        },
+        {
             "version": "8.9",
             "date": "2026-08-24",
             "changes": [
@@ -423,5 +445,12 @@
         "guestbook": "498b5a262bbba0289a344d0d75cc1683",
         "shouts": "73cb5a6e7e8325e0858427b255a95a87",
         "note": "each board is a public gist, and its comment thread is the board. paste the gist id (the hex blob in its url) here — see data/README.md."
+    },
+    "giscus": {
+        "repo": "MrHakan/mrhakan.github.io",
+        "repoId": "",
+        "category": "Guestbook",
+        "categoryId": "",
+        "note": "sign the guestbook in one click instead of copy-paste-into-a-gist. needs Discussions on in the repo settings and the giscus app installed on it, then paste the two ids from giscus.app here. leave repoId or categoryId empty and the gist board is used instead — see data/README.md."
     }
 }

@@ -1,0 +1,49 @@
+name: Refresh the GitHub data
+
+# The site shows a repo grid and a profile panel. Both used to come from
+# the anonymous GitHub API, which is sixty requests an hour per IP — so
+# the page rendered "repos: ?" and "error loading git objects" for anyone
+# behind a shared address, and for everyone on a bad day. This runs once
+# a day with a token, writes what it finds into data/github.json, and
+# commits it. The page reads a static file and works offline.
+
+on:
+    schedule:
+        - cron: "17 5 * * *"
+    workflow_dispatch:
+    push:
+        branches: [main]
+        paths:
+            - ".github/workflows/github-data.yml"
+
+permissions:
+    contents: write
+
+concurrency:
+    group: github-data
+    cancel-in-progress: false
+
+jobs:
+    refresh:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Fetch the profile and the repositories
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GH_USER: mrhakan
+              run: node .github/scripts/fetch-github-data.mjs
+
+            - name: Commit it if it changed
+              run: |
+                  if git diff --quiet -- data/github.json; then
+                      echo "nothing moved on GitHub since yesterday"
+                      exit 0
+                  fi
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git add data/github.json
+                  git commit -m "chore: refresh data/github.json"
+                  git push

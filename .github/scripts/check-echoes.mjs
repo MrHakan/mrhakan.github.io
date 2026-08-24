@@ -496,10 +496,19 @@ for (let seed = 1; seed <= 40; seed++) {
     const bosses = d.nodes.filter(n => n.type === 'boss');
     if (bosses.length !== 1) graphTrouble.push('seed ' + seed + ': ' + bosses.length + ' boss nodes');
     else if (bosses[0].floor !== d.floors) graphTrouble.push('seed ' + seed + ': the boss is not on the last floor');
-    // the difficulty multiplier is the document's formula
-    const first = d.nodes[0];
-    const want = Math.round((1 + realm.layer * E.DEPTH_SCALE + 1 * E.ROOM_SCALE) * 100) / 100;
-    if (Math.abs(first.stat_multiplier - want) > 0.001) graphTrouble.push('seed ' + seed + ': first room scales ' + first.stat_multiplier + ', expected ' + want);
+    // the ramp runs from the mouth of the voyage to the bottom of it, and
+    // never counts the realm's depth twice — the bestiary already has that
+    for (const n of d.nodes) {
+        const want = Math.round((1 + E.voyageRamp(n.floor, d.floors)) * 100) / 100;
+        if (Math.abs(n.stat_multiplier - want) > 0.001) {
+            graphTrouble.push('seed ' + seed + ': floor ' + n.floor + ' scales ' + n.stat_multiplier + ', expected ' + want);
+            break;
+        }
+    }
+    if (Math.abs(d.nodes[0].stat_multiplier - 1) > 0.001) graphTrouble.push('seed ' + seed + ': the first room is not level-appropriate (' + d.nodes[0].stat_multiplier + ')');
+    for (const n of d.nodes) if (n.type === 'elite' && n.floor === 1) graphTrouble.push('seed ' + seed + ': a drowned lord is waiting in room one');
+    const deepest = Math.max.apply(null, d.nodes.map(n => n.stat_multiplier));
+    if (deepest > 1 + E.VOYAGE_RAMP + 0.001) graphTrouble.push('seed ' + seed + ': the ramp overshoots at ' + deepest);
 }
 expect(graphTrouble.length === 0, 'forty generated dungeons are acyclic, fully reachable and end in one boss',
     graphTrouble.slice(0, 6).join('\n        '));
@@ -714,6 +723,69 @@ expect(appropriate.every(([w]) => w >= 0.78 && w <= 0.93), 'a level-appropriate 
 expect(appropriate.every(([, rd]) => rd >= 4 && rd <= 12), 'and takes between four and twelve rounds',
     appropriate.map(([, rd]) => rd.toFixed(1)).join(', '));
 
+// The bestiary is calibrated at ×1.00, but nothing in the game is ever
+// fought at ×1.00: a voyage scales every room. Measuring only the bare
+// template is how the Trench and the Spire were once unwinnable in a
+// dungeon while this suite reported 92%.
+const voyageFoe = (id, mult) => g => [E.foeFromTemplate(E.pickFoeTemplate(g, id, 2), mult)];
+const voyageRates = D.realms.map(r => {
+    const floors = 3 + r.layer;
+    const mouth = Math.round((1 + E.voyageRamp(1, floors)) * 100) / 100;
+    const deepest = Math.round((1 + E.voyageRamp(floors - 1, floors)) * 100) / 100;
+    return {
+        realm: r, mouth: mouth, deepest: deepest,
+        atMouth: winRate(r.layer * 13 + 5, HERO_LEVEL[r.layer], r.layer, voyageFoe(r.id, mouth), N)[0],
+        atBottom: winRate(r.layer * 29 + 11, HERO_LEVEL[r.layer], r.layer, voyageFoe(r.id, deepest), N)[0]
+    };
+});
+console.log('       at the mouth of a voyage: ' + voyageRates.map(v => (v.atMouth * 100).toFixed(0) + '%').join(', '));
+console.log('       in its deepest room:      ' + voyageRates.map(v => 'x' + v.deepest.toFixed(2) + ' ' + (v.atBottom * 100).toFixed(0) + '%').join(', '));
+expect(voyageRates.every(v => v.mouth === 1), 'the mouth of every voyage is the bestiary as calibrated',
+    voyageRates.map(v => v.mouth).join(', '));
+expect(voyageRates.every(v => v.atMouth >= 0.70), 'and a level-appropriate diver clears it comfortably',
+    voyageRates.map(v => (v.atMouth * 100).toFixed(0) + '%').join(', '));
+expect(voyageRates.every(v => v.atBottom >= 0.20 && v.atBottom < v.atMouth), 'the deepest room is a real fight and not a wall',
+    voyageRates.map(v => (v.atBottom * 100).toFixed(0) + '%').join(', '));
+expect(Math.abs(E.pairChance(1, 4) - E.PAIR_FLOOR) < 1e-9 && Math.abs(E.pairChance(4, 4) - E.PAIR_CEILING) < 1e-9,
+    'a second creature is rare in room one and likely at the bottom',
+    E.pairChance(1, 4).toFixed(2) + ' → ' + E.pairChance(4, 4).toFixed(2));
+
+// and the very first thing the game ever asks of a player: a brand new
+// level-one diver, in the kit the game hands them, in room one
+function freshDiver(g) {
+    const p = E.newProfile('diver', 4242);
+    p.attributes.might += 5;
+    p.attributes.unallocated_points = 0;
+    g.p = p;
+    for (const id of ['rcp_rig_hook', 'rcp_plate_vest', 'rcp_welders_hood', 'rcp_hemp_rod', 'rcp_tar_lantern']) {
+        const it = E.makeItem(g, D.recipes.find(x => x.id === id), { rarity: D.rarities.find(x => x.id === 'sturdy'), qualityScore: 55, forged: true });
+        if (it.slot !== 'off_hand') p.equipment[it.slot] = it;
+    }
+    E.clampVitals(p);
+    p.vitals.hp = p.vitals.max_hp;
+    p.vitals.stamina = p.vitals.max_stamina;
+    p.vitals.marrow_mana = p.vitals.max_marrow_mana;
+    return p;
+}
+{
+    let wins = 0;
+    const runs = Math.max(80, N);
+    for (let i = 0; i < runs; i++) {
+        const g = makeGame(4000 + i);
+        freshDiver(g);
+        // the room as enterNode actually builds it, second creature and all
+        const party = [E.foeFromTemplate(E.pickFoeTemplate(g, 'rust_shallows', 1), 1)];
+        if (E.chance(g.rng, E.pairChance(1, 4))) party.push(E.foeFromTemplate(E.pickFoeTemplate(g, 'rust_shallows', 1), 0.9));
+        E.startFight(g, party, 'dungeon');
+        let guard = 0;
+        while (!g.fight.over && guard++ < 300) E.playerAction(g, g.p.vitals.stamina >= 8 ? 'strike' : 'guard');
+        if (g.fight.result === 'won') wins++;
+    }
+    const rate = wins / runs;
+    console.log('       a level one diver, first room: ' + (rate * 100).toFixed(0) + '%');
+    expect(rate >= 0.65 && rate <= 0.95, 'a new diver survives the first room of their first voyage', (rate * 100).toFixed(1) + '%');
+}
+
 const ahead = [1, 2, 3].map(t => winRate(t * 17 + 3, HERO_LEVEL[t], t, realmFoe(D.realms.find(r => r.layer === t + 1).id), N)[0]);
 console.log('       one realm ahead:    ' + ahead.map(w => (w * 100).toFixed(0) + '%').join(', '));
 // the document asks for 35–55% here; the measured figures are lower from the
@@ -899,7 +971,10 @@ section('the overworld maps');
         }
         return false;
     }
-    const wants = { 'a boat you can take out': 'B', 'an anvil you can reach': 'AF', 'water you can fish': '~' };
+    const wants = {
+        'a boat you can take out': 'B', 'an anvil you can reach': 'AF',
+        'water you can fish': '~', 'a hauler to cross from': 'T'
+    };
     for (const label of Object.keys(wants)) {
         const missing = D.realms.filter(r => !reachableMaps(r.id).some(id => standableBeside(id, wants[label])));
         expect(missing.length === 0, 'every realm has ' + label, missing.map(r => r.id).join(', '));
@@ -907,6 +982,12 @@ section('the overworld maps');
 
     // the act-two choice is made by talking to three people, so all three
     // have to actually be standing somewhere
+    // the chart tells you what is down there; the hauler is what takes you
+    const engineSrc = read('games/echoes.js');
+    expect(/case 'travel': g\.screen = 'berth'/.test(engineSrc), 'looking at the hauler opens the berth');
+    expect(/chartCards\(g, false\)/.test(engineSrc) && /chartCards\(g, true\)/.test(engineSrc),
+        'and the chart itself no longer sails you anywhere');
+
     const act2 = D.acts[1].choice.dialogues;
     const placed = new Set();
     for (const id of mapIds) for (const npc of W.MAPS[id].npcs || []) if (npc.dialogue) placed.add(npc.dialogue);

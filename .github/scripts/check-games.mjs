@@ -552,6 +552,44 @@ const missingPre = precache.split('\n').map(l => (l.match(/'([^']+)'/) || [])[1]
 expect(!missingPre.length, 'every precached file exists', missingPre.join(', '));
 
 // ===================================================================
+section('the github snapshot');
+// ===================================================================
+// The repo grid and user.dat used to call the anonymous GitHub API, which
+// is sixty requests an hour per IP. They read a committed snapshot now.
+expect(exists('data/github.json'), 'the snapshot is in the repo');
+if (exists('data/github.json')) {
+    let snap = null;
+    try { snap = JSON.parse(read('data/github.json')); } catch (e) { /* reported below */ }
+    expect(!!snap, 'and it is valid json');
+    if (snap) {
+        expect(!!(snap.user && snap.user.login), 'it has a profile');
+        expect(Array.isArray(snap.repos) && snap.repos.length > 0, 'and repositories',
+            String(snap.repos && snap.repos.length));
+        expect(typeof snap.generated_at === 'string', 'and says when it was taken');
+        // this file is served from a public site
+        const priv = (snap.repos || []).filter(r => r.private || r.visibility === 'private');
+        expect(priv.length === 0, 'and carries no private repository', priv.map(r => r.name).join(', '));
+        // every field index.js renders has to be there or the grid shows holes
+        const need = ['name', 'html_url', 'stargazers_count', 'forks_count', 'has_pages', 'fork'];
+        const thin = (snap.repos || []).filter(r => need.some(k => !(k in r)));
+        expect(thin.length === 0, 'and every repo carries the fields the grid renders',
+            thin.slice(0, 3).map(r => r.name).join(', '));
+    }
+}
+expect(/fetch\('data\/github\.json'/.test(indexJs), 'index.js reads the snapshot');
+expect(indexJs.indexOf("fetch('data/github.json'") < indexJs.indexOf("fetch('https://api.github.com/users/mrhakan/repos"),
+    'and reaches for it before it reaches for the api');
+expect(/api\.github\.com\/users\/mrhakan/.test(indexJs), 'with the live api still there as a fallback');
+expect(sw.includes("'/data/github.json'"), 'the service worker precaches it');
+expect(exists('.github/workflows/github-data.yml') && exists('.github/scripts/fetch-github-data.mjs'),
+    'and something refreshes it on a schedule');
+const ghWorkflow = exists('.github/workflows/github-data.yml') ? read('.github/workflows/github-data.yml') : '';
+expect(/schedule:/.test(ghWorkflow) && /cron:/.test(ghWorkflow), 'the refresh is on a cron');
+expect(/contents: write/.test(ghWorkflow), 'and it is allowed to commit what it finds');
+const ghScript = exists('.github/scripts/fetch-github-data.mjs') ? read('.github/scripts/fetch-github-data.mjs') : '';
+expect(/private/.test(ghScript), 'and the fetcher refuses to write a private repository into it');
+
+// ===================================================================
 console.log('\n' + '='.repeat(58));
 console.log(failures ? `${failures} of ${checks} checks failed` : `all ${checks} checks passed`);
 process.exit(failures ? 1 : 0);

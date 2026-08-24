@@ -7742,10 +7742,13 @@ body.disco-floor::after {
 }
 
 .et-realm b { display: block; color: #e8e0cc; }
-.et-realm span { font-size: 10px; color: #8fa38f; }
+.et-realm span { display: block; font-size: 10px; color: #8fa38f; margin-top: 3px; }
+.et-realm span:first-of-type { margin-top: 2px; }
 .et-realm i { float: right; font-size: 10px; color: #c9a227; font-style: normal; }
 .et-realm.here { background: #1b2721; }
 .et-realm.locked { opacity: .45; cursor: default; }
+.et-realm:not([data-a]) { cursor: default; }
+.et-realm[data-a] { border-left-color: #c9a227; }
 
 /* ---------- a fight ---------- */
 .et-foe {

@@ -33,7 +33,55 @@ nothing a visitor writes is trusted: `guestbook.js` strips control
 characters and zero-width tricks, caps every field, allows only http and
 https links, and everything is escaped where it is rendered.
 
-## setting it up
+## the one-click version: giscus
+
+the copy-paste flow above loses most visitors at step three. **giscus**
+keeps the same idea — no backend, no database, github holds the words —
+but a visitor signs in with github and comments in one click. the thread
+is a [github discussion](https://docs.github.com/discussions) on this
+repo rather than a gist.
+
+it is off until it is configured. `data/site.json`:
+
+```json
+"giscus": {
+    "repo": "MrHakan/mrhakan.github.io",
+    "repoId": "",
+    "category": "Guestbook",
+    "categoryId": ""
+}
+```
+
+with `repoId` or `categoryId` empty the site uses the gist board, so
+nothing breaks while it is half set up. filling both in switches the
+guestbook over on the next load — no other change.
+
+getting the two ids, in order:
+
+1. **repo settings → features → tick Discussions.** this is a repo
+   setting; nobody but the owner can do it.
+2. in **discussions → categories**, add one called `Guestbook`, format
+   **announcement** (only maintainers open threads, anyone replies —
+   which is what a guestbook is).
+3. install the **[giscus app](https://github.com/apps/giscus)** on this
+   repo. it needs write access to discussions, and only to this repo.
+4. go to **<https://giscus.app>**, put `MrHakan/mrhakan.github.io` in,
+   pick the `Guestbook` category, and mapping **"specific term"** with
+   the term `guestbook`. it prints a `<script>` block — the two values
+   you want out of it are `data-repo-id` and `data-category-id`.
+5. paste them into `data/site.json` and commit.
+
+the frame is on giscus.app, so `style.css` cannot reach into it. giscus
+takes a theme by url instead, and `giscus-win98.css` in the repo root is
+that theme: the same bevels, greys and title bars as the window it sits
+in. it is passed as `data-theme` automatically.
+
+what this costs, honestly: the comment box is an iframe from giscus.app,
+so the page now depends on a third party staying up, and a visitor has to
+have a github account and be willing to sign in. the gist flow needed an
+account too, so that part is a wash — the click count is the difference.
+
+## setting up the gists
 
 two public gists, one per board (they need to be separate — one thread
 per board):

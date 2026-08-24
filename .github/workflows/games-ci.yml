@@ -20,6 +20,8 @@ on:
             - "style.css"
             - "sw.js"
             - "data/site.json"
+            - "data/github.json"
+            - "giscus-win98.css"
             - ".github/scripts/**"
             - ".github/workflows/games-ci.yml"
     pull_request:

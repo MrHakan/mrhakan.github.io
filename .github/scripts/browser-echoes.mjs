@@ -95,7 +95,9 @@ async function pathTo(tx, ty) {
     const here = await where();
     if (!here) return null;
     return page.evaluate(([mapId, sx, sy, gx, gy]) => {
-        const W = window.ECHOES_WORLD, map = W.mapById(mapId);
+        const W = window.ECHOES_WORLD;
+        // a dungeon floor is generated, so take the live one rather than a lookup
+        const map = window.ET_ENGINE.map() || W.mapById(mapId);
         const seen = { [sx + ',' + sy]: null };
         const queue = [[sx, sy]];
         while (queue.length) {
@@ -237,20 +239,50 @@ try {
     await page.screenshot({ path: SHOTS + '/echoes-3-lords.png' });
     await click('back');
 
-    section('a voyage, and whatever is in the corridor');
+    section('a voyage, walked');
     // the boat is moored at 10,16; you take it by standing beside it and looking at it
     expect(await walkTo(11, 16), 'the diver can walk down to the mooring');
     await faceAndAct(10, 16);
-    expect(await has('floor 1 /'), 'looking at the boat deals a dungeon node');
-    let fought = false, nodes = 0;
-    while (nodes++ < 14 && !fought) {
-        if (await page.locator('.et-body button', { hasText: 'strike' }).count()) { fought = true; break; }
-        const take = page.locator('.et-body button[data-a="node"]').first();
-        if (!await take.count()) break;
-        await take.click();
-        await page.waitForTimeout(420);
+    {
+        const down = await where();
+        expect(down && down.map === '@dungeon' && down.dungeon && down.dungeon.floor === 1,
+            'looking at the boat puts you on the first floor of a voyage', JSON.stringify(down));
+        const floor = await page.evaluate(() => window.ET_ENGINE.map());
+        expect(floor && floor.rows.length > 8, 'the floor is a map, not a menu');
+        expect(!await page.locator('.et-body button[data-a="node"]').count(),
+            'and there is no node list left to click');
+        const lift = floor.rows.some(r => r.indexOf('<') >= 0);
+        expect(lift, 'the dive lift back to the surface is on it');
+        await page.screenshot({ path: SHOTS + '/echoes-3b-voyage.png' });
     }
-    expect(fought, 'a voyage runs into a fight within fourteen nodes');
+    // walk into the room, look at what is in it, and fight whatever that is
+    let fought = false, turns = 0;
+    while (turns++ < 12 && !fought) {
+        const st = await where();
+        if (!st || st.map !== '@dungeon') break;
+        if (st.screen === 'event') { await page.locator('.et-body button[data-a="event"]').first().click(); await page.waitForTimeout(450); continue; }
+        if (st.screen !== 'world') break;
+        const live = await page.evaluate(() => window.ET_ENGINE.map());
+        const node = Object.keys(live.markers || {}).find(k => live.markers[k].kind === 'node');
+        if (node) {
+            const [mx, my] = node.split(',').map(Number);
+            if (await walkTo(mx, my + 1) !== true) break;
+            await faceAndAct(mx, my);
+            const now = await where();
+            if (now && now.screen === 'combat') { fought = true; break; }
+            continue;
+        }
+        // the room is cleared: the stairs down are where the creature was
+        let stairs = null;
+        for (let y = 0; y < live.rows.length && !stairs; y++) {
+            const x = live.rows[y].indexOf('>');
+            if (x >= 0) stairs = [x, y];
+        }
+        if (!stairs) break;
+        if (await walkTo(stairs[0], stairs[1] + 1) !== true) break;
+        await faceAndAct(stairs[0], stairs[1]);
+    }
+    expect(fought, 'walking into a room starts the fight that is in it');
     if (fought) {
         expect(await page.locator('#et-battle').count() === 1, 'the fight is drawn on a battle canvas');
         const painted = await page.evaluate(() => {
@@ -279,8 +311,23 @@ try {
         await done.click();
         await page.waitForTimeout(450);
     }
-    // back out to the landing whichever screen we ended on
-    if (await page.locator('.et-body button[data-a="leave"]').count()) await click('put back in to harbour', { wait: 400 });
+    // out of the voyage whichever way it ended — the lift, or waking up
+    {
+        for (let i = 0; i < 8; i++) {
+            const st = await where();
+            if (!st || st.map !== '@dungeon') break;
+            if (st.screen === 'event') { await page.locator('.et-body button[data-a="event"]').first().click(); await page.waitForTimeout(450); continue; }
+            if (st.screen !== 'world') break;
+            const live = await page.evaluate(() => window.ET_ENGINE.map());
+            let lift = null;
+            for (let y = 0; y < live.rows.length && !lift; y++) { const x = live.rows[y].indexOf('<'); if (x >= 0) lift = [x, y]; }
+            if (!lift) break;
+            if (await walkTo(lift[0], lift[1] - 1) !== true) break;
+            await faceAndAct(lift[0], lift[1]);
+        }
+        const out = await where();
+        expect(out && out.map !== '@dungeon' && !out.dungeon, 'the dive lift puts you back on the surface', JSON.stringify(out));
+    }
     expect(await page.locator('#et-world').count() === 1, 'and you come back up onto the overworld');
 
     section('through the door into the Grand Anvil');
@@ -365,6 +412,36 @@ try {
     expect(before && after && before.player.seed === after.player.seed, 'and on the same seed');
     await page.screenshot({ path: SHOTS + '/echoes-7-reloaded.png' });
 
+    section('the hauler and the chart');
+    {
+        // the hauler is moored at 12,16, one berth along from your own boat
+        expect(await walkTo(11, 16), 'the diver can walk to the berth');
+        await faceAndAct(12, 16);
+        const at = await where();
+        expect(at && at.screen === 'berth', 'looking at the hauler opens the berth', JSON.stringify(at));
+        expect(await has('the deep-water hauler'), 'and it names itself');
+        expect(await page.locator('.et-realm').count() === 4, 'all four realms are on the manifest');
+        // she offers exactly the realms you have been given, minus the one
+        // you are standing in — never more, whatever the story has unlocked
+        const save = await state();
+        const unlocked = (save && save.player.realms_unlocked) || [];
+        const wantSailable = unlocked.filter(r => r !== save.player.realm).length;
+        const sailable = await page.locator('.et-realm[data-a="travel"]').count();
+        expect(sailable === wantSailable, 'she offers the realms you have been given and no others',
+            sailable + ' offered, ' + wantSailable + ' earned (' + unlocked.join(', ') + ')');
+        const hereCard = await page.locator('.et-realm.here[data-a="travel"]').count();
+        expect(hereCard === 0, 'and does not offer to take you where you already are');
+        await page.screenshot({ path: SHOTS + '/echoes-7b-berth.png' });
+        await click('stay ashore', { wait: 300 });
+        expect(await page.locator('#et-world').count() === 1, 'staying ashore puts you back on the deck');
+
+        await click('chart');
+        expect(await has('go and stand at the hauler'), 'the chart says where crossings are made');
+        expect(await page.locator('.et-realm[data-a="travel"]').count() === 0,
+            'and does not make them itself');
+        await click('back');
+    }
+
     section('the codex and the skill trees render');
     await click('skills');
     expect(await has('Marrow-Smith') && await has('Tide-Weaver') && await has('Harpooner'),
@@ -376,6 +453,30 @@ try {
     await click('chart');
     expect(await has('The Whispering Reefs'), 'the chart shows the realms you cannot reach yet');
     await click('back');
+
+    section('the outer realms have somewhere to go');
+    {
+        // nothing here needs a save: walk the maps the module publishes
+        const trouble = await page.evaluate(() => {
+            const W = window.ECHOES_WORLD, out = [];
+            const want = {
+                whispering_reefs: 'echo_vault', leviathan_trench: 'heart_room', drowned_spire: 'ash_chapel'
+            };
+            for (const realm of Object.keys(want)) {
+                const hub = W.MAPS[W.REALM_MAP[realm]];
+                const inside = W.MAPS[want[realm]];
+                if (!inside) { out.push(realm + ' has no interior'); continue; }
+                const doors = Object.keys(hub.warps || {}).filter(k => hub.warps[k].map === want[realm]);
+                if (!doors.length) out.push(realm + ': no door from ' + hub.id + ' to ' + want[realm]);
+                if (!(inside.npcs || []).length) out.push(want[realm] + ' is empty');
+                const back = Object.keys(inside.warps || {}).some(k => inside.warps[k].map === hub.id);
+                if (!back) out.push(want[realm] + ' has no way back to ' + hub.id);
+            }
+            return out;
+        });
+        expect(trouble.length === 0, 'each outer realm has an interior with people in it and a door both ways',
+            trouble.join('; '));
+    }
 } catch (e) {
     bad('the run fell over', e.stack || e.message);
     await page.screenshot({ path: SHOTS + '/echoes-crash.png' }).catch(() => { });

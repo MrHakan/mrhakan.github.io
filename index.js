@@ -1180,13 +1180,34 @@ function repoPagesUrl(repo) {
     return `https://mrhakan.github.io/${repo.name}/`;
 }
 
+// A snapshot of the GitHub side of the site, refreshed once a day by
+// .github/workflows/github-data.yml and committed. The anonymous API is
+// sixty requests an hour per IP, which is a budget shared by everyone
+// behind one address — this file is the same data, cached, and it is
+// still there when the connection is not. Both readers share one fetch.
+let ghSnapshot = null;
+function githubSnapshot() {
+    if (!ghSnapshot) {
+        ghSnapshot = fetch('data/github.json', { cache: 'no-cache' })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => (d && d.user && Array.isArray(d.repos) ? d : null))
+            .catch(() => null);
+    }
+    return ghSnapshot;
+}
+
 async function fetchGitHubRepos() {
     const container = document.getElementById('github-repos');
     if (!container) return;
     try {
-        const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=100');
-        const repos = await res.json();
-        if (!Array.isArray(repos)) throw new Error((repos && repos.message) || 'unexpected response');
+        const snap = await githubSnapshot();
+        let repos = snap && snap.repos;
+        if (!repos) {
+            // no snapshot yet: go and ask, and take the rate limit as it comes
+            const res = await fetch('https://api.github.com/users/mrhakan/repos?sort=updated&per_page=100');
+            repos = await res.json();
+            if (!Array.isArray(repos)) throw new Error((repos && repos.message) || 'unexpected response');
+        }
         allRepos = repos.filter(r => !r.fork);
         renderRepos();
     } catch (e) {
@@ -1355,8 +1376,12 @@ async function fetchGitHubUser() {
     const panel = document.getElementById('user-stats');
     if (!panel) return;
     try {
-        const res = await fetch('https://api.github.com/users/mrhakan');
-        const user = await res.json();
+        const snap = await githubSnapshot();
+        let user = snap && snap.user;
+        if (!user) {
+            const res = await fetch('https://api.github.com/users/mrhakan');
+            user = await res.json();
+        }
         if (!user || !user.login) return;
         document.getElementById('gh-avatar').src = user.avatar_url;
         document.getElementById('gh-repos').textContent = user.public_repos;
@@ -1488,6 +1513,54 @@ async function boardConfig() {
     } catch (e) { /* no config, no gist — handled below */ }
     boardsCache = GUESTBOOK.boardConfig(site);
     return boardsCache;
+}
+
+// giscus, if it has been set up: a visitor comments on a GitHub
+// Discussion in one click instead of copying an entry, opening a gist and
+// pasting it. Same "no backend" idea, four fewer steps. Until the two ids
+// are in data/site.json the gist board is what runs, so nothing here can
+// leave the page with an empty box where the guestbook was.
+let giscusCache = null;
+async function giscusConfig() {
+    if (giscusCache) return giscusCache;
+    let site = {};
+    try {
+        site = (typeof loadSiteData === 'function')
+            ? await loadSiteData()
+            : await (await fetch('data/site.json')).json();
+    } catch (e) { /* no config, no giscus */ }
+    giscusCache = GUESTBOOK.giscusConfig(site);
+    return giscusCache;
+}
+
+// mount it into #giscus-mount and return whether it went up
+async function mountGiscus() {
+    const mount = document.getElementById('giscus-mount');
+    if (!mount || mount.dataset.mounted) return !!(mount && mount.dataset.mounted);
+    const cfg = await giscusConfig();
+    if (!cfg.ready) return false;
+    const s = document.createElement('script');
+    s.src = 'https://giscus.app/client.js';
+    s.crossOrigin = 'anonymous';
+    s.async = true;
+    s.setAttribute('data-repo', cfg.repo);
+    s.setAttribute('data-repo-id', cfg.repoId);
+    if (cfg.category) s.setAttribute('data-category', cfg.category);
+    s.setAttribute('data-category-id', cfg.categoryId);
+    s.setAttribute('data-mapping', 'specific');
+    s.setAttribute('data-term', 'guestbook');
+    s.setAttribute('data-strict', '1');
+    s.setAttribute('data-reactions-enabled', '1');
+    s.setAttribute('data-emit-metadata', '0');
+    s.setAttribute('data-input-position', 'top');
+    // the frame is on another origin, so style.css cannot reach into it —
+    // giscus takes a theme by url and this one is served from this repo
+    s.setAttribute('data-theme', new URL('giscus-win98.css', location.href).href);
+    s.setAttribute('data-lang', 'en');
+    s.setAttribute('data-loading', 'lazy');
+    mount.appendChild(s);
+    mount.dataset.mounted = '1';
+    return true;
 }
 
 // one request for the whole board: the gist's comment thread
@@ -1715,6 +1788,21 @@ function safeUrl(url) {
 async function loadGuestbook() {
     const container = document.getElementById('guestbook-entries');
     if (!container) return;
+    // if giscus is set up, it is the guestbook: one click, no copy-paste
+    if (await mountGiscus()) {
+        // .hidden is a tailwind utility off a cdn, and which board shows is
+        // not something to leave to whether that cdn answered
+        document.querySelectorAll('[data-board="gist"]').forEach(el => {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('[data-board="giscus"]').forEach(el => {
+            el.classList.remove('hidden');
+            el.style.display = '';
+        });
+        container.innerHTML = '';
+        return;
+    }
     container.innerHTML = '<div class="text-center text-gray-500 font-pixel">loading entries...</div>';
     try {
         const entries = await fetchBoard('guestbook');
