@@ -8081,5 +8081,18 @@ body.disco-floor::after {
     touch-action: none;
 }
 
+/* the overworld and the battle screen want to be as wide as they can get
+   and never taller than the window they are in */
+.et-world,
+.et-battle {
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+    display: block;
+    margin: 0 auto 6px;
+    border: 1px solid #2a3a30;
+    background: #04090d;
+}
+
 /* the reel is a hold, so it must not look like a click that fired */
 .et-btn[data-a="reel"] { user-select: none; }
