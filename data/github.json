@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T10:54:03.105919Z",
+  "generated_at": "2026-08-24T12:37:55.093Z",
   "user": {
     "login": "MrHakan",
     "avatar_url": "https://avatars.githubusercontent.com/u/15964553?v=4",
@@ -8,6 +8,19 @@
     "created_at": "2015-11-22T08:01:29Z"
   },
   "repos": [
+    {
+      "name": "ERP-Account-Switcher",
+      "html_url": "https://github.com/MrHakan/ERP-Account-Switcher",
+      "description": "Account switcher for ERP system for a specified company",
+      "language": "JavaScript",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-08-20T11:18:45Z",
+      "updated_at": "2026-08-24T11:14:38Z",
+      "has_pages": false,
+      "fork": false,
+      "archived": false
+    },
     {
       "name": "inert-gas-simulator",
       "html_url": "https://github.com/MrHakan/inert-gas-simulator",
@@ -28,7 +41,7 @@
       "language": "JavaScript",
       "stargazers_count": 2,
       "forks_count": 0,
-      "pushed_at": "2026-08-24T10:51:18Z",
+      "pushed_at": "2026-08-24T12:37:43Z",
       "updated_at": "2026-08-24T07:10:05Z",
       "has_pages": true,
       "fork": false,
@@ -44,19 +57,6 @@
       "pushed_at": "2026-08-20T13:22:55Z",
       "updated_at": "2026-08-20T13:27:00Z",
       "has_pages": true,
-      "fork": false,
-      "archived": false
-    },
-    {
-      "name": "ERP-Account-Switcher",
-      "html_url": "https://github.com/MrHakan/ERP-Account-Switcher",
-      "description": "Account switcher for ERP system for a specified company",
-      "language": "JavaScript",
-      "stargazers_count": 0,
-      "forks_count": 0,
-      "pushed_at": "2026-08-20T11:18:45Z",
-      "updated_at": "2026-08-20T11:21:15Z",
-      "has_pages": false,
       "fork": false,
       "archived": false
     },
@@ -217,6 +217,19 @@
       "archived": false
     },
     {
+      "name": "YoutubeDownloader",
+      "html_url": "https://github.com/MrHakan/YoutubeDownloader",
+      "description": "Downloads videos and playlists from YouTube. (And actually works)",
+      "language": "C#",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-02-22T08:52:04Z",
+      "updated_at": "2026-02-28T13:13:54Z",
+      "has_pages": false,
+      "fork": true,
+      "archived": false
+    },
+    {
       "name": "Aternos-Suffix-Scanner",
       "html_url": "https://github.com/MrHakan/Aternos-Suffix-Scanner",
       "description": "A multi-threaded Python scanner for finding existing Aternos server suffixes.",
@@ -227,6 +240,19 @@
       "updated_at": "2026-02-22T08:44:38Z",
       "has_pages": false,
       "fork": false,
+      "archived": false
+    },
+    {
+      "name": "Trouser-Streak",
+      "html_url": "https://github.com/MrHakan/Trouser-Streak",
+      "description": "A compilation of modules optimized for maximum grief. Featuring powerful mods for Chunk Tracing, Base Hunting, and Griefing servers! A few modules were not originally written by me, but have been modified. Customer Service: https://www.breakblocks.com/discord",
+      "language": null,
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "pushed_at": "2026-02-17T08:41:33Z",
+      "updated_at": "2026-02-19T17:42:50Z",
+      "has_pages": false,
+      "fork": true,
       "archived": false
     },
     {
@@ -269,6 +295,19 @@
       "archived": false
     },
     {
+      "name": "Antigravity-IDE",
+      "html_url": "https://github.com/MrHakan/Antigravity-IDE",
+      "description": null,
+      "language": null,
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "pushed_at": "2025-12-14T22:28:49Z",
+      "updated_at": "2025-12-14T22:27:51Z",
+      "has_pages": false,
+      "fork": true,
+      "archived": false
+    },
+    {
       "name": "Phobos-Light",
       "html_url": "https://github.com/MrHakan/Phobos-Light",
       "description": "phobos light weight client",
@@ -293,6 +332,19 @@
       "has_pages": false,
       "fork": false,
       "archived": true
+    },
+    {
+      "name": "retroplayer",
+      "html_url": "https://github.com/MrHakan/retroplayer",
+      "description": "retroplayer for spotify w.i.p currently",
+      "language": "JavaScript",
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "pushed_at": "2025-12-07T12:52:42Z",
+      "updated_at": "2025-12-07T12:52:46Z",
+      "has_pages": false,
+      "fork": true,
+      "archived": false
     },
     {
       "name": "Hesap-Makinesi",
