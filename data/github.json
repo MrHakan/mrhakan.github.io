@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-26T05:52:30.764Z",
+  "generated_at": "2026-08-27T16:33:46.278Z",
   "user": {
     "login": "MrHakan",
     "avatar_url": "https://avatars.githubusercontent.com/u/15964553?v=4",
@@ -9,14 +9,27 @@
   },
   "repos": [
     {
+      "name": "FolderLens",
+      "html_url": "https://github.com/MrHakan/FolderLens",
+      "description": "a lightweight folder size analyzer for windows with explorer context menu integration.",
+      "language": "Python",
+      "stargazers_count": 4,
+      "forks_count": 0,
+      "pushed_at": "2026-08-13T10:30:00Z",
+      "updated_at": "2026-08-26T20:30:49Z",
+      "has_pages": false,
+      "fork": false,
+      "archived": false
+    },
+    {
       "name": "mrhakan.github.io",
       "html_url": "https://github.com/MrHakan/mrhakan.github.io",
       "description": "mrhakan.github.io",
       "language": "JavaScript",
       "stargazers_count": 2,
       "forks_count": 0,
-      "pushed_at": "2026-08-25T05:49:52Z",
-      "updated_at": "2026-08-25T05:50:51Z",
+      "pushed_at": "2026-08-26T05:52:32Z",
+      "updated_at": "2026-08-26T05:53:15Z",
       "has_pages": true,
       "fork": false,
       "archived": false
@@ -57,19 +70,6 @@
       "pushed_at": "2026-08-20T13:22:55Z",
       "updated_at": "2026-08-20T13:27:00Z",
       "has_pages": true,
-      "fork": false,
-      "archived": false
-    },
-    {
-      "name": "FolderLens",
-      "html_url": "https://github.com/MrHakan/FolderLens",
-      "description": "a lightweight folder size analyzer for windows with explorer context menu integration.",
-      "language": "Python",
-      "stargazers_count": 3,
-      "forks_count": 0,
-      "pushed_at": "2026-08-13T10:30:00Z",
-      "updated_at": "2026-08-13T10:29:21Z",
-      "has_pages": false,
       "fork": false,
       "archived": false
     },
