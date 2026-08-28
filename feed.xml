@@ -8,6 +8,31 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v9.4 — every window has an address</title>
+      <link>https://mrhakan.github.io/</link>
+      <guid isPermaLink="false">mrhakan-v9.4</guid>
+      <pubDate>Thu, 28 Aug 2026 18:00:00 +0000</pubDate>
+      <description><![CDATA[
+        The whole site used to be one URL. Opening a window now writes it into
+        the address bar, every title bar has a link button, and the back button
+        closes what it opened — so the colophon, the devlog and the /uses page
+        are things you can send someone.
+        /now and /uses resolve: GitHub Pages cannot route, so the 404 page
+        learned the desktop's names and sends them where they were going. If it
+        is a typo instead, it measures the edit distance against every real
+        address and says what you probably meant.
+        Documents got what documents have: a contents list, an anchor on every
+        heading, a progress bar for the window rather than the page, a word
+        count and a reading estimate, a plain-text view that opens in Notepad,
+        and a print stylesheet that takes the taskbar and the CRT overlay off
+        the paper. The devlog offers the next post when you finish one. Find:
+        searches the writing now, not just the file names.
+        Also a JSON Feed next to this one, structured data, marked external
+        links, sidenotes, a skip link and a visible focus ring.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v7.1 — fullscreen, and an interactive drama</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v7.1</guid>

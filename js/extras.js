@@ -25,18 +25,42 @@ async function openDevlog(focusId) {
     body.innerHTML = '<div class="doc-loading">loading...</div>';
     try {
         const d = await loadPosts();
+        const prose = (t) => (window.WEB && WEB.prose) ? WEB.prose(t) : escapeHtml(t);
+        // reading time per post, from the post's own words rather than the
+        // whole file — the number is only useful if it is about the thing
+        // you are deciding whether to read
+        const cost = (p) => {
+            const n = p.body.join(' ').trim().split(/\s+/).length;
+            return n.toLocaleString() + ' words · ~' + Math.max(1, Math.round(n / 220)) + ' min';
+        };
         const render = (openId) => {
+            const at = d.posts.findIndex(p => p.id === openId);
+            const prev = at > 0 ? d.posts[at - 1] : null;          // newer
+            const next = at > -1 && at < d.posts.length - 1 ? d.posts[at + 1] : null;  // older
             body.innerHTML = `
                 <h2 class="doc-h1">devlog</h2>
-                <p class="doc-intro">${escapeHtml(d.intro)}</p>
+                <p class="doc-intro">${prose(d.intro)}</p>
                 ${d.posts.map(p => `
-                    <article class="post${p.id === openId ? ' open' : ''}" data-post="${escapeHtml(p.id)}">
+                    <article class="post h-entry${p.id === openId ? ' open' : ''}" data-post="${escapeHtml(p.id)}">
                         <button class="post-head" data-toggle="${escapeHtml(p.id)}">
                             <span class="post-caret">${p.id === openId ? '▾' : '▸'}</span>
-                            <span class="post-title">${escapeHtml(p.title)}</span>
+                            <span class="post-title p-name">${escapeHtml(p.title)}</span>
                         </button>
-                        <div class="post-meta">${escapeHtml(p.date)} · ${p.tags.map(t => `<span class="post-tag">#${escapeHtml(t)}</span>`).join(' ')}</div>
-                        <div class="post-body">${p.body.map(par => `<p>${escapeHtml(par)}</p>`).join('')}</div>
+                        <div class="post-meta">
+                            <time class="dt-published" datetime="${escapeHtml(p.date)}">${escapeHtml(p.date)}</time>
+                            · <span class="post-cost">${cost(p)}</span>
+                            · ${p.tags.map(t => `<span class="post-tag p-category">#${escapeHtml(t)}</span>`).join(' ')}
+                            <button type="button" class="post-link" data-permalink="${escapeHtml(p.id)}"
+                                title="copy a link straight to this post">🔗</button>
+                        </div>
+                        <div class="post-body e-content">${p.body.map(par => `<p>${prose(par)}</p>`).join('')}</div>
+                        ${p.id === openId ? `
+                        <nav class="post-nav">
+                            ${prev ? `<button type="button" class="post-nav-btn" data-go="${escapeHtml(prev.id)}">
+                                <b>newer ▸</b><span>${escapeHtml(prev.title)}</span></button>` : '<span class="post-nav-end">you are at the newest</span>'}
+                            ${next ? `<button type="button" class="post-nav-btn" data-go="${escapeHtml(next.id)}">
+                                <b>◂ older</b><span>${escapeHtml(next.title)}</span></button>` : '<span class="post-nav-end">that is the whole log</span>'}
+                        </nav>` : ''}
                     </article>`).join('')}
                 <p class="doc-foot">no comments, no tracking, no newsletter. mail me instead — the address is on the desktop.</p>`;
             body.querySelectorAll('[data-toggle]').forEach(btn => {
@@ -46,8 +70,29 @@ async function openDevlog(focusId) {
                     render(id === openId ? null : id);
                 };
             });
+            // read one, then keep reading — the next post is a button, not a
+            // scroll back up through everything you already read
+            body.querySelectorAll('[data-go]').forEach(btn => {
+                btn.onclick = () => {
+                    playSound('navigate');
+                    render(btn.dataset.go);
+                    const el = body.querySelector(`[data-post="${btn.dataset.go}"]`);
+                    if (el) el.scrollIntoView({ block: 'start' });
+                };
+            });
+            body.querySelectorAll('[data-permalink]').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const url = location.origin + location.pathname + '?app=devlog&post=' +
+                        encodeURIComponent(btn.dataset.permalink);
+                    if (window.WEB) WEB.copy(url, 'link to that post copied');
+                };
+            });
+            if (window.WEB) { try { WEB.enhance(body, { route: 'devlog' }); } catch (e) { } }
         };
-        render(focusId || d.posts[0].id);
+        // ?app=devlog&post=<id> opens straight onto that post
+        const asked = focusId || new URLSearchParams(location.search).get('post');
+        render((asked && d.posts.some(p => p.id === asked)) ? asked : d.posts[0].id);
         unlockAchievement('reader');
     } catch (e) {
         body.innerHTML = '<div class="doc-loading">could not load data/posts.json bradar</div>';
@@ -846,6 +891,7 @@ function siteSearchIndex() {
         ['my internet life', 'document', () => openInternetHistory(), 'timeline history nostalgia'],
         ['site map', 'document', () => openSiteMap(), 'index everything'],
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
+        ['json feed', 'document', () => window.open('feed.json', '_blank', 'noopener'), 'subscribe jsonfeed json reader'],
         ['echoes of the tide', 'game', () => openEchoes(), 'rpg grimdark leviathan nemesis drowned lords faction dungeon dredging fishing smithing forge realms sanity tide lore'],
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
@@ -886,9 +932,57 @@ function siteSearchIndex() {
     ].map(([name, kind, act, keywords]) => ({ name, kind, act, keywords }));
 }
 
+// the corpus behind "files containing text". The dialog has said that
+// since 1998 and only ever matched file names, which is a lie a search box
+// should not be telling. This reads the writing itself — every devlog post,
+// every slash page, every changelog line — and is built once per session.
+let textCorpus = null;
+async function siteTextIndex() {
+    if (textCorpus) return textCorpus;
+    const docs = [];
+    const add = (title, kind, text, act) => {
+        const t = String(text || '').trim();
+        if (t) docs.push({ title, kind, text: t, low: t.toLowerCase(), act });
+    };
+    try {
+        const posts = await loadPosts();
+        add('devlog', 'devlog', posts.intro, () => openDevlog());
+        posts.posts.forEach(p => add(p.title, 'devlog post', p.title + '. ' + p.body.join(' '),
+            () => openDevlog(p.id)));
+    } catch (e) { }
+    try {
+        const d = await loadSiteData();
+        if (d.now) add('now.txt', 'document',
+            d.now.intro + ' ' + d.now.sections.map(x => x.title + ' ' + x.items.join(' ')).join(' '), openNowPage);
+        if (d.uses) add('uses.txt', 'document',
+            d.uses.intro + ' ' + d.uses.groups.map(x => x.title + ' ' + x.items.join(' ')).join(' '), openUsesPage);
+        if (d.colophon) add('colophon.txt', 'document',
+            d.colophon.intro + ' ' + d.colophon.lines.join(' '), openColophon);
+        if (d.shrine) add('the shrine', 'document', JSON.stringify(d.shrine).replace(/["{}\[\],]/g, ' '), openShrine);
+        (d.history || []).forEach(h => add(h.year || 'my internet life', 'timeline',
+            JSON.stringify(h).replace(/["{}\[\],]/g, ' '), openInternetHistory));
+        (d.changelog || []).forEach(v => add('v' + v.version, 'changelog',
+            v.changes.join(' '), openChangelog));
+    } catch (e) { }
+    textCorpus = docs;
+    return docs;
+}
+
+// a window of text around the first hit, so a result explains itself
+function findSnippet(doc, q) {
+    const i = doc.low.indexOf(q);
+    if (i === -1) return '';
+    const from = Math.max(0, i - 42), to = Math.min(doc.text.length, i + q.length + 78);
+    const pre = (from > 0 ? '…' : '') + doc.text.slice(from, i);
+    const hit = doc.text.slice(i, i + q.length);
+    const post = doc.text.slice(i + q.length, to) + (to < doc.text.length ? '…' : '');
+    return escapeHtml(pre) + '<mark>' + escapeHtml(hit) + '</mark>' + escapeHtml(post);
+}
+
 function openFindFiles(initialQuery) {
-    const { body } = createAppWindow('find: files containing text', { icon: 'search', width: 380 });
+    const { body } = createAppWindow('find: files containing text', { icon: 'search', width: 400 });
     const index = siteSearchIndex();
+    let corpus = [];
     body.innerHTML = `
         <div class="find-bar">
             <label>named:</label>
@@ -907,18 +1001,39 @@ function openFindFiles(initialQuery) {
             ? index.filter(e => e.name.toLowerCase().includes(q) || e.keywords.includes(q) ||
                 q.split(/\s+/).every(w => (e.name + ' ' + e.keywords + ' ' + e.kind).includes(w)))
             : index;
-        results.innerHTML = hits.length
+        // two words is too short to be interesting in running prose, and the
+        // name list already answers those
+        const inText = q.length >= 3 ? corpus.filter(d => d.low.includes(q)).slice(0, 12) : [];
+        const rows = hits.length
             ? hits.map(e => `<button class="find-row" data-i="${index.indexOf(e)}">
                     <span class="find-name">${escapeHtml(e.name)}</span>
                     <span class="find-kind">${escapeHtml(e.kind)}</span>
                 </button>`).join('')
-            : '<div class="find-empty">no files found matching your search. try "game", "paint", "rss".</div>';
-        count.textContent = `${hits.length} item(s) found`;
-        results.querySelectorAll('.find-row').forEach(r => r.onclick = () => {
+            : (inText.length ? '' : '<div class="find-empty">no files found matching your search. try "game", "paint", "rss".</div>');
+        const textRows = inText.length
+            ? `<div class="find-group">text found in ${inText.length} document(s)</div>` +
+            inText.map((d, i) => `<button class="find-row find-row-text" data-t="${i}">
+                    <span class="find-name">${escapeHtml(d.title)}</span>
+                    <span class="find-kind">${escapeHtml(d.kind)}</span>
+                    <span class="find-snip">${findSnippet(d, q)}</span>
+                </button>`).join('')
+            : '';
+        results.innerHTML = rows + textRows;
+        count.textContent = `${hits.length + inText.length} item(s) found` +
+            (q.length >= 3 && !corpus.length ? ' · reading the documents…' : '');
+        results.querySelectorAll('.find-row[data-i]').forEach(r => r.onclick = () => {
             playSound('navigate');
             index[+r.dataset.i].act();
         });
+        results.querySelectorAll('.find-row[data-t]').forEach(r => r.onclick = () => {
+            playSound('navigate');
+            const d = inText[+r.dataset.t];
+            if (d && d.act) d.act();
+        });
     };
+
+    // the prose loads in the background; the name search never waits for it
+    siteTextIndex().then(c => { corpus = c; search(); }).catch(() => { });
 
     input.addEventListener('input', search);
     input.addEventListener('keydown', (e) => {

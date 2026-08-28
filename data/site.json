@@ -164,6 +164,20 @@
     ],
     "changelog": [
         {
+            "version": "9.4",
+            "date": "2026-08-28",
+            "changes": [
+                "every window has an address now. this whole site was one url \u2014 you could not send anyone the colophon, the devlog, or the page about what i use, because there was nothing to send. opening anything writes it into the address bar, there is a link button in every title bar, the back button closes what it opened, and the sitemap went from three urls to fourteen.",
+                "/now and /uses work. github pages cannot route, so the slash pages every other personal site has have always landed on the 404 here. the 404 knows the desktop's names now: it sends /now, /uses, /blog and /projects where they were going, and if it is a typo instead it measures the edit distance against every real address and tells you what you probably meant. [[note: three files carry route names and none of them can import from the others, so a test holds all three to the same list \u2014 that is what caught /uses pointing at nothing.]]",
+                "documents got the things documents have. a contents list on anything with three or more sections, an anchor on every heading that copies a link straight to that bit, a progress bar for the window rather than the page, and how long the thing is \u2014 in words and in minutes, because minutes assume a reader and words do not.",
+                "a plain text button on every document, which is what you actually want when you mean to quote it, and it opens in the notepad that was already here. a print stylesheet under it: printing takes the taskbar, the marquee and the crt overlay off the paper, prints the one window you asked for, and puts link addresses in the margin, since paper cannot be clicked.",
+                "the devlog stops being a wall. each post says how long it is, carries its own permalink, and offers the next one when you finish \u2014 you should not have to scroll back up past what you just read to keep reading.",
+                "find: now searches the writing. it has said \"files containing text\" since 1998 and only ever matched file names, which is a lie a search box should not be telling. it reads every post, every slash page and every changelog line, and shows you the sentence it matched with the words highlighted.",
+                "smaller things that were missing: a json feed next to the rss, structured data so machines know who this is, external links that say where they go, sidenotes in the margin on a wide window, a skip link, and a visible focus ring \u2014 the desktop had none, which made it a maze without a mouse.",
+                "80 more headless checks and a browser run over all of it."
+            ]
+        },
+        {
             "version": "9.3",
             "date": "2026-08-24",
             "changes": [

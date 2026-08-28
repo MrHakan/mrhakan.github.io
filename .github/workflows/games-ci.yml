@@ -64,6 +64,13 @@ jobs:
             - name: Check the defragmenter
               run: node .github/scripts/check-defrag.mjs
 
+            # the reading layer patches the desktop's own globals, so it
+            # breaks quietly when one of them is renamed. This also holds
+            # the three files that duplicate route names to the same list,
+            # and feed.json to the feed.xml it is generated from.
+            - name: Check the reading layer, the routes and the feeds
+              run: node .github/scripts/check-web.mjs
+
             # the RPG has a design document it is supposed to obey and a set
             # of balance targets that no amount of eyeballing will hold: this
             # runs a few thousand fights and fails if any of them drift

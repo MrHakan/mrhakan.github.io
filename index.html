@@ -19,6 +19,7 @@
   <meta name="author" content="mrhakan" />
   <link rel="canonical" href="https://mrhakan.github.io/" />
   <link rel="alternate" type="application/rss+xml" title="mrhakan's shithole" href="feed.xml" />
+  <link rel="alternate" type="application/feed+json" title="mrhakan's shithole" href="feed.json" />
   <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
   <link rel="apple-touch-icon" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
   <link rel="manifest" href="site.webmanifest" />
@@ -42,6 +43,7 @@
   <script src="js/fun.js" defer></script>
   <script src="js/pages.js" defer></script>
   <script src="js/extras.js" defer></script>
+  <script src="js/web.js" defer></script>
   <script>
     // offline support: open the site once and it keeps working with the cable out
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
@@ -53,19 +55,52 @@
     console.log('%cmrhakan 98', 'font:bold 34px monospace;color:#0df259;text-shadow:2px 2px 0 #ff00ff');
     console.log('%cyou opened the console. respect. \nno build step, no framework, no bundler — just files.\ntype  hax()  or try the konami code.', 'font:13px monospace;color:#ff00ff');
   </script>
+  <!-- the h-card on the page says who this is to a human and to an indieweb
+       parser; this says the same thing to everyone else -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Person",
+        "@id": "https://mrhakan.github.io/#me",
+        "name": "mrhakan",
+        "alternateName": "bradar",
+        "url": "https://mrhakan.github.io/",
+        "image": "https://mrhakan.github.io/src/emoj/dusung.png",
+        "sameAs": [
+          "https://github.com/MrHakan",
+          "https://www.youtube.com/@MrHakanYT",
+          "https://steamcommunity.com/id/prufski/"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://mrhakan.github.io/#site",
+        "url": "https://mrhakan.github.io/",
+        "name": "mrhakan's shithole",
+        "description": "a retro y2k personal site \u2014 a windows 98 desktop with games, a guestbook, a devlog and no build step.",
+        "inLanguage": "en",
+        "author": { "@id": "https://mrhakan.github.io/#me" },
+        "publisher": { "@id": "https://mrhakan.github.io/#me" }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body class="font-body overflow-hidden h-screen w-full relative bg-space text-white">
+  <a class="skip-link" href="#main-window">skip to the content</a>
   <div id="boot-screen">
     <div id="boot-log"></div>
     <div id="boot-prompt">PRESS ANY KEY OR CLICK TO CONTINUE _</div>
   </div>
-  <div class="crt-overlay absolute inset-0 z-50 pointer-events-none h-full w-full fixed"></div>
-  <div class="star-overlay absolute inset-0 z-0 pointer-events-none h-full w-full fixed opacity-50"></div>
-  <div id="effects-container" class="absolute inset-0 z-1 pointer-events-none h-full w-full fixed overflow-hidden">
+  <div class="crt-overlay absolute inset-0 z-50 pointer-events-none h-full w-full fixed" aria-hidden="true"></div>
+  <div class="star-overlay absolute inset-0 z-0 pointer-events-none h-full w-full fixed opacity-50" aria-hidden="true"></div>
+  <div id="effects-container" class="absolute inset-0 z-1 pointer-events-none h-full w-full fixed overflow-hidden" aria-hidden="true">
   </div>
   <div class="w-full bg-black border-b-2 border-[#0df259] h-10 flex items-center overflow-hidden relative z-40">
-    <div class="whitespace-nowrap animate-marquee flex items-center gap-4">
+    <div class="whitespace-nowrap animate-marquee flex items-center gap-4" aria-hidden="true">
       <span class="text-[#0df259] font-header text-lg tracking-widest">* welcome to mrhakan's shithole *</span>
       <span class="text-pink-500 font-header text-lg">::: under construction :::</span>
       <span class="text-[#0df259] font-header text-lg">dont forget to sign the guestbook!</span>
@@ -91,7 +126,7 @@
             <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" alt="avatar"
               class="w-20 h-20 object-contain">
           </div>
-          <nav class="flex flex-col gap-3 w-full">
+          <nav class="flex flex-col gap-3 w-full" aria-label="main">
             <button onclick="showSection('home')"
               class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
               <span class="material-symbols-outlined text-yellow-600 group-hover:text-yellow-700">cottage</span>
@@ -156,7 +191,7 @@
     </div>
 
 
-    <div id="main-window" class="flex-1 flex flex-col min-h-[400px]">
+    <div id="main-window" class="flex-1 flex flex-col min-h-[400px]" role="main" tabindex="-1">
       <div class="bg-retro-gray p-1 bevel-out h-full flex flex-col shadow-[10px_10px_0px_rgba(0,0,0,0.5)]">
 
         <div id="draggable-header"
@@ -474,7 +509,7 @@
     </div>
   </div>
 
-  <div id="start-menu" class="hidden fixed bottom-10 left-1 w-60 bg-retro-gray bevel-out z-[60] shadow-[4px_4px_0px_rgba(0,0,0,0.5)]">
+  <div id="start-menu" role="menu" aria-label="start menu" class="hidden fixed bottom-10 left-1 w-60 bg-retro-gray bevel-out z-[60] shadow-[4px_4px_0px_rgba(0,0,0,0.5)]">
     <div class="flex">
       <div class="w-8 bg-gradient-to-b from-[#000080] to-[#1084d0] flex items-end justify-center py-2">
         <span class="text-white font-bold font-header text-sm whitespace-nowrap"
@@ -569,6 +604,8 @@
                 class="material-symbols-outlined text-green-600">public</span>site map</button>
             <button onclick="startMenuAction('rss')" class="start-item"><span
                 class="material-symbols-outlined text-orange-600">public</span>rss feed</button>
+            <button onclick="startMenuAction('jsonfeed')" class="start-item"><span
+                class="material-symbols-outlined text-amber-600">data_object</span>json feed</button>
           </div>
         </div>
         <div class="start-sub">
@@ -653,7 +690,7 @@
     </div>
   </div>
 
-  <div id="taskbar"
+  <div id="taskbar" role="toolbar" aria-label="taskbar"
     class="fixed bottom-0 left-0 w-full h-10 bg-retro-gray bevel-out flex items-center px-1 gap-1 z-[55] select-none">
     <button id="start-button" onclick="toggleStartMenu(event)"
       class="bevel-out bg-retro-gray h-8 px-2 flex items-center gap-1 font-header font-bold text-black text-sm active:translate-y-[1px]">

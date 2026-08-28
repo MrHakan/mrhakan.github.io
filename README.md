@@ -27,9 +27,14 @@ js/                   everything the pages load
   guestbook.js          composing and reading a board entry, and the
                         giscus config for both boards
   themes.js  theme-maker.js  theme-scan.js
+  web.js                the reading layer: deep links, anchors, contents,
+                        reading time, plain text, sidenotes, printing.
+                        Loads last — it patches the globals the others
+                        declare rather than editing them in place
   vendor/               third-party scripts, vendored
 css/
-  style.css             all of it, with 95 marked sections
+  style.css             all of it, with 95 marked sections, ending in the
+                        reading layer and the print stylesheet
   giscus-win98.css      the theme the giscus iframe loads, since style.css
                         cannot reach into another origin
 games/                one folder per game, plus the shared netplay layer
@@ -39,7 +44,10 @@ data/                 site content, board config, the projects list, the
                       github snapshot
 src/                  assets only: images, fonts, music
 server/               the optional self-hosted netplay relay
-.github/scripts/      the test suite — no dependencies, same as the site
+feed.xml              the rss, written by hand
+feed.json             the json feed, generated from feed.xml
+.github/scripts/      the test suite — no dependencies, same as the site.
+                      build-feed-json.mjs is the one generator
 ```
 
 ## Running it
@@ -69,6 +77,7 @@ exits non-zero if anything drifted.
 | `check-motion.mjs` | reduced motion means no motion, the charts, the stylesheet's own links |
 | `check-defrag.mjs` | the defragmenter's plan never loses a cluster |
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
+| `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 
@@ -91,6 +100,18 @@ exits non-zero if anything drifted.
   and `innerWidth` widens too — measured at 1648 on a 412px screen. Use
   `TOUCH.viewportWidth()`, which reads `documentElement.clientWidth` and
   agrees with the media queries.
+- **Route names live in three files that cannot import from each other.**
+  `js/web.js` resolves them, `404.html` redirects to them (it is a separate
+  page, so it carries its own copy), and `sitemap.xml` lists them. The keys
+  in `appActions()` are the source of truth, and a few have a nicer public
+  name — `usespage` is `?app=uses`. `check-web.mjs` holds all three lists to
+  the real routes; it is what caught `/uses` pointing at nothing.
+- **`feed.json` is generated** from `feed.xml` by
+  `npm run feed`. Add an `<item>` and re-run it, or `check-web.mjs` fails.
+- **`js/web.js` loads last, on purpose.** It wraps `createAppWindow`,
+  `closeAppWindow`, `startMenuAction` and `showSection`, which have to exist
+  before it runs. Move its `<script>` tag up and the deep links stop working
+  silently.
 - **`node_modules/` is disposable.** The site has no dependencies and
   neither does the test suite; the only thing that lands there is
   Playwright, installed with `--no-save` for the browser runs.

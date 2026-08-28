@@ -8319,3 +8319,468 @@ canvas {
     bottom: 0;
     z-index: 5;
 }
+
+/* ===================================================================
+   the reading layer — js/web.js
+   Everything that turns a window into a document you can skim, quote,
+   link to and print. Kept in one block because it is one feature.
+   =================================================================== */
+
+/* ---------- the toolbar on top of every document ---------- */
+.doc-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 3px 0 5px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #d0d0d0;
+    position: sticky;
+    top: -10px;
+    background: #fff;
+    z-index: 3;
+}
+
+.doc-tool {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    background: #c0c0c0;
+    color: #000;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    cursor: pointer;
+    line-height: 1.5;
+}
+
+.doc-tool:hover { background: #d4d4d4; }
+
+.doc-tool:active,
+.doc-tool.on {
+    border-color: #808080 #fff #fff #808080;
+    background: #b0b0b0;
+}
+
+.doc-count {
+    margin-left: auto;
+    font-size: 10px;
+    color: #777;
+    white-space: nowrap;
+}
+
+/* ---------- table of contents ---------- */
+/* only built when a document has three or more sections — below that it
+   is a list of everything you can already see */
+.doc-toc {
+    background: #f4f4f4;
+    border: 1px solid #b0b0b0;
+    padding: 3px 7px;
+    margin-bottom: 9px;
+    font-size: 11px;
+}
+
+.doc-toc summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: #000080;
+    padding: 2px 0;
+    list-style: none;
+}
+
+.doc-toc summary::before { content: '▸ '; }
+.doc-toc[open] summary::before { content: '▾ '; }
+.doc-toc summary::-webkit-details-marker { display: none; }
+
+.doc-toc ul {
+    margin: 4px 0 3px;
+    padding-left: 14px;
+    list-style: none;
+}
+
+.doc-toc li { padding: 1px 0; }
+
+.doc-toc a {
+    color: #0000cc;
+    text-decoration: none;
+    border-bottom: 1px dotted #8888cc;
+}
+
+.doc-toc a:hover { background: #000080; color: #fff; }
+
+/* ---------- headings you can point at ---------- */
+.doc-h2 { position: relative; }
+
+.h-anchor {
+    background: none;
+    border: 0;
+    color: #a0a0a0;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 0 4px;
+    visibility: hidden;
+}
+
+.doc-h2:hover .h-anchor,
+.h-anchor:focus { visibility: visible; }
+
+.h-anchor:hover { color: #000080; }
+
+/* a finger cannot hover, so on touch the anchor is simply always there */
+@media (pointer: coarse), (any-hover: none) {
+    .h-anchor { visibility: visible; opacity: 0.45; }
+}
+
+/* jumped-to headings say so for a moment, or you lose your place */
+.anchor-hit {
+    animation: anchor-flash 1.5s ease-out;
+}
+
+@keyframes anchor-flash {
+    0%, 40% { background: #ffff88; }
+    100% { background: transparent; }
+}
+
+/* ---------- how far through you are ---------- */
+/* the window scrolls, not the page, so the page scrollbar is no help */
+.doc-progress {
+    height: 3px;
+    background: #808080;
+    border-bottom: 1px solid #404040;
+    flex-shrink: 0;
+}
+
+.doc-progress.idle { display: none; }
+
+.doc-progress i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #000080, #1084d0);
+}
+
+/* ---------- links that say where they go ---------- */
+.link-mark {
+    font-size: 9px;
+    vertical-align: super;
+    margin-left: 2px;
+    padding: 0 2px;
+    color: #555;
+    letter-spacing: 0;
+}
+
+.link-mark-github { color: #24292e; }
+.link-mark-wikipedia { color: #3366cc; }
+.link-mark-youtube { color: #c00; }
+.link-mark-archive { color: #666; }
+.link-mark-neocities { color: #ff7f00; }
+.link-mark-steam { color: #16202d; }
+.link-mark-reddit { color: #ff4500; }
+
+/* ---------- sidenotes ---------- */
+/* [[note: ...]] anywhere in data/ becomes one of these */
+.sn { position: relative; }
+
+.sn-ref {
+    background: #ffff88;
+    border: 1px solid #999;
+    color: #000;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    line-height: 1;
+    padding: 0 3px;
+    vertical-align: super;
+}
+
+.sn-ref:hover { background: #ffea00; }
+
+.sn-note {
+    display: none;
+    background: #ffffe1;
+    border: 1px solid #d0d090;
+    padding: 4px 7px;
+    margin: 4px 0;
+    font-size: 11px;
+    color: #333;
+}
+
+.sn.open .sn-note { display: block; }
+
+/* a window wide enough gets the real thing: the note in the margin,
+   always open, next to the sentence that earned it */
+.doc-body { container-type: inline-size; }
+
+@container (min-width: 620px) {
+    .doc-body { padding-right: 236px !important; }
+
+    .sn-note {
+        display: block;
+        position: absolute;
+        top: -4px;
+        left: calc(100% + 16px);
+        width: 206px;
+        margin: 0;
+    }
+
+    .sn-ref { cursor: default; }
+}
+
+/* ---------- plain text ---------- */
+.doc-plain-wrap {
+    border: 1px solid #808080;
+    background: #f8f8f8;
+    margin-bottom: 10px;
+}
+
+.doc-plain-bar {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: #c0c0c0;
+    border-bottom: 1px solid #808080;
+}
+
+.doc-plain {
+    margin: 0;
+    padding: 8px 10px;
+    max-height: 300px;
+    overflow: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #000;
+    background: #fff;
+}
+
+/* ---------- devlog: the next post, and this post's address ---------- */
+.post-cost { color: #888; }
+
+.post-link {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0 3px;
+    opacity: 0.5;
+}
+
+.post-link:hover { opacity: 1; }
+
+.post-nav {
+    display: flex;
+    gap: 6px;
+    margin: 10px 0 4px;
+    flex-wrap: wrap;
+}
+
+.post-nav-btn {
+    flex: 1 1 45%;
+    min-width: 130px;
+    text-align: left;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    padding: 4px 7px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #000;
+}
+
+.post-nav-btn:hover { background: #d4d4d4; }
+.post-nav-btn:active { border-color: #808080 #fff #fff #808080; }
+.post-nav-btn b { display: block; color: #000080; }
+
+.post-nav-btn span {
+    display: block;
+    color: #444;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.post-nav-end {
+    flex: 1 1 45%;
+    min-width: 130px;
+    font-size: 10px;
+    color: #999;
+    padding: 6px 7px;
+    border: 1px dashed #ccc;
+}
+
+/* ---------- find: the text half ---------- */
+.find-group {
+    background: #000080;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.find-row-text { align-items: flex-start; }
+
+.find-snip {
+    display: block;
+    flex-basis: 100%;
+    font-size: 10px;
+    color: #555;
+    line-height: 1.45;
+    padding-top: 2px;
+    white-space: normal;
+}
+
+.find-snip mark {
+    background: #ffff00;
+    color: #000;
+    font-weight: bold;
+}
+
+/* ---------- getting to the content with a keyboard ---------- */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 200;
+    background: #000080;
+    color: #fff;
+    padding: 8px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    border: 2px solid #fff;
+}
+
+.skip-link:focus {
+    left: 8px;
+    top: 8px;
+}
+
+/* the desktop had no visible focus at all, which made it unusable without
+   a mouse. :focus-visible only shows it for people actually tabbing. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px dotted #0df259;
+    outline-offset: 1px;
+}
+
+.doc-body button:focus-visible,
+.doc-body a:focus-visible {
+    outline-color: #000080;
+}
+
+/* ===================================================================
+   printing
+   The desktop is chrome. Printing a window should put the document on
+   paper and nothing else — no taskbar, no marquee, no CRT overlay.
+   js/web.js marks the window you asked for as .print-target.
+   =================================================================== */
+@media print {
+    @page { margin: 18mm 16mm; }
+
+    html, body {
+        background: #fff !important;
+        color: #000 !important;
+        height: auto !important;
+        overflow: visible !important;
+        font-family: Georgia, 'Times New Roman', serif !important;
+    }
+
+    /* every bit of desk furniture */
+    #taskbar,
+    #start-menu,
+    #boot-screen,
+    #winamp-window,
+    #shoutbox-window,
+    #visitor-box,
+    #effects-container,
+    .crt-overlay,
+    .star-overlay,
+    .animate-marquee,
+    .doc-tools,
+    .doc-progress,
+    .app-window-header,
+    .h-anchor,
+    .post-head .post-caret,
+    .post-link,
+    .post-nav,
+    .taskbar-window-btn,
+    .screensaver,
+    .ie-titlebar-btn {
+        display: none !important;
+    }
+
+    /* printing one window: it is the only thing on the paper */
+    body.printing > *:not(.print-target) { display: none !important; }
+
+    body.printing .print-target,
+    .app-window.print-target {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: none !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .print-target .app-window-body,
+    .doc-body {
+        max-height: none !important;
+        overflow: visible !important;
+        background: #fff !important;
+        color: #000 !important;
+        border: 0 !important;
+        padding: 0 !important;
+        font-family: Georgia, 'Times New Roman', serif !important;
+        font-size: 11pt !important;
+        line-height: 1.5 !important;
+    }
+
+    /* collapsed posts are collapsed on paper too — you printed what you
+       were reading, not the whole archive */
+    .post:not(.open) .post-body { display: none !important; }
+    .post.open .post-body { display: block !important; }
+    .doc-toc[open] { break-after: avoid; }
+
+    .doc-h1, .doc-h2 {
+        font-family: Georgia, 'Times New Roman', serif !important;
+        color: #000 !important;
+        break-after: avoid;
+    }
+
+    .doc-intro {
+        background: #f2f2f2 !important;
+        border: 1px solid #bbb !important;
+    }
+
+    /* paper cannot be clicked, so the address goes on the page */
+    .doc-body a[href^="http"]::after {
+        content: " <" attr(href) ">";
+        font-size: 9pt;
+        color: #444;
+        word-break: break-all;
+    }
+
+    /* a sidenote on paper is a footnote under the paragraph */
+    .sn-note {
+        display: block !important;
+        position: static !important;
+        width: auto !important;
+        left: auto !important;
+        background: #f7f7f7 !important;
+        font-size: 9.5pt !important;
+    }
+
+    .doc-body { padding-right: 0 !important; }
+
+    .post, article, .doc-list li { break-inside: avoid; }
+}

@@ -24,6 +24,19 @@ function docFail(body) {
     body.innerHTML = '<div class="doc-loading">could not load data/site.json bradar</div>';
 }
 
+// every document window ends here once its real content is in: the reading
+// layer adds the anchors, the contents, the plain-text view and the rest.
+// It is deliberately unable to break the document it is decorating.
+function docReady(body) {
+    try { if (window.WEB) WEB.enhance(body); } catch (e) { }
+}
+
+// prose out of data/ may carry [[note: ...]] markers, which become margin
+// notes. Everything else is escaped exactly as it always was.
+function docProse(t) {
+    return (window.WEB && WEB.prose) ? WEB.prose(t) : escapeHtml(t);
+}
+
 // ---------- /now ----------
 async function openNowPage() {
     const { body } = docWindow('now.txt', 'schedule', 400);
@@ -32,13 +45,14 @@ async function openNowPage() {
         body.innerHTML = `
             <h2 class="doc-h1">what im up to right now</h2>
             <p class="doc-meta">last updated: ${escapeHtml(d.updated)}</p>
-            <p class="doc-intro">${escapeHtml(d.intro)}</p>
+            <p class="doc-intro">${docProse(d.intro)}</p>
             ${d.sections.map(s => `
                 <h3 class="doc-h2">:: ${escapeHtml(s.title)} ::</h3>
-                <ul class="doc-list">${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+                <ul class="doc-list">${s.items.map(i => `<li>${docProse(i)}</li>`).join('')}</ul>
             `).join('')}
             <p class="doc-foot">inspired by nownownow.com — every personal site should have one.</p>`;
         unlockAchievement('nosy');
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -49,11 +63,12 @@ async function openUsesPage() {
         const d = (await loadSiteData()).uses;
         body.innerHTML = `
             <h2 class="doc-h1">what i use</h2>
-            <p class="doc-intro">${escapeHtml(d.intro)}</p>
+            <p class="doc-intro">${docProse(d.intro)}</p>
             ${d.groups.map(g => `
                 <h3 class="doc-h2">:: ${escapeHtml(g.title)} ::</h3>
-                <ul class="doc-list">${g.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+                <ul class="doc-list">${g.items.map(i => `<li>${docProse(i)}</li>`).join('')}</ul>
             `).join('')}`;
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -64,10 +79,11 @@ async function openColophon() {
         const d = (await loadSiteData()).colophon;
         body.innerHTML = `
             <h2 class="doc-h1">colophon</h2>
-            <p class="doc-intro">${escapeHtml(d.intro)}</p>
-            <ul class="doc-list">${d.lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')}</ul>
+            <p class="doc-intro">${docProse(d.intro)}</p>
+            <ul class="doc-list">${d.lines.map(l => `<li>${docProse(l)}</li>`).join('')}</ul>
             <p class="doc-foot">view the source: it is all right there in the repo. no build step, no secrets.</p>
             <a class="doc-btn bevel-out" href="https://github.com/MrHakan/mrhakan.github.io" target="_blank" rel="noopener">view source on github</a>`;
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -84,8 +100,9 @@ async function openChangelog() {
                     <div class="cl-head"><b>v${escapeHtml(v.version)}</b>
                         <span>${escapeHtml(v.date)}</span>
                         ${i === 0 ? '<span class="cl-latest">LATEST</span>' : ''}</div>
-                    <ul class="doc-list">${v.changes.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>
+                    <ul class="doc-list">${v.changes.map(c => `<li>${docProse(c)}</li>`).join('')}</ul>
                 </div>`).join('')}`;
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -123,6 +140,7 @@ async function openButtonWall() {
             playSound('ding');
             unlockAchievement('linkback');
         };
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -140,6 +158,7 @@ async function openFriends() {
                     <span class="friend-note">${escapeHtml(f.note)}</span>
                 </a>`).join('')}</div>
             <p class="doc-foot">want to be here? sign the guestbook with your url.</p>`;
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -150,13 +169,14 @@ async function openShrine() {
         const d = (await loadSiteData()).shrine;
         body.innerHTML = `
             <h2 class="doc-h1">the shrine</h2>
-            <p class="doc-intro">${escapeHtml(d.intro)}</p>
+            <p class="doc-intro">${docProse(d.intro)}</p>
             ${d.categories.map(c => `
                 <div class="shrine-cat">
                     <h3 class="doc-h2">${c.icon} ${escapeHtml(c.title)}</h3>
                     <div class="shrine-tags">${c.items.map(i => `<span class="shrine-tag">${escapeHtml(i)}</span>`).join('')}</div>
                 </div>`).join('')}`;
         unlockAchievement('shrine');
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -174,6 +194,7 @@ async function openInternetHistory() {
                     <span class="tl-dot"></span>
                     <span class="tl-text">${escapeHtml(h.text)}</span>
                 </div>`).join('')}</div>`;
+        docReady(body);
     } catch (e) { docFail(body); }
 }
 
@@ -222,7 +243,7 @@ const SITE_MAP = [
             ['system properties', 'openSystemProperties()'],
             ['equalizer', 'openEqualizer()'], ['oscilloscope', 'openOscilloscope()'],
             ['site statistics', 'openSiteStats()'], ['keyboard shortcuts', 'showShortcuts()'],
-            ['web ring', 'openWebRing()'], ['rss feed', "window.open('feed.xml','_blank')"]
+            ['web ring', 'openWebRing()'], ['rss feed', "window.open('feed.xml','_blank')"], ['json feed', "window.open('feed.json','_blank')"]
         ]
     }
 ];
@@ -241,6 +262,7 @@ function openSiteMap() {
         // buttons stay declarative in SITE_MAP
         try { new Function(b.dataset.fn)(); } catch (e) { console.error(e); }
     });
+    docReady(body);
 }
 
 // ---------- "which track are you?" quiz (peak old-web) ----------

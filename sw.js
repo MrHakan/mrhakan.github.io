@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v19';
+const CACHE = 'mrhakan98-v20';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -25,6 +25,7 @@ const PRECACHE = [
     '/js/fun.js',
     '/js/pages.js',
     '/js/extras.js',
+    '/js/web.js',
     '/js/themes.js',
     '/js/theme-scan.js',
     '/js/theme-maker.js',
@@ -48,6 +49,7 @@ const PRECACHE = [
     '/404.html',
     '/js/vendor/typed.umd.js',
     '/css/giscus-win98.css',
+    '/feed.json',
     '/data/site.json',
     '/data/posts.json',
     '/data/github.json',

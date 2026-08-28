@@ -280,7 +280,8 @@ function appActions() {
         documents: openDocuments,
         devlog: openDevlog,
         find: openFindFiles,
-        rss: () => window.open('feed.xml', '_blank', 'noopener')
+        rss: () => window.open('feed.xml', '_blank', 'noopener'),
+        jsonfeed: () => window.open('feed.json', '_blank', 'noopener')
     };
 }
 

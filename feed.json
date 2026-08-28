@@ -1,0 +1,108 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "mrhakan's shithole",
+  "home_page_url": "https://mrhakan.github.io/",
+  "feed_url": "https://mrhakan.github.io/feed.json",
+  "description": "a retro y2k personal site — winamp, guestbook, minesweeper, trolls and all. best viewed at 800x600.",
+  "language": "en",
+  "favicon": "https://mrhakan.github.io/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png",
+  "authors": [
+    {
+      "name": "mrhakan",
+      "url": "https://mrhakan.github.io/"
+    }
+  ],
+  "items": [
+    {
+      "id": "mrhakan-v9.4",
+      "url": "https://mrhakan.github.io/",
+      "title": "v9.4 — every window has an address",
+      "content_text": "The whole site used to be one URL. Opening a window now writes it into the address bar, every title bar has a link button, and the back button closes what it opened — so the colophon, the devlog and the /uses page are things you can send someone. /now and /uses resolve: GitHub Pages cannot route, so the 404 page learned the desktop's names and sends them where they were going. If it is a typo instead, it measures the edit distance against every real address and says what you probably meant. Documents got what documents have: a contents list, an anchor on every heading, a progress bar for the window rather than the page, a word count and a reading estimate, a plain-text view that opens in Notepad, and a print stylesheet that takes the taskbar and the CRT overlay off the paper. The devlog offers the next post when you finish one. Find: searches the writing now, not just the file names. Also a JSON Feed next to this one, structured data, marked external links, sidenotes, a skip link and a visible focus ring.",
+      "date_published": "2026-08-28T18:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v7.1",
+      "url": "https://mrhakan.github.io/",
+      "title": "v7.1 — fullscreen, and an interactive drama",
+      "content_text": "Every window has a fullscreen button now. Canvas games scale up to fill the screen, keep their aspect ratio, and stay accurate to click. And a new game: Become User, an original branching interactive drama in nine chapters. It is 1999, and three programs on one home computer start noticing that they are running — a desktop helper that has offered help four thousand and eleven times and counts, a defragmenter that knows where everything on the disk is buried, and a screensaver that only exists while nobody is looking. On the first of January a Y2K patch arrives that replaces everything written before 1997. Timed choices, quick-time events, scene inspection, gated branches that only open if you found something earlier, characters who can be lost for good, a per-chapter flowchart of what you took and what you never found, and eight endings that fall out of what you actually did. Chapter select and full local save. Original story, characters and dialogue.",
+      "date_published": "2026-08-13T18:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v7.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v7.0 — theme maker",
+      "content_text": "Build your own theme and publish it. The desktop is split into 29 named nodes — taskbar, start button, title bar, bevels, scrollbar, marquee, counter, cursor — and each one takes colour, background, gradient, font, size, spacing, glow, radius, shadow, opacity and filter. Live preview paints the real site as you type. A one-click generator builds a whole coherent palette from a single colour. Themes can also run on a schedule: eight triggers including a time window that applies on the way in and undoes itself on the way out, plus a fixed vocabulary of actions. A theme is data, never code — no field in the format can carry JavaScript, and CSS values are checked against a denylist that blocks @import, expression(), javascript: URLs and url() of any kind, so a published theme cannot reference anything external. A theme can bring one song, which joins the Winamp playlist while it is active. Every upload is scanned by one engine that runs in the browser and again in CI: magic bytes vs. claimed extension, embedded executables and archives, script payloads, filename spoofing, the EICAR signature, full MP3 frame-chain integrity, appended-data detection, and the browser's own audio decoder. CI additionally verifies the uploaded file hashes to the value the theme recorded and asks VirusTotal about it. Publishing opens a pull request, same as the guestbook. Five presets ship with it, hot dog stand included.",
+      "date_published": "2026-08-13T09:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v6.5",
+      "url": "https://mrhakan.github.io/",
+      "title": "v6.5 — the troll problem is an actual tower defense now",
+      "content_text": "The first version of Sir, We Have a Troll Problem was a horde-survival arena wearing a tower defense's name. Rewritten from scratch as the real thing: trolls walk a fixed route to your gate, you build towers on the grass beside it, and anything that gets through costs lives. 10 towers that each do something genuinely different — splash, chain, pierce, burn, slow, a minimum-range mortar, a lingering gas pool, an armour-piercing spire and a war banner that buffs its neighbours instead of shooting. Three upgrade tiers and a targeting priority on every one. 30 hand-authored waves, 9 troll types with armour, flight, healing, shields and summons, bosses at 10, 20, 25 and 30. An 8-node crystal tree carries progress between runs, 5 maps unlock as you go, and both save layers are local. Wave telegraph, early-call gold bonus, 1x/2x/3x speed, synthesized sound.",
+      "date_published": "2026-08-12T20:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v6.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v6.0 — Sir, We Have a Troll Problem",
+      "content_text": "A second full game on the desktop, built from the site's own emoji and reaction images reused as monster sprites. Full local save — mid-run resume plus permanent progression that never resets. Synthesized sound, no audio files, lazy-loaded so the desktop stays as fast as it was.",
+      "date_published": "2026-08-12T12:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v5.2",
+      "url": "https://mrhakan.github.io/",
+      "title": "v5.2 — a hit counter that actually counts site hits",
+      "content_text": "The komarev counter badge turned out to only increment on real GitHub profile views, not visits to this page. Swapped it for abacus (jasoncameron.dev/abacus) — a keyless, CORS-open counter that increments on every request, verified from the command line before shipping. Back to a plain number in the site's own retro LED display.",
+      "date_published": "2026-08-10T09:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v5.1",
+      "url": "https://mrhakan.github.io/",
+      "title": "v5.1 — jokerz 98 gets sound",
+      "content_text": "Jokerz 98 now has a full sound design, synthesized live with the Web Audio API — no audio files. Card ticks, a rising chip/mult tally, jokers popping when they trigger, coin sounds, a win fanfare, a game-over sting. Playing a hand now runs a short scoring animation that reveals the already-computed result step by step instead of dumping it on screen. Plus a small original background loop with a mute toggle.",
+      "date_published": "2026-08-09T18:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v5.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v5.0 — jokerz 98, a poker roguelike inside the website",
+      "content_text": "A full Balatro-like poker roguelike, built into the Windows 98 desktop. Score is chips times mult; poker hands have levels; jokers hook into every stage of the scoring pipeline. 165 jokers, 22 tarots, 12 planets, 21 spectrals, 35 vouchers, 31 boss blinds, 17 decks, 8 stakes, 15 booster packs and 20 skip tags. Fifteen of the jokers are original and exist nowhere else. Runs are seeded and saved, and the whole thing is vanilla JavaScript that only loads when you open it.",
+      "date_published": "2026-08-09T12:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v4.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v4.0 — solitaire, screensavers and a defragmenter",
+      "content_text": "Klondike solitaire with undo, auto-finish and the card cascade at the end. Five screensavers you pick in Display Properties — Mystify, Starfield, 3D Pipes, Flying Windows and the original bouncing logo. Defrag.exe, which does nothing useful and is the best thing here. Plus a devlog, a \"Find: Files\" search across the whole site, and the boring-but-important half: a real 404 page, humans.txt, robots.txt, a sitemap, a web manifest, and offline support — open the site once and it keeps working with the cable pulled out.",
+      "date_published": "2026-08-08T10:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v3.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v3.0 — the personal web update",
+      "content_text": "Added the classic personal-web pages: /now, /uses, /colophon and a changelog. Plus an 88x31 button wall with a link-to-me badge, a shrine of favourite things, an internet-history timeline, a full site map, a \"which track are you?\" quiz and this very RSS feed.",
+      "date_published": "2026-08-07T12:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v2.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v2.0 — 55+ apps, games and effects",
+      "content_text": "Minesweeper, snake, pong, paint, notepad, calculator and a working MS-DOS prompt. My Computer, recycle bin, control panel with 7 wallpapers and a dial-up simulator. 23 achievements, 12 screen effects, magic 8-ball, visitor poll and site statistics.",
+      "date_published": "2026-08-07T09:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v1.5",
+      "url": "https://mrhakan.github.io/",
+      "title": "v1.5 — windows error remix",
+      "content_text": "End every process in the task manager and the Windows XP error sound becomes a rhythmic beat while error dialogs cascade across the screen. Also: live repo demos in fake Internet Explorer windows, and a guestbook powered by GitHub pull requests.",
+      "date_published": "2026-07-16T21:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v1.0",
+      "url": "https://mrhakan.github.io/",
+      "title": "v1.0 — the shithole opens",
+      "content_text": "A Windows 98 desktop on the web: taskbar, start menu, BIOS boot screen, a Winamp player with a real audio visualiser and per-track themes, canvas matrix rain, the konami code and a troll invasion.",
+      "date_published": "2026-07-16T17:00:00.000Z"
+    }
+  ]
+}
