@@ -91,6 +91,13 @@ async function open(url) {
 const clearDialogs = p => p.evaluate(() =>
     document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove()));
 const clip = p => p.evaluate(() => navigator.clipboard.readText());
+// The toolbar is part of the page and app windows float above it, so once
+// something is open a click on back can land on the window instead. That is
+// the desktop working as designed — you move the window or use the taskbar —
+// and it is not what these checks are about, so they press the button
+// directly. There is one check below that the toolbar is genuinely
+// clickable when nothing is covering it.
+const press = (p, sel) => p.locator(sel).click({ force: true });
 const titles = p => p.$$eval('.app-window-title', els => els.map(e => e.textContent.trim()));
 
 // ===================================================================
@@ -162,12 +169,15 @@ section('the address bar');
     const p = await open(BASE + '/');
     const addr = p.locator('#ie-address');
     expect(await addr.count() === 1, 'the window has one');
+    // with nothing open, the toolbar is reachable the ordinary way
+    expect(await addr.isEditable() && await p.locator('#ie-go').isEnabled(),
+        'and it is usable with nothing covering it');
     expect(!/app=/.test(await addr.inputValue()), 'the bare desktop has a clean address',
         await addr.inputValue());
 
     // typing a bare name
     await clearDialogs(p);
-    await addr.fill('now');
+    await addr.fill('now', { force: true });
     await addr.press('Enter');
     await p.waitForTimeout(900);
     expect((await titles(p)).some(t => /now/.test(t)), 'typing a name opens that page',
@@ -180,7 +190,7 @@ section('the address bar');
     for (const [typed, want] of [['/uses', 'app=uses'], ['?app=changelog', 'app=changelog'],
     [BASE + '/?app=shrine', 'app=shrine']]) {
         await clearDialogs(p);
-        await addr.fill(typed);
+        await addr.fill(typed, { force: true });
         await addr.press('Enter');
         await p.waitForTimeout(800);
         expect(p.url().includes(want), '"' + typed + '" goes to ' + want, p.url());
@@ -188,7 +198,7 @@ section('the address bar');
 
     // and something that is not a page at all
     await clearDialogs(p);
-    await addr.fill('defragmenter');
+    await addr.fill('defragmenter', { force: true });
     await addr.press('Enter');
     await p.waitForTimeout(900);
     expect((await titles(p)).some(t => /find/.test(t)),
@@ -207,17 +217,17 @@ section('back, forward and home');
     await p.waitForTimeout(700);
     expect(/app=colophon/.test(p.url()), 'opening writes the url', p.url());
 
-    await p.locator('#ie-back').click();
+    await press(p, '#ie-back');
     await p.waitForTimeout(800);
     expect(!/app=/.test(p.url()), 'the toolbar back button walks out of it', p.url());
     expect(await p.locator('.app-window').count() === 0, 'and closes the window it opened');
 
-    await p.locator('#ie-fwd').click();
+    await press(p, '#ie-fwd');
     await p.waitForTimeout(900);
     expect(/app=colophon/.test(p.url()), 'forward walks back into it', p.url());
     expect(await p.locator('.app-window').count() > 0, 'and reopens the window');
 
-    await p.locator('#ie-home').click();
+    await press(p, '#ie-home');
     await p.waitForTimeout(700);
     expect(!/app=/.test(p.url()), 'home goes back to a clean address', p.url());
     await p.close();
@@ -286,7 +296,7 @@ section('favorites, which used to be a joke');
     const p = await open(BASE + '/?app=shrine');
     await p.waitForSelector('.doc-tools', { timeout: 15000 });
     await clearDialogs(p);
-    await p.locator('#ie-fav').click();
+    await press(p, '#ie-fav');
     await p.waitForTimeout(400);
     expect(await p.evaluate(() => WEB.isFavourite('shrine')), 'the star bookmarks the open page');
     await p.close();
