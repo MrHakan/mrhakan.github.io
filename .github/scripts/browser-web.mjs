@@ -110,13 +110,24 @@ async function open(url) {
 const clearDialogs = p => p.evaluate(() =>
     document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove()));
 const clip = p => p.evaluate(() => navigator.clipboard.readText());
-// The toolbar is part of the page and app windows float above it, so once
-// something is open a click on back can land on the window instead. That is
-// the desktop working as designed — you move the window or use the taskbar —
-// and it is not what these checks are about, so they press the button
-// directly. There is one check below that the toolbar is genuinely
-// clickable when nothing is covering it.
-const press = (p, sel) => p.locator(sel).click({ force: true });
+// The toolbar is part of the page and app windows float above it, so with a
+// document open a click at the back button's coordinates can land on the
+// window instead — force does not help, because a forced click is still a
+// click at a point, and the point is under the window. That is the desktop
+// working as designed: you move the window, or use the taskbar. It is not
+// what these checks are about, so they send the event to the button itself
+// and let the ordinary check below say whether it is reachable.
+const press = (p, sel) => p.locator(sel).dispatchEvent('click');
+
+// when something does go wrong, leave a picture behind — the workflow
+// already uploads this directory, and "it passes here" is not a debugging
+// technique
+fs.mkdirSync('.ci-shots', { recursive: true });
+let shots = 0;
+async function shot(p, why) {
+    try { await p.screenshot({ path: '.ci-shots/web-' + (++shots) + '-' + why + '.png' }); }
+    catch (e) { }
+}
 const titles = p => p.$$eval('.app-window-title', els => els.map(e => e.textContent.trim()));
 
 // ===================================================================
@@ -188,9 +199,13 @@ section('the address bar');
     const p = await open(BASE + '/');
     const addr = p.locator('#ie-address');
     expect(await addr.count() === 1, 'the window has one');
-    // with nothing open, the toolbar is reachable the ordinary way
-    expect(await addr.isEditable() && await p.locator('#ie-go').isEnabled(),
-        'and it is usable with nothing covering it');
+    // with nothing open, the toolbar takes a real click at real coordinates.
+    // This is the check that would catch the address bar being buried.
+    let reachable = true, why = '';
+    try { await p.locator('#ie-home').click({ timeout: 4000 }); }
+    catch (e) { reachable = false; why = String(e.message).split('\n')[0]; }
+    if (!reachable) await shot(p, 'toolbar-unreachable');
+    expect(reachable, 'and with nothing open it takes an ordinary click', why);
     expect(!/app=/.test(await addr.inputValue()), 'the bare desktop has a clean address',
         await addr.inputValue());
 
@@ -238,6 +253,7 @@ section('back, forward and home');
 
     await press(p, '#ie-back');
     await p.waitForTimeout(800);
+    if (/app=/.test(p.url())) await shot(p, 'back-did-nothing');
     expect(!/app=/.test(p.url()), 'the toolbar back button walks out of it', p.url());
     expect(await p.locator('.app-window').count() === 0, 'and closes the window it opened');
 
@@ -317,6 +333,7 @@ section('favorites, which used to be a joke');
     await clearDialogs(p);
     await press(p, '#ie-fav');
     await p.waitForTimeout(400);
+    if (!await p.evaluate(() => WEB.isFavourite('shrine'))) await shot(p, 'star-did-nothing');
     expect(await p.evaluate(() => WEB.isFavourite('shrine')), 'the star bookmarks the open page');
     await p.close();
 
@@ -327,15 +344,17 @@ section('favorites, which used to be a joke');
     await clearDialogs(p2);
     await p2.evaluate(() => WEB.toggleFavouritesMenu());
     await p2.waitForTimeout(300);
+    await p2.waitForSelector('.ie-fav-go', { state: 'attached', timeout: 6000 }).catch(() => { });
+    if (!await p2.locator('.ie-fav-go').count()) await shot(p2, 'no-favourites-listed');
     expect(await p2.locator('.ie-fav-go').count() > 0, 'the favorites menu lists it');
-    await p2.locator('.ie-fav-go').first().click({ force: true });
+    await p2.locator('.ie-fav-go').first().dispatchEvent('click');
     await p2.waitForTimeout(800);
     expect(/app=shrine/.test(p2.url()), 'and clicking it goes there', p2.url());
 
     await clearDialogs(p2);
     await p2.evaluate(() => WEB.toggleFavouritesMenu());
     await p2.waitForTimeout(300);
-    await p2.locator('.ie-fav-del').first().click({ force: true });
+    await p2.locator('.ie-fav-del').first().dispatchEvent('click');
     await p2.waitForTimeout(300);
     expect(await p2.evaluate(() => WEB.favourites().length) === 0, 'and it can be taken off again');
     await p2.close();
