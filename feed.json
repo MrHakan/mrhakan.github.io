@@ -14,6 +14,13 @@
   ],
   "items": [
     {
+      "id": "mrhakan-v9.6",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v9.6 — history, suggestions, a status bar, and find",
+      "content_text": "The rest of the browser chrome, now that pages have addresses. A real history panel next to the favorites. An address bar that offers the matching pages after two letters, favorites first. A status bar that says where a link goes before you click it, and whether there is a network at all. And find-in-document on \"/\", which does the one thing the browser's own find cannot: it opens the devlog posts that are folded shut, so the search can see the writing that was hidden from it, and folds them back afterwards. F6 is the only key taken. Alt+Left and Alt+Right are deliberately left to the browser, which already does the right thing.",
+      "date_published": "2026-08-29T18:00:00.000Z"
+    },
+    {
       "id": "mrhakan-v9.5",
       "url": "https://mrhakan.github.io/?app=changelog",
       "title": "v9.5 — the address bar is real, and so are the favorites",

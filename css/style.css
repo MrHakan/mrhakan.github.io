@@ -8986,3 +8986,171 @@ summary:focus-visible,
     /* whatever size it is on screen, paper gets a readable one */
     .doc-body { font-size: 11pt !important; }
 }
+
+/* ===================================================================
+   history, the address bar's suggestions, the status bar, and finding
+   your way around inside one document — js/web.js
+   =================================================================== */
+
+/* ---------- what the address bar thinks you meant ---------- */
+.ie-suggest {
+    position: absolute;
+    z-index: 47;
+    margin-top: -3px;
+    min-width: 240px;
+    max-width: 420px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: #fff;
+    padding: 2px;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.ie-sug {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #000;
+    padding: 3px 6px;
+}
+
+.ie-sug:hover,
+.ie-sug.on {
+    background: #000080;
+    color: #fff;
+}
+
+.ie-sug-name { flex: 1 1 auto; }
+
+.ie-sug-why {
+    font-size: 9px;
+    color: #777;
+    flex-shrink: 0;
+}
+
+.ie-sug:hover .ie-sug-why,
+.ie-sug.on .ie-sug-why { color: #cfd8ff; }
+
+/* ---------- history ---------- */
+.ie-hist-go::before {
+    content: '⌚ ';
+    color: #555;
+}
+
+.ie-hist-when {
+    font-size: 9px;
+    color: #777;
+    padding: 3px 6px 0 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.ie-favs-clear {
+    display: block;
+    width: 100%;
+    margin-top: 3px;
+    background: #c0c0c0;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #000;
+    padding: 3px;
+}
+
+.ie-favs-clear:active { border-color: #808080 #fff #fff #808080; }
+
+/* ---------- the status bar ---------- */
+.ie-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 2px 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #000;
+}
+
+.ie-status-text,
+.ie-zone {
+    border: 1px solid;
+    border-color: #808080 #fff #fff #808080;
+    padding: 1px 6px;
+    background: #c0c0c0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ie-status-text { flex: 1 1 auto; }
+
+/* a link off the site says so before you commit to it */
+.ie-status-external { color: #0000cc; }
+
+.ie-zone { flex-shrink: 0; }
+.ie-zone.off { color: #a00; font-weight: bold; }
+
+/* ---------- find in this document ---------- */
+.find-bar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 0 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #d0d0d0;
+    position: sticky;
+    top: 22px;
+    background: #fff;
+    z-index: 4;
+}
+
+.find-in {
+    flex: 1 1 auto;
+    min-width: 60px;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 2px 5px;
+}
+
+.find-n {
+    font-size: 10px;
+    color: #777;
+    white-space: nowrap;
+    padding: 0 4px;
+}
+
+mark.find-hit {
+    background: #ffff88;
+    color: #000;
+}
+
+/* the one you are on, as opposed to the ones you could be on */
+mark.find-hit.on {
+    background: #ff8c00;
+    color: #000;
+    outline: 1px solid #000;
+}
+
+@media print {
+    .ie-status,
+    .ie-suggest,
+    .find-bar {
+        display: none !important;
+    }
+
+    mark.find-hit {
+        background: none !important;
+        font-weight: bold;
+    }
+}

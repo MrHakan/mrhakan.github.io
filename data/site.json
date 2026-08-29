@@ -164,6 +164,18 @@
     ],
     "changelog": [
         {
+            "version": "9.6",
+            "date": "2026-08-29",
+            "changes": [
+                "history, because there is finally something to keep. internet explorer had a history panel and this desktop had nowhere to put one \u2014 nothing it opened had an address. the \u231a next to the star lists what you have opened and how long ago, and it clears.",
+                "the address bar guesses. type two letters and it offers the pages that match, favorites first, then what you opened recently, then everything else \u2014 arrow down and enter to take one. every page on this site is a short list; you should not have to remember it.",
+                "a status bar. it says where a link goes before you click it, and whether there is a network \u2014 which this site can answer honestly, since the service worker means it keeps working when the answer is no.",
+                "find in a document, on / or the \ud83d\udd0d in the toolbar. it does one thing the browser's own find cannot: the devlog folds most of its posts shut, and this opens them first, so the search can see the half of the writing that was hidden from it. it folds them back when you close it.",
+                "F6 goes to the address bar. that is the only key taken. [[note: alt+left and alt+right are deliberately left alone \u2014 they are the browser's own back and forward, which is exactly what they should do, and taking them would be taking something in order to reimplement it worse. ctrl+l and ctrl+f are left alone for the same reason.]]",
+                "66 browser checks and 131 headless ones."
+            ]
+        },
+        {
             "version": "9.5",
             "date": "2026-08-29",
             "changes": [

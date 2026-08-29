@@ -245,9 +245,13 @@
             aria-label="address — type a page name and press enter" />
           <button id="ie-fav" class="ie-nav bevel-out" title="add this page to favorites"
             aria-label="add this page to favorites">&#9733;</button>
+          <button id="ie-history" class="ie-nav bevel-out" title="where you have been"
+            aria-label="history">&#8986;</button>
           <button id="ie-go" class="ie-nav ie-go bevel-out" title="go">go</button>
         </div>
-        <div id="ie-favs" class="ie-favs bevel-out" hidden role="menu" aria-label="favorites"></div>
+        <div id="ie-favs" class="ie-favs bevel-out" hidden role="menu" aria-label="favorites and history"></div>
+        <div id="ie-suggest" class="ie-suggest bevel-out" hidden role="listbox"
+          aria-label="pages matching what you typed"></div>
 
         <div class="bg-white flex-1 p-6 bevel-in overflow-y-auto relative h-full">
           <div class="absolute inset-0 opacity-5 pointer-events-none"
@@ -527,6 +531,15 @@
         <img src="https://cyber.dabamos.de/88x31/anybrowser3.gif" alt="any browser" class="h-[31px] w-[88px]">
         <img src="https://cyber.dabamos.de/88x31/geocities.gif" alt="geocities" class="h-[31px] w-[88px]">
       </div>
+
+        <!-- the status bar. It says where a link goes before you click it,
+             and whether there is a network — which this site can answer
+             honestly, since the service worker means it keeps working when
+             the answer is no. -->
+        <div id="ie-status" class="ie-status">
+          <span id="ie-status-text" class="ie-status-text">done</span>
+          <span id="ie-zone" class="ie-zone">&#127760; internet</span>
+        </div>
     </div>
   </div>
 

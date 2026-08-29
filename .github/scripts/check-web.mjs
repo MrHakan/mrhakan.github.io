@@ -288,6 +288,31 @@ if (WEB) {
     expect(WEB.parseTyped('   ') === null, 'and an empty address does nothing');
 }
 
+// ---- history, suggestions, the status bar, find-in-document ----
+expect(/id="ie-history"/.test(read('index.html')) && /id="ie-suggest"/.test(read('index.html')),
+    'the toolbar has a history button and somewhere to put suggestions');
+expect(/id="ie-status"/.test(read('index.html')) && /id="ie-zone"/.test(read('index.html')),
+    'and the window has a status bar');
+['ie-suggest', 'ie-sug', 'ie-sug-why', 'ie-hist-when', 'ie-favs-clear', 'ie-status',
+    'ie-status-text', 'ie-zone', 'find-bar', 'find-in', 'find-n'].forEach(c =>
+        expect(new RegExp('\\.' + c + '[\\s,:{.]').test(css), 'css/style.css styles .' + c));
+expect(/mark\.find-hit/.test(css), 'and the matches it highlights');
+expect(/HIST_KEY|function remember/.test(web), 'js/web.js keeps a history');
+expect(/function suggestions/.test(web), 'and suggests pages as you type');
+expect(/function initStatusBar/.test(web), 'and drives the status bar');
+expect(/function openFindBar/.test(web) && /find-opened/.test(web),
+    'and finds inside a document, unfolding the devlog posts to do it');
+
+// the keys it takes, and the ones it deliberately does not
+expect(/e\.key === 'F6'/.test(web), 'F6 goes to the address bar');
+expect(/}, true\);/.test(web.slice(web.indexOf('function initKeys'))),
+    'and it listens in the capture phase, or the find bar would swallow it');
+['ctrlKey', "'l'", "'f'"].forEach(k =>
+    expect(!new RegExp('key === ' + k + "'?").test(web.slice(web.indexOf('function initKeys'), web.indexOf('function initKeys') + 1400)),
+        'and it does not take ' + k + ' from the browser'));
+expect(/alt\+left and alt\+right are not here on purpose/i.test(web),
+    'back and forward are left to the browser, on purpose and in writing');
+
 expect(/case 'favorites'/.test(read('js/index.js')) &&
     /toggleFavouritesMenu/.test(read('js/index.js')),
     'the favorites menu opens the real favorites, not a toast that lied');

@@ -8,6 +8,25 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v9.6 — history, suggestions, a status bar, and find</title>
+      <link>https://mrhakan.github.io/?app=changelog</link>
+      <guid isPermaLink="false">mrhakan-v9.6</guid>
+      <pubDate>Fri, 29 Aug 2026 18:00:00 +0000</pubDate>
+      <description><![CDATA[
+        The rest of the browser chrome, now that pages have addresses. A real
+        history panel next to the favorites. An address bar that offers the
+        matching pages after two letters, favorites first. A status bar that
+        says where a link goes before you click it, and whether there is a
+        network at all. And find-in-document on "/", which does the one thing
+        the browser's own find cannot: it opens the devlog posts that are
+        folded shut, so the search can see the writing that was hidden from
+        it, and folds them back afterwards.
+        F6 is the only key taken. Alt+Left and Alt+Right are deliberately left
+        to the browser, which already does the right thing.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v9.5 — the address bar is real, and so are the favorites</title>
       <link>https://mrhakan.github.io/?app=changelog</link>
       <guid isPermaLink="false">mrhakan-v9.5</guid>

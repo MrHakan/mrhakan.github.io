@@ -87,6 +87,7 @@ const WEB = (function () {
         if (url === location.href) return;
         try { history[replace ? 'replaceState' : 'pushState']({ app: slug }, '', url); } catch (e) { }
         paintAddress();
+        remember(slug);
     }
 
     // back to the desktop with no app in the address bar
@@ -400,6 +401,7 @@ const WEB = (function () {
         tools.innerHTML =
             '<button type="button" class="doc-tool" data-t="text" title="the same document as plain text">¶ text</button>' +
             '<button type="button" class="doc-tool" data-t="print" title="print just this window">⎙ print</button>' +
+            '<button type="button" class="doc-tool" data-t="find" title="find in this document (/)">🔍 find</button>' +
             (route ? '<button type="button" class="doc-tool" data-t="link" title="copy a link that opens this window">🔗 link</button>' : '') +
             '<span class="doc-size" role="group" aria-label="text size">' +
             '<button type="button" class="doc-tool" data-t="smaller" title="smaller text" aria-label="smaller text">A-</button>' +
@@ -441,6 +443,7 @@ const WEB = (function () {
             this.classList.add('on');
         };
         tools.querySelector('[data-t="print"]').onclick = () => printWindow(win);
+        tools.querySelector('[data-t="find"]').onclick = () => openFindBar(body);
         tools.querySelector('[data-t="smaller"]').onclick = () => stepTextSize(-1);
         tools.querySelector('[data-t="bigger"]').onclick = () => stepTextSize(1);
         const linkBtn = tools.querySelector('[data-t="link"]');
@@ -687,71 +690,20 @@ const WEB = (function () {
         return PRETTY[c] || c;
     }
 
-    function renderFavourites() {
-        const box = document.getElementById('ie-favs');
-        if (!box) return;
-        const list = favourites();
-        box.innerHTML = '';
-        const head = document.createElement('div');
-        head.className = 'ie-favs-head';
-        head.textContent = list.length ? 'favorites' : 'no favorites yet';
-        box.appendChild(head);
-        if (!list.length) {
-            const hint = document.createElement('div');
-            hint.className = 'ie-favs-empty';
-            hint.textContent = 'open something and press the ★ in the address bar.';
-            box.appendChild(hint);
-        }
-        list.forEach(f => {
-            const row = document.createElement('div');
-            row.className = 'ie-fav-row';
-            const go = document.createElement('button');
-            go.className = 'ie-fav-go';
-            go.type = 'button';
-            go.textContent = f.name || f.slug;
-            go.title = urlFor(f.slug);
-            go.onclick = () => { hideFavourites(); open(f.slug); };
-            const del = document.createElement('button');
-            del.className = 'ie-fav-del';
-            del.type = 'button';
-            del.textContent = '✕';
-            del.title = 'remove';
-            del.setAttribute('aria-label', 'remove ' + (f.name || f.slug) + ' from favorites');
-            del.onclick = (e) => {
-                e.stopPropagation();
-                saveFavourites(favourites().filter(x => x.slug !== f.slug));
-                renderFavourites();
-                paintAddress();
-            };
-            row.appendChild(go);
-            row.appendChild(del);
-            box.appendChild(row);
-        });
-        box.hidden = false;
-    }
-
-    function hideFavourites() {
-        const box = document.getElementById('ie-favs');
-        if (box) box.hidden = true;
-    }
-
-    function toggleFavouritesMenu() {
-        const box = document.getElementById('ie-favs');
-        if (!box) return;
-        if (box.hidden) renderFavourites(); else hideFavourites();
-    }
-
     function initAddressBar() {
         const el = addressEl();
         if (!el) return;
         paintAddress();
         el.addEventListener('keydown', (e) => {
             e.stopPropagation();                       // the desktop eats keys otherwise
-            if (e.key === 'Enter') goTyped();
-            if (e.key === 'Escape') { paintAddress(); el.blur(); }
+            if (e.key === 'ArrowDown' && moveSuggestion(1)) { e.preventDefault(); return; }
+            if (e.key === 'ArrowUp' && moveSuggestion(-1)) { e.preventDefault(); return; }
+            if (e.key === 'Enter') { if (!takeSuggestion()) goTyped(); return; }
+            if (e.key === 'Escape') { hideSuggestions(); paintAddress(); el.blur(); }
         });
-        el.addEventListener('focus', () => el.select());
-        el.addEventListener('blur', () => setTimeout(paintAddress, 40));
+        el.addEventListener('input', paintSuggestions);
+        el.addEventListener('focus', () => { el.select(); paintSuggestions(); });
+        el.addEventListener('blur', () => setTimeout(() => { hideSuggestions(); paintAddress(); }, 140));
 
         const on = (id, fn) => {
             const b = document.getElementById(id);
@@ -774,11 +726,394 @@ const WEB = (function () {
             if (typeof playSound === 'function') playSound('navigate');
         });
         on('ie-fav', () => toggleFavourite());
+        on('ie-history', () => togglePanel('history'));
 
         document.addEventListener('click', (e) => {
-            if (e.target.closest('#ie-favs') || e.target.closest('[onclick*="favorites"]')) return;
-            hideFavourites();
+            if (e.target.closest('#ie-favs') || e.target.closest('#ie-history') ||
+                e.target.closest('[onclick*="favorites"]')) return;
+            hidePanel();
         });
+    }
+
+    // ---------- where you have been ----------
+    // internet explorer had a history panel and this desktop had nowhere to
+    // keep one, because nothing it opened had an address. Same list as the
+    // favourites, except it writes itself.
+
+    const HIST_KEY = 'mrhakan98.history';
+    const HIST_MAX = 40;
+
+    function history_() {
+        try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]').filter(h => h && h.slug); }
+        catch (e) { return []; }
+    }
+
+    function remember(slug) {
+        const c = resolve(slug);
+        if (!c || c === 'home') return;
+        // the label is worth a beat: the window that route opens has not
+        // been given its title yet at the moment the url is written
+        setTimeout(() => {
+            const list = history_().filter(h => h.slug !== c);
+            list.unshift({ slug: c, name: routeLabel(c), at: Date.now() });
+            try { localStorage.setItem(HIST_KEY, JSON.stringify(list.slice(0, HIST_MAX))); } catch (e) { }
+        }, 300);
+    }
+
+    function clearHistory() {
+        try { localStorage.removeItem(HIST_KEY); } catch (e) { }
+        if (typeof showToast === 'function') showToast('history', 'history cleared. nobody saw anything');
+    }
+
+    function ago(t) {
+        const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+        if (s < 60) return 'just now';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+        return Math.floor(s / 86400) + 'd ago';
+    }
+
+    // ---------- the two panels ----------
+    // favourites and history are the same object with different contents, so
+    // they are the same panel with different contents
+
+    function panelEl() { return document.getElementById('ie-favs'); }
+
+    function renderPanel(kind) {
+        const box = panelEl();
+        if (!box) return;
+        const isFav = kind === 'favourites';
+        const list = isFav ? favourites() : history_();
+        box.dataset.kind = kind;
+        box.innerHTML = '';
+
+        const head = document.createElement('div');
+        head.className = 'ie-favs-head';
+        head.textContent = isFav
+            ? (list.length ? 'favorites' : 'no favorites yet')
+            : (list.length ? 'history' : 'nothing in the history');
+        box.appendChild(head);
+
+        if (!list.length) {
+            const hint = document.createElement('div');
+            hint.className = 'ie-favs-empty';
+            hint.textContent = isFav
+                ? 'open something and press the ★ in the address bar.'
+                : 'it fills up as you open things.';
+            box.appendChild(hint);
+        }
+
+        list.forEach(f => {
+            const row = document.createElement('div');
+            row.className = 'ie-fav-row';
+            const go = document.createElement('button');
+            go.className = 'ie-fav-go' + (isFav ? '' : ' ie-hist-go');
+            go.type = 'button';
+            go.textContent = f.name || f.slug;
+            go.title = urlFor(f.slug);
+            go.onclick = () => { hidePanel(); open(f.slug); };
+            row.appendChild(go);
+
+            if (isFav) {
+                const del = document.createElement('button');
+                del.className = 'ie-fav-del';
+                del.type = 'button';
+                del.textContent = '✕';
+                del.title = 'remove';
+                del.setAttribute('aria-label', 'remove ' + (f.name || f.slug) + ' from favorites');
+                del.onclick = (e) => {
+                    e.stopPropagation();
+                    saveFavourites(favourites().filter(x => x.slug !== f.slug));
+                    renderPanel('favourites');
+                    paintAddress();
+                };
+                row.appendChild(del);
+            } else {
+                const when = document.createElement('span');
+                when.className = 'ie-hist-when';
+                when.textContent = ago(f.at || Date.now());
+                row.appendChild(when);
+            }
+            box.appendChild(row);
+        });
+
+        if (!isFav && list.length) {
+            const clear = document.createElement('button');
+            clear.className = 'ie-favs-clear';
+            clear.type = 'button';
+            clear.textContent = 'clear history';
+            clear.onclick = () => { clearHistory(); renderPanel('history'); };
+            box.appendChild(clear);
+        }
+        box.hidden = false;
+    }
+
+    function hidePanel() { const b = panelEl(); if (b) b.hidden = true; }
+
+    function togglePanel(kind) {
+        const box = panelEl();
+        if (!box) return;
+        if (!box.hidden && box.dataset.kind === kind) hidePanel();
+        else renderPanel(kind);
+    }
+
+    // kept for anything that already calls these by name
+    function renderFavourites() { renderPanel('favourites'); }
+    function hideFavourites() { hidePanel(); }
+    function toggleFavouritesMenu() { togglePanel('favourites'); }
+    function toggleHistoryMenu() { togglePanel('history'); }
+
+    // ---------- the address bar suggests ----------
+    // every page this desktop has is a short list, so typing two letters
+    // should be enough. Favourites first, then what you have opened
+    // recently, then everything else.
+
+    function suggestions(text) {
+        const q = String(text || '').trim().toLowerCase().replace(/^\/+|\?app=/g, '');
+        if (!q) return [];
+        const seen = {};
+        const out = [];
+        const add = (slug, why) => {
+            const c = resolve(slug);
+            if (!c || seen[c]) return;
+            seen[c] = 1;
+            out.push({ slug: c, name: PRETTY[c] || c, label: routeLabel(c), why: why });
+        };
+        const matches = (name) => name.startsWith(q) || name.includes(q);
+        favourites().forEach(f => { if (matches((PRETTY[f.slug] || f.slug))) add(f.slug, 'favorite'); });
+        history_().forEach(h => { if (matches((PRETTY[h.slug] || h.slug))) add(h.slug, 'recent'); });
+        slugs().forEach(sl => { if (matches(PRETTY[sl] || sl)) add(sl, ''); });
+        Object.keys(INPUT_ALIASES).forEach(a => { if (matches(a)) add(INPUT_ALIASES[a], 'also "' + a + '"'); });
+        // a name that starts with what you typed beats one that merely contains it
+        out.sort((a, b) => (b.name.startsWith(q) ? 1 : 0) - (a.name.startsWith(q) ? 1 : 0));
+        return out.slice(0, 8);
+    }
+
+    let sugAt = -1;
+
+    function sugEl() { return document.getElementById('ie-suggest'); }
+
+    function paintSuggestions() {
+        const box = sugEl(), el = addressEl();
+        if (!box || !el) return;
+        const list = suggestions(el.value);
+        sugAt = -1;
+        box.innerHTML = '';
+        if (!list.length || el !== document.activeElement) { box.hidden = true; return; }
+        list.forEach((s, i) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'ie-sug';
+            b.dataset.slug = s.slug;
+            b.innerHTML = '<span class="ie-sug-name">' + escapeHtml('/' + s.name) + '</span>' +
+                '<span class="ie-sug-why">' + escapeHtml(s.why || '') + '</span>';
+            b.onmousedown = (e) => e.preventDefault();
+            b.onclick = () => { hideSuggestions(); open(s.slug); };
+            b.onmouseenter = () => { sugAt = i; markSuggestion(); };
+            box.appendChild(b);
+        });
+        box.hidden = false;
+    }
+
+    function markSuggestion() {
+        const box = sugEl();
+        if (!box) return;
+        [...box.children].forEach((c, i) => c.classList.toggle('on', i === sugAt));
+    }
+
+    function hideSuggestions() {
+        const box = sugEl();
+        if (box) { box.hidden = true; sugAt = -1; }
+    }
+
+    function moveSuggestion(dir) {
+        const box = sugEl();
+        if (!box || box.hidden || !box.children.length) return false;
+        sugAt = (sugAt + dir + box.children.length + 1) % (box.children.length + 1);
+        if (sugAt === box.children.length) sugAt = -1;
+        markSuggestion();
+        return true;
+    }
+
+    function takeSuggestion() {
+        const box = sugEl();
+        if (!box || box.hidden || sugAt < 0 || !box.children[sugAt]) return false;
+        const slug = box.children[sugAt].dataset.slug;
+        hideSuggestions();
+        addressEl().blur();
+        open(slug);
+        return true;
+    }
+
+    // ===================================================================
+    // the status bar
+    //
+    // The other half of the costume. It says where a link goes before you
+    // click it, and whether the site is talking to the network — which
+    // this one can answer honestly, because the service worker means it
+    // keeps working when the answer is no.
+    // ===================================================================
+
+    function setStatus(text, kind) {
+        const el = document.getElementById('ie-status-text');
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'ie-status-text' + (kind ? ' ie-status-' + kind : '');
+    }
+
+    function idleStatus() {
+        setStatus(navigator.onLine === false ? 'offline — served from the cache' : 'done');
+    }
+
+    function initStatusBar() {
+        const bar = document.getElementById('ie-status');
+        if (!bar) return;
+        const zone = document.getElementById('ie-zone');
+        const paintZone = () => {
+            if (!zone) return;
+            const off = navigator.onLine === false;
+            zone.textContent = off ? '⚠ offline' : '🌐 internet';
+            zone.classList.toggle('off', off);
+        };
+        paintZone();
+        idleStatus();
+        window.addEventListener('online', () => { paintZone(); idleStatus(); });
+        window.addEventListener('offline', () => { paintZone(); idleStatus(); });
+
+        // where a link goes, before you commit to it
+        document.addEventListener('mouseover', (e) => {
+            const a = e.target.closest && e.target.closest('a[href]');
+            if (!a) return;
+            let u;
+            try { u = new URL(a.getAttribute('href'), location.href); } catch (err) { return; }
+            setStatus(u.href, u.origin === location.origin ? '' : 'external');
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target.closest && e.target.closest('a[href]')) idleStatus();
+        });
+        // and where a route goes, while it is going there
+        document.addEventListener('click', (e) => {
+            const b = e.target.closest && e.target.closest('.ie-sug, .ie-fav-go, .start-item, .map-link');
+            if (b) setStatus('opening…');
+        }, true);
+    }
+
+    // ===================================================================
+    // find in this document
+    //
+    // The browser's own find works on what is on screen. This one also
+    // opens the devlog posts that are folded shut, which is where half
+    // the writing on this site lives.
+    // ===================================================================
+
+    const MARK = 'find-hit';
+
+    function clearFind(body) {
+        body.querySelectorAll('mark.' + MARK).forEach(m => {
+            const t = document.createTextNode(m.textContent);
+            m.parentNode.replaceChild(t, m);
+        });
+        body.normalize();
+    }
+
+    function runFind(body, q) {
+        clearFind(body);
+        if (!q || q.length < 2) return 0;
+        const needle = q.toLowerCase();
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+            acceptNode: (n) => {
+                if (!n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                const p = n.parentNode;
+                if (!p || p.closest('.doc-tools, .doc-toc, .find-bar, .doc-plain')) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+        const texts = [];
+        let n;
+        while ((n = walker.nextNode())) texts.push(n);
+        let hits = 0;
+        texts.forEach(node => {
+            const low = node.nodeValue.toLowerCase();
+            if (!low.includes(needle)) return;
+            const frag = document.createDocumentFragment();
+            let at = 0, i;
+            while ((i = low.indexOf(needle, at)) !== -1) {
+                if (i > at) frag.appendChild(document.createTextNode(node.nodeValue.slice(at, i)));
+                const m = document.createElement('mark');
+                m.className = MARK;
+                m.textContent = node.nodeValue.slice(i, i + needle.length);
+                frag.appendChild(m);
+                hits++;
+                at = i + needle.length;
+            }
+            if (at < node.nodeValue.length) frag.appendChild(document.createTextNode(node.nodeValue.slice(at)));
+            node.parentNode.replaceChild(frag, node);
+        });
+        return hits;
+    }
+
+    function openFindBar(body) {
+        if (!body) return;
+        let bar = body.querySelector('.find-bar');
+        if (bar) { bar.querySelector('input').focus(); return; }
+        bar = document.createElement('div');
+        bar.className = 'find-bar';
+        bar.innerHTML =
+            '<input class="find-in bevel-in" placeholder="find in this document" aria-label="find in this document" spellcheck="false">' +
+            '<button type="button" class="doc-tool" data-f="prev" title="previous match" aria-label="previous match">▴</button>' +
+            '<button type="button" class="doc-tool" data-f="next" title="next match" aria-label="next match">▾</button>' +
+            '<span class="find-n" aria-live="polite"></span>' +
+            '<button type="button" class="doc-tool" data-f="close" title="close" aria-label="close find">✕</button>';
+        const tools = body.querySelector('.doc-tools');
+        body.insertBefore(bar, tools ? tools.nextSibling : body.firstChild);
+
+        const input = bar.querySelector('input');
+        const count = bar.querySelector('.find-n');
+        let at = -1;
+
+        const go = (dir) => {
+            const hits = body.querySelectorAll('mark.' + MARK);
+            if (!hits.length) return;
+            at = (at + dir + hits.length) % hits.length;
+            hits.forEach((h, i) => h.classList.toggle('on', i === at));
+            hits[at].scrollIntoView({ block: 'center' });
+            count.textContent = (at + 1) + ' of ' + hits.length;
+        };
+
+        const search = () => {
+            // the devlog folds its posts shut; a search that cannot see them
+            // is worse than no search, so open them all first
+            body.querySelectorAll('.post:not(.open)').forEach(p => p.classList.add('open', 'find-opened'));
+            const n = runFind(body, input.value.trim());
+            at = -1;
+            count.textContent = n ? n + ' found' : (input.value.trim().length > 1 ? 'nothing' : '');
+            if (n) go(1);
+        };
+
+        input.addEventListener('input', search);
+        input.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') go(e.shiftKey ? -1 : 1);
+            if (e.key === 'Escape') close();
+        });
+        bar.querySelector('[data-f="next"]').onclick = () => go(1);
+        bar.querySelector('[data-f="prev"]').onclick = () => go(-1);
+        const close = () => {
+            clearFind(body);
+            body.querySelectorAll('.post.find-opened').forEach(p => p.classList.remove('open', 'find-opened'));
+            bar.remove();
+        };
+        bar.querySelector('[data-f="close"]').onclick = close;
+        setTimeout(() => input.focus(), 30);
+    }
+
+    // whichever document is on top, or the only one open
+    function topDoc() {
+        const docs = [...document.querySelectorAll('.app-window')]
+            .filter(w => w.querySelector('.doc-body') && w.style.display !== 'none');
+        if (!docs.length) return null;
+        docs.sort((a, b) => (+a.style.zIndex || 0) - (+b.style.zIndex || 0));
+        return docs[docs.length - 1].querySelector('.doc-body');
     }
 
     // ===================================================================
@@ -835,6 +1170,37 @@ const WEB = (function () {
         return '';
     }
 
+    // ---------- the two keys worth taking ----------
+    // alt+left and alt+right are not here on purpose: they are the browser's
+    // own back and forward, which is exactly what they should do, and taking
+    // them would be taking something to reimplement it worse. ctrl+l and
+    // ctrl+f are not here either — those belong to the browser and people
+    // reach for them expecting the browser.
+
+    function initKeys() {
+        // capture, not bubble: the find bar and the address bar both stop
+        // propagation so the desktop's chaos words do not fire while you
+        // type, and F6 would never get past them otherwise
+        document.addEventListener('keydown', (e) => {
+            const tag = (e.target.tagName || '').toLowerCase();
+            const typing = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+            // F6 is how internet explorer put you in the address bar, and no
+            // browser today does anything with it people would miss
+            if (e.key === 'F6') {
+                const el = addressEl();
+                if (el) { e.preventDefault(); el.focus(); el.select(); }
+                return;
+            }
+            if (typing) return;
+            // "/" is not a browser shortcut, and it is what half the web uses
+            // for search
+            if (e.key === '/') {
+                const body = topDoc();
+                if (body) { e.preventDefault(); openFindBar(body); }
+            }
+        }, true);
+    }
+
     // ---------- back button ----------
 
     window.addEventListener('popstate', () => {
@@ -860,6 +1226,8 @@ const WEB = (function () {
         wireSidenotes(document.body);
         initAddressBar();
         initQuoting();
+        initStatusBar();
+        initKeys();
         restoreTextSize();
         ready = true;
         // wait for the boot screen to be out of the way before an app
@@ -880,6 +1248,8 @@ const WEB = (function () {
         open, openFromUrl, urlFor, isRoute, resolve, slugs, enhance, prose, markLinks,
         paintAddress, parseTyped, favourites, toggleFavourite, isFavourite,
         toggleFavouritesMenu, renderFavourites, routeLabel, nearestHeading,
+        history: history_, clearHistory, toggleHistoryMenu, togglePanel, hidePanel,
+        suggestions, openFindBar, runFind, clearFind, topDoc, setStatus,
         textSize, setTextSize, stepTextSize, restoreTextSize,
         wireSidenotes, toText, readingTime, words, copy, printWindow,
         scrollToAnchor, anchorHeadings, slugify

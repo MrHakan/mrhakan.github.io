@@ -386,6 +386,124 @@ section('text size');
 }
 
 // ===================================================================
+section('the address bar suggests');
+// ===================================================================
+{
+    const p = await open(BASE + '/');
+    const addr = p.locator('#ie-address');
+    await addr.fill('col', { force: true });
+    await p.waitForTimeout(350);
+    const names = await p.$$eval('.ie-sug-name', e => e.map(x => x.textContent));
+    expect(names.some(n => n.includes('colophon')), 'typing two letters offers the page',
+        names.join(', '));
+    await addr.press('ArrowDown');
+    await addr.press('Enter');
+    await p.waitForTimeout(900);
+    expect(/app=colophon/.test(p.url()), 'and arrow-down then enter opens it', p.url());
+    await p.close();
+}
+
+// ===================================================================
+section('history');
+// ===================================================================
+{
+    const p = await open(BASE + '/');
+    await p.evaluate(() => WEB.open('now'));
+    await p.waitForTimeout(800);
+    await p.evaluate(() => WEB.open('uses'));
+    await p.waitForTimeout(1100);
+    const hist = await p.evaluate(() => WEB.history().map(h => h.slug));
+    expect(hist.length >= 2, 'it records what you opened', hist.join(', '));
+    expect(hist[0] === 'usespage', 'newest first', hist.join(', '));
+    await p.evaluate(() => WEB.togglePanel('history'));
+    await p.waitForTimeout(300);
+    expect(await p.locator('.ie-hist-go').count() > 0, 'the panel lists it');
+    expect(await p.locator('.ie-hist-when').count() > 0, 'with how long ago');
+    await p.evaluate(() => WEB.clearHistory());
+    expect(await p.evaluate(() => WEB.history().length) === 0, 'and it can be cleared');
+    await p.close();
+}
+
+// ===================================================================
+section('the status bar');
+// ===================================================================
+{
+    const p = await open(BASE + '/?app=colophon');
+    await p.waitForSelector('.doc-tools', { timeout: 15000 });
+    expect(await p.locator('#ie-status').isVisible(), 'the window has one');
+    expect(/internet/.test(await p.locator('#ie-zone').textContent()), 'and it names the zone');
+    const link = p.locator('.doc-body a[href^="http"]').first();
+    await link.scrollIntoViewIfNeeded();
+    await link.hover();
+    await p.waitForTimeout(300);
+    const said = await p.locator('#ie-status-text').textContent();
+    expect(/^https?:\/\//.test(said), 'and hovering a link says where it goes', said);
+    await p.close();
+}
+
+// ===================================================================
+section('finding your way around one document');
+// ===================================================================
+{
+    const p = await open(BASE + '/?app=devlog');
+    await p.waitForSelector('.post', { timeout: 15000 });
+    const folded = await p.locator('.post:not(.open)').count();
+    expect(folded > 0, 'the devlog folds most of its posts shut', folded + ' folded');
+
+    await p.keyboard.press('/');
+    await p.waitForTimeout(400);
+    expect(await p.locator('.find-bar').count() > 0, 'and "/" opens a find bar in it');
+
+    await p.locator('.find-in').fill('the');
+    await p.waitForTimeout(500);
+    const hits = await p.locator('mark.find-hit').count();
+    expect(hits > 0, 'which highlights what it found (' + hits + ')');
+    expect(await p.locator('mark.find-hit.on').count() === 1, 'and marks the one you are on');
+    expect(await p.locator('.post:not(.open)').count() === 0,
+        'the folded posts are opened, so the search can actually see them');
+
+    const first = await p.locator('.find-n').textContent();
+    await p.locator('[data-f="next"]').dispatchEvent('click');
+    await p.waitForTimeout(200);
+    expect(await p.locator('.find-n').textContent() !== first, 'next moves to the next one',
+        first + ' -> ' + await p.locator('.find-n').textContent());
+
+    await p.locator('[data-f="close"]').dispatchEvent('click');
+    await p.waitForTimeout(300);
+    expect(await p.locator('mark.find-hit').count() === 0, 'closing takes the highlights back out');
+    expect(await p.locator('.post:not(.open)').count() === folded,
+        'and folds the posts it opened back up', 'was ' + folded);
+    await p.close();
+}
+
+// ===================================================================
+section('the two keys it takes');
+// ===================================================================
+{
+    const p = await open(BASE + '/?app=colophon');
+    await p.waitForSelector('.doc-tools', { timeout: 15000 });
+    // from inside a find bar, which stops propagation on purpose
+    await p.evaluate(() => WEB.openFindBar(WEB.topDoc()));
+    await p.waitForTimeout(300);
+    await p.locator('.find-in').focus();
+    await p.keyboard.press('F6');
+    await p.waitForTimeout(250);
+    expect(await p.evaluate(() => document.activeElement && document.activeElement.id) === 'ie-address',
+        'F6 reaches the address bar even from inside the find bar');
+    // and the browser keeps its own
+    const back = await p.evaluate(() => {
+        let taken = false;
+        const h = (e) => { if (e.altKey && e.key === 'ArrowLeft' && e.defaultPrevented) taken = true; };
+        document.addEventListener('keydown', h);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true, cancelable: true }));
+        document.removeEventListener('keydown', h);
+        return taken;
+    });
+    expect(!back, 'and alt+left is left to the browser, which already does the right thing');
+    await p.close();
+}
+
+// ===================================================================
 section('the slash pages github pages cannot route');
 // ===================================================================
 {
