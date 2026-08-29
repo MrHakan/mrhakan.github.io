@@ -58,15 +58,34 @@ await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE
 // the welcome popup evicts whatever dialog is on screen 1.4s after boot
 await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 
-// nothing here is about the cdn. This run opens ~20 pages and every one of
-// them would otherwise wait on tailwind, google fonts, the visitor counter
-// and the github api — so the whole suite is hermetic: anything that is not
-// this server is refused, which also means the test cannot go red because
-// somebody else's cdn is having an afternoon.
+// This run opens about twenty pages, and every one of them would otherwise
+// wait on the visitor counter, the github api, google fonts and a 400kb
+// tailwind — so everything off this server is refused.
+//
+// Except tailwind, which is fetched once and then served from memory to
+// every page. It lays the site out, and a suite that clicks things cannot
+// afford to be looking at a layout the site never actually has: the address
+// bar's position relative to a floating window is exactly the sort of thing
+// that only shows up when the real stylesheet is there. One request instead
+// of twenty, and the run is still over in a couple of minutes.
+const TAILWIND = 'https://cdn.tailwindcss.com';
+let tailwind = null;
+try {
+    const res = await fetch(TAILWIND + '?plugins=forms,container-queries', { redirect: 'follow' });
+    if (res.ok) tailwind = await res.text();
+} catch (e) { }
+console.log(tailwind
+    ? '  ..    tailwind cached once (' + Math.round(tailwind.length / 1024) + 'kb), served to every page'
+    : '  ..    tailwind could not be fetched — the layout will be unstyled, and any\n' +
+    '        failure below that is about where something sits is that, not the site');
+
 await ctx.route('**/*', route => {
     const u = route.request().url();
     if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u) || u.startsWith('data:') || u.startsWith('blob:')) {
         return route.continue();
+    }
+    if (tailwind && u.startsWith(TAILWIND)) {
+        return route.fulfill({ status: 200, contentType: 'text/javascript', body: tailwind });
     }
     return route.abort();
 });
@@ -375,12 +394,17 @@ section('the slash pages github pages cannot route');
 // ===================================================================
 section('page errors');
 // ===================================================================
-// the cdn bits (tailwind, google fonts) are somebody else's problem
+// everything off this server is refused on purpose, so its failures are
+// this suite's own doing and not the site's
 const real = errors.filter(e => !/ERR_|Failed to load resource|net::/.test(e));
 expect(!real.length, 'no javascript errors anywhere in the run',
     real.slice(0, 6).join('\n        '));
 
 await browser.close();
+// close() on its own waits for keep-alive sockets that nothing is going to
+// close, so the run sat there for ten minutes after passing everything —
+// which in CI is a green suite that reads as a hung job. Drop them and go.
+if (pages.closeAllConnections) pages.closeAllConnections();
 pages.close();
 
 console.log('\n' + '='.repeat(58));
@@ -389,3 +413,4 @@ if (failures) {
     process.exit(1);
 }
 console.log(`all ${checks} browser checks passed`);
+process.exit(0);
