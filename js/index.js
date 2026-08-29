@@ -282,7 +282,39 @@ function appActions() {
         find: openFindFiles,
         rss: () => window.open('feed.xml', '_blank', 'noopener'),
         jsonfeed: () => window.open('feed.json', '_blank', 'noopener'),
-        favorites: () => { if (window.WEB) WEB.toggleFavouritesMenu(); }
+        favorites: () => { if (window.WEB) WEB.toggleFavouritesMenu(); },
+        // the arcade — js/arcade.js
+        tictactoe: openTicTacToe,
+        rps: openRPS,
+        hangman: openHangman,
+        simon: openSimon,
+        g2048: open2048,
+        tetris: openTetris,
+        breakout: openBreakout,
+        whack: openWhack,
+        // the toys and the old-web furniture — js/toys.js
+        pet: openPet,
+        neko: toggleNeko,
+        blinkie: openBlinkieMaker,
+        stamps: openStampShelf,
+        awards: openAwards,
+        directory: openDirectory,
+        scandisk: openScanDisk,
+        setup: openSetup,
+        moreram: openMoreRam,
+        virus: openVirusScan,
+        netpassword: openNetworkPassword,
+        soundboard: openSoundBoard,
+        moon: openMoon,
+        worldclock: openWorldClock,
+        biorhythm: openBiorhythm,
+        love: openLoveCalc,
+        cowsay: openCowsay,
+        dice: openDice,
+        surprise: surpriseMe,
+        rating: openRating,
+        scroller: toggleStatusScroller,
+        trail: toggleCursorTrail
     };
 }
 

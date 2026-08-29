@@ -164,6 +164,22 @@
     ],
     "changelog": [
         {
+            "version": "9.8",
+            "date": "2026-08-29",
+            "changes": [
+                "thirty more things. the field guide at yahew.com files most of the old web's furniture under \"extinct\" \u2014 adoptables, blinkies, stamps, directories, site awards \u2014 so a fair bit of this is putting the extinct things back.",
+                "a pet you adopt. it gets hungry on the clock rather than on a timer, which is the whole difference: it is hungry when you come back tomorrow, not when the window has been open long enough. feed it, pat it, and it can be lost.",
+                "oneko \u2014 the 1989 cat that chases your cursor, stops short of it the way the real one does, and falls asleep if you stop moving.",
+                "a blinkie maker. 150x20, three colours, two frames, saved as a png you can put on your own site \u2014 which is the entire point of a blinkie. and a stamp shelf, 99x56 with a punched edge, every one drawn by the page so nothing is hotlinked off a host that died in 2009.",
+                "a directory, because before search a person sorted the web into categories by hand. it did not scale \u2014 that is why we have google \u2014 but a single site's links never needed to. and an awards page, in the tradition where there was never a committee.",
+                "eight games: tetris, breakout, 2048, simon, hangman, whack a troll, and two with an opponent that does not cheat. tic tac toe plays minimax, so it is genuinely unbeatable and a draw is the honest best. rock paper scissors reads your last two throws and plays the counter to what usually follows \u2014 which is how everyone loses at it, because people are terrible random number generators. [[note: the test suite plays eight games of tic-tac-toe expecting to lose all eight; a single win there means the minimax is broken.]]",
+                "five programs windows would recognise: scandisk with a real surface grid and a bad cluster now and then, a setup wizard whose estimate occasionally goes up, download more ram which fails at 99%, an antivirus that finds exactly what it planted, and the enter network password box where the password shows as ******* to everyone but you.",
+                "small tools that are actually correct: the moon phase by conway's approximation, a world clock off the browser's own timezone rules, a biorhythm plot which is complete pseudoscience and was on every second homepage in 1999, dice with a real d20, and a love calculator which is a hash of two names \u2014 it always was, which is why the answer never changed, which is the only reason anybody believed it.",
+                "and the status bar scroller. window.status was writable until about 2010, and every second homepage had a message crawling along the bottom of the browser. this site built its own status bar last week, so it can have it back.",
+                "30 new achievements, 163 headless checks and a browser run that plays them rather than just opening them."
+            ]
+        },
+        {
             "version": "9.7",
             "date": "2026-08-29",
             "changes": [

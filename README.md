@@ -27,6 +27,13 @@ js/                   everything the pages load
   guestbook.js          composing and reading a board entry, and the
                         giscus config for both boards
   themes.js  theme-maker.js  theme-scan.js
+  arcade.js             eight small games — tetris, breakout, 2048, simon,
+                        hangman, whack, and two with an opponent that does
+                        not cheat (minimax, and a pattern reader)
+  toys.js               the old web's furniture, most of which the field
+                        guides file under extinct: a pet, oneko, blinkies,
+                        stamps, a hand-sorted directory, awards — plus the
+                        joke programs and the small correct tools
   web.js                the reading layer: deep links, the address bar,
                         favorites, anchors, contents, reading time, plain
                         text, quoting, sidenotes, printing. Loads last —
@@ -80,6 +87,7 @@ exits non-zero if anything drifted.
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
+| `browser-arcade.mjs` | the thirty new windows played rather than opened: eight games of tic-tac-toe it expects to lose, tiles merged in 2048, the pet's clock wound back nine hours |
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 
@@ -140,6 +148,12 @@ exits non-zero if anything drifted.
   desktop window is not a phone and a tablet with a stylus is not a
   fingertip. The bigger tap targets and the 16px inputs must not appear
   under a mouse — that is what keeps this looking like 1998.
+- **A new window has four places to be registered**, and
+  `check-web.mjs` fails if any of them is missed: `appActions()` in
+  `js/index.js`, the start menu in `index.html`, the search index in
+  `js/extras.js`, and `PRECACHE` in `sw.js`. It also checks that every
+  `unlockAchievement()` names an achievement that exists, and that every
+  class the new files invent has a style.
 - **`node_modules/` is disposable.** The site has no dependencies and
   neither does the test suite; the only thing that lands there is
   Playwright, installed with `--no-save` for the browser runs.

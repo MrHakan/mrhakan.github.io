@@ -114,6 +114,16 @@ jobs:
                   sleep 2
                   SITE_URL=http://localhost:8097 node .github/scripts/browser-web.mjs
 
+            # thirty new windows is thirty chances to ship a game that
+            # opens and does nothing. This one plays them: eight games of
+            # tic-tac-toe it expects to lose, tiles merged in 2048, and the
+            # pet's clock wound back nine hours to see if it gets hungry.
+            - name: Play the arcade and the toys
+              run: |
+                  python3 -m http.server 8096 &
+                  sleep 2
+                  SITE_URL=http://localhost:8096 node .github/scripts/browser-arcade.mjs
+
             # and the RPG, which is all DOM and two canvases: roll a
             # character, sail, fight, forge and put a line in the water
             - name: Play echoes of the tide

@@ -319,6 +319,68 @@ expect(/case 'favorites'/.test(read('js/index.js')) &&
 expect(/bookmarked:/.test(read('js/fun.js')), 'and there is an achievement for using it');
 
 // ===================================================================
+section('the arcade and the toys are wired in, not just written');
+// ===================================================================
+// Thirty windows is thirty chances to write a game and forget to put it
+// in the menu. This holds all four places that have to agree: the action
+// table, the start menu, find:, and the service worker.
+const arcade = read('js/arcade.js');
+const toys = read('js/toys.js');
+const page = read('index.html');
+const extrasJs = read('js/extras.js');
+const indexJs = read('js/index.js');
+
+const NEW_ACTIONS = ['tictactoe', 'rps', 'hangman', 'simon', 'g2048', 'tetris', 'breakout', 'whack',
+    'pet', 'neko', 'blinkie', 'stamps', 'awards', 'directory', 'scandisk', 'setup', 'moreram',
+    'virus', 'netpassword', 'soundboard', 'moon', 'worldclock', 'biorhythm', 'love', 'cowsay',
+    'dice', 'surprise', 'rating', 'scroller', 'trail'];
+expect(NEW_ACTIONS.length === 30, 'thirty of them', String(NEW_ACTIONS.length));
+
+if (WEB) {
+    const missing = NEW_ACTIONS.filter(a => !WEB.isRoute(a));
+    expect(missing.length === 0, 'every one has an address', missing.join(', '));
+}
+
+const noMenu = NEW_ACTIONS.filter(a => !page.includes("startMenuAction('" + a + "')"));
+expect(noMenu.length === 0, 'and every one is in the start menu', noMenu.join(', '));
+
+// the functions the action table names have to exist in one of the files
+const src = arcade + toys;
+const dead = [...indexJs.slice(indexJs.indexOf('function appActions()')).matchAll(/^\s+[a-z0-9]+: (open[A-Z]\w+|toggle[A-Z]\w+|surpriseMe)/gm)]
+    .map(m => m[1])
+    .filter(fn => !new RegExp('function ' + fn + '\\b').test(src + indexJs + read('js/apps.js') +
+        read('js/fun.js') + extrasJs + read('js/pages.js') + read('js/defrag.js') + read('js/documents.js')));
+expect(dead.length === 0, 'and every action points at a function that exists', dead.join(', '));
+
+expect(read('sw.js').includes("'/js/arcade.js'") && read('sw.js').includes("'/js/toys.js'"),
+    'the service worker precaches both files');
+expect(page.indexOf('js/arcade.js') < page.indexOf('js/web.js') &&
+    page.indexOf('js/toys.js') < page.indexOf('js/web.js'),
+    'and they load before the reading layer, which patches what they declare');
+
+// find: is the other way in, and it is easy to forget
+const notFound = NEW_ACTIONS.filter(a => {
+    const fn = (indexJs.match(new RegExp('^\\s+' + a + ': (\\w+)', 'm')) || [])[1];
+    return fn && !extrasJs.includes(fn + '()');
+});
+expect(notFound.length === 0, 'and find: can reach them', notFound.join(', '));
+
+// every achievement they unlock has to be one the site actually has
+const funJs = read('js/fun.js');
+const declared = [...funJs.slice(funJs.indexOf('const ACHIEVEMENTS')).matchAll(/^\s{4}([a-z0-9_]+):/gm)].map(m => m[1]);
+const unlocked = [...src.matchAll(/unlockAchievement\('([a-z0-9_]+)'\)/g)].map(m => m[1]);
+const phantom = [...new Set(unlocked)].filter(a => declared.indexOf(a) === -1);
+expect(phantom.length === 0, 'and every achievement they hand out is real', phantom.join(', '));
+expect(unlocked.length >= 25, 'most of them hand one out', unlocked.length + ' calls');
+
+// the classes they invent need styles, same rule as the reading layer
+['arc-body', 'arc-btn', 'ttt-cell', 'rps-btn', 'hang-key', 'simon-btn', 'g2048-cell',
+    'whack-hole', 'toy-body', 'pet-stage', 'neko', 'trail-dot', 'stamp-wall', 'sd-grid',
+    'av-hit', 'moon-face', 'wc-row', 'bio-canvas', 'love-pct', 'cow-out', 'dice-out',
+    'rate-star', 'snd-btn'].forEach(c =>
+        expect(new RegExp('\\.' + c + '[\\s,:{.]').test(css), 'css/style.css styles .' + c));
+
+// ===================================================================
 section('printing');
 // ===================================================================
 expect(/@media print/.test(css), 'the stylesheet has a print block');

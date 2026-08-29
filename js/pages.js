@@ -243,7 +243,8 @@ const SITE_MAP = [
             ['system properties', 'openSystemProperties()'],
             ['equalizer', 'openEqualizer()'], ['oscilloscope', 'openOscilloscope()'],
             ['site statistics', 'openSiteStats()'], ['keyboard shortcuts', 'showShortcuts()'],
-            ['web ring', 'openWebRing()'], ['rss feed', "window.open('feed.xml','_blank')"], ['json feed', "window.open('feed.json','_blank')"]
+            ['web ring', 'openWebRing()'], ['rss feed', "window.open('feed.xml','_blank')"], ['json feed', "window.open('feed.json','_blank')"],
+        ['directory', 'openDirectory()'], ['awards', 'openAwards()'], ['stamps', 'openStampShelf()']
         ]
     }
 ];

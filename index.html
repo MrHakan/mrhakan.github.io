@@ -43,6 +43,8 @@
   <script src="js/fun.js" defer></script>
   <script src="js/pages.js" defer></script>
   <script src="js/extras.js" defer></script>
+  <script src="js/arcade.js" defer></script>
+  <script src="js/toys.js" defer></script>
   <script src="js/web.js" defer></script>
   <script>
     // offline support: open the site once and it keeps working with the cable out
@@ -576,6 +578,16 @@
                 class="material-symbols-outlined text-blue-600">storage</span>disk defragmenter</button>
             <button onclick="startMenuAction('documents')" class="start-item"><span
                 class="material-symbols-outlined text-yellow-600">folder</span>my documents</button>
+            <button onclick="startMenuAction('scandisk')" class="start-item"><span
+                class="material-symbols-outlined text-blue-700">storage</span>scandisk</button>
+            <button onclick="startMenuAction('setup')" class="start-item"><span
+                class="material-symbols-outlined text-gray-700">storage</span>mrhakan 98 setup</button>
+            <button onclick="startMenuAction('virus')" class="start-item"><span
+                class="material-symbols-outlined text-green-700">bug_report</span>antivirus 98</button>
+            <button onclick="startMenuAction('moreram')" class="start-item"><span
+                class="material-symbols-outlined text-purple-700">monitoring</span>download more ram</button>
+            <button onclick="startMenuAction('netpassword')" class="start-item"><span
+                class="material-symbols-outlined text-orange-600">key</span>enter network password</button>
           </div>
         </div>
         <div class="start-sub">
@@ -613,6 +625,29 @@
         </div>
         <div class="start-sub">
           <button class="start-item has-sub"><span
+              class="material-symbols-outlined text-orange-600">casino</span>arcade<span
+              class="sub-arrow">▸</span></button>
+          <div class="start-flyout bevel-out">
+            <button onclick="startMenuAction('tetris')" class="start-item"><span
+                class="material-symbols-outlined text-cyan-600">sports_esports</span>tetris</button>
+            <button onclick="startMenuAction('breakout')" class="start-item"><span
+                class="material-symbols-outlined text-red-600">sports_esports</span>breakout</button>
+            <button onclick="startMenuAction('g2048')" class="start-item"><span
+                class="material-symbols-outlined text-amber-600">casino</span>2048</button>
+            <button onclick="startMenuAction('simon')" class="start-item"><span
+                class="material-symbols-outlined text-green-600">graphic_eq</span>simon</button>
+            <button onclick="startMenuAction('tictactoe')" class="start-item"><span
+                class="material-symbols-outlined text-blue-700">casino</span>tic tac toe</button>
+            <button onclick="startMenuAction('rps')" class="start-item"><span
+                class="material-symbols-outlined text-purple-600">casino</span>rock paper scissors</button>
+            <button onclick="startMenuAction('hangman')" class="start-item"><span
+                class="material-symbols-outlined text-gray-700">psychology</span>hangman</button>
+            <button onclick="startMenuAction('whack')" class="start-item"><span
+                class="material-symbols-outlined text-green-700">castle</span>whack a troll</button>
+          </div>
+        </div>
+        <div class="start-sub">
+          <button class="start-item has-sub"><span
               class="material-symbols-outlined text-green-700">description</span>about this site<span
               class="sub-arrow">▸</span></button>
           <div class="start-flyout bevel-out">
@@ -628,6 +663,14 @@
                 class="material-symbols-outlined text-orange-600">history</span>changelog.txt</button>
             <button onclick="startMenuAction('buttons')" class="start-item"><span
                 class="material-symbols-outlined text-purple-600">photo_camera</span>88x31 buttons</button>
+            <button onclick="startMenuAction('blinkie')" class="start-item"><span
+                class="material-symbols-outlined text-pink-600">photo_camera</span>blinkie maker</button>
+            <button onclick="startMenuAction('stamps')" class="start-item"><span
+                class="material-symbols-outlined text-red-700">photo_camera</span>the stamp shelf</button>
+            <button onclick="startMenuAction('directory')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-700">folder_open</span>the directory</button>
+            <button onclick="startMenuAction('awards')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-600">emoji_events</span>awards</button>
             <button onclick="startMenuAction('blogroll')" class="start-item"><span
                 class="material-symbols-outlined text-blue-600">link</span>blogroll</button>
             <button onclick="startMenuAction('shrine')" class="start-item"><span
@@ -666,6 +709,32 @@
                 class="material-symbols-outlined text-blue-400">ac_unit</span>let it snow</button>
             <button onclick="startMenuAction('confetti')" class="start-item"><span
                 class="material-symbols-outlined text-yellow-600">celebration</span>confetti</button>
+            <button onclick="startMenuAction('pet')" class="start-item"><span
+                class="material-symbols-outlined text-pink-600">favorite</span>adopt.exe</button>
+            <button onclick="startMenuAction('neko')" class="start-item"><span
+                class="material-symbols-outlined text-orange-600">explore</span>oneko (cursor cat)</button>
+            <button onclick="startMenuAction('trail')" class="start-item"><span
+                class="material-symbols-outlined text-purple-600">star</span>cursor trail</button>
+            <button onclick="startMenuAction('scroller')" class="start-item"><span
+                class="material-symbols-outlined text-green-600">public</span>status bar scroller</button>
+            <button onclick="startMenuAction('dice')" class="start-item"><span
+                class="material-symbols-outlined text-red-600">casino</span>dice &amp; coin</button>
+            <button onclick="startMenuAction('love')" class="start-item"><span
+                class="material-symbols-outlined text-pink-700">favorite</span>love calculator</button>
+            <button onclick="startMenuAction('biorhythm')" class="start-item"><span
+                class="material-symbols-outlined text-blue-600">monitoring</span>biorhythm</button>
+            <button onclick="startMenuAction('moon')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-700">star</span>moon.exe</button>
+            <button onclick="startMenuAction('worldclock')" class="start-item"><span
+                class="material-symbols-outlined text-blue-700">schedule</span>world clock</button>
+            <button onclick="startMenuAction('cowsay')" class="start-item"><span
+                class="material-symbols-outlined text-gray-800">terminal</span>cowsay</button>
+            <button onclick="startMenuAction('soundboard')" class="start-item"><span
+                class="material-symbols-outlined text-purple-700">graphic_eq</span>sound board</button>
+            <button onclick="startMenuAction('surprise')" class="start-item"><span
+                class="material-symbols-outlined text-orange-700">casino</span>surprise me</button>
+            <button onclick="startMenuAction('rating')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-600">star</span>rate this site</button>
           </div>
         </div>
         <div class="start-sub">

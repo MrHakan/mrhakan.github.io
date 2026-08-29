@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v20';
+const CACHE = 'mrhakan98-v21';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -26,6 +26,8 @@ const PRECACHE = [
     '/js/pages.js',
     '/js/extras.js',
     '/js/web.js',
+    '/js/arcade.js',
+    '/js/toys.js',
     '/js/themes.js',
     '/js/theme-scan.js',
     '/js/theme-maker.js',

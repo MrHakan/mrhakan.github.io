@@ -14,6 +14,13 @@
   ],
   "items": [
     {
+      "id": "mrhakan-v9.8",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v9.8 — thirty more things, most of them extinct",
+      "content_text": "The field guide at yahew.com files most of the old web's furniture under \"extinct\" — adoptables, blinkies, stamps, directories, site awards — so a fair bit of this is putting the extinct things back. A pet that gets hungry on the clock rather than on a timer, so it is hungry when you come back tomorrow. Oneko, the 1989 cat that chases your cursor and stops short of it. A blinkie maker that saves a real PNG. A stamp shelf drawn by the page. A hand-sorted directory, and an awards page in the tradition where there was never a committee. Eight games: Tetris, Breakout, 2048, Simon, Hangman, Whack a Troll, and two with an opponent that does not cheat — tic-tac-toe plays minimax and cannot be beaten, and rock paper scissors reads your last two throws, which is how everybody loses at it. Five programs Windows would recognise, including a setup wizard whose estimate occasionally goes up. Small tools that are actually correct: moon phase, a world clock, a biorhythm plot, dice, and a love calculator that is a hash of two names — it always was. And the status bar scroller, because window.status was writable until about 2010 and this site built its own status bar last week.",
+      "date_published": "2026-08-30T09:00:00.000Z"
+    },
+    {
       "id": "mrhakan-v9.7",
       "url": "https://mrhakan.github.io/?app=changelog",
       "title": "v9.7 — the site on a phone, and a fullscreen that works",
