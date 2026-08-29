@@ -274,39 +274,39 @@
     // ---------- the window ----------
     function openDocuments() {
         const { body, win } = createAppWindow('my documents', { icon: 'folder', width: 560 });
-        body.classList.add('doc-body');
+        body.classList.add('docs-body');
 
         function render() {
             const rows = DOCS.map(doc => {
                 const here = present(doc);
                 const s = here ? summaryOf(doc) : null;
                 return `
-                <div class="doc-row${here ? '' : ' empty'}" data-doc="${doc.id}">
-                    <span class="doc-icon">${doc.icon}</span>
-                    <span class="doc-name">${doc.name}
+                <div class="docs-row${here ? '' : ' empty'}" data-doc="${doc.id}">
+                    <span class="docs-icon">${doc.icon}</span>
+                    <span class="docs-name">${doc.name}
                         <i>${here ? ((s && s.line) || 'saved') + ((s && s.when) ? ' — ' + s.when : '') : 'nothing saved'}</i>
                     </span>
-                    <span class="doc-size">${here ? readable(bytes(doc)) : '—'}</span>
-                    <span class="doc-acts">
-                        ${here ? `<button class="bevel-out doc-btn" data-act="export" data-id="${doc.id}">export</button>` : ''}
-                        ${here && doc.open ? `<button class="bevel-out doc-btn" data-act="open" data-id="${doc.id}">open</button>` : ''}
-                        ${here ? `<button class="bevel-out doc-btn danger" data-act="delete" data-id="${doc.id}">delete</button>` : ''}
+                    <span class="docs-size">${here ? readable(bytes(doc)) : '—'}</span>
+                    <span class="docs-acts">
+                        ${here ? `<button class="bevel-out docs-btn" data-act="export" data-id="${doc.id}">export</button>` : ''}
+                        ${here && doc.open ? `<button class="bevel-out docs-btn" data-act="open" data-id="${doc.id}">open</button>` : ''}
+                        ${here ? `<button class="bevel-out docs-btn danger" data-act="delete" data-id="${doc.id}">delete</button>` : ''}
                     </span>
                 </div>`;
             }).join('');
 
             const total = DOCS.filter(present).reduce((n, d) => n + bytes(d), 0);
             body.innerHTML = `
-                <div class="doc-head">
+                <div class="docs-head">
                     <span>C:\\My Documents</span>
-                    <span class="doc-total">${DOCS.filter(present).length} of ${DOCS.length} · ${readable(total)}</span>
+                    <span class="docs-total">${DOCS.filter(present).length} of ${DOCS.length} · ${readable(total)}</span>
                 </div>
-                <div class="doc-note">everything on this page lives in this browser only. take a backup and it will
+                <div class="docs-note">everything on this page lives in this browser only. take a backup and it will
                     still be here on the next machine.</div>
-                <div class="doc-list bevel-in">${rows}</div>
-                <div class="doc-actions">
-                    <button class="bevel-out doc-btn wide" data-act="export-all">back everything up</button>
-                    <button class="bevel-out doc-btn wide" data-act="import">restore from a code</button>
+                <div class="docs-list bevel-in">${rows}</div>
+                <div class="docs-actions">
+                    <button class="bevel-out docs-btn wide" data-act="export-all">back everything up</button>
+                    <button class="bevel-out docs-btn wide" data-act="import">restore from a code</button>
                 </div>`;
         }
 

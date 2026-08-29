@@ -86,12 +86,14 @@ const WEB = (function () {
         const url = urlFor(slug);
         if (url === location.href) return;
         try { history[replace ? 'replaceState' : 'pushState']({ app: slug }, '', url); } catch (e) { }
+        paintAddress();
     }
 
     // back to the desktop with no app in the address bar
     function clearUrl() {
         if (!location.search && !location.hash) return;
         try { history.replaceState({}, '', location.origin + location.pathname); } catch (e) { }
+        paintAddress();
     }
 
     // open a slug the same way the start menu would, and say so in the url
@@ -161,7 +163,10 @@ const WEB = (function () {
             a.className = 'h-anchor';
             a.type = 'button';
             a.title = 'copy a link to this bit';
-            a.setAttribute('aria-label', 'copy a link to "' + h.textContent.trim() + '"');
+            // the headings are written ":: like this ::"; a screen reader
+            // should not read the decoration out as part of the name
+            a.setAttribute('aria-label', 'copy a link to "' +
+                h.textContent.replace(/^::\s*|\s*::$/g, '').trim() + '"');
             a.textContent = '#';
             a.onclick = (e) => {
                 e.stopPropagation();
@@ -329,6 +334,36 @@ const WEB = (function () {
         ta.remove();
     }
 
+    // ---------- how big the text is ----------
+    // 12px courier is a period-correct choice and an unkind one. The
+    // setting is per-person and it sticks, because changing it on every
+    // document you open is not a setting, it is a chore.
+
+    const SIZE_KEY = 'mrhakan98.textsize';
+    const SIZES = [11, 12, 13, 15, 17];
+
+    function textSize() {
+        const n = parseInt(localStorage.getItem(SIZE_KEY) || '', 10);
+        return SIZES.indexOf(n) !== -1 ? n : 12;
+    }
+
+    function setTextSize(px) {
+        const n = SIZES.indexOf(px) !== -1 ? px : 12;
+        try { localStorage.setItem(SIZE_KEY, String(n)); } catch (e) { }
+        document.documentElement.style.setProperty('--doc-font-size', n + 'px');
+        return n;
+    }
+
+    function restoreTextSize() { setTextSize(textSize()); }
+
+    function stepTextSize(dir) {
+        const at = SIZES.indexOf(textSize());
+        const next = SIZES[Math.min(SIZES.length - 1, Math.max(0, at + dir))];
+        setTextSize(next);
+        if (typeof showToast === 'function') showToast('text size', next + 'px');
+        return next;
+    }
+
     // ---------- printing ----------
     // the desktop is chrome. Printing one window should print the document
     // in it and nothing else — see the @media print block in style.css.
@@ -366,6 +401,10 @@ const WEB = (function () {
             '<button type="button" class="doc-tool" data-t="text" title="the same document as plain text">¶ text</button>' +
             '<button type="button" class="doc-tool" data-t="print" title="print just this window">⎙ print</button>' +
             (route ? '<button type="button" class="doc-tool" data-t="link" title="copy a link that opens this window">🔗 link</button>' : '') +
+            '<span class="doc-size" role="group" aria-label="text size">' +
+            '<button type="button" class="doc-tool" data-t="smaller" title="smaller text" aria-label="smaller text">A-</button>' +
+            '<button type="button" class="doc-tool" data-t="bigger" title="bigger text" aria-label="bigger text">A+</button>' +
+            '</span>' +
             '<span class="doc-count" title="at about 220 words a minute, which may well not be your minute">' +
             readingTime(n) + '</span>';
 
@@ -402,6 +441,8 @@ const WEB = (function () {
             this.classList.add('on');
         };
         tools.querySelector('[data-t="print"]').onclick = () => printWindow(win);
+        tools.querySelector('[data-t="smaller"]').onclick = () => stepTextSize(-1);
+        tools.querySelector('[data-t="bigger"]').onclick = () => stepTextSize(1);
         const linkBtn = tools.querySelector('[data-t="link"]');
         if (linkBtn) linkBtn.onclick = () => copy(urlFor(route), 'link to this window copied');
 
@@ -526,9 +567,278 @@ const WEB = (function () {
         row.insertBefore(b, row.firstChild);
     }
 
+    // ===================================================================
+    // the address bar
+    //
+    // The main window has been dressed as internet explorer forever, with
+    // a menu that did nothing and no address bar, because there was
+    // nothing to put in one. There is now.
+    // ===================================================================
+
+    function addressEl() { return document.getElementById('ie-address'); }
+
+    // what the address bar should read, for whatever is on top
+    function currentUrl() {
+        const slug = new URLSearchParams(location.search).get('app');
+        return slug ? urlFor(slug) : location.origin + location.pathname;
+    }
+
+    function paintAddress() {
+        const el = addressEl();
+        if (!el || el === document.activeElement) return;   // never fight a typist
+        el.value = currentUrl();
+        const fav = document.getElementById('ie-fav');
+        if (fav) {
+            const on = isFavourite(currentRouteSlug());
+            fav.classList.toggle('on', on);
+            fav.title = on ? 'remove this page from favorites' : 'add this page to favorites';
+        }
+    }
+
+    function currentRouteSlug() {
+        return new URLSearchParams(location.search).get('app') || 'home';
+    }
+
+    // what a person types is not a url. "now", "/now", "?app=now" and the
+    // whole address all mean the same page, so all four work.
+    function parseTyped(text) {
+        let t = String(text || '').trim();
+        if (!t) return null;
+        try {
+            if (/^https?:\/\//i.test(t)) {
+                const u = new URL(t);
+                if (u.origin !== location.origin) return { external: u.href };
+                t = new URLSearchParams(u.search).get('app') || u.pathname;
+            }
+        } catch (e) { }
+        t = t.replace(/^\?app=/, '').replace(/^\/+|\/+$/g, '').replace(/\.(html?|txt)$/, '');
+        if (!t) return { slug: 'home' };
+        const r = resolve(t);
+        return r ? { slug: r } : { unknown: t };
+    }
+
+    function goTyped() {
+        const el = addressEl();
+        if (!el) return;
+        const parsed = parseTyped(el.value);
+        if (!parsed) return;
+        if (parsed.external) { window.open(parsed.external, '_blank', 'noopener'); paintAddress(); return; }
+        if (parsed.slug) {
+            el.blur();
+            open(parsed.slug);
+            if (typeof playSound === 'function') playSound('navigate');
+            return;
+        }
+        // not a page — hand it to find:, which is what you wanted anyway
+        el.blur();
+        if (typeof showToast === 'function') showToast('address', 'no page called "' + parsed.unknown + '" — searching instead');
+        if (typeof openFindFiles === 'function') openFindFiles(parsed.unknown);
+    }
+
+    // ---------- favourites, which used to be a joke ----------
+    // the menu said "added mrhakan.github.io to your favorites!" and added
+    // nothing. A bookmark is a url, and there are urls now.
+
+    const FAV_KEY = 'mrhakan98.favourites';
+
+    function favourites() {
+        try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]').filter(f => f && f.slug); }
+        catch (e) { return []; }
+    }
+
+    function saveFavourites(list) {
+        try { localStorage.setItem(FAV_KEY, JSON.stringify(list.slice(0, 40))); } catch (e) { }
+    }
+
+    function isFavourite(slug) {
+        const c = resolve(slug);
+        return favourites().some(f => f.slug === c);
+    }
+
+    function toggleFavourite(slug, label) {
+        const c = resolve(slug || currentRouteSlug());
+        if (!c) return false;
+        const list = favourites();
+        const at = list.findIndex(f => f.slug === c);
+        if (at !== -1) {
+            list.splice(at, 1);
+            saveFavourites(list);
+            if (typeof showToast === 'function') showToast('favorites', 'removed from favorites');
+        } else {
+            list.unshift({ slug: c, name: label || routeLabel(c), at: Date.now() });
+            saveFavourites(list);
+            if (typeof showToast === 'function') showToast('favorites', 'added "' + (label || routeLabel(c)) + '" to favorites');
+            if (typeof unlockAchievement === 'function') unlockAchievement('bookmarked');
+        }
+        if (typeof playSound === 'function') playSound('ding');
+        paintAddress();
+        return true;
+    }
+
+    // the title of whatever the route opens, taken from the window it made
+    // rather than a second list that would drift out of date
+    function routeLabel(slug) {
+        const c = resolve(slug);
+        if (!c) return slug;
+        if (routed && routed._route === c) {
+            const t = routed.querySelector('.app-window-title');
+            if (t && t.textContent.trim()) return t.textContent.trim();
+        }
+        return PRETTY[c] || c;
+    }
+
+    function renderFavourites() {
+        const box = document.getElementById('ie-favs');
+        if (!box) return;
+        const list = favourites();
+        box.innerHTML = '';
+        const head = document.createElement('div');
+        head.className = 'ie-favs-head';
+        head.textContent = list.length ? 'favorites' : 'no favorites yet';
+        box.appendChild(head);
+        if (!list.length) {
+            const hint = document.createElement('div');
+            hint.className = 'ie-favs-empty';
+            hint.textContent = 'open something and press the ★ in the address bar.';
+            box.appendChild(hint);
+        }
+        list.forEach(f => {
+            const row = document.createElement('div');
+            row.className = 'ie-fav-row';
+            const go = document.createElement('button');
+            go.className = 'ie-fav-go';
+            go.type = 'button';
+            go.textContent = f.name || f.slug;
+            go.title = urlFor(f.slug);
+            go.onclick = () => { hideFavourites(); open(f.slug); };
+            const del = document.createElement('button');
+            del.className = 'ie-fav-del';
+            del.type = 'button';
+            del.textContent = '✕';
+            del.title = 'remove';
+            del.setAttribute('aria-label', 'remove ' + (f.name || f.slug) + ' from favorites');
+            del.onclick = (e) => {
+                e.stopPropagation();
+                saveFavourites(favourites().filter(x => x.slug !== f.slug));
+                renderFavourites();
+                paintAddress();
+            };
+            row.appendChild(go);
+            row.appendChild(del);
+            box.appendChild(row);
+        });
+        box.hidden = false;
+    }
+
+    function hideFavourites() {
+        const box = document.getElementById('ie-favs');
+        if (box) box.hidden = true;
+    }
+
+    function toggleFavouritesMenu() {
+        const box = document.getElementById('ie-favs');
+        if (!box) return;
+        if (box.hidden) renderFavourites(); else hideFavourites();
+    }
+
+    function initAddressBar() {
+        const el = addressEl();
+        if (!el) return;
+        paintAddress();
+        el.addEventListener('keydown', (e) => {
+            e.stopPropagation();                       // the desktop eats keys otherwise
+            if (e.key === 'Enter') goTyped();
+            if (e.key === 'Escape') { paintAddress(); el.blur(); }
+        });
+        el.addEventListener('focus', () => el.select());
+        el.addEventListener('blur', () => setTimeout(paintAddress, 40));
+
+        const on = (id, fn) => {
+            const b = document.getElementById(id);
+            if (b) b.onclick = fn;
+        };
+        on('ie-go', goTyped);
+        on('ie-back', () => history.back());
+        on('ie-fwd', () => history.forward());
+        on('ie-home', () => { hideFavourites(); open('home'); });
+        on('ie-reload', () => {
+            // reopen whatever the address is pointing at, rather than
+            // reloading the page and losing every other open window
+            const slug = currentRouteSlug();
+            if (routed && routed.id && typeof window.closeAppWindow === 'function') {
+                const id = routed.id;
+                routed = null;
+                window.closeAppWindow(id);
+            }
+            open(slug, { push: false });
+            if (typeof playSound === 'function') playSound('navigate');
+        });
+        on('ie-fav', () => toggleFavourite());
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#ie-favs') || e.target.closest('[onclick*="favorites"]')) return;
+            hideFavourites();
+        });
+    }
+
+    // ===================================================================
+    // quote a document
+    //
+    // Select a sentence and you get the sentence plus the address of the
+    // section it came from. Quoting somebody accurately should not require
+    // hunting for where you were.
+    // ===================================================================
+
+    function initQuoting() {
+        let bubble = null;
+        const kill = () => { if (bubble) { bubble.remove(); bubble = null; } };
+
+        document.addEventListener('selectionchange', () => {
+            const sel = document.getSelection();
+            if (!sel || sel.isCollapsed) { kill(); return; }
+            const text = sel.toString().trim();
+            const node = sel.anchorNode;
+            const body = node && (node.nodeType === 1 ? node : node.parentNode);
+            const doc = body && body.closest && body.closest('.doc-body');
+            if (!doc || text.length < 12) { kill(); return; }
+            if (bubble) return;                        // one bubble is enough
+            bubble = document.createElement('button');
+            bubble.type = 'button';
+            bubble.className = 'quote-bubble bevel-out';
+            bubble.textContent = '❝ copy quote';
+            bubble.title = 'copy the selection with a link back to it';
+            bubble.onmousedown = (e) => e.preventDefault();   // keep the selection
+            bubble.onclick = () => {
+                const win = doc.closest('.app-window');
+                const route = (win && win._route) || currentRouteSlug();
+                const heading = nearestHeading(sel.anchorNode);
+                copy('"' + text + '"\n\n— ' + urlFor(route, heading),
+                    'quote copied, with the link');
+                kill();
+            };
+            doc.appendChild(bubble);
+        });
+        document.addEventListener('scroll', kill, true);
+    }
+
+    // which section a selection landed in, so the link lands there too
+    function nearestHeading(node) {
+        let el = node && (node.nodeType === 1 ? node : node.parentNode);
+        while (el && !el.classList?.contains('doc-body')) {
+            let sib = el.previousElementSibling;
+            while (sib) {
+                if (sib.classList && sib.classList.contains('doc-h2') && sib.id) return sib.id;
+                sib = sib.previousElementSibling;
+            }
+            el = el.parentNode;
+        }
+        return '';
+    }
+
     // ---------- back button ----------
 
     window.addEventListener('popstate', () => {
+        paintAddress();
         const slug = new URLSearchParams(location.search).get('app');
         if (!slug) {
             // back to the bare desktop: shut the window the url had opened
@@ -548,6 +858,9 @@ const WEB = (function () {
         patch();
         markLinks(document.body);
         wireSidenotes(document.body);
+        initAddressBar();
+        initQuoting();
+        restoreTextSize();
         ready = true;
         // wait for the boot screen to be out of the way before an app
         // shoves itself in front of it
@@ -565,6 +878,9 @@ const WEB = (function () {
 
     return {
         open, openFromUrl, urlFor, isRoute, resolve, slugs, enhance, prose, markLinks,
+        paintAddress, parseTyped, favourites, toggleFavourite, isFavourite,
+        toggleFavouritesMenu, renderFavourites, routeLabel, nearestHeading,
+        textSize, setTextSize, stepTextSize, restoreTextSize,
         wireSidenotes, toText, readingTime, words, copy, printWindow,
         scrollToAnchor, anchorHeadings, slugify
     };

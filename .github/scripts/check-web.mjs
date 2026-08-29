@@ -214,6 +214,86 @@ expect(/\.skip-link/.test(css) && /skip-link/.test(read('index.html')),
 expect(/:focus-visible/.test(css), 'and a keyboard shows where it is');
 
 // ===================================================================
+section('the two things that both wanted to be called .doc-');
+// ===================================================================
+// my documents (js/documents.js) and the slash pages both grew a
+// "document window" and both reached for .doc-. documents.js loads after
+// pages.js and its stylesheet block sits two thousand lines further down,
+// so it silently won: every /now, /uses and colophon window rendered in
+// MS Sans Serif rather than the courier its own rule asks for, and the
+// text size control had nothing to move. They have separate prefixes now
+// and this is what keeps them separate.
+const docsJs = read('js/documents.js');
+const readingClasses = [...read('js/pages.js').matchAll(/doc-[a-z-]+/g)].map(m => m[0])
+    .concat([...web.matchAll(/doc-[a-z-]+/g)].map(m => m[0]))
+    .filter(c => c !== 'doc-font-size');
+const documentsClasses = [...docsJs.matchAll(/docs?-[a-z-]+/g)].map(m => m[0]);
+const shared = [...new Set(readingClasses.filter(c => documentsClasses.includes(c)))];
+expect(shared.length === 0,
+    'my documents and the slash pages share no class names',
+    shared.length ? 'both use: ' + shared.join(', ') : '');
+expect(!/(?<![a-z-])doc-body(?![a-z-])/.test(docsJs),
+    'my documents does not take .doc-body from the reading layer');
+expect(/docs-body/.test(docsJs) && /\.docs-body/.test(css),
+    'it has its own, and the stylesheet agrees');
+
+// the size the toolbar moves has to be the one the document actually reads
+const docBodyRule = css.slice(css.indexOf('.doc-body {'));
+expect(/font-size:\s*var\(--doc-font-size/.test(docBodyRule.slice(0, 400)),
+    'the document font size is the variable the A-/A+ buttons set');
+// .doc-body is declared more than once on purpose — the container query
+// and the print block both touch it. What must not happen again is a
+// second rule setting font-size to a number, because the last one wins
+// and the A-/A+ buttons go dead without a word.
+// comments talk about class names too, so scan the rules and not the prose
+const bareCss = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const printAt = bareCss.indexOf('@media print');
+const hardSizes = [];
+for (const m of bareCss.matchAll(/\.doc-body[^{]*\{([^}]*)\}/g)) {
+    const decl = (m[1].match(/font-size:\s*([^;]+)/) || [])[1];
+    if (!decl) continue;
+    if (decl.includes('var(--doc-font-size')) continue;      // the one that should
+    if (printAt !== -1 && m.index > printAt) continue;        // paper picks its own
+    hardSizes.push(decl.trim());
+}
+expect(hardSizes.length === 0,
+    'nothing else hard-codes the document font size',
+    hardSizes.length ? 'found: ' + hardSizes.join(', ') : '');
+
+// ===================================================================
+section('the address bar');
+// ===================================================================
+expect(/id="ie-address"/.test(read('index.html')), 'index.html has an address bar');
+['ie-back', 'ie-fwd', 'ie-reload', 'ie-home', 'ie-fav', 'ie-go'].forEach(id =>
+    expect(read('index.html').includes('id="' + id + '"'), '  and a ' + id + ' button'));
+expect(/initAddressBar/.test(web) && /paintAddress/.test(web), 'and js/web.js drives it');
+['ie-toolbar', 'ie-nav', 'ie-address', 'ie-favs', 'ie-fav-go', 'quote-bubble', 'doc-size']
+    .forEach(c => expect(new RegExp('\\.' + c + '[\\s,:{.]').test(css),
+        'css/style.css styles .' + c));
+
+if (WEB) {
+    // the address bar takes what a person types, not a url
+    const forms = ['now', '/now', 'now/', '?app=now', '/now.html',
+        'https://mrhakan.github.io/?app=now'];
+    const parsed = forms.map(f => (WEB.parseTyped(f) || {}).slug);
+    expect(parsed.every(p => p === 'now'),
+        'every way a person writes a page name resolves to it',
+        forms.map((f, i) => f + ' -> ' + parsed[i]).join(', '));
+    expect((WEB.parseTyped('uses') || {}).slug === 'usespage',
+        'including the pretty ones');
+    expect(!!(WEB.parseTyped('wat is this') || {}).unknown,
+        'and something that is not a page is reported as not a page');
+    expect((WEB.parseTyped('https://example.com/x') || {}).external === 'https://example.com/x',
+        'a link somewhere else is left as a link somewhere else');
+    expect(WEB.parseTyped('   ') === null, 'and an empty address does nothing');
+}
+
+expect(/case 'favorites'/.test(read('js/index.js')) &&
+    /toggleFavouritesMenu/.test(read('js/index.js')),
+    'the favorites menu opens the real favorites, not a toast that lied');
+expect(/bookmarked:/.test(read('js/fun.js')), 'and there is an achievement for using it');
+
+// ===================================================================
 section('printing');
 // ===================================================================
 expect(/@media print/.test(css), 'the stylesheet has a print block');

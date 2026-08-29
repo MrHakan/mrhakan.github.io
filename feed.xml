@@ -8,6 +8,31 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v9.5 — the address bar is real, and so are the favorites</title>
+      <link>https://mrhakan.github.io/?app=changelog</link>
+      <guid isPermaLink="false">mrhakan-v9.5</guid>
+      <pubDate>Fri, 29 Aug 2026 12:00:00 +0000</pubDate>
+      <description><![CDATA[
+        The main window has been dressed as Internet Explorer since the day it
+        was made, with a menu that did nothing and no address bar, because
+        there was nothing to put in one. There is now: it shows the address of
+        whatever is open, back and forward are the browser's real history, and
+        typing a page name goes there.
+        Favorites stopped lying — the menu used to claim it had bookmarked the
+        site and add nothing. It is a real, saved list now, starred from the
+        address bar.
+        Select a sentence in any document and you are offered the sentence plus
+        the address of the section it came from. A- and A+ set the text size
+        and it sticks.
+        And the bug that turned up on the way: My Documents and the slash pages
+        both reached for the class name .doc-, and My Documents loads second —
+        so every /now, /uses and colophon window has been rendering in MS Sans
+        Serif instead of Courier since the day it shipped. Fixed, with a check
+        that fails the build if the two ever share a name again.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v9.4 — every window has an address</title>
       <link>https://mrhakan.github.io/</link>
       <guid isPermaLink="false">mrhakan-v9.4</guid>

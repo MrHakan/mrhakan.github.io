@@ -892,6 +892,7 @@ function siteSearchIndex() {
         ['site map', 'document', () => openSiteMap(), 'index everything'],
         ['rss feed', 'document', () => window.open('feed.xml', '_blank', 'noopener'), 'subscribe atom xml'],
         ['json feed', 'document', () => window.open('feed.json', '_blank', 'noopener'), 'subscribe jsonfeed json reader'],
+        ['favorites', 'settings', () => { if (window.WEB) WEB.toggleFavouritesMenu(); }, 'bookmarks saved starred pages'],
         ['echoes of the tide', 'game', () => openEchoes(), 'rpg grimdark leviathan nemesis drowned lords faction dungeon dredging fishing smithing forge realms sanity tide lore'],
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],

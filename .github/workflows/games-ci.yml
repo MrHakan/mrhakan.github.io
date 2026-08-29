@@ -103,6 +103,17 @@ jobs:
                   sleep 2
                   node .github/scripts/browser-check.mjs
 
+            # the reading layer, driven the way a person drives it: type a
+            # name in the address bar, press back, star a page and reload.
+            # It brings its own server for the /now and /uses half, since
+            # python's http.server does not answer an unknown path with
+            # 404.html the way github pages does.
+            - name: Deep links, the address bar, favorites and quoting
+              run: |
+                  python3 -m http.server 8097 &
+                  sleep 2
+                  SITE_URL=http://localhost:8097 node .github/scripts/browser-web.mjs
+
             # and the RPG, which is all DOM and two canvases: roll a
             # character, sail, fight, forge and put a line in the water
             - name: Play echoes of the tide

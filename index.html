@@ -228,6 +228,27 @@
         </div>
 
 
+        <!-- the address bar.
+             This window has been dressed as internet explorer since the day
+             it was made, with a menu that did nothing and no address bar at
+             all — because there were no addresses. Now that every document
+             has one, the chrome can stop being a costume: this shows where
+             you are, back and forward are the browser's real history, and
+             typing a name goes there. js/web.js drives it. -->
+        <div id="ie-toolbar" class="ie-toolbar">
+          <button id="ie-back" class="ie-nav bevel-out" title="back" aria-label="back">&#9666;</button>
+          <button id="ie-fwd" class="ie-nav bevel-out" title="forward" aria-label="forward">&#9656;</button>
+          <button id="ie-reload" class="ie-nav bevel-out" title="reopen this page" aria-label="reopen this page">&#8635;</button>
+          <button id="ie-home" class="ie-nav bevel-out" title="home" aria-label="home">&#8962;</button>
+          <label class="ie-addr-label" for="ie-address">address</label>
+          <input id="ie-address" class="ie-address bevel-in" spellcheck="false" autocomplete="off"
+            aria-label="address — type a page name and press enter" />
+          <button id="ie-fav" class="ie-nav bevel-out" title="add this page to favorites"
+            aria-label="add this page to favorites">&#9733;</button>
+          <button id="ie-go" class="ie-nav ie-go bevel-out" title="go">go</button>
+        </div>
+        <div id="ie-favs" class="ie-favs bevel-out" hidden role="menu" aria-label="favorites"></div>
+
         <div class="bg-white flex-1 p-6 bevel-in overflow-y-auto relative h-full">
           <div class="absolute inset-0 opacity-5 pointer-events-none"
             style="background-image: linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px); background-size: 20px 20px;">

@@ -29,6 +29,7 @@ const ACHIEVEMENTS = {
     nosy: { icon: '👀', name: 'nosy', desc: 'read the /now page' },
     shrine: { icon: '⛩️', name: 'pilgrim', desc: 'visited the shrine' },
     linkback: { icon: '🔗', name: 'webmaster', desc: 'copied the 88x31 link-to-me code' },
+    bookmarked: { icon: '⭐', name: 'come back later', desc: 'added a page to your favorites' },
     quiz: { icon: '🔮', name: 'know thyself', desc: 'found out which track you are' },
     solitaire: { icon: '🃏', name: 'card shark', desc: 'won a game of solitaire' },
     jokerz: { icon: '🎰', name: 'the run begins', desc: 'opened jokerz 98' },

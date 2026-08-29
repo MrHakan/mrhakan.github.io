@@ -164,6 +164,18 @@
     ],
     "changelog": [
         {
+            "version": "9.5",
+            "date": "2026-08-29",
+            "changes": [
+                "the internet explorer costume is wired to the real thing. this window has had a menu bar that did nothing and no address bar at all since the day it was made, because there was nothing to put in one. there is now: it shows the address of whatever is open, back and forward are the browser's own history, and typing a name goes there \u2014 \"now\", \"/now\", \"?app=now\" or the whole url, all four work, and anything that is not a page drops into find: with what you typed.",
+                "favorites stopped lying. the menu used to say \"added mrhakan.github.io to your favorites!\" and add nothing at all. it is a real list now \u2014 the \u2605 in the address bar bookmarks whatever is open, it is still there after a reload, and clicking one goes back to it. [[note: this was only ever possible because pages have addresses now; there was nothing to bookmark before.]]",
+                "select a sentence in any document and you get offered the sentence plus the address of the section it came from. quoting somebody accurately should not mean hunting for where you were.",
+                "A- and A+ in the document toolbar. 12px courier is period-correct and unkind, and the setting sticks, because picking it again on every document you open is not a setting.",
+                "and the bug all of that turned up: my documents and the slash pages both grew a \"document window\" and both reached for the class name .doc-. my documents loads second, so it silently won \u2014 every /now, /uses and colophon window has been rendering in MS Sans Serif instead of the courier its own rule two thousand lines up asks for, since the day my documents shipped. the two have separate prefixes now, and a check fails the build if they ever share a name again.",
+                "45 browser checks on all of it: a url opening the right document, a url landing on the right heading, back and forward, the address bar in every form a person writes one, the star surviving a reload, the quote carrying its link, and /now, /uses and /blog resolving against a server that answers like github pages does."
+            ]
+        },
+        {
             "version": "9.4",
             "date": "2026-08-28",
             "changes": [

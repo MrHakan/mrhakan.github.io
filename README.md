@@ -27,10 +27,11 @@ js/                   everything the pages load
   guestbook.js          composing and reading a board entry, and the
                         giscus config for both boards
   themes.js  theme-maker.js  theme-scan.js
-  web.js                the reading layer: deep links, anchors, contents,
-                        reading time, plain text, sidenotes, printing.
-                        Loads last — it patches the globals the others
-                        declare rather than editing them in place
+  web.js                the reading layer: deep links, the address bar,
+                        favorites, anchors, contents, reading time, plain
+                        text, quoting, sidenotes, printing. Loads last —
+                        it patches the globals the others declare rather
+                        than editing them in place
   vendor/               third-party scripts, vendored
 css/
   style.css             all of it, with 95 marked sections, ending in the
@@ -79,6 +80,7 @@ exits non-zero if anything drifted.
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
+| `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 
 ## Things that will bite you
@@ -112,6 +114,16 @@ exits non-zero if anything drifted.
   `closeAppWindow`, `startMenuAction` and `showSection`, which have to exist
   before it runs. Move its `<script>` tag up and the deep links stop working
   silently.
+- **`.doc-` belongs to the slash pages; my documents is `.docs-`.** Both
+  features grew a "document window" and both reached for the same prefix.
+  `js/documents.js` loads second, so it won, and every `/now`, `/uses` and
+  colophon window rendered in MS Sans Serif rather than the Courier its own
+  rule asks for — silently, for weeks. `check-web.mjs` fails the build if
+  the two namespaces overlap again.
+- **The document font size is `var(--doc-font-size)`.** The A-/A+ buttons
+  set it on the root element. A second rule hard-coding `font-size` on
+  `.doc-body` would win and kill the buttons without an error, so
+  `check-web.mjs` looks for one.
 - **`node_modules/` is disposable.** The site has no dependencies and
   neither does the test suite; the only thing that lands there is
   Playwright, installed with `--no-save` for the browser runs.

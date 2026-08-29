@@ -7,6 +7,7 @@
         "test": "node .github/scripts/check-games.mjs && node .github/scripts/check-guestbook.mjs && node .github/scripts/check-motion.mjs && node .github/scripts/check-defrag.mjs && node .github/scripts/check-web.mjs && node .github/scripts/check-echoes.mjs && node server/relay-smoke.mjs",
         "relay": "node server/relay.js",
         "feed": "node .github/scripts/build-feed-json.mjs",
+        "test:browser": "node .github/scripts/browser-check.mjs && node .github/scripts/browser-web.mjs",
         "serve": "python3 -m http.server 8099"
     },
     "devDependencies": {},

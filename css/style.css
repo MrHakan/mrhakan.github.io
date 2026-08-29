@@ -2581,7 +2581,9 @@ body.disco-floor::after {
     background: #fff !important;
     color: #000;
     font-family: 'Courier New', monospace;
-    font-size: 12px;
+    /* the A- / A+ buttons in the document toolbar move this, and it sticks.
+       12px courier is period-correct and hard on the eyes. */
+    font-size: var(--doc-font-size, 12px);
     line-height: 1.55;
     padding: 10px 12px !important;
 }
@@ -8128,18 +8130,24 @@ body.disco-floor::after {
 .et-btn[data-a="reel"] { user-select: none; }
 
 /* ===================================================================
-   MY DOCUMENTS (.doc-)
+   MY DOCUMENTS (.docs-)
    every game's save in one folder, because localStorage is per browser
    and nobody's Jokerz run should end when they change laptop
+
+   The prefix is .docs- and not .doc-, which is what it used to be: the
+   slash pages had already taken .doc-body, .doc-list, .doc-btn, and this
+   file loads after them, so every /now, /uses and colophon window has
+   been quietly rendering in MS Sans Serif instead of the courier the rule
+   two thousand lines up asks for. check-web.mjs keeps the two apart now.
    =================================================================== */
-.doc-body {
+.docs-body {
     font-family: 'MS Sans Serif', Tahoma, sans-serif;
     font-size: 12px;
     color: #000;
     padding: 6px;
 }
 
-.doc-head {
+.docs-head {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
@@ -8147,9 +8155,9 @@ body.disco-floor::after {
     padding: 2px 2px 4px;
 }
 
-.doc-total { font-weight: normal; color: #555; font-size: 11px; }
+.docs-total { font-weight: normal; color: #555; font-size: 11px; }
 
-.doc-note {
+.docs-note {
     background: #ffffe1;
     border: 1px solid #808080;
     padding: 4px 6px;
@@ -8158,14 +8166,14 @@ body.disco-floor::after {
     line-height: 1.35;
 }
 
-.doc-list {
+.docs-list {
     background: #fff;
     max-height: 300px;
     overflow-y: auto;
     padding: 2px;
 }
 
-.doc-row {
+.docs-row {
     display: grid;
     grid-template-columns: 22px 1fr auto auto;
     align-items: center;
@@ -8174,17 +8182,17 @@ body.disco-floor::after {
     border-bottom: 1px dotted #c0c0c0;
 }
 
-.doc-row:last-child { border-bottom: 0; }
-.doc-row.empty { opacity: .5; }
-.doc-icon { font-size: 15px; line-height: 1; }
+.docs-row:last-child { border-bottom: 0; }
+.docs-row.empty { opacity: .5; }
+.docs-icon { font-size: 15px; line-height: 1; }
 
-.doc-name {
+.docs-name {
     display: block;
     font-weight: bold;
     min-width: 0;
 }
 
-.doc-name i {
+.docs-name i {
     display: block;
     font-style: normal;
     font-weight: normal;
@@ -8195,10 +8203,10 @@ body.disco-floor::after {
     white-space: nowrap;
 }
 
-.doc-size { color: #555; font-size: 11px; white-space: nowrap; }
-.doc-acts { display: flex; gap: 3px; }
+.docs-size { color: #555; font-size: 11px; white-space: nowrap; }
+.docs-acts { display: flex; gap: 3px; }
 
-.doc-btn {
+.docs-btn {
     background: #c0c0c0;
     padding: 1px 7px;
     font-family: inherit;
@@ -8207,11 +8215,11 @@ body.disco-floor::after {
     cursor: pointer;
 }
 
-.doc-btn:active { transform: translateY(1px); }
-.doc-btn.danger { color: #8b0000; }
-.doc-btn.wide { flex: 1; padding: 3px 8px; font-weight: bold; }
+.docs-btn:active { transform: translateY(1px); }
+.docs-btn.danger { color: #8b0000; }
+.docs-btn.wide { flex: 1; padding: 3px 8px; font-weight: bold; }
 
-.doc-actions {
+.docs-actions {
     display: flex;
     gap: 6px;
     margin-top: 6px;
@@ -8783,4 +8791,198 @@ summary:focus-visible,
     .doc-body { padding-right: 0 !important; }
 
     .post, article, .doc-list li { break-inside: avoid; }
+}
+
+/* ===================================================================
+   the address bar, favorites, and quoting — js/web.js
+   The internet explorer costume, wired to the real thing.
+   =================================================================== */
+
+.ie-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 3px 4px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #808080;
+    box-shadow: 0 1px 0 #fff;
+}
+
+.ie-nav {
+    background: #c0c0c0;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1;
+    min-width: 22px;
+    height: 21px;
+    padding: 0 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.ie-nav:hover { background: #d4d4d4; }
+
+.ie-nav:active {
+    border-color: #808080 #fff #fff #808080;
+    background: #b0b0b0;
+}
+
+/* a starred page keeps the star lit, so the button says what it will do */
+#ie-fav.on {
+    color: #d48806;
+    background: #ffef9f;
+}
+
+.ie-go {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.ie-addr-label {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #000;
+    padding: 0 3px 0 6px;
+    flex-shrink: 0;
+}
+
+.ie-address {
+    flex: 1 1 auto;
+    min-width: 60px;
+    height: 21px;
+    padding: 0 5px;
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+
+.ie-address:focus {
+    outline: 1px solid #000080;
+    outline-offset: -1px;
+}
+
+/* a phone has no room for the word "address" or the whole url */
+@media (max-width: 640px) {
+    .ie-addr-label { display: none; }
+    .ie-toolbar { flex-wrap: wrap; }
+    .ie-address { font-size: 10px; }
+}
+
+/* ---------- favorites ---------- */
+.ie-favs {
+    position: absolute;
+    z-index: 46;
+    margin-top: -4px;
+    margin-left: 6px;
+    min-width: 220px;
+    max-width: 320px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #c0c0c0;
+    padding: 3px;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.ie-favs-head {
+    background: #000080;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 6px;
+    margin-bottom: 2px;
+}
+
+.ie-favs-empty {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #444;
+    padding: 6px;
+    line-height: 1.5;
+}
+
+.ie-fav-row {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+}
+
+.ie-fav-go {
+    flex: 1 1 auto;
+    text-align: left;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: #000;
+    padding: 3px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ie-fav-go::before {
+    content: '★ ';
+    color: #d48806;
+}
+
+.ie-fav-go:hover {
+    background: #000080;
+    color: #fff;
+}
+
+.ie-fav-del {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    color: #666;
+    font-size: 10px;
+    padding: 0 6px;
+}
+
+.ie-fav-del:hover { color: #c00; }
+
+/* ---------- quoting ---------- */
+/* appears in the document you are selecting in, not over the whole page */
+.quote-bubble {
+    position: sticky;
+    bottom: 6px;
+    left: 0;
+    z-index: 6;
+    display: block;
+    margin: 6px 0 0 auto;
+    background: #ffffe1;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    padding: 3px 9px;
+    cursor: pointer;
+}
+
+.quote-bubble:hover { background: #ffef9f; }
+
+/* ---------- text size ---------- */
+.doc-size {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.doc-size .doc-tool {
+    min-width: 24px;
+    font-weight: bold;
+}
+
+@media print {
+    .ie-toolbar,
+    .ie-favs,
+    .quote-bubble,
+    .doc-size {
+        display: none !important;
+    }
+
+    /* whatever size it is on screen, paper gets a readable one */
+    .doc-body { font-size: 11pt !important; }
 }

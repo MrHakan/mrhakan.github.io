@@ -281,7 +281,8 @@ function appActions() {
         devlog: openDevlog,
         find: openFindFiles,
         rss: () => window.open('feed.xml', '_blank', 'noopener'),
-        jsonfeed: () => window.open('feed.json', '_blank', 'noopener')
+        jsonfeed: () => window.open('feed.json', '_blank', 'noopener'),
+        favorites: () => { if (window.WEB) WEB.toggleFavouritesMenu(); }
     };
 }
 
@@ -1147,8 +1148,10 @@ function handleTab(type) {
             togglePartyMode();
             break;
         case 'favorites':
-            showToast('favorites', "added 'mrhakan.github.io' to your favorites! good choice");
-            playSound('ding');
+            // this used to claim it had bookmarked the site and do nothing.
+            // A bookmark is a url, and since js/web.js there are urls.
+            if (window.WEB) { WEB.toggleFavouritesMenu(); playSound('click'); }
+            else showToast('favorites', 'favorites need js/web.js, which did not load');
             break;
         case 'tools':
             openTaskManager();
