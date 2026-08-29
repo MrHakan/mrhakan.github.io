@@ -529,6 +529,162 @@ section('the slash pages github pages cannot route');
 }
 
 // ===================================================================
+section('on a phone');
+// ===================================================================
+// Measured rather than assumed: a 412x915 context with a coarse pointer,
+// which is what the media queries are actually asking about.
+{
+    const phone = await browser.newContext({
+        viewport: { width: 412, height: 915 }, deviceScaleFactor: 2,
+        isMobile: true, hasTouch: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36'
+    });
+    await phone.route('**/*', route => {
+        const u = route.request().url();
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u)) return route.continue();
+        if (tailwind && u.startsWith(TAILWIND)) {
+            return route.fulfill({ status: 200, contentType: 'text/javascript', body: tailwind });
+        }
+        return route.abort();
+    });
+    await phone.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
+    const p = await phone.newPage();
+    p.on('pageerror', e => errors.push('phone: ' + e.message));
+    await p.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await p.keyboard.press('Enter');
+    await p.evaluate(() => {
+        const b = document.getElementById('boot-screen');
+        if (b) b.remove();
+        window.soundEnabled = false;
+    });
+    await p.waitForTimeout(1000);
+
+    expect(await p.evaluate(() => matchMedia('(pointer: coarse)').matches),
+        'the media queries agree this is a fingertip');
+
+    // ---- what you see first ----
+    // three columns stack on a phone, and the content was the middle one:
+    // 957px of avatar, nav, hit counter, winamp and a badge wall above it
+    const tops = await p.evaluate(() => {
+        const t = id => Math.round(document.getElementById(id).getBoundingClientRect().top);
+        return { main: t('main-window'), sidebar: t('desk-sidebar'), extras: t('desk-extras') };
+    });
+    expect(tops.main < tops.sidebar && tops.sidebar < tops.extras,
+        'the content comes first, then the nav, then the furniture', JSON.stringify(tops));
+    expect(tops.main < 200, 'and it is on the first screen', 'main at ' + tops.main + 'px');
+
+    // ---- what a fingertip can hit ----
+    const small = await p.evaluate(() => {
+        const out = [];
+        document.querySelectorAll('.ie-nav, .doc-tool, .start-item, #main-window .draggable-header button, #sound-toggle')
+            .forEach(el => {
+                const r = el.getBoundingClientRect();
+                if (!r.width || !r.height) return;
+                if (r.width < 34 || r.height < 34) out.push((el.id || el.className).slice(0, 30) +
+                    ' ' + Math.round(r.width) + 'x' + Math.round(r.height));
+            });
+        return out;
+    });
+    expect(small.length === 0, 'the chrome is big enough to hit', small.join(', '));
+
+    // ---- typing does not zoom the page in ----
+    const tiny = await p.evaluate(() => {
+        const out = [];
+        document.querySelectorAll('input[type="text"], input:not([type]), textarea').forEach(el => {
+            const r = el.getBoundingClientRect();
+            if (!r.width) return;
+            if (parseFloat(getComputedStyle(el).fontSize) < 16) out.push(el.id || el.className.slice(0, 24));
+        });
+        return out;
+    });
+    expect(tiny.length === 0,
+        'and every text box is 16px, so safari does not zoom in when you tap one',
+        tiny.join(', '));
+
+    // ---- the toast is not sitting on the close button ----
+    await p.evaluate(() => openNowPage());
+    await p.waitForTimeout(1200);
+    const clash = await p.evaluate(() => {
+        const t = document.querySelector('.achv-toast');
+        const h = document.querySelector('.app-window .app-window-header');
+        if (!t || !h) return null;
+        const a = t.getBoundingClientRect(), b = h.getBoundingClientRect();
+        return !(a.bottom < b.top || a.top > b.bottom);
+    });
+    expect(clash !== true, 'an achievement toast does not land across the window title bar',
+        clash === null ? '(no toast to check)' : 'it overlapped');
+
+    // ---- echoes: the label that came out one word per line ----
+    await p.evaluate(() => openEchoes());
+    await p.waitForSelector('.et-field', { timeout: 20000 });
+    await p.waitForTimeout(600);
+    const seedLabel = await p.evaluate(() => {
+        const l = [...document.querySelectorAll('.et-field label')].find(e => /seed/.test(e.textContent));
+        if (!l) return null;
+        const r = l.getBoundingClientRect();
+        return { w: Math.round(r.width), lines: Math.round(r.height / 16) };
+    });
+    expect(seedLabel && seedLabel.lines <= 2,
+        'the echoes seed label fits on a line instead of stacking one word per row',
+        JSON.stringify(seedLabel));
+
+    await p.close();
+    await phone.close();
+}
+
+// ===================================================================
+section('fullscreen, including where the api will not do it');
+// ===================================================================
+{
+    const p = await open(BASE + '/');
+    await clearDialogs(p);
+    await p.evaluate(() => openSolitaire());
+    await p.waitForTimeout(900);
+
+    // Safari on iphone has never implemented requestFullscreen on an
+    // element, so the button used to do nothing but apologise on the most
+    // common device for playing a browser game. Take the api away and the
+    // window should still go fullscreen.
+    await p.evaluate(() => {
+        const w = document.querySelector('.app-window');
+        w.requestFullscreen = null;
+        w.webkitRequestFullscreen = null;
+        w.msRequestFullscreen = null;
+        toggleWindowFullscreen(w);
+    });
+    await p.waitForTimeout(500);
+    const fs = await p.evaluate(() => {
+        const w = document.querySelector('.app-window');
+        const r = w.getBoundingClientRect();
+        return {
+            active: w.classList.contains('fs-active'), faux: w.classList.contains('fs-faux'),
+            locked: document.documentElement.classList.contains('fs-locked'),
+            fillsW: Math.abs(r.width - innerWidth) < 2, fillsH: Math.abs(r.height - innerHeight) < 2,
+            z: +getComputedStyle(w).zIndex
+        };
+    });
+    expect(fs.active && fs.faux, 'with no api at all, the window still goes fullscreen');
+    expect(fs.fillsW && fs.fillsH, 'and it fills the viewport', JSON.stringify(fs));
+    expect(fs.locked, 'and nothing behind it scrolls');
+    expect(fs.z > 9600, 'and nothing is drawn over it, not even the toasts', 'z ' + fs.z);
+
+    // there is no escape key on a phone, but there is one here
+    await p.keyboard.press('Escape');
+    await p.waitForTimeout(400);
+    const after = await p.evaluate(() => {
+        const w = document.querySelector('.app-window');
+        return {
+            gone: !w || !w.classList.contains('fs-active'),
+            unlocked: !document.documentElement.classList.contains('fs-locked'),
+            stillOpen: !!w
+        };
+    });
+    expect(after.gone && after.unlocked, 'escape leaves it', JSON.stringify(after));
+    expect(after.stillOpen, 'and leaves the window it was showing open, rather than closing it');
+    await p.close();
+}
+
+// ===================================================================
 section('page errors');
 // ===================================================================
 // everything off this server is refused on purpose, so its failures are

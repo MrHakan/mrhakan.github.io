@@ -7518,7 +7518,14 @@ body.disco-floor::after {
 }
 
 .et-field label {
-    width: 46px;
+    /* 46px lines "name" up with "seed", which is the whole reason for a
+       fixed width. The seed label also carries a sentence explaining what
+       a seed is, and at 46px that sentence came out one word per line —
+       on the desk as well as on a phone. A minimum keeps the alignment; a
+       maximum keeps the sentence from eating the input. */
+    min-width: 46px;
+    max-width: 45%;
+    flex-shrink: 0;
     color: #8fa38f;
 }
 
@@ -9153,4 +9160,403 @@ mark.find-hit.on {
         background: none !important;
         font-weight: bold;
     }
+}
+
+/* ===================================================================
+   the site on a small screen, part two
+   ===================================================================
+   The first pass made the games playable with a finger. This one is
+   about the desktop around them: what you see first, and whether a
+   fingertip can hit it.
+   =================================================================== */
+
+/* ---------- what you see first ---------- */
+/* The sidebar is the avatar, the nav, a hit counter and a github card:
+   742px of it, measured on a 412px phone, before the window holding the
+   actual content began. Nobody scrolls past four screens of furniture to
+   find out what a site is. On a phone the content goes first and the
+   furniture follows it; on a desk, where they sit side by side and
+   nothing is below anything, the order is unchanged. */
+@media (max-width: 767px) {
+    /* three columns, and the one holding the content was the middle one.
+       On a phone they stack in source order, which put winamp, the
+       shoutbox and a wall of 88x31 badges above it as well. */
+    #main-window { order: 1; }
+    #desk-sidebar { order: 2; }
+    #desk-extras { order: 3; }
+
+    /* and the furniture takes less room while it is down there */
+    #desk-sidebar .dither-effect {
+        width: 64px;
+        height: 64px;
+    }
+
+    #desk-sidebar .dither-effect img {
+        width: 52px;
+        height: 52px;
+    }
+
+    /* the nav is five stacked bars a screen tall; two columns is one
+       thumb's worth */
+    #desk-sidebar nav {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    #desk-sidebar nav button:first-child { grid-column: 1 / -1; }
+}
+
+/* ---------- what a fingertip can hit ---------- */
+/* Measured on three phones: 36 controls under 40px, including the window
+   buttons at 18x18 and the menu bar at 27x20. This is a 1998 desktop and
+   it should look like one, so nothing here changes on a mouse — the
+   query is the pointer, not the width, and a tablet with a stylus keeps
+   the small ones too. */
+@media (pointer: coarse) {
+
+    /* the window buttons: minimise, maximise, fullscreen, close, link.
+       44px is apple's number and android's is 48; this is a 1998 pastiche
+       and 44 square buttons would stop looking like one, so the chrome
+       gets 44 in the direction it is scarce and keeps its proportions. */
+    .ie-titlebar-btn,
+    .app-window-header .ie-titlebar-btn {
+        min-width: 40px;
+        min-height: 40px;
+        font-size: 14px;
+    }
+
+    /* the fake title bar on the main window, which was hard-coded 18x18 */
+    #main-window .draggable-header button[onclick] {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 15px;
+    }
+
+    .app-window-header {
+        padding-top: 3px;
+        padding-bottom: 3px;
+    }
+
+    /* the menu bar — file, edit, view, favorites, tools, help */
+    #main-window .font-header > span[onclick] {
+        padding: 12px 8px;
+        display: inline-block;
+    }
+
+    /* the address bar and its buttons */
+    .ie-nav {
+        min-width: 44px;
+        height: 44px;
+        font-size: 16px;
+    }
+
+    .ie-address {
+        height: 44px;
+        font-size: 14px;
+    }
+
+    /* eight 44px buttons and an input do not fit across a phone, so the
+       address gets its own line under them */
+    .ie-toolbar { flex-wrap: wrap; }
+
+    .ie-address { flex: 1 0 100%; order: 2; }
+
+    /* the document toolbar */
+    .doc-tool {
+        min-height: 40px;
+        padding: 6px 11px;
+        font-size: 12px;
+    }
+
+    .doc-tools { gap: 5px; }
+
+    /* the panels you pick things out of */
+    .ie-fav-go,
+    .ie-sug,
+    .ie-favs-clear {
+        padding-top: 9px;
+        padding-bottom: 9px;
+        font-size: 12px;
+    }
+
+    .ie-fav-del {
+        min-width: 36px;
+        font-size: 14px;
+    }
+
+    /* the anchors beside headings are already always-visible on touch;
+       they also need to be hittable */
+    .h-anchor {
+        padding: 0 10px;
+        font-size: 15px;
+    }
+
+    /* the start menu and the taskbar */
+    .start-item {
+        padding-top: 9px;
+        padding-bottom: 9px;
+    }
+
+    .taskbar-window-btn { min-height: 34px; }
+
+    /* the sound toggle was a 27px strip, and winamp's volume slider was
+       four pixels tall — a control a fingertip cannot land on at all */
+    #sound-toggle {
+        min-height: 42px;
+        font-size: 12px;
+    }
+
+    #winamp-volume,
+    #winamp-seek,
+    input[type="range"] {
+        height: 34px;
+        background: transparent;
+    }
+
+    #winamp-volume::-webkit-slider-thumb,
+    #winamp-seek::-webkit-slider-thumb,
+    input[type="range"]::-webkit-slider-thumb {
+        width: 22px;
+        height: 22px;
+    }
+
+    #winamp-volume::-moz-range-thumb,
+    #winamp-seek::-moz-range-thumb,
+    input[type="range"]::-moz-range-thumb {
+        width: 22px;
+        height: 22px;
+    }
+
+    /* winamp's transport buttons were 18x28 */
+    #winamp-window button,
+    #winamp-window .material-symbols-outlined {
+        min-width: 36px;
+        min-height: 36px;
+    }
+
+    /* the small +/- steppers inside the games. Echoes hands out ten of
+       these on the character sheet, and they were 28px. */
+    .et-stats .et-btn,
+    .et-body .et-btn.sm,
+    .bal-btn.sm {
+        min-width: 38px;
+        min-height: 38px;
+        padding: 0 8px;
+    }
+}
+
+/* ---------- a toast must not sit on the window's buttons ---------- */
+/* The achievement toast is pinned 60px from the top and centred, which on
+   a desk is above everything and out of the way. On a phone a window
+   opens at 54px, so the toast landed square across its title bar —
+   which is where the close button is, and the fullscreen button, and
+   every other way out of what just opened. It goes to the bottom on a
+   phone, above the taskbar, where the other toasts already live. */
+@media (max-width: 767px) {
+    .achv-toast {
+        top: auto;
+        bottom: 52px;
+        left: 6px;
+        right: 6px;
+        transform: none;
+        max-width: none;
+    }
+
+    /* it slid down from the top; from the bottom it should slide up */
+    .achv-toast { animation: achv-pop-up 0.35s ease-out; }
+}
+
+@keyframes achv-pop-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* reduced motion means reduced motion, here too */
+.no-motion .achv-toast { animation: none; }
+
+/* ===================================================================
+   the fullscreen that does not need permission
+   ===================================================================
+   .fs-active already pins a window over the viewport, which is most of
+   what the Fullscreen API was being asked for. These are the parts the
+   browser was doing on our behalf and now has to be done by hand:
+   nothing behind it scrolls, nothing is drawn over it, and 100vh means
+   the screen rather than the screen plus whatever the url bar is
+   currently covering.
+   =================================================================== */
+
+/* the api hands over the whole compositor; this one has to out-rank the
+   taskbar (55), the dialogs (95) and the achievement toast (9600) */
+.app-window.fs-faux {
+    z-index: 9700 !important;
+    background: #c0c0c0;
+}
+
+/* 100vh on a phone is the viewport with the url bar counted in, so a
+   fullscreen game hung a bar's worth of itself below the fold and the
+   controls at the bottom went with it. dvh is the one that shrinks and
+   grows with the browser chrome; vh stays as the fallback for anything
+   that has not got it. */
+.app-window.fs-active {
+    height: 100vh !important;
+}
+
+@supports (height: 100dvh) {
+    .app-window.fs-active {
+        height: 100dvh !important;
+    }
+}
+
+/* nothing behind it moves */
+html.fs-locked,
+html.fs-locked body {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+    touch-action: none;
+}
+
+/* the way out has to be obvious when there is no escape key to press */
+@media (pointer: coarse) {
+    .app-window.fs-active .fs-btn {
+        min-width: 44px;
+        min-height: 36px;
+    }
+
+    .app-window.fs-active .app-window-header {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+    }
+}
+
+/* a game in fullscreen should use the room it just took: the pad stays
+   pinned to the bottom, and the board gets everything above it */
+.app-window.fs-active .app-window-body {
+    padding: 4px !important;
+}
+
+.app-window.fs-active .tp-pad,
+.app-window.fs-active .et-pad {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: inherit;
+}
+
+/* ===================================================================
+   a device that cannot keep up
+   ===================================================================
+   js/fx.js measures the real frame rate once, a second after load, and
+   puts .slow-device on <html> if the answer is under about 40fps. This
+   is not the reduced-motion setting — that is somebody asking, and it
+   turns everything off. This is the decorative layer standing down on a
+   phone that is already busy drawing a game, and keeping the motion
+   that carries meaning: a window still opens, a toast still arrives.
+   =================================================================== */
+
+.slow-device .star-overlay,
+.slow-device .crt-overlay::after,
+.slow-device #effects-container {
+    display: none;
+}
+
+.slow-device .animate-marquee {
+    animation-duration: 40s;
+}
+
+/* the expensive ones, which are per-pixel rather than per-element */
+.slow-device .dither-effect,
+.slow-device .glow,
+.slow-device .text-glow {
+    filter: none !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
+
+.slow-device .app-window {
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+/* a backdrop-filter on a scrolling list is the single most expensive
+   thing this site can ask a phone for */
+.slow-device * {
+    backdrop-filter: none !important;
+}
+
+/* ---------- echoes: the character sheet on a phone ---------- */
+/* .et-field is a label beside an input. The seed label carries a sentence
+   of explanation, and with nothing stopping it shrinking it collapsed to
+   one word per line — six lines of "seed / — / the / same / seed" beside
+   a box. Below the width where both fit, the label goes above. */
+@media (max-width: 620px) {
+    .et-field {
+        display: block;
+    }
+
+    .et-field label {
+        display: block;
+        max-width: none;
+        margin-bottom: 3px;
+    }
+
+    .et-field input {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* the attribute rows are name, value, −, +, and a sentence about what
+       it governs — five things on one line inside 375px */
+    .et-stats > div {
+        display: grid;
+        grid-template-columns: auto auto auto auto;
+        grid-template-areas:
+            "name value minus plus"
+            "govern govern govern govern";
+        align-items: center;
+        justify-content: start;
+        gap: 4px 6px;
+        padding: 4px 0;
+        border-bottom: 1px dotted rgba(255, 255, 255, 0.12);
+    }
+
+    .et-stats > div > i {
+        grid-area: govern;
+        margin: 0;
+    }
+}
+
+/* ---------- typing on a phone ---------- */
+/* Safari on iOS zooms the whole page in when you focus an input whose
+   font is under 16px, and it does not zoom back out afterwards — you are
+   left on a page that no longer fits, having done nothing but tap a text
+   box. Every input on this site is 10-12px, because that is what a 1998
+   dialog looks like. 16px on touch only: the look is kept where it is
+   looked at, and the trap is gone where it is fallen into. */
+@media (pointer: coarse) {
+
+    input[type="text"],
+    input[type="search"],
+    input[type="url"],
+    input[type="email"],
+    input[type="number"],
+    input:not([type]),
+    textarea,
+    select {
+        font-size: 16px;
+        min-height: 40px;
+    }
+
+    /* the ones that are laid out to a fixed width need the room */
+    .gb-input,
+    .shout-input,
+    #pl-search,
+    .find-in,
+    .find-input {
+        min-height: 42px;
+        padding: 6px 8px;
+    }
+
+    /* a textarea at 16px in a 1998 dialog needs a little more line */
+    textarea { line-height: 1.45; }
 }

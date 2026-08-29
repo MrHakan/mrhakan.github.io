@@ -14,6 +14,13 @@
   ],
   "items": [
     {
+      "id": "mrhakan-v9.7",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v9.7 — the site on a phone, and a fullscreen that works",
+      "content_text": "Three columns stack on a small screen, and the one holding the content was the middle one — 957 pixels of avatar, nav, hit counter, Winamp and a wall of 88x31 badges came first. The content leads now. 36 controls were smaller than a fingertip, including window buttons at 18x18 and a volume slider four pixels tall. The chrome is 40-44px on a touchscreen and unchanged under a mouse. Every text box is 16px there, because Safari zooms the page in on anything smaller and never zooms back out. Fullscreen works where the API will not: Safari on iPhone has never implemented requestFullscreen on an element, so on the most common device for playing a browser game the button only ever apologised. There is a CSS one behind it now, with the same canvas fitting and the same escape key, and it survives a rotation. The motion layer caches its springs, gained sequence() and a press() that gives a bevelled button somewhere to go under a finger, and — the one that was quietly wrong — with motion off the end state is now the whole end state rather than three properties out of it.",
+      "date_published": "2026-08-29T21:00:00.000Z"
+    },
+    {
       "id": "mrhakan-v9.6",
       "url": "https://mrhakan.github.io/?app=changelog",
       "title": "v9.6 — history, suggestions, a status bar, and find",

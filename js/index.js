@@ -2025,17 +2025,82 @@ function createAppWindow(title, opts = {}) {
 // ---------- fullscreen ----------
 // the browser only grants fullscreen from a user gesture, and only one element
 // at a time, so this always targets the window the button belongs to.
+// Fullscreen, twice.
+//
+// The Fullscreen API is the real thing and it is used wherever it exists.
+// It does not exist everywhere: safari on iphone has never implemented
+// requestFullscreen on an element, only on <video>, so on the single most
+// common device for playing a browser game the button did nothing but
+// apologise. A kiosk browser or an iframe with no allow="fullscreen" says
+// no for its own reasons and gets the same apology.
+//
+// So there is a second one: the window is pinned over the viewport with
+// css, the desktop behind it is hidden, and everything downstream —
+// .fs-active, the canvas fitting, the escape handling, the pad staying
+// on screen — is driven off the same class either way. The only
+// difference is who owns the pixels.
+let fauxFullscreenWin = null;
+
+function fullscreenWindow() {
+    return document.fullscreenElement && document.fullscreenElement.classList &&
+        document.fullscreenElement.classList.contains('app-window')
+        ? document.fullscreenElement
+        : fauxFullscreenWin;
+}
+
 function toggleWindowFullscreen(win) {
     if (!win) return;
     playSound('click');
-    if (document.fullscreenElement === win) { exitWindowFullscreen(); return; }
+    if (fullscreenWindow() === win) { exitWindowFullscreen(); return; }
+    // something else is fullscreen: leave it before taking over
+    if (fullscreenWindow()) exitWindowFullscreen();
+
     const req = win.requestFullscreen || win.webkitRequestFullscreen || win.msRequestFullscreen;
-    if (!req) { showToast('display', 'your browser will not do fullscreen here'); return; }
-    Promise.resolve(req.call(win)).catch(() => showToast('display', 'fullscreen was refused'));
+    if (!req) { enterFauxFullscreen(win); return; }
+    Promise.resolve(req.call(win)).catch(() => enterFauxFullscreen(win));
 }
+
+function enterFauxFullscreen(win) {
+    fauxFullscreenWin = win;
+    win.classList.add('fs-active', 'fs-faux');
+    document.documentElement.classList.add('fs-locked');
+    // the window is positioned; css cannot pin it without these gone
+    win._fauxGeom = { left: win.style.left, top: win.style.top, width: win.style.width, zIndex: win.style.zIndex };
+    win.style.left = ''; win.style.top = ''; win.style.width = '';
+    markFullscreenButton(win, true);
+    fitFullscreenCanvas(win);
+    // there is no escape key on a phone, so say how to get out
+    showToast('display', 'fullscreen. the ⤢ button in the title bar gets you out');
+}
+
+function exitFauxFullscreen() {
+    const win = fauxFullscreenWin;
+    fauxFullscreenWin = null;
+    if (!win) return;
+    win.classList.remove('fs-active', 'fs-faux');
+    document.documentElement.classList.remove('fs-locked');
+    const g = win._fauxGeom || {};
+    win.style.left = g.left || ''; win.style.top = g.top || '';
+    win.style.width = g.width || ''; win.style.zIndex = g.zIndex || '';
+    markFullscreenButton(win, false);
+    fitFullscreenCanvas(win);
+    fsLeftAt = Date.now();
+}
+
 function exitWindowFullscreen() {
+    if (fauxFullscreenWin) { exitFauxFullscreen(); return; }
     const ex = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
     if (ex && document.fullscreenElement) ex.call(document);
+}
+
+function markFullscreenButton(win, on) {
+    const b = win.querySelector('.fs-btn .material-symbols-outlined');
+    if (b) b.textContent = on ? 'fullscreen_exit' : 'fullscreen';
+    const btn = win.querySelector('.fs-btn');
+    if (btn) {
+        btn.title = on ? 'leave full screen' : 'full screen';
+        btn.setAttribute('aria-label', btn.title);
+    }
 }
 
 // a canvas has a fixed bitmap size, so going fullscreen has to scale it by
@@ -2075,7 +2140,7 @@ function fitFullscreenCanvas(win) {
 // closed the game you were playing.
 let fsLeftAt = 0;
 function fullscreenSwallowsEscape() {
-    return !!document.fullscreenElement || (Date.now() - fsLeftAt) < 500;
+    return !!document.fullscreenElement || !!fauxFullscreenWin || (Date.now() - fsLeftAt) < 500;
 }
 
 function onFullscreenChange() {
@@ -2099,14 +2164,25 @@ function onFullscreenChange() {
 }
 ['fullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(e =>
     document.addEventListener(e, onFullscreenChange));
-window.addEventListener('resize', () => {
-    const fs = document.fullscreenElement;
-    if (fs && fs.classList && fs.classList.contains('fs-active')) fitFullscreenCanvas(fs);
-});
+// a rotation changes the box the canvas has to fit in, and the viewport
+// is not the new one yet at the moment the event fires — hence the second
+// pass. Both kinds of fullscreen refit; so does a window that is merely
+// maximised, since that is the same problem one size down.
+function refitFullscreen() {
+    const fs = fullscreenWindow();
+    if (fs) { fitFullscreenCanvas(fs); setTimeout(() => fitFullscreenCanvas(fs), 220); }
+}
+window.addEventListener('resize', refitFullscreen);
+window.addEventListener('orientationchange', () => setTimeout(refitFullscreen, 120));
+if (window.visualViewport) {
+    // ios changes the visual viewport when the url bar slides away, without
+    // firing resize
+    window.visualViewport.addEventListener('resize', refitFullscreen);
+}
 
 function closeAppWindow(id) {
     const win = document.getElementById(id);
-    if (win && document.fullscreenElement === win) exitWindowFullscreen();
+    if (win && fullscreenWindow() === win) exitWindowFullscreen();
     if (win && win._cleanup) win._cleanup();
     document.getElementById(`${id}-tb`)?.remove();
     playSound('click');

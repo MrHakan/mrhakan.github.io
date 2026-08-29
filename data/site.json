@@ -164,6 +164,22 @@
     ],
     "changelog": [
         {
+            "version": "9.7",
+            "date": "2026-08-29",
+            "changes": [
+                "the site on a phone, measured rather than guessed. three columns stack on a small screen and the one holding the content was the middle one, so 957 pixels of avatar, nav, hit counter, winamp and a wall of 88x31 badges came before it \u2014 four screens of furniture before the site said what it was. the content is first now, then the nav, then the furniture.",
+                "36 controls were smaller than a fingertip. the window buttons were 18 by 18, the menu bar was 20 tall, and winamp's volume slider was four pixels high, which is a control you cannot land on at all. the chrome is 40 to 44 now, and only on a touchscreen \u2014 this is a 1998 desktop and it still looks like one under a mouse.",
+                "every text box is 16px on touch, because safari zooms the whole page in when you focus anything smaller and does not zoom back out. you tapped a box and were left on a page that no longer fit.",
+                "fullscreen works where the api will not. safari on iphone has never implemented requestFullscreen on an element, only on video \u2014 so on the single most common device for playing a browser game, the fullscreen button did nothing but apologise. there is a css one behind it now: same class, same canvas fitting, same escape key, and the only difference is who owns the pixels. it also survives a rotation, and 100dvh means the screen rather than the screen plus whatever the url bar is covering.",
+                "the achievement toast was pinned 60px from the top and centred, which on a phone is exactly where a window's title bar is \u2014 so it landed across the close button of whatever had just opened. it goes to the bottom on a phone now.",
+                "echoes' seed label came out one word per line, seven rows of it, because the label column is 46px wide and that label carries a sentence. that was wrong on the desk too. [[note: the +/- buttons on the character sheet were 28px; they are 38 on a touchscreen, and the attribute rows became a grid instead of five things crammed on one line.]]",
+                "the motion layer: springs are worked out once instead of on every window that opens, sequence() runs one animation after another, and press() gives a bevelled button somewhere to go under a fingertip \u2014 the border flipping is the only feedback it had, and under a finger that border is underneath the finger.",
+                "and with motion off, the end state is now the whole end state. instant() applied opacity, transform and filter and dropped everything else, so a keyframe that moved something by left, or coloured it, simply never happened for anyone with reduced motion on \u2014 silently, because the promise resolved either way.",
+                "a device that cannot keep up gets less. the frame rate is measured once, a second after load, and under about 40fps the decorative layer stands down \u2014 the starfield, the filters, the shadows \u2014 while the motion that carries meaning stays.",
+                "92 motion checks and 79 browser checks, thirteen of them on a 412px phone."
+            ]
+        },
+        {
             "version": "9.6",
             "date": "2026-08-29",
             "changes": [

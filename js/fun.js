@@ -559,8 +559,13 @@ function initShortcuts() {
         else if (e.key === 'F4') { e.preventDefault(); openTerminal(); }
         else if (e.key === '?') { e.preventDefault(); showShortcuts(); }
         else if (e.key === 'Escape') {
-            // in fullscreen, escape belongs to the browser — closing the window
-            // as well would yank the game out from under you
+            // in real fullscreen, escape belongs to the browser — closing the
+            // window as well would yank the game out from under you. In the
+            // css one nobody else is listening, so escape has to do the job
+            // the browser would have done.
+            if (typeof fauxFullscreenWin !== 'undefined' && fauxFullscreenWin) {
+                e.preventDefault(); exitWindowFullscreen(); return;
+            }
             if (typeof fullscreenSwallowsEscape === 'function' && fullscreenSwallowsEscape()) return;
             const wins = document.querySelectorAll('.app-window, .ie-window');
             if (wins.length) closeAppWindow(wins[wins.length - 1].id) || wins[wins.length - 1].remove();

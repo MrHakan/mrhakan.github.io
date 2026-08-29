@@ -127,6 +127,41 @@ section('springs');
     load(noLinear, 'js/fx.js');
     expect(/^cubic-bezier/.test(noLinear.FX.spring({})), 'a browser without linear() gets a bezier instead',
         noLinear.FX.spring({}));
+
+    // the same spring, asked for twice, is sixty steps of physics twice
+    const a = FX.spring({ stiffness: 300, damping: 20 });
+    const b = FX.spring({ stiffness: 300, damping: 20 });
+    expect(a === b, 'and asking twice returns the very same curve, not an equal one');
+    expect(FX.spring({ stiffness: 301, damping: 20 }) !== a,
+        'while a different spring is a different curve');
+}
+
+// ===================================================================
+section('sequence');
+// ===================================================================
+{
+    const one = fakeElement(), two = fakeElement();
+    FX.sequence([
+        [one, [{ opacity: 0 }, { opacity: 1 }], { duration: 100 }],
+        [two, [{ opacity: 0 }, { opacity: 1 }], { duration: 100 }]
+    ]);
+    expect(one.calls[0].options.delay === 0, 'the first step starts at once',
+        String(one.calls[0].options.delay));
+    expect(two.calls[0].options.delay === 100, 'and the next one waits for it',
+        String(two.calls[0].options.delay));
+
+    const three = fakeElement(), four = fakeElement();
+    FX.sequence([
+        [three, [{ opacity: 1 }], { duration: 100 }],
+        [four, [{ opacity: 1 }], { duration: 100, at: -40 }]
+    ]);
+    expect(four.calls[0].options.delay === 60, 'a negative "at" overlaps them',
+        String(four.calls[0].options.delay));
+
+    const five = fakeElement();
+    FX.sequence([[five, [{ opacity: 1 }], { duration: 100, at: -400 }]]);
+    expect(five.calls[0].options.delay === 0, 'and it never asks for a negative delay',
+        String(five.calls[0].options.delay));
 }
 
 // ===================================================================
@@ -159,6 +194,42 @@ section('and it stops when asked');
     load(sys, 'js/fx.js');
     sys.FX.setEnabled(true);
     expect(sys.FX.on() === false, 'ticking the box cannot override the system setting');
+}
+
+// ===================================================================
+section('with motion off, the end state is the whole end state');
+// ===================================================================
+// instant() used to apply opacity, transform and filter and drop the
+// rest. A keyframe that moved something by `left`, or coloured it, or
+// set a custom property, simply never happened for anybody with reduced
+// motion on — and nothing said so, because the promise resolved either
+// way. This is that promise, tested against everything a keyframe can
+// reasonably carry.
+{
+    const off = makeWindow({ reduced: true });
+    load(off, 'js/fx.js');
+    const el = fakeElement();
+    el.style.setProperty = (k, v) => { el.style[k] = v; };
+    off.FX.animate(el, [
+        { opacity: 0, left: '0px', background: '#000', width: '10px' },
+        { opacity: 1, left: '40px', background: '#fff', width: '90px' }
+    ]);
+    expect(el.calls.length === 0, 'nothing animated');
+    expect(el.style.opacity === 1 || el.style.opacity === '1', 'opacity landed', String(el.style.opacity));
+    expect(el.style.left === '40px', 'and so did left', String(el.style.left));
+    expect(el.style.background === '#fff', 'and background', String(el.style.background));
+    expect(el.style.width === '90px', 'and width', String(el.style.width));
+
+    const el2 = fakeElement();
+    const props = {};
+    el2.style.setProperty = (k, v) => { props[k] = v; };
+    off.FX.animate(el2, [{ '--glow': '0' }, { '--glow': '1' }]);
+    expect(props['--glow'] === '1', 'a custom property goes through setProperty', JSON.stringify(props));
+
+    const el3 = fakeElement();
+    off.FX.animate(el3, [{ opacity: 0, easing: 'ease', offset: 0 }, { opacity: 1 }]);
+    expect(el3.style.easing === undefined && el3.style.offset === undefined,
+        'and the keyframe timing keys are not mistaken for styles');
 }
 
 // ===================================================================

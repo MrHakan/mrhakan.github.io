@@ -35,15 +35,24 @@
     }
     const on = () => !reduced();
 
-    // a finished animation that never ran, so `await FX.animate(...)`
-    // works the same whether motion is on or off
+    // A finished animation that never ran, so `await FX.animate(...)` works
+    // the same whether motion is on or off — and it applies everything in
+    // the keyframe, not a hand-picked three. The old version
+    // applied opacity, transform and filter and dropped the rest on the
+    // floor, so with motion off a keyframe that moved something by `left`
+    // or coloured it by `background` simply never happened — and the
+    // caller could not tell, because the promise resolved either way.
+    // Custom properties go through setProperty, which is the only way in.
+    const SKIP = { offset: 1, easing: 1, composite: 1 };
     function instant(el, keyframes) {
         const last = Array.isArray(keyframes) ? keyframes[keyframes.length - 1] : keyframes;
-        if (el && last) {
+        if (el && el.style && last) {
             for (const k in last) {
-                if (k === 'offset' || k === 'easing') continue;
+                if (SKIP[k]) continue;
                 const v = Array.isArray(last[k]) ? last[k][last[k].length - 1] : last[k];
-                if (k === 'opacity' || k === 'transform' || k === 'filter') el.style[k] = v;
+                if (v === undefined || v === null) continue;
+                if (k.indexOf('--') === 0) el.style.setProperty(k, String(v));
+                else el.style[k] = v;
             }
         }
         return { finished: Promise.resolve(), cancel() { }, reverse() { }, skipped: true };
@@ -57,10 +66,16 @@
         try { return CSS.supports('animation-timing-function', 'linear(0, 1)'); }
         catch (e) { return false; }
     })();
+    // sixty steps of physics per call, and the presets below ask for the
+    // same three springs every time a window opens. They are pure
+    // functions of their arguments, so they are worked out once.
+    const springCache = Object.create(null);
     function spring(opts) {
         const o = opts || {};
         const stiffness = o.stiffness || 260, damping = o.damping || 22, mass = o.mass || 1;
         if (!supportsLinearEasing) return 'cubic-bezier(.22,1.2,.36,1)';
+        const key = stiffness + '/' + damping + '/' + mass;
+        if (springCache[key]) return springCache[key];
         const steps = 60, dt = 1 / 60;
         let x = 1, v = 0;
         const out = [];
@@ -71,7 +86,7 @@
             out.push(+(1 - x).toFixed(4));
         }
         out[out.length - 1] = 1;
-        return `linear(${out.join(',')})`;
+        return (springCache[key] = `linear(${out.join(',')})`);
     }
 
     // ---------- the core ----------
@@ -135,6 +150,96 @@
         }, { rootMargin: o.margin || '0px 0px -10% 0px', threshold: o.amount || 0 });
         list.forEach(el => io.observe(el));
         return () => io.disconnect();
+    }
+
+    // ---------- sequence ----------
+    // one thing after another, which WAAPI has no word for. Each step is
+    // [target, keyframes, options]; `at` offsets a step from the end of
+    // the one before it, so a negative number overlaps them.
+    //
+    //   FX.sequence([
+    //     [win, [{opacity:0},{opacity:1}], {duration:120}],
+    //     ['.row', [{transform:'translateY(6px)'},{transform:'none'}], {at:-60}]
+    //   ])
+    function sequence(steps, opts) {
+        const list = steps || [];
+        let cursor = (opts && opts.delay) || 0;
+        const running = [];
+        list.forEach(step => {
+            const [target, keyframes, options] = step;
+            const o = Object.assign({}, options || {});
+            const at = o.at || 0;
+            delete o.at;
+            const start = Math.max(0, cursor + at);
+            const base = typeof o.delay === 'function' ? o.delay : null;
+            o.delay = base ? ((i, n) => start + base(i, n)) : start + (o.delay || 0);
+            running.push(animate(target, keyframes, o));
+            cursor = start + (o.duration || 180);
+        });
+        return {
+            animations: running,
+            finished: Promise.all(running.map(r => r.finished)),
+            cancel() { running.forEach(r => r.cancel()); },
+            reverse() { running.forEach(r => r.reverse()); }
+        };
+    }
+
+    // ---------- press ----------
+    // A bevelled button on a mouse tells you it went down because the
+    // border flips. Under a fingertip the finger is on top of the thing it
+    // just pressed, so the one bit of feedback there was is the bit you
+    // cannot see. This gives the press somewhere to go, and asks the phone
+    // to buzz if it has been allowed to.
+    function press(target, opts) {
+        const o = opts || {};
+        const list = nodes(target);
+        list.forEach(el => {
+            if (el._fxPress) return;
+            el._fxPress = true;
+            const down = () => {
+                if (!on()) return;
+                animate(el, [{ transform: 'scale(1)' }, { transform: 'scale(' + (o.scale || 0.94) + ')' }],
+                    { duration: 60, easing: 'ease-out', fill: 'forwards' });
+                if (o.haptic !== false && navigator.vibrate) { try { navigator.vibrate(8); } catch (e) { } }
+            };
+            const up = () => {
+                if (!on()) { el.style.transform = ''; return; }
+                animate(el, [{ transform: 'scale(' + (o.scale || 0.94) + ')' }, { transform: 'scale(1)' }],
+                    { duration: 110, easing: spring({ stiffness: 500, damping: 24 }), fill: 'forwards' });
+            };
+            el.addEventListener('pointerdown', down);
+            el.addEventListener('pointerup', up);
+            el.addEventListener('pointercancel', up);
+            el.addEventListener('pointerleave', up);
+        });
+        return () => list.forEach(el => { el._fxPress = false; });
+    }
+
+    // ---------- a device that cannot keep up ----------
+    // Reduced motion is a preference. This is a different question: a
+    // cheap phone running a canvas game and a starfield and a marquee will
+    // drop frames, and the honest answer to that is fewer animations
+    // rather than the same ones, badly. Measured once, over real frames,
+    // rather than guessed from a user agent string.
+    let slow = false;
+    function measure() {
+        if (typeof requestAnimationFrame !== 'function') return;
+        if (typeof document === 'undefined' || !document.documentElement) return;
+        let frames = 0, start = 0;
+        const step = (t) => {
+            if (!start) start = t;
+            frames++;
+            if (t - start < 900) { requestAnimationFrame(step); return; }
+            const fps = frames / ((t - start) / 1000);
+            // under about 40fps with nothing much happening, this device is
+            // not going to enjoy the decorative layer
+            if (fps < 40) {
+                slow = true;
+                const el = document.documentElement;
+                if (el) el.classList.add('slow-device');
+            }
+        };
+        requestAnimationFrame(step);
     }
 
     // ---------- the presets this desktop actually uses ----------
@@ -206,7 +311,8 @@
     }
 
     window.FX = {
-        on, spring, animate, stagger, inView,
+        on, spring, animate, stagger, inView, sequence, press,
+        slow: () => slow,
         openWindow, closeWindow, minimizeWindow,
         toastIn, toastOut, unroll, reveal, nudge,
         MOTION_KEY, publish,
@@ -220,6 +326,16 @@
         }
     };
     publish();
+    // The frame budget is measured once the page has something to draw.
+    // Guarded because check-motion.mjs loads this file against a window
+    // that is an object literal, which is the point of that test — it
+    // catches exactly this sort of assumption about the environment.
+    if (typeof document !== 'undefined' && typeof setTimeout === 'function') {
+        if (document.readyState === 'complete') setTimeout(measure, 1200);
+        else if (window && typeof window.addEventListener === 'function') {
+            window.addEventListener('load', () => setTimeout(measure, 1200));
+        }
+    }
     // the os setting can change while the page is open
     if (window.matchMedia) {
         const mq = window.matchMedia('(prefers-reduced-motion: reduce)');

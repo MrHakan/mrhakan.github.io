@@ -80,7 +80,7 @@ exits non-zero if anything drifted.
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
-| `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, and /now and /uses resolving — it brings its own server for that last part |
+| `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 
 ## Things that will bite you
@@ -124,6 +124,22 @@ exits non-zero if anything drifted.
   set it on the root element. A second rule hard-coding `font-size` on
   `.doc-body` would win and kill the buttons without an error, so
   `check-web.mjs` looks for one.
+- **`.doc-body`'s font size, and everything else `instant()` touches.**
+  With motion off, `FX.animate` applies the keyframe's end state directly.
+  It used to apply three properties and drop the rest, so a keyframe that
+  moved something by `left` never happened for anyone with reduced motion
+  on — and nothing said so. `check-motion.mjs` holds it to the whole
+  keyframe now.
+- **Fullscreen is two implementations.** The Fullscreen API where it
+  exists; a `.fs-faux` class pinning the window over the viewport where it
+  does not, which is Safari on iPhone and any iframe without
+  `allow="fullscreen"`. Everything downstream — `.fs-active`, the canvas
+  fitting, Escape — is driven off the same class either way, so a change
+  to one needs checking against the other.
+- **Touch rules key off `pointer: coarse`, never a width.** A narrow
+  desktop window is not a phone and a tablet with a stylus is not a
+  fingertip. The bigger tap targets and the 16px inputs must not appear
+  under a mouse — that is what keeps this looking like 1998.
 - **`node_modules/` is disposable.** The site has no dependencies and
   neither does the test suite; the only thing that lands there is
   Playwright, installed with `--no-save` for the browser runs.

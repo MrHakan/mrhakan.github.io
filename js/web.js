@@ -1201,6 +1201,33 @@ const WEB = (function () {
         }, true);
     }
 
+    // ---------- a press you can feel ----------
+    // A bevelled button tells a mouse it went down by flipping its border.
+    // Under a fingertip that border is underneath the fingertip, so the
+    // one piece of feedback the design had is the one you cannot see.
+    // FX.press gives it somewhere to go. Only on touch: on a mouse the
+    // bevel already says it, and a button that also shrinks is a button
+    // doing too much.
+    const PRESSABLE = '.ie-nav, .doc-tool, .start-item, .taskbar-window-btn, ' +
+        '.ie-titlebar-btn, .ie-fav-go, .ie-sug, .post-nav-btn, .map-link';
+
+    function initPress() {
+        if (!window.FX || !FX.press) return;
+        const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        if (!coarse) return;
+        const arm = () => FX.press(document.querySelectorAll(PRESSABLE), { scale: 0.93 });
+        arm();
+        // windows arrive after this runs, and each one brings buttons
+        if (window.MutationObserver) {
+            let queued = false;
+            new MutationObserver(() => {
+                if (queued) return;
+                queued = true;
+                setTimeout(() => { queued = false; arm(); }, 120);
+            }).observe(document.body, { childList: true, subtree: true });
+        }
+    }
+
     // ---------- back button ----------
 
     window.addEventListener('popstate', () => {
@@ -1228,6 +1255,7 @@ const WEB = (function () {
         initQuoting();
         initStatusBar();
         initKeys();
+        initPress();
         restoreTextSize();
         ready = true;
         // wait for the boot screen to be out of the way before an app
