@@ -10206,3 +10206,106 @@ html.fs-locked body {
         display: none !important;
     }
 }
+
+/* ===================================================================
+   PLAYING WITH A THUMB
+   The rest of the touch work is a media query above; these are the
+   pieces that needed markup or a rule of their own.
+   =================================================================== */
+
+/* the troll problem's aiming row. it stands out from the inspector it
+   replaces because it is a question waiting on an answer, not a readout */
+.tg-inspect.tg-aim {
+    border-color: #ffd400;
+    flex-wrap: wrap;
+}
+
+.tg-aim .tg-offer-info {
+    min-width: 90px;
+}
+
+@media (pointer: coarse) {
+    /* the armoury is ten towers in a row; at 46px wide with 3px between
+       them a thumb covered three at once */
+    .tg-tbtn {
+        width: 58px;
+        min-height: 52px;
+        padding: 5px 0;
+    }
+
+    .tg-ticon { font-size: 22px; }
+
+    .tg-buildbar { gap: 5px; }
+
+    .tg-sbtn {
+        min-width: 40px;
+        min-height: 34px;
+        font-size: 12px;
+    }
+
+    .tg-btn,
+    .tg-select { min-height: 34px; }
+}
+
+/* the titlebar is a drag handle, and a drag handle the browser is also
+   trying to scroll the page with is neither */
+.app-window-header {
+    touch-action: none;
+}
+
+/* minimise / maximise / fullscreen / close sit in a row because of tailwind
+   classes fetched from a cdn. while that fetch is in flight they stack
+   vertically instead and the titlebar grows to four buttons tall, which is
+   most of a phone screen. this is the same row, owed to nobody. */
+.app-window-btns {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* The news ticker is animated from translateX(100%) to translateX(-100%),
+   so for half of every fifteen-second loop it hangs 396px off the right of
+   the screen. Its rail clips it — that is what `overflow-hidden` in the
+   markup is for — but that class comes from tailwind, fetched at runtime,
+   and until it lands nothing is clipping anything. One element sticking out
+   past the right edge is enough: the browser widens the layout viewport to
+   cover it and shrinks the whole page to fit, so a 395px window renders at
+   half size in the middle of a phone with dead space around it.
+   `clip` rather than `hidden` so the document does not become a scroll
+   container, which would change what position: sticky measures against. */
+html {
+    overflow-x: clip;
+}
+
+#marquee-rail {
+    overflow: hidden;
+}
+
+/* A window with no height limit grows to fit its contents. On a desktop
+   that is fine. On a phone it means the bottom of the window — which is
+   usually the button that starts the thing — is drawn below the screen
+   with nothing able to scroll to it: the page behind does not scroll, and
+   the window is not a scroll container. Measured on a Pixel 7, echoes of
+   the tide opened 873px tall on a 915px screen starting at y=54, and
+   "take the boat out" sat at y=931, sixteen pixels past the end of the
+   world. Cap the window and let the body, which already has overflow:
+   auto, do the scrolling. */
+.is-narrow .app-window {
+    max-height: calc(100vh - 96px);
+    max-height: calc(100dvh - 96px);
+}
+
+/* a flex child will not shrink below its content without this, and a body
+   that will not shrink is a body that will not scroll */
+.is-narrow .app-window-body {
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* echoes caps its own body at 80vh and then lets the overflow spill out of
+   the box instead of scrolling inside it, so the cap was doing nothing but
+   hiding the bottom of the sheet. the window's own scroll is enough. */
+.is-narrow .et-body {
+    max-height: none;
+}

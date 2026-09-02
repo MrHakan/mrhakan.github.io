@@ -26,7 +26,7 @@ tailwind.config = {
 let tracks = [];
 let currentTrackIndex = 0;
 let isPlaying = false;
-let audioContext, analyser, dataArray;
+let audioContext, analyser, dataArray, mediaSource = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const audio = document.getElementById('audio-player');
@@ -687,21 +687,63 @@ function startTrollBouncing() {
     }, 20);
 }
 
+// The visualiser needs the track's samples, and the only way to get them is
+// createMediaElementSource. That call is a one-way door: the moment it is
+// made, the <audio> element stops going to the speakers by itself and its
+// output belongs to the web audio graph instead. If the AudioContext is not
+// actually running when that happens the graph goes nowhere — and a phone
+// creates its context suspended, because of autoplay policy, and the play
+// event is not reliably inside the gesture that started it.
+//
+// The result was a track playing with the clock ticking, the progress bar
+// filling, the playlist row lit up, and no sound at all. Nothing in the
+// player looked broken because nothing in the player was.
+//
+// So the door is only opened once the context is genuinely running. Until
+// then the element keeps its own straight line to the speakers, and the
+// music being audible matters more than the bars moving.
+function resumeAudioContext() {
+    if (!audioContext) return Promise.resolve(false);
+    if (audioContext.state === 'running') return Promise.resolve(true);
+    return Promise.resolve(audioContext.resume())
+        .then(() => audioContext.state === 'running', () => false);
+}
+
 function initAudioVisualizer() {
     const audio = document.getElementById('audio-player');
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 32;
-        const source = audioContext.createMediaElementSource(audio);
-        source.connect(analyser);
-        analyser.connect(audioContext.destination);
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        updateVisualizer();
-    } else if (audioContext.state === 'suspended') {
-        audioContext.resume();
+    if (!audio) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;                       // no graph here, but the music still plays
+    if (!audioContext) audioContext = new Ctx();
+    if (audioContext.state !== 'running') {
+        // wake it if we are allowed to, and only wire anything up if that worked
+        resumeAudioContext().then(awake => { if (awake) initAudioVisualizer(); });
+        return;
     }
+    if (mediaSource) return;                // the door only opens once
+    try {
+        mediaSource = audioContext.createMediaElementSource(audio);
+    } catch (e) {
+        return;                             // already routed: leave the sound where it is
+    }
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 32;
+    mediaSource.connect(analyser);
+    analyser.connect(audioContext.destination);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    updateVisualizer();
 }
+
+// A suspended context can only be woken from inside a real user gesture, so
+// every tap on the page is an opportunity to try. If the graph is already
+// built and the context went to sleep behind it — a phone locking, a tab
+// backgrounded — this is also what brings the sound back mid-track.
+['pointerdown', 'keydown', 'touchend'].forEach(ev => {
+    document.addEventListener(ev, () => {
+        if (!audioContext) return;
+        resumeAudioContext().then(awake => { if (awake && !mediaSource) initAudioVisualizer(); });
+    }, { passive: true });
+});
 
 
 function initDraggable() {
@@ -1325,7 +1367,10 @@ function openIEWindow(url, title) {
         <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-4 h-4" alt="">
         <span class="ie-window-title">${escapeHtml(title)} - microsoft internet explorer</span>`;
     const btns = document.createElement('div');
-    btns.className = 'flex gap-[2px] ml-auto flex-shrink-0';
+    // the tailwind classes are the nice version; app-window-btns is the
+    // floor under them, because without it a slow cdn leaves the four
+    // titlebar buttons stacked down the side of the window
+    btns.className = 'app-window-btns flex gap-[2px] ml-auto flex-shrink-0';
     const minBtn = document.createElement('button');
     minBtn.className = 'ie-titlebar-btn bevel-out';
     minBtn.textContent = '_';
@@ -2018,22 +2063,59 @@ function createAppWindow(title, opts = {}) {
     playSound('navigate');
 
     // drag
-    let dragging = false, offX = 0, offY = 0;
-    header.addEventListener('mousedown', (e) => {
+    //
+    // Pointer events rather than mouse events. A finger dragging a titlebar
+    // never emits mousemove — a browser only synthesises a mouse *click* at
+    // the end of a tap — so on a phone a window could not be moved at all.
+    // Capture on the header keeps the drag alive when the finger slides off
+    // the bar, and it releases itself, which the old pair of listeners on
+    // `document` never did: one window opened, one listener leaked.
+    let dragging = false, offX = 0, offY = 0, dragId = null;
+    const dragStart = (e) => {
         if (e.target.closest('button')) return;
+        if (e.button !== undefined && e.button > 0) return;   // a right click is not a drag
+        if (win.classList.contains('fs-active')) return;      // fullscreen has nowhere to go
         dragging = true;
         const rect = win.getBoundingClientRect();
         offX = e.clientX - rect.left; offY = e.clientY - rect.top;
+        dragId = e.pointerId;
+        if (header.setPointerCapture && dragId !== undefined) {
+            try { header.setPointerCapture(dragId); } catch (err) { }
+        }
         win.style.zIndex = ++ieHighestZ;
-    });
-    const onMove = (e) => {
-        if (!dragging) return;
-        win.style.left = `${e.clientX - offX}px`;
-        win.style.top = `${e.clientY - offY}px`;
+        e.preventDefault();
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', () => { dragging = false; });
-    win.addEventListener('mousedown', () => { win.style.zIndex = ++ieHighestZ; });
+    const dragMove = (e) => {
+        if (!dragging || (dragId !== null && e.pointerId !== dragId)) return;
+        const vw = viewportWidth(), vh = window.innerHeight;
+        const w = win.offsetWidth, headH = header.offsetHeight || 24;
+        let minLeft, maxLeft;
+        if (e.pointerType === 'touch') {
+            // on a phone the window is nearly the width of the screen, so
+            // there is no useful reason to push it off the side and every
+            // reason not to: drag it right and the close button goes with
+            // it, and there is no page scroll to go and find it again.
+            minLeft = Math.min(0, vw - w);
+            maxLeft = Math.max(0, vw - w);
+        } else {
+            // a mouse keeps the desktop behaviour — a window may hang off
+            // the edge — but never so far that there is no titlebar left to
+            // grab it back by
+            minLeft = 90 - w;
+            maxLeft = vw - 90;
+        }
+        win.style.left = `${Math.min(Math.max(e.clientX - offX, minLeft), maxLeft)}px`;
+        win.style.top = `${Math.min(Math.max(e.clientY - offY, 0), Math.max(0, vh - headH - 46))}px`;
+    };
+    const dragEnd = (e) => {
+        if (dragId !== null && e && e.pointerId !== undefined && e.pointerId !== dragId) return;
+        dragging = false; dragId = null;
+    };
+    header.addEventListener('pointerdown', dragStart);
+    header.addEventListener('pointermove', dragMove);
+    header.addEventListener('pointerup', dragEnd);
+    header.addEventListener('pointercancel', dragEnd);
+    win.addEventListener('pointerdown', () => { win.style.zIndex = ++ieHighestZ; });
 
     // taskbar button
     const tb = document.getElementById('taskbar-windows');
@@ -2050,7 +2132,9 @@ function createAppWindow(title, opts = {}) {
         };
         tb.appendChild(b);
     }
-    win._cleanup = () => document.removeEventListener('mousemove', onMove);
+    // the drag listeners live on the header and are removed with it; games
+    // hang their own teardown off this, so it stays as a hook
+    win._cleanup = () => { };
     FX.openWindow(win);
     return { win, body, id, close: () => closeAppWindow(id) };
 }

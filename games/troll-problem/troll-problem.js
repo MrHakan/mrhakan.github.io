@@ -1121,7 +1121,44 @@ function tgRenderPlay(g) {
         return `<button class="tg-tbtn${g.selectedTower === t.id ? ' sel' : ''}${g.gold < cost ? ' tg-poor' : ''}" data-tower="${t.id}" title="${escapeHtml(t.name)} — ${escapeHtml(t.text)}">
             <span class="tg-ticon">${t.icon}</span><span class="tg-tcost">$${cost}</span></button>`;
     }).join('')}</div>
-    ${g.selected ? tgInspectorHtml(g, g.selected) : '<div class="tg-inspect tg-inspect-empty">click a tower to inspect it · click a build button then the ground to place</div>'}`;
+    ${g.selected ? tgInspectorHtml(g, g.selected)
+        : tgAiming(g) ? tgAimHtml(g)
+        : `<div class="tg-inspect tg-inspect-empty">${tgTouch()
+            ? 'tap a tower to inspect it · tap a build button, then the arena, then build'
+            : 'click a tower to inspect it · click a build button then the ground to place'}</div>`}`;
+}
+
+// Is the thing pointing at this screen a fingertip? Asked fresh each render,
+// because a tablet with a keyboard folded round the back changes its mind.
+function tgTouch() { return !!(window.TOUCH && TOUCH.coarse()); }
+
+// aiming is the touch half of building: a tower is chosen, a cell is under
+// the ghost, and nothing is committed until the build button is pressed
+function tgAiming(g) { return tgTouch() && !!g.selectedTower && !!g.hover; }
+
+// A mouse shows you where a tower is going by hovering: the cell lights up
+// green or red and the range circle is drawn before you commit. A finger
+// has no hover, so the tap that used to build blind now aims instead, and
+// this is what it aims with.
+//
+// It is not merely a confirmation step. At the width a 640px arena renders
+// on a phone a cell is about eighteen pixels across, so the fingertip that
+// placed the tower covered three of them and you could not see which one
+// you were going to get until you had already paid for it.
+function tgAimHtml(g) {
+    const def = TP.TOWERS_BY_ID[g.selectedTower];
+    if (!def) return '';
+    const cost = tgTowerCost(g, def);
+    const free = tgCellFree(g, g.hover.cx, g.hover.cy);
+    const poor = g.gold < cost;
+    const why = !free ? 'towers only go beside the road, never on it'
+        : poor ? `you have $${g.gold}` : 'or tap somewhere else to move it';
+    return `<div class="tg-inspect tg-aim">
+        <span class="tg-offer-icon">${def.icon}</span>
+        <div class="tg-offer-info"><b>${escapeHtml(def.name)}</b><span>${escapeHtml(why)}</span></div>
+        <button class="tg-btn tg-buy${free && !poor ? ' tg-go' : ' tg-poor'}" data-act="place">build $${cost}</button>
+        <button class="tg-btn tg-buy" data-act="aimoff">cancel</button>
+    </div>`;
 }
 
 function tgInspectorHtml(g, t) {
@@ -1184,6 +1221,7 @@ function tgBind(g) {
     on('[data-tower]', el => {
         g.selectedTower = g.selectedTower === el.dataset.tower ? null : el.dataset.tower;
         g.selected = null;
+        g.hover = null;
         tgSfx('shoot');
         tgRender();
     });
@@ -1206,14 +1244,23 @@ function tgBind(g) {
                 cy: Math.floor((e.clientY - r.top) * scale / TP.CELL)
             };
         };
-        cv.onmousemove = e => { g.hover = cellFrom(e); };
-        cv.onmouseleave = () => { g.hover = null; };
+        // a touchscreen synthesises one mousemove just before the click, at
+        // the point of the tap, which would set the ghost and immediately
+        // build on it — the whole thing this is trying to avoid
+        cv.onmousemove = e => { if (!tgTouch()) g.hover = cellFrom(e); };
+        cv.onmouseleave = () => { if (!tgTouch()) g.hover = null; };
         cv.onclick = e => {
             const { cx, cy } = cellFrom(e);
             const existing = g.towers.find(t => t.cx === cx && t.cy === cy);
-            if (existing) { g.selected = existing; g.selectedTower = null; tgRender(); return; }
-            if (g.selectedTower) { tgPlaceTower(g, cx, cy); tgRender(); return; }
+            if (existing) { g.selected = existing; g.selectedTower = null; g.hover = null; tgRender(); return; }
+            if (g.selectedTower) {
+                // the tower you just built is still in the inspector, and the
+                // inspector is the row the aiming prompt has to appear in
+                if (tgTouch()) { g.selected = null; g.hover = { cx: cx, cy: cy }; tgSfx('shoot'); tgRender(); return; }
+                tgPlaceTower(g, cx, cy); tgRender(); return;
+            }
             g.selected = null;
+            g.hover = null;
             tgRender();
         };
     }
@@ -1229,6 +1276,8 @@ function tgAction(act) {
         case 'early': tgCallWaveEarly(g); tgRender(); break;
         case 'upgrade': if (g.selected) { tgUpgradeTower(g, g.selected); tgRender(); } break;
         case 'sell': if (g.selected) { tgSellTower(g, g.selected); tgRender(); } break;
+        case 'place': if (g.hover && g.selectedTower) { tgPlaceTower(g, g.hover.cx, g.hover.cy); g.hover = null; tgRender(); } break;
+        case 'aimoff': g.hover = null; g.selectedTower = null; tgRender(); break;
         case 'quit': tgLoopStop(); tgSaveRun(); g.screen = 'menu'; tgRender(); break;
     }
 }

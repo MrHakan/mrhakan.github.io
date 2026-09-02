@@ -124,6 +124,17 @@ jobs:
                   sleep 2
                   SITE_URL=http://localhost:8096 node .github/scripts/browser-arcade.mjs
 
+            # half the visitors are on a phone, and the things that break
+            # there are invisible on a desktop: a page that scrolls
+            # sideways zooms itself out, a titlebar wired to mousemove
+            # cannot be dragged by a finger, and a game that needs a hover
+            # cannot be played by one
+            - name: Open it all on a phone
+              run: |
+                  python3 -m http.server 8097 &
+                  sleep 2
+                  SITE_URL=http://localhost:8097/index.html node .github/scripts/browser-mobile.mjs
+
             # and the RPG, which is all DOM and two canvases: roll a
             # character, sail, fight, forge and put a line in the water
             - name: Play echoes of the tide

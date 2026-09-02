@@ -71,6 +71,7 @@ The browser tests need Playwright's chromium and a server on :8099:
 python3 -m http.server 8099 &
 node .github/scripts/browser-check.mjs
 node .github/scripts/browser-echoes.mjs
+node .github/scripts/browser-mobile.mjs
 ```
 
 ## The tests
@@ -90,8 +91,28 @@ exits non-zero if anything drifted.
 | `browser-arcade.mjs` | the thirty new windows played rather than opened: eight games of tic-tac-toe it expects to lose, tiles merged in 2048, the pet's clock wound back nine hours |
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
+| `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem aims before it builds, and the music is never handed to a sleeping audio graph |
 
 ## Things that will bite you
+
+- **A phone zooms the whole page out if anything sticks out sideways.**
+  One element past the right edge and the browser widens the layout
+  viewport to cover it, so every window renders at half size in the
+  middle of the screen. The news ticker does exactly that for half of
+  every loop and is only clipped by a tailwind class off a cdn, so
+  `#marquee-rail` and `html { overflow-x: clip }` are the floor under
+  it. `browser-mobile.mjs` samples the page width right through the
+  marquee loop.
+- **A finger drag emits pointer events and nothing else.** No browser
+  synthesises `mousemove` for one — only a click at the end of a tap —
+  so a titlebar wired to `mousedown`/`mousemove` is immovable on a
+  phone. Window dragging is on pointer events with capture.
+- **`createMediaElementSource` is a one-way door.** It takes the
+  `<audio>` element off the speakers and hands its output to the web
+  audio graph. Call it while the AudioContext is suspended — which is
+  how a phone creates one — and the track plays with the clock ticking,
+  the progress bar filling and no sound at all. The graph is only ever
+  built once the context is genuinely running.
 
 - **`sw.js` stays at the root.** A service worker's scope is its own
   directory; moving it into `js/` would silently stop it controlling the
