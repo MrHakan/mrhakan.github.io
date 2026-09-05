@@ -1,24 +1,24 @@
 {
-  "generated_at": "2026-09-04T09:42:23.822Z",
+  "generated_at": "2026-09-05T09:07:39.218Z",
   "user": {
     "login": "MrHakan",
     "avatar_url": "https://avatars.githubusercontent.com/u/15964553?v=4",
-    "public_repos": 35,
+    "public_repos": 36,
     "followers": 18,
     "created_at": "2015-11-22T08:01:29Z"
   },
   "repos": [
     {
-      "name": "termux-aify",
-      "html_url": "https://github.com/MrHakan/termux-aify",
-      "description": null,
-      "language": "Shell",
-      "stargazers_count": 0,
+      "name": "codex-mobile",
+      "html_url": "https://github.com/MrHakan/codex-mobile",
+      "description": "Lightweight coding agent that runs in your terminal",
+      "language": "Rust",
+      "stargazers_count": 1,
       "forks_count": 0,
-      "pushed_at": "2026-09-04T08:15:30Z",
-      "updated_at": "2026-09-04T08:15:46Z",
-      "has_pages": true,
-      "fork": false,
+      "pushed_at": "2026-09-05T04:38:13Z",
+      "updated_at": "2026-09-05T00:56:30Z",
+      "has_pages": false,
+      "fork": true,
       "archived": false
     },
     {
@@ -28,10 +28,36 @@
       "language": "Java",
       "stargazers_count": 0,
       "forks_count": 0,
-      "pushed_at": "2026-09-04T00:59:23Z",
-      "updated_at": "2026-09-04T00:55:19Z",
+      "pushed_at": "2026-09-04T18:29:03Z",
+      "updated_at": "2026-09-04T18:11:58Z",
       "has_pages": false,
       "fork": true,
+      "archived": false
+    },
+    {
+      "name": "termux-aify",
+      "html_url": "https://github.com/MrHakan/termux-aify",
+      "description": null,
+      "language": "Shell",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-09-04T14:32:08Z",
+      "updated_at": "2026-09-04T14:33:13Z",
+      "has_pages": true,
+      "fork": false,
+      "archived": false
+    },
+    {
+      "name": "mrhakan.github.io",
+      "html_url": "https://github.com/MrHakan/mrhakan.github.io",
+      "description": "mrhakan.github.io",
+      "language": "JavaScript",
+      "stargazers_count": 2,
+      "forks_count": 0,
+      "pushed_at": "2026-09-04T09:42:25Z",
+      "updated_at": "2026-09-04T09:48:19Z",
+      "has_pages": true,
+      "fork": false,
       "archived": false
     },
     {
@@ -57,19 +83,6 @@
       "pushed_at": "2026-09-03T13:16:05Z",
       "updated_at": "2026-09-03T13:13:18Z",
       "has_pages": false,
-      "fork": false,
-      "archived": false
-    },
-    {
-      "name": "mrhakan.github.io",
-      "html_url": "https://github.com/MrHakan/mrhakan.github.io",
-      "description": "mrhakan.github.io",
-      "language": "JavaScript",
-      "stargazers_count": 2,
-      "forks_count": 0,
-      "pushed_at": "2026-09-03T09:54:29Z",
-      "updated_at": "2026-09-03T09:54:39Z",
-      "has_pages": true,
       "fork": false,
       "archived": false
     },
