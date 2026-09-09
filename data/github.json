@@ -1,13 +1,65 @@
 {
-  "generated_at": "2026-09-08T09:45:33.711Z",
+  "generated_at": "2026-09-09T09:50:01.539Z",
   "user": {
     "login": "MrHakan",
     "avatar_url": "https://avatars.githubusercontent.com/u/15964553?v=4",
-    "public_repos": 37,
+    "public_repos": 41,
     "followers": 18,
     "created_at": "2015-11-22T08:01:29Z"
   },
   "repos": [
+    {
+      "name": "modpack-doctor",
+      "html_url": "https://github.com/MrHakan/modpack-doctor",
+      "description": null,
+      "language": "JavaScript",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-09-09T00:35:33Z",
+      "updated_at": "2026-09-09T00:35:35Z",
+      "has_pages": true,
+      "fork": false,
+      "archived": false
+    },
+    {
+      "name": "focusar",
+      "html_url": "https://github.com/MrHakan/focusar",
+      "description": "Focusing app working with AR tech.",
+      "language": "Dart",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-09-09T00:26:35Z",
+      "updated_at": "2026-09-09T00:26:53Z",
+      "has_pages": false,
+      "fork": false,
+      "archived": false
+    },
+    {
+      "name": "game-picker",
+      "html_url": "https://github.com/MrHakan/game-picker",
+      "description": "benim icin oyun secici",
+      "language": "HTML",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-09-08T19:37:56Z",
+      "updated_at": "2026-09-08T19:38:12Z",
+      "has_pages": true,
+      "fork": false,
+      "archived": false
+    },
+    {
+      "name": "desknest",
+      "html_url": "https://github.com/MrHakan/desknest",
+      "description": null,
+      "language": "C#",
+      "stargazers_count": 2,
+      "forks_count": 0,
+      "pushed_at": "2026-09-08T12:31:45Z",
+      "updated_at": "2026-09-08T12:09:41Z",
+      "has_pages": false,
+      "fork": false,
+      "archived": false
+    },
     {
       "name": "mrhakan.github.io",
       "html_url": "https://github.com/MrHakan/mrhakan.github.io",
@@ -15,8 +67,8 @@
       "language": "JavaScript",
       "stargazers_count": 2,
       "forks_count": 0,
-      "pushed_at": "2026-09-07T10:24:29Z",
-      "updated_at": "2026-09-07T10:24:33Z",
+      "pushed_at": "2026-09-08T09:45:34Z",
+      "updated_at": "2026-09-08T09:46:18Z",
       "has_pages": true,
       "fork": false,
       "archived": false
