@@ -20,5 +20,19 @@
         "url": "https://mrhakan.github.io/blueprint-cmdblock-builder/",
         "type": "Web App",
         "language": "HTML/JS"
+    },
+    {
+        "name": "Orbit Hop 98",
+        "description": "A tiny daily-seeded planet runner: jump craters, collect starbits, and chase a local best score.",
+        "url": "https://mrhakan.github.io/games/orbit-hop/",
+        "type": "Mini Game",
+        "language": "HTML/JS"
+    },
+    {
+        "name": "Pixel Dither Lab",
+        "description": "A privacy-friendly in-browser image dithering and pixel-art converter with retro palettes and PNG export.",
+        "url": "https://mrhakan.github.io/tools/pixel-dither-lab/",
+        "type": "Web App",
+        "language": "HTML/JS"
     }
 ]
