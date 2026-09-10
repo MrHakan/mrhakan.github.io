@@ -46,6 +46,9 @@ jobs:
             - name: Check spells, sigils and desktop wiring
               run: node .github/scripts/check-games.mjs
 
+            - name: Check Wizardz combat, input and offline behavior
+              run: node .github/scripts/check-wizardz.mjs && node .github/scripts/check-offline.mjs
+
             - name: Smoke test the netplay relay
               run: node server/relay-smoke.mjs
 

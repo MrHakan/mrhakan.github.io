@@ -10309,3 +10309,47 @@ html {
 .is-narrow .et-body {
     max-height: none;
 }
+
+/* Wizardz: keep the arena proportional and controls usable with a thumb. */
+.wz-canvas {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 19 / 10;
+}
+.wz-arena-wrap { min-width: 0; }
+.wz-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0 2px;
+    color: #c8bcea;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.wz-toolbar label { display: flex; align-items: center; gap: 6px; cursor: pointer; min-height: 36px; }
+.wz-toolbar input { accent-color: #0df259; width: 18px; height: 18px; }
+.wz-strip { padding: 2px; scrollbar-width: thin; scrollbar-color: #7957a8 #160a2b; }
+.wz-card { position: relative; cursor: pointer; min-width: 76px; padding: 5px; }
+.wz-card-key { position: absolute; top: 4px; left: 5px; color: #bcaddc; font-size: 12px; }
+.wz-card-name { display: block; font-size: 12px; line-height: 1.3; min-height: 2.6em; }
+.wz-card-cost { display: block; color: #c8bcea; font-size: 12px; line-height: 1.5; }
+.wz-card.wz-cool { opacity: .7; }
+.wz-card:hover { background: #2b1846; border-color: #bb8aff; }
+.wz-card:focus-visible, .wz-btn:focus-visible, .wz-canvas:focus-visible, .wz-tab:focus-visible {
+    outline: 2px solid #ffe14d;
+    outline-offset: 2px;
+}
+.wz-status { min-height: 2.5em; font-size: 14px; line-height: 1.4; color: #e8e2ff; padding: 4px 2px; }
+.wz-foot .wz-btn { min-height: 44px; font-size: 14px; }
+#wz-up, #wz-down { touch-action: none; user-select: none; min-width: 70px; }
+.wz-btn:disabled { opacity: .5; cursor: default; }
+@media (max-width: 520px) {
+    .wz-card { flex: 0 0 76px; }
+    .wz-foot { gap: 6px; }
+    .wz-foot .wz-btn { flex: 1 0 auto; }
+    .wz-book-body { flex-direction: column; }
+    .wz-book-list { width: 100%; max-height: 180px; }
+    .wz-book-detail { min-width: 0; }
+}

@@ -12,6 +12,28 @@ Two of the files are not a game:
 - **`wizardz.js` / `wizardz-data.js`** — the first game that uses it,
   and the worked example for the next one.
 
+## wizardz 98 controls
+
+Draw anywhere in the arena to cast. A selected card is a **drawing guide**, not
+an automatic cast: all fifty spells still use the same recognizer and thresholds.
+
+| Control | Action |
+| --- | --- |
+| W/S or ↑/↓ | Dodge vertically |
+| Up/down buttons | Hold to move while drawing with another finger |
+| Spell card or 1–8 | Toggle a numbered tracing guide |
+| Enter or **cast** | Submit completed ink immediately |
+| Space or **clear ink** | Discard the drawing |
+| **manual cast** | Keep multi-stroke ink until explicitly submitted; remembered on this device |
+| P or **pause** | Pause/resume a bot duel |
+
+Bot duels pause when the tab loses focus, the game is minimized, or the grimoire
+or loadout opens. Resume explicitly when ready. Online duels never pause locally;
+losing focus only releases held movement and discards unfinished ink.
+The arena must have focus for game shortcuts, so other desktop windows retain
+their keyboard controls. Combat runs at 60 simulation ticks per second regardless
+of display refresh rate. Closing the duel or trainer releases its listeners and timers.
+
 ## adding multiplayer to a game
 
 ### 1. put it in the catalogue

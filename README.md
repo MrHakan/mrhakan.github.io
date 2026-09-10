@@ -81,6 +81,8 @@ exits non-zero if anything drifted.
 
 | script | what it holds to |
 | --- | --- |
+| `check-wizardz.mjs` | combat, pause/resume, touch ownership, manual casting and refresh-rate consistency |
+| `check-offline.mjs` | offline fallbacks, stalled requests, cache scope and media streaming |
 | `check-games.mjs` | every script parses, the fifty spells and their sigils, desktop wiring, my documents' backup envelope, the GitHub snapshot |
 | `check-guestbook.mjs` | composing and reading an entry, and the giscus config |
 | `check-motion.mjs` | reduced motion means no motion, the charts, the stylesheet's own links |

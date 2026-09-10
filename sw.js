@@ -1,13 +1,13 @@
 /* mrhakan 98 — offline support.
  *
- * Strategy: network-first, cache-fallback. The network always wins while you
- * are online, so a deploy is visible on the next reload and nothing ever goes
- * stale. The cache only steps in when the network doesn't answer — which is
- * the whole point: the desktop, the games and the toys keep working on a
+ * Strategy: network-first, cache-fallback. Fresh responses refresh the cache.
+ * A failed request or a four-second stall can use an existing offline copy;
+ * the stalled request continues updating that copy in the background.
+ * The desktop, the games and the toys keep working on a
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v22';
+const CACHE = 'mrhakan98-v23';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -73,14 +73,14 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
-            .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+            .then(keys => Promise.all(keys.filter(k => k.startsWith('mrhakan98-v') && k !== CACHE).map(k => caches.delete(k))))
             .then(() => self.clients.claim())
     );
 });
 
 self.addEventListener('fetch', (event) => {
     const req = event.request;
-    if (req.method !== 'GET') return;
+    if (req.method !== 'GET' || req.headers.has('range')) return;
 
     const url = new URL(req.url);
     // the hit counter badge and the GitHub API must never be served from a cache —
@@ -88,23 +88,35 @@ self.addEventListener('fetch', (event) => {
     // reach the network is what registers the visit in the first place. Offline the
     // badge simply fails, and the page falls back to its local count.
     if (url.hostname.includes('komarev.com') || url.hostname.includes('api.github.com')) return;
+    // Music can be tens of megabytes per track; stream it rather than consuming
+    // the offline desktop's quota. Keep the desktop's Tailwind dependency
+    // available offline too; unrelated third-party responses bypass this cache.
+    const desktopCDN = url.hostname === 'cdn.tailwindcss.com';
+    if ((url.origin !== self.location.origin && !desktopCDN) || /\.(mp3|mp4|webm|ogg|wav)$/i.test(url.pathname)) return;
 
-    event.respondWith(
-        fetch(req)
-            .then((res) => {
-                // stash a copy for the offline case (opaque CDN responses included,
-                // they replay fine from a <script>/<link> tag)
-                if (res && (res.ok || res.type === 'opaque')) {
-                    const copy = res.clone();
-                    caches.open(CACHE).then(c => c.put(req, copy)).catch(() => { });
-                }
-                return res;
-            })
-            .catch(() => caches.match(req).then(hit => {
-                if (hit) return hit;
-                // navigations that were never cached still deserve a real page
-                if (req.mode === 'navigate') return caches.match('/index.html');
-                return new Response('', { status: 504, statusText: 'offline' });
-            }))
-    );
+    const cached = () => caches.match(req).then(async hit => {
+        if (hit) return hit;
+        if (req.mode === 'navigate') {
+            const index = await caches.match('/index.html');
+            if (index) return index;
+        }
+        return new Response('', { status: 504, statusText: 'offline' });
+    });
+    const network = fetch(req).then(async res => {
+        if (res.ok || (desktopCDN && res.type === 'opaque')) {
+            try { const cache = await caches.open(CACHE); await cache.put(req, res.clone()); } catch (e) { }
+        }
+        return res;
+    });
+    // A weak connection can hang instead of rejecting. After four seconds,
+    // use an existing offline copy while the network refresh finishes.
+    // With no cached copy, keep waiting for the real response.
+    let timer;
+    const fallback = new Promise(resolve => {
+        timer = setTimeout(async () => {
+            try { const hit = await caches.match(req); if (hit) resolve(hit); } catch (e) { }
+        }, 4000);
+    });
+    event.waitUntil(network.catch(() => {}));
+    event.respondWith(Promise.race([network, fallback]).catch(cached).finally(() => clearTimeout(timer)));
 });

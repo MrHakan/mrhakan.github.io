@@ -23,6 +23,7 @@
     const D = window.WZ;
     if (!D) { console.warn('[wizardz] data file missing'); return; }
     const A = D.ARENA;
+    const SIM_DT = 1 / A.tickHz;
 
     // ===============================================================
     // 1. THE RECOGNISER
@@ -44,7 +45,10 @@
     }
     // walk the whole gesture and drop a point every 1/n of its length
     function resample(pts, n) {
-        const I = pathLength(pts) / (n - 1);
+        if (!pts.length) return [];
+        const length = pathLength(pts);
+        if (length < 1e-6) return Array.from({ length: n }, () => ({ ...pts[0] }));
+        const I = length / (n - 1);
         let D_ = 0;
         const out = [{ x: pts[0].x, y: pts[0].y, id: pts[0].id }];
         const src = pts.slice();
@@ -270,7 +274,10 @@
     const CAST_FLOOR = 0.60;
     const CAST_MARGIN = 0.05;
     function recognize(strokes, pool) {
-        if (!strokes.length || flattenStrokes(strokes).length < 4) return [];
+        if (!Array.isArray(strokes)) return [];
+        strokes = strokes.filter(Array.isArray).map(st => st.filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y))).filter(st => st.length > 1);
+        const points = flattenStrokes(strokes);
+        if (points.length < 4 || pathLength(points) < 1) return [];
         const clean = smoothStrokes(strokes);
         const list = (pool || templates());
         // the same gesture, leaning a few different ways
@@ -630,7 +637,8 @@
     const LS = {
         avatar: 'mrhakan98-wizardz-avatar',
         loadout: 'mrhakan98-wizardz-loadout',
-        diff: 'mrhakan98-wizardz-difficulty'
+        diff: 'mrhakan98-wizardz-difficulty',
+        manual: 'mrhakan98-wizardz-manual-cast'
     };
     function myAvatar() {
         const prof = window.Netplay ? Netplay.profile() : null;
@@ -654,7 +662,11 @@
         return l;
     }
     function saveLoadout(l) { try { localStorage.setItem(LS.loadout, JSON.stringify(l)); } catch (e) { } }
-    const difficulty = () => localStorage.getItem(LS.diff) || 'normal';
+    function preference(key, fallback) {
+        try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
+    }
+    function savePreference(key, value) { try { localStorage.setItem(key, value); } catch (e) { } }
+    const difficulty = () => preference(LS.diff, 'normal');
 
     // ===============================================================
     // 4. SOUND — synthesised, follows the site's mute button
@@ -768,7 +780,10 @@
             snapAcc: 0,
             botAcc: 0, botPlan: 0,
             netDown: 0,
-            paused: false
+            paused: false,
+            simAcc: 0,
+            guide: null,
+            manualCast: preference(LS.manual, 'false') === 'true'
         };
         if (!solo) g.me = players[0].id === session.id ? 0 : 1;
         return g;
@@ -819,14 +834,15 @@
         if (dmg > 0) {
             w.hp = Math.max(0, w.hp - dmg);
             w.hitT = 0.25;
-            float(g, w.x, w.y - 70, '-' + Math.round(dmg), '#ff6b6b');
+            combatFloat(g, target, -dmg);
         }
         // whatever hit them gets bitten back
         if (attacker && src.contact !== false) {
-            const thorns = (w.st.thorns && w.st.thorns.thorns) || (w.wardThorns || 0);
+            const thorns = (has(w, 'thorns') && w.st.thorns.thorns) || (w.ward > 0 ? w.wardThorns || 0 : 0);
             if (thorns) {
                 attacker.hp = Math.max(0, attacker.hp - thorns);
-                float(g, attacker.x, attacker.y - 70, '-' + thorns, '#7ee06a');
+                combatFloat(g, attacker.idx, -thorns);
+                if (attacker.hp <= 0 && !attacker.dead) { attacker.dead = true; SFX.die(); }
             }
         }
         if (attacker && src.lifesteal) heal(g, attacker.idx, src.lifesteal);
@@ -835,8 +851,22 @@
     }
     function heal(g, idx, amount) {
         const w = g.wiz[idx];
-        w.hp = Math.min(A.maxHp, w.hp + amount);
-        float(g, w.x, w.y - 70, '+' + Math.round(amount), '#7ee06a');
+        if (!w || w.dead || w.hp <= 0 || amount <= 0) return;
+        const gained = Math.min(A.maxHp - w.hp, amount);
+        w.hp += gained;
+        if (gained > 0) combatFloat(g, idx, gained);
+    }
+    // Merge continuous damage/healing for 250ms instead of emitting 60 “-0”s a second.
+    function combatFloat(g, idx, amount) {
+        const key = idx + ':' + (amount < 0 ? 'hurt' : 'heal');
+        let f = g.floats.find(f => f.key === key && g.t - f.at < 0.25);
+        if (!f) {
+            const w = g.wiz[idx];
+            f = { key, at: g.t, value: 0, x: w.x, y: w.y - 70, t: 1.1, color: amount < 0 ? '#ff6b6b' : '#7ee06a' };
+            g.floats.push(f);
+        }
+        f.value += amount;
+        f.text = (f.value < 0 ? '-' : '+') + Math.max(1, Math.round(Math.abs(f.value)));
     }
     function float(g, x, y, text, color) {
         g.floats.push({ x, y, text, color, t: 1.1 });
@@ -859,6 +889,7 @@
 
     function castSpell(g, idx, spell, quality) {
         const w = g.wiz[idx], foe = g.wiz[1 - idx];
+        if (g.paused || g.phase !== 'live' || w.dead || w.hp <= 0) return 'inactive';
         const why = spellReady(g, idx, spell);
         if (why) return why;
         const usingHp = has(w, 'pact');
@@ -1012,6 +1043,7 @@
     // the simulation — host only
     // ---------------------------------------------------------------
     function step(g, dt) {
+        if (g.paused) return;
         g.t += dt;
 
         if (g.phase === 'countdown') {
@@ -1253,6 +1285,7 @@
         g.ents = []; g.fx = []; g.floats = [];
         g.wiz.forEach((w, i) => {
             w.hp = A.maxHp; w.mana = A.maxMana; w.ward = 0; w.wardT = 0;
+            w.wardThorns = 0; w.wardZap = false; w.castT = 0; w.hitT = 0;
             w.st = {}; w.cd = {}; w.dead = false; w.y = (A.ceil + A.floor) / 2; w.x = w.home;
         });
         g.phase = 'countdown';
@@ -1353,7 +1386,7 @@
     }
     function snapshot(g) {
         return {
-            t: +g.t.toFixed(2), ph: g.phase, pt: +g.phaseT.toFixed(2), rd: g.round, wn: g.wins,
+            t: +g.t.toFixed(2), ph: g.phase, pt: +g.phaseT.toFixed(2), rd: g.round, wn: g.wins, lw: g.lastWinner, over: g.over,
             w: g.wiz.map(w => ({
                 x: Math.round(w.x), y: Math.round(w.y),
                 h: +w.hp.toFixed(1), m: +w.mana.toFixed(1), wd: +w.ward.toFixed(1),
@@ -1380,6 +1413,8 @@
     function applySnapshot(g, s) {
         if (!s || !s.w) return;
         g.phase = s.ph; g.phaseT = s.pt; g.round = s.rd; g.wins = s.wn || g.wins;
+        if (s.lw !== undefined) g.lastWinner = s.lw;
+        if (s.over !== undefined) g.over = s.over;
         s.w.forEach((sw, i) => {
             const w = g.wiz[i];
             if (!w) return;
@@ -1441,7 +1476,7 @@
     }
     const nameOf = id => (D.byId(id) || {}).name || id;
     function denyText(why) {
-        return ({ mana: 'not enough mana', health: 'not enough health', cooling: 'still cooling down', frozen: 'you cannot cast right now' })[why] || 'no';
+        return ({ mana: 'not enough mana', health: 'not enough health', cooling: 'still cooling down', inactive: 'wait for the duel to resume', frozen: 'you cannot cast right now' })[why] || 'no';
     }
 
     function restartMatch(g) {
@@ -1449,9 +1484,11 @@
         g.ents = []; g.fx = []; g.floats = [];
         g.wiz.forEach(w => {
             w.hp = A.maxHp; w.mana = A.maxMana; w.ward = 0; w.wardT = 0;
+            w.wardThorns = 0; w.wardZap = false; w.castT = 0; w.hitT = 0;
             w.st = {}; w.cd = {}; w.dead = false; w.y = (A.ceil + A.floor) / 2; w.x = w.home;
         });
         g.phase = 'countdown'; g.phaseT = 3;
+        clearInk(g); resetInput(g); g.botAcc = 0; g.simAcc = 0;
         if (g.isHost) sendNet(g, 'wz:restart', {});
         renderChrome();
     }
@@ -1469,68 +1506,101 @@
             y: (p.clientY - r.top) * (cv.height / r.height)
         };
     }
+    function clearInk(g) { g.strokes = []; g.stroke = null; }
+    function resetInput(g) {
+        if (g._keys) Object.keys(g._keys).forEach(k => delete g._keys[k]);
+        g._touch = {};
+        pushInput(g, {});
+        clearInk(g);
+    }
+    function pauseDuel(g, paused = true) {
+        if (!g || !g.solo || g.phase === 'matchover') return;
+        g.paused = paused;
+        g.simAcc = 0;
+        resetInput(g);
+        renderChrome();
+    }
     function bindInput(g) {
-        const down = (ev) => {
-            if (g.phase === 'matchover') return;
+        const canvas = cv;
+        let pointer = null;
+        const down = ev => {
+            if (g.paused || g.phase !== 'live' || pointer !== null || ev.button > 0) return;
             ev.preventDefault();
+            canvas.focus({ preventScroll: true });
+            pointer = ev.pointerId;
+            canvas.setPointerCapture(pointer);
             g.stroke = [canvasPoint(ev)];
             g.strokes.push(g.stroke);
             g.lastInk = performance.now();
         };
-        const move = (ev) => {
-            if (!g.stroke) return;
+        const move = ev => {
+            if (ev.pointerId !== pointer || !g.stroke) return;
             ev.preventDefault();
-            const p = canvasPoint(ev);
-            const last = g.stroke[g.stroke.length - 1];
+            const p = canvasPoint(ev), last = g.stroke[g.stroke.length - 1];
             if (Math.hypot(p.x - last.x, p.y - last.y) > 2.5) g.stroke.push(p);
             g.lastInk = performance.now();
         };
-        const up = () => {
-            if (!g.stroke) return;
-            if (g.stroke.length < 2) g.strokes.pop();
+        const up = ev => {
+            if (ev.pointerId !== pointer) return;
+            if (g.stroke && g.stroke.length < 2) g.strokes.pop();
             g.stroke = null;
+            pointer = null;
             g.lastInk = performance.now();
         };
-        cv.addEventListener('mousedown', down);
-        cv.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', up);
-        cv.addEventListener('touchstart', down, { passive: false });
-        cv.addEventListener('touchmove', move, { passive: false });
-        window.addEventListener('touchend', up);
+        const cancel = ev => { if (ev.pointerId === pointer) { up(ev); clearInk(g); } };
+        canvas.addEventListener('pointerdown', down);
+        canvas.addEventListener('pointermove', move);
+        canvas.addEventListener('pointerup', up);
+        canvas.addEventListener('pointercancel', cancel);
+        canvas.addEventListener('lostpointercapture', cancel);
 
         const keys = {};
-        const typing = (e) => {
-            const tag = ((e.target || {}).tagName || '').toLowerCase();
-            return tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
-        };
-        const keyDown = (e) => {
-            if (typing(e)) return;
+        g._keys = keys;
+        g._touch = {};
+        const typing = e => /^(input|textarea|select)$/i.test((e.target || {}).tagName || '') || e.target?.isContentEditable;
+        const focused = () => root && root.contains(document.activeElement);
+        const keyDown = e => {
+            if (typing(e) || !focused() || e.ctrlKey || e.metaKey || e.altKey) return;
             const k = e.key.toLowerCase();
-            if (['w', 'arrowup', 's', 'arrowdown', ' '].includes(k)) e.preventDefault();
-            if (k === ' ') { g.strokes = []; g.stroke = null; return; }
+            if (k === 'p' && !e.repeat) { pauseDuel(g, !g.paused); return; }
+            if (g.paused) return;
+            // Native buttons retain Space/Enter activation; the arena owns game shortcuts.
+            if (e.target?.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
+            if (['w', 'arrowup', 's', 'arrowdown', ' ', 'enter'].includes(k)) e.preventDefault();
+            if (k === ' ') { clearInk(g); return; }
+            if (k === 'enter' && !e.repeat) { tryRecognize(g, true); return; }
+            if (/^[1-8]$/.test(k) && !e.repeat) { selectGuide(g, myLoadout()[Number(k) - 1]); return; }
             keys[k] = true;
             pushInput(g, keys);
         };
-        const keyUp = (e) => { if (typing(e)) return; keys[e.key.toLowerCase()] = false; pushInput(g, keys); };
+        const keyUp = e => { delete keys[e.key.toLowerCase()]; pushInput(g, keys); };
+        const blur = () => { pointer = null; resetInput(g); if (g.solo) pauseDuel(g); };
+        const hidden = () => { if (document.hidden) blur(); };
+        const focusOut = e => { if (!root.contains(e.relatedTarget)) resetInput(g); };
         window.addEventListener('keydown', keyDown);
         window.addEventListener('keyup', keyUp);
-
+        window.addEventListener('blur', blur);
+        document.addEventListener('visibilitychange', hidden);
+        root.addEventListener('focusout', focusOut);
+        const inputRoot = root;
         g._unbind = () => {
-            cv.removeEventListener('mousedown', down);
-            cv.removeEventListener('mousemove', move);
-            window.removeEventListener('mouseup', up);
-            cv.removeEventListener('touchstart', down);
-            cv.removeEventListener('touchmove', move);
-            window.removeEventListener('touchend', up);
+            resetInput(g);
+            canvas.removeEventListener('pointerdown', down);
+            canvas.removeEventListener('pointermove', move);
+            canvas.removeEventListener('pointerup', up);
+            canvas.removeEventListener('pointercancel', cancel);
+            canvas.removeEventListener('lostpointercapture', cancel);
             window.removeEventListener('keydown', keyDown);
             window.removeEventListener('keyup', keyUp);
+            window.removeEventListener('blur', blur);
+            document.removeEventListener('visibilitychange', hidden);
+            inputRoot.removeEventListener('focusout', focusOut);
         };
-        g._keys = keys;
     }
     function pushInput(g, keys) {
         const inp = {
-            up: keys['w'] || keys['arrowup'] ? 1 : 0,
-            down: keys['s'] || keys['arrowdown'] ? 1 : 0
+            up: !g.paused && (keys['w'] || keys['arrowup'] || g._touch?.up) ? 1 : 0,
+            down: !g.paused && (keys['s'] || keys['arrowdown'] || g._touch?.down) ? 1 : 0
         };
         const mine = g.input[g.me];
         if (mine.up === inp.up && mine.down === inp.down) return;
@@ -1539,20 +1609,20 @@
     }
     // touch players get buttons, since they have no keyboard to hover over
     function touchMove(g, dir, on) {
-        const inp = Object.assign({}, g.input[g.me]);
-        inp[dir] = on ? 1 : 0;
-        g.input[g.me] = inp;
-        if (!g.isHost) sendNet(g, 'wz:input', { u: inp.up, d: inp.down });
+        g._touch = g._touch || {};
+        g._touch[dir] = on;
+        pushInput(g, g._keys || {});
     }
 
-    function tryRecognize(g) {
+    function tryRecognize(g, force = false) {
+        if (g.paused) return;
         // ink drawn between rounds is doodling, not casting
         if (g.phase !== 'live' || g.wiz[g.me].dead) {
             if (g.strokes.length && !g.stroke && performance.now() - g.lastInk > INK_PAUSE) g.strokes = [];
             return;
         }
         if (!g.strokes.length || g.stroke) return;
-        if (performance.now() - g.lastInk < INK_PAUSE) return;
+        if (!force && (g.manualCast || performance.now() - g.lastInk < INK_PAUSE)) return;
         const strokes = g.strokes;
         g.strokes = [];
         const results = recognize(strokes);
@@ -1616,6 +1686,7 @@
             }
         }
         drawFx(g, dt);
+        drawGuide(g);
         drawInk(g);
         drawHud(g, w, h);
         if (has(g.wiz[g.me], 'blind')) drawBlind(g, w, h);
@@ -1787,6 +1858,36 @@
         g.floats = fkeep;
     }
 
+    function selectGuide(g, id) {
+        g.guide = g.guide === id ? null : id;
+        renderChrome();
+    }
+    function drawGuide(g) {
+        const spell = D.byId(g.guide);
+        if (!spell || g.phase !== 'live') return;
+        const size = 160, x = (A.W - size) / 2, y = 105;
+        ctx.save();
+        ctx.strokeStyle = elColor(spell.el);
+        ctx.fillStyle = elGlow(spell.el);
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 6]);
+        spell.glyph.forEach(st => {
+            ctx.beginPath();
+            st.forEach((p, i) => { const xx = x + p.x * size / 100, yy = y + p.y * size / 100; if (!i) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy); });
+            ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.85;
+        ctx.font = 'bold 13px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('trace ' + spell.name + ' · draw anywhere', A.W / 2, y + size + 25);
+        spell.glyph.forEach((st, i) => {
+            const p = st[0];
+            ctx.fillText(String(i + 1), x + p.x * size / 100 - 12, y + p.y * size / 100 - 8);
+        });
+        ctx.restore();
+    }
     function drawInk(g) {
         if (!g.strokes.length) return;
         ctx.save();
@@ -1841,6 +1942,7 @@
             ctx.fillStyle = '#fff';
             ctx.textAlign = left ? 'left' : 'right';
             ctx.fillText(Math.ceil(wz.hp) + ' hp', left ? x + 4 : x + bw - 4, y + 26);
+            ctx.fillText(Math.floor(wz.mana) + ' mana', left ? x + 4 : x + bw - 4, y + 42);
             // statuses
             const keys = Object.keys(wz.st).filter(k => D.STATUS[k]);
             keys.slice(0, 7).forEach((k, n) => {
@@ -1912,6 +2014,16 @@
             ctx.font = '16px "Courier New", monospace';
             ctx.fillText(g.wins[0] + ' - ' + g.wins[1] + '  ·  ' + g.wiz[0].name + ' vs ' + g.wiz[1].name, w / 2, h / 2 + 30);
         }
+        if (g.paused && g.solo) {
+            ctx.fillStyle = 'rgba(13,6,32,0.88)';
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = '#ffe14d';
+            ctx.font = 'bold 36px "Courier New", monospace';
+            ctx.fillText('PAUSED', w / 2, h / 2);
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px "Courier New", monospace';
+            ctx.fillText('press P or resume when you are ready', w / 2, h / 2 + 32);
+        }
         if (g.netDown) {
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(0, h / 2 - 24, w, 48);
@@ -1928,12 +2040,17 @@
     function loop(now) {
         raf = requestAnimationFrame(loop);
         if (!G || !ctx) return;
-        const dt = Math.min(0.05, (now - lastT) / 1000 || 0);
+        const dt = Math.max(0, Math.min(0.1, (now - lastT) / 1000 || 0));
+        if (G.solo && winRef?.win.style.display === 'none' && !G.paused) pauseDuel(G);
         lastT = now;
         if (!G.paused) {
             if (G.isHost) {
-                if (G.solo) botStep(G, dt);
-                step(G, dt);
+                G.simAcc += dt;
+                while (G.simAcc + 1e-9 >= SIM_DT) {
+                    if (G.solo) botStep(G, SIM_DT);
+                    step(G, SIM_DT);
+                    G.simAcc = Math.max(0, G.simAcc - SIM_DT);
+                }
                 G.snapAcc += dt;
                 // a public relay is a shared resource and a slower road:
                 // fewer, fatter snapshots, and the guest smooths the gap
@@ -1952,7 +2069,7 @@
             tryRecognize(G);
             G.hintT = Math.max(0, G.hintT - dt);
         }
-        render(G, dt);
+        render(G, G.paused ? 0 : dt);
     }
 
     function stopLoop() {
@@ -1968,6 +2085,7 @@
         winRef.win._cleanup = () => {
             stopLoop();
             if (G) {
+                if (G._chromeTimer) clearInterval(G._chromeTimer);
                 if (G._unbind) G._unbind();
                 if (G._netOffs) G._netOffs.forEach(off => off());
                 if (G.session && !G.solo && G.session.alive) G.session.leave();
@@ -1984,18 +2102,41 @@
         const loadout = myLoadout();
         const strip = root.querySelector('#wz-strip');
         if (strip) {
-            strip.innerHTML = loadout.map(id => {
-                const s = D.byId(id);
-                if (!s) return '';
-                const cd = (G.wiz[G.me].cd[id] || 0);
-                const cheap = G.wiz[G.me].mana >= s.cost;
-                return `<div class="wz-card ${cd > 0 ? 'wz-cool' : ''} ${cheap ? '' : 'wz-poor'}" title="${escapeHtml(s.name)} — ${escapeHtml(s.blurb)}">
-                    <canvas width="46" height="46" data-sigil="${s.id}"></canvas>
-                    <div class="wz-card-name" style="color:${elColor(s.el)}">${escapeHtml(s.name)}</div>
-                    <div class="wz-card-cost">${s.cost || 0}${s.hp ? ' +' + s.hp + 'hp' : ''}${cd > 0 ? ' · ' + cd.toFixed(1) + 's' : ''}</div>
-                </div>`;
-            }).join('');
-            strip.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil)));
+            const signature = loadout.join(',');
+            if (strip.dataset.loadout !== signature) {
+                strip.dataset.loadout = signature;
+                strip.innerHTML = loadout.map((id, i) => {
+                    const s = D.byId(id);
+                    return `<button type="button" class="wz-card" data-spell="${s.id}" aria-pressed="false" title="${escapeHtml(s.name)} — ${escapeHtml(s.blurb)}">
+                        <span class="wz-card-key">${i + 1}</span>
+                        <canvas width="46" height="46" data-sigil="${s.id}" aria-hidden="true"></canvas>
+                        <span class="wz-card-name" style="color:${elColor(s.el)}">${escapeHtml(s.name)}</span>
+                        <span class="wz-card-cost"></span>
+                    </button>`;
+                }).join('');
+                strip.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil)));
+                strip.querySelectorAll('[data-spell]').forEach(b => b.onclick = () => selectGuide(G, b.dataset.spell));
+            }
+            strip.querySelectorAll('[data-spell]').forEach(b => {
+                const spell = D.byId(b.dataset.spell), w = G.wiz[G.me];
+                const cd = w.cd[spell.id] || 0, why = spellReady(G, G.me, spell);
+                b.classList.toggle('wz-cool', cd > 0);
+                b.classList.toggle('wz-poor', why === 'mana' || why === 'health');
+                b.classList.toggle('on', G.guide === spell.id);
+                b.setAttribute('aria-pressed', String(G.guide === spell.id));
+                const cost = has(w, 'pact') ? Math.ceil((spell.cost || 0) * 0.6 + (spell.hp || 0)) + ' hp' : (spell.cost || 0) + ' mp' + (spell.hp ? ' + ' + spell.hp + ' hp' : '');
+                b.querySelector('.wz-card-cost').textContent = cd > 0 ? cd.toFixed(1) + 's' : cost;
+                b.setAttribute('aria-label', spell.name + ': ' + (why ? denyText(why) : 'ready') + '. Toggle drawing guide.');
+            });
+        }
+        const pause = root.querySelector('#wz-pause');
+        if (pause) { pause.textContent = G.paused ? 'resume (P)' : 'pause (P)'; pause.setAttribute('aria-pressed', String(G.paused)); }
+        const cast = root.querySelector('#wz-cast');
+        if (cast) cast.disabled = G.paused || G.phase !== 'live';
+        const status = root.querySelector('#wz-status');
+        if (status) {
+            const text = G.paused && G.solo ? 'Paused. Resume when ready.' : G.hintT > 0 && G.hint ? G.hint.text : G.phase === 'live' ? 'Draw a sigil. ' + (G.manualCast ? 'Press cast when finished.' : 'Lift to cast automatically.') : G.phase === 'matchover' ? (G.over === G.me ? 'You win!' : 'You lose.') : 'Round ' + G.round + ' · ' + G.wins.join(' – ');
+            if (status.textContent !== text) status.textContent = text;
         }
         const foot = root.querySelector('#wz-foot');
         if (foot) {
@@ -2045,15 +2186,24 @@
         if (G && G._unbind) G._unbind();
         if (G && G._netOffs) G._netOffs.forEach(off => off());
         if (G && G._chromeTimer) clearInterval(G._chromeTimer);
+        if (G && G.session && G.session !== session && !G.solo && G.session.alive) G.session.leave();
         G = makeDuel(session, opts || {});
         root.innerHTML = `
             <div class="wz-arena-wrap">
-                <canvas id="wz-canvas" width="${A.W}" height="${A.H}" class="wz-canvas"></canvas>
+                <canvas id="wz-canvas" width="${A.W}" height="${A.H}" class="wz-canvas" tabindex="0" aria-label="Wizard duel arena. Draw sigils to cast. W and S to move, Space to clear, Enter to cast, 1 to 8 for drawing guides." aria-describedby="wz-controls"></canvas>
             </div>
-            <div id="wz-strip" class="wz-strip"></div>
+            <div class="wz-toolbar">
+                <label><input type="checkbox" id="wz-manual" ${G.manualCast ? 'checked' : ''}> manual cast</label>
+                <span id="wz-controls">tap a spell or press 1–8 for a drawing guide</span>
+            </div>
+            <div id="wz-strip" class="wz-strip" aria-label="Spell drawing guides"></div>
+            <div id="wz-status" class="wz-status" role="status" aria-live="polite"></div>
             <div id="wz-foot" class="wz-foot">
                 <button class="wz-btn" id="wz-up">▲ up</button>
                 <button class="wz-btn" id="wz-down">▼ down</button>
+                <button class="wz-btn wz-go" id="wz-cast">cast (Enter)</button>
+                <button class="wz-btn" id="wz-clear-ink">clear ink</button>
+                ${G.solo ? '<button class="wz-btn" id="wz-pause" aria-pressed="false">pause (P)</button>' : ''}
                 <button class="wz-btn" id="wz-book">grimoire</button>
                 <button class="wz-btn" id="wz-load">loadout</button>
                 <button class="wz-btn wz-go" id="wz-rematch" style="display:none">rematch</button>
@@ -2067,14 +2217,36 @@
         renderChrome();
 
         const hold = (btn, dir) => {
-            const on = e => { e.preventDefault(); touchMove(G, dir, true); };
-            const off = e => { e.preventDefault(); touchMove(G, dir, false); };
-            btn.addEventListener('mousedown', on); btn.addEventListener('touchstart', on, { passive: false });
-            btn.addEventListener('mouseup', off); btn.addEventListener('mouseleave', off);
-            btn.addEventListener('touchend', off);
+            let pointer = null;
+            btn.addEventListener('pointerdown', e => {
+                if (e.button > 0 || pointer !== null) return;
+                e.preventDefault();
+                cv.focus({ preventScroll: true });
+                pointer = e.pointerId;
+                btn.setPointerCapture(pointer);
+                touchMove(G, dir, true);
+            });
+            const off = e => {
+                if (e.pointerId !== pointer) return;
+                pointer = null;
+                touchMove(G, dir, false);
+            };
+            btn.addEventListener('pointerup', off);
+            btn.addEventListener('pointercancel', off);
+            btn.addEventListener('lostpointercapture', off);
+            btn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); touchMove(G, dir, true); } });
+            btn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); touchMove(G, dir, false); } });
+            btn.addEventListener('blur', () => touchMove(G, dir, false));
         };
         hold(root.querySelector('#wz-up'), 'up');
         hold(root.querySelector('#wz-down'), 'down');
+        root.querySelector('#wz-manual').onchange = e => {
+            G.manualCast = e.target.checked;
+            savePreference(LS.manual, String(G.manualCast));
+        };
+        root.querySelector('#wz-cast').onclick = () => tryRecognize(G, true);
+        root.querySelector('#wz-clear-ink').onclick = () => clearInk(G);
+        if (G.solo) root.querySelector('#wz-pause').onclick = () => pauseDuel(G, !G.paused);
         root.querySelector('#wz-book').onclick = () => openGrimoire();
         root.querySelector('#wz-load').onclick = () => openLoadout();
         root.querySelector('#wz-rematch').onclick = () => restartMatch(G);
@@ -2085,6 +2257,7 @@
         // keep the cooldown numbers honest without redrawing the dom every frame
         clearInterval(G._chromeTimer);
         G._chromeTimer = setInterval(() => { if (G) renderChrome(); }, 400);
+        cv.focus({ preventScroll: true });
         lastT = performance.now();
         stopLoop();
         raf = requestAnimationFrame(loop);
@@ -2096,6 +2269,8 @@
         stopLoop();
         if (G && G._unbind) G._unbind();
         if (G && G._chromeTimer) clearInterval(G._chromeTimer);
+        if (G && G._netOffs) G._netOffs.forEach(off => off());
+        if (G && G.session && !G.solo && G.session.alive) G.session.leave();
         G = null; cv = null; ctx = null;
         const av = myAvatar();
         root.innerHTML = `
@@ -2113,7 +2288,7 @@
                         <button class="wz-btn wz-go wz-wide" id="wz-solo">1 v bot — pick an opponent</button>
                         <button class="wz-btn wz-wide" id="wz-quick">quick duel vs a random bot</button>
                         <div class="wz-row">
-                            <label>difficulty</label>
+                            <label for="wz-diff">difficulty</label>
                             <select id="wz-diff" class="wz-input">
                                 <option value="easy">easy</option>
                                 <option value="normal">normal</option>
@@ -2124,7 +2299,8 @@
                         <button class="wz-btn wz-wide" id="wz-load2">quick reference loadout</button>
                         <div class="wz-hint">
                             draw a sigil anywhere on the arena to cast it. W/S or the arrow keys
-                            dodge up and down. mana refills on its own; the big spells do not.
+                            dodge up and down. Tap a spell card for a tracing guide. Choose manual
+                            cast for multi-stroke sigils; Enter casts, Space clears, P pauses bot duels.
                         </div>
                     </div>
                 </div>
@@ -2144,7 +2320,7 @@
         spin();
         const diff = root.querySelector('#wz-diff');
         diff.value = difficulty();
-        diff.onchange = () => localStorage.setItem(LS.diff, diff.value);
+        diff.onchange = () => savePreference(LS.diff, diff.value);
         root.querySelector('#wz-edit').onclick = () => openAvatarEditor();
         root.querySelector('#wz-book2').onclick = () => openGrimoire();
         root.querySelector('#wz-load2').onclick = () => openLoadout();
@@ -2174,6 +2350,8 @@
         stopLoop();
         if (G && G._unbind) G._unbind();
         if (G && G._chromeTimer) clearInterval(G._chromeTimer);
+        if (G && G._netOffs) G._netOffs.forEach(off => off());
+        if (G && G.session && !G.solo && G.session.alive) G.session.leave();
         G = null; cv = null; ctx = null;
         const tierColor = { easy: '#7ee06a', normal: '#ffe14d', hard: '#e4485f' };
         root.innerHTML = `
@@ -2181,7 +2359,7 @@
                 <div class="wz-title">1 v bot</div>
                 <div class="wz-sub">pick something to duel. they all cheat in different directions.</div>
                 <div class="wz-row">
-                    <label>difficulty</label>
+                    <label for="wz-diff3">difficulty</label>
                     <select id="wz-diff3" class="wz-input">
                         <option value="easy">easy — slower hands</option>
                         <option value="normal">normal — as written</option>
@@ -2207,7 +2385,7 @@
             </div>`;
         const diff = root.querySelector('#wz-diff3');
         diff.value = difficulty();
-        diff.onchange = () => localStorage.setItem(LS.diff, diff.value);
+        diff.onchange = () => savePreference(LS.diff, diff.value);
         const t0 = performance.now();
         const cvs = [...root.querySelectorAll('canvas[data-botav]')];
         const spin = () => {
@@ -2230,6 +2408,7 @@
     // grimoire — every sigil, drawn out, with a place to practise
     // ---------------------------------------------------------------
     function openGrimoire() {
+        pauseDuel(G);
         const { body } = createAppWindow('grimoire — 50 sigils', { icon: 'auto_stories', width: 560 });
         body.classList.add('wz-book');
         let filter = 'all';
@@ -2258,7 +2437,7 @@
                     </div>
                 </div>`;
             body.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
-            body.querySelectorAll('.wz-tab').forEach(b => b.onclick = () => { filter = b.dataset.el; draw(); });
+            body.querySelectorAll('.wz-tab').forEach(b => b.onclick = () => { filter = b.dataset.el; if (filter !== 'all' && picked.el !== filter) picked = D.SPELLS.find(s => s.el === filter); draw(); });
             body.querySelectorAll('.wz-book-item').forEach(b => b.onclick = () => { picked = D.byId(b.dataset.id); draw(); });
             body.querySelector('#wz-practise').onclick = () => openTrainer(picked);
             // animate the big one being drawn, once
@@ -2278,18 +2457,18 @@
     // draw the sigil, get scored on it. also the honest way to find out
     // whether your circle is a circle.
     function openTrainer(spell) {
-        const { body } = createAppWindow('practise: ' + spell.name, { icon: 'draw', width: 380 });
+        const { body, win } = createAppWindow('practise: ' + spell.name, { icon: 'draw', width: 380 });
         body.classList.add('wz-train');
         body.innerHTML = `
             <div class="wz-train-row">
                 <canvas id="wz-ref" width="150" height="150"></canvas>
-                <canvas id="wz-pad" width="180" height="180" class="wz-pad"></canvas>
+                <canvas id="wz-pad" width="180" height="180" class="wz-pad" aria-label="Draw the practice sigil here"></canvas>
             </div>
-            <div id="wz-score" class="wz-score">draw it on the right</div>
+            <div id="wz-score" class="wz-score" role="status">draw it on the right</div>
             <button class="wz-btn wz-wide" id="wz-clear">clear</button>`;
         paintSigil(body.querySelector('#wz-ref'), spell, { width: 8 });
         const pad = body.querySelector('#wz-pad'), pctx = pad.getContext('2d');
-        let strokes = [], cur = null, timer = null;
+        let strokes = [], cur = null, timer = null, pointer = null;
         const redraw = () => {
             pctx.clearRect(0, 0, pad.width, pad.height);
             pctx.strokeStyle = '#0df259'; pctx.lineWidth = 3; pctx.lineCap = 'round'; pctx.lineJoin = 'round';
@@ -2318,7 +2497,7 @@
             // "that would cast" and then fizzling is worse than useless
             const tooClose = res[1] && best.score - res[1].score < CAST_MARGIN;
             if (best.id === spell.id && best.score >= CAST_FLOOR && !tooClose) {
-                el.innerHTML = `<b style="color:#0df259">${pct}% — that would cast, at ${Math.round(qualityOf(best.score) * 100)}% power</b>`;
+                el.innerHTML = `<b style="color:#0df259">${pct}% — that would cast, at ${Math.round((0.8 + qualityOf(best.score) * 0.4) * 100)}% spell strength</b>`;
             } else if (best.id === spell.id && tooClose) {
                 el.innerHTML = `<b style="color:#ffe14d">${pct}% — half ${escapeHtml(spell.name)}, half ${escapeHtml(res[1].spell.name)}</b>`;
             } else if (best.id === spell.id) {
@@ -2327,21 +2506,28 @@
                 el.innerHTML = `<b style="color:#ff9aa8">${pct}% — the game read that as ${escapeHtml(best.spell.name)}</b>`;
             }
         };
-        const down = e => { e.preventDefault(); cur = [at(e)]; strokes.push(cur); clearTimeout(timer); };
-        const move = e => { if (!cur) return; e.preventDefault(); cur.push(at(e)); redraw(); };
-        const up = () => { if (!cur) return; cur = null; redraw(); clearTimeout(timer); timer = setTimeout(score, 400); };
-        pad.addEventListener('mousedown', down); pad.addEventListener('mousemove', move);
-        window.addEventListener('mouseup', up);
-        pad.addEventListener('touchstart', down, { passive: false });
-        pad.addEventListener('touchmove', move, { passive: false });
-        window.addEventListener('touchend', up);
-        body.querySelector('#wz-clear').onclick = () => { strokes = []; redraw(); body.querySelector('#wz-score').textContent = 'draw it on the right'; };
+        const down = e => {
+            if (pointer !== null || e.button > 0) return;
+            e.preventDefault(); pointer = e.pointerId; pad.setPointerCapture(pointer);
+            cur = [at(e)]; strokes.push(cur); clearTimeout(timer);
+        };
+        const move = e => { if (!cur || e.pointerId !== pointer) return; e.preventDefault(); cur.push(at(e)); redraw(); };
+        const up = e => { if (e.pointerId !== pointer) return; pointer = null; cur = null; redraw(); clearTimeout(timer); timer = setTimeout(score, INK_PAUSE); };
+        const clear = () => { clearTimeout(timer); strokes = []; cur = null; pointer = null; redraw(); body.querySelector('#wz-score').textContent = 'draw it on the right'; };
+        pad.addEventListener('pointerdown', down); pad.addEventListener('pointermove', move);
+        pad.addEventListener('pointerup', up);
+        pad.addEventListener('pointercancel', e => { if (pointer === e.pointerId) clear(); });
+        pad.addEventListener('lostpointercapture', e => { if (pointer === e.pointerId) clear(); });
+        body.querySelector('#wz-clear').onclick = clear;
+        win._cleanup = () => { clearTimeout(timer); };
+
     }
 
     // ---------------------------------------------------------------
     // loadout — which eight sigils sit under the arena
     // ---------------------------------------------------------------
     function openLoadout() {
+        pauseDuel(G);
         const { body } = createAppWindow('quick reference loadout', { icon: 'bookmark', width: 520 });
         body.classList.add('wz-book');
         let loadout = myLoadout();
