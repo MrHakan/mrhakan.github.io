@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#008080">
+<title>Packet Panic 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px;display:grid;place-items:center}.win{width:min(920px,100%);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:3px 3px 0 #000}.bar{height:28px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:3px 5px;font-weight:700}.bar a{color:#000;background:#c0c0c0;text-decoration:none;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.wrap{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:10px;padding:10px}.panel{border:2px solid;border-color:#808080 #fff #fff #808080;background:#bdbdbd;padding:8px}.screen{background:#050b12;border:2px solid;border-color:#808080 #fff #fff #808080;position:relative;overflow:hidden}.screen canvas{display:block;width:100%;height:auto;touch-action:none;image-rendering:pixelated}.status{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}.cell{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:5px;text-align:center;font-size:12px}.cell b{display:block;font-size:16px}.hint{font-size:12px;line-height:1.45;margin:0 0 10px}.ports{display:grid;gap:7px}.btn{appearance:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:10px 6px;font:700 13px inherit;cursor:pointer}.btn:active,.btn.active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.btn small{display:block;font-weight:400;margin-top:2px}.wide{width:100%;margin-top:8px}.legend{font-size:11px;line-height:1.5;margin-top:10px;padding-top:8px;border-top:1px solid #808080}.kbd{font-family:monospace;border:1px solid #555;background:#eee;padding:0 3px}@media(max-width:720px){body{padding:5px}.wrap{grid-template-columns:1fr}.status{grid-template-columns:repeat(2,1fr)}.ports{grid-template-columns:repeat(3,1fr)}.btn{padding:12px 3px;font-size:12px}}
+</style>
+</head>
+<body>
+<main class="win">
+ <div class="bar"><span>📡 PACKET PANIC 98.EXE</span><a href="../../">×</a></div>
+ <div class="wrap">
+  <section>
+   <div class="status"><div class="cell">SCORE<b id="score">0</b></div><div class="cell">STREAK<b id="streak">0</b></div><div class="cell">LIVES<b id="lives">3</b></div><div class="cell">BEST<b id="best">0</b></div></div>
+   <div class="screen"><canvas id="game" width="640" height="520" aria-label="Packet Panic 98 game"></canvas></div>
+  </section>
+  <aside class="panel">
+   <p class="hint"><b>Route each packet before it hits the firewall.</b><br>Read its destination port, then press the matching route. Speed climbs with your streak.</p>
+   <div class="ports">
+    <button class="btn" data-route="22">1 · SSH<small>port 22</small></button>
+    <button class="btn" data-route="25">2 · MAIL<small>port 25</small></button>
+    <button class="btn" data-route="80">3 · WEB<small>port 80</small></button>
+   </div>
+   <button class="btn wide" id="start">START / RESTART</button>
+   <div class="legend"><span class="kbd">1</span> SSH &nbsp; <span class="kbd">2</span> MAIL &nbsp; <span class="kbd">3</span> WEB<br><span class="kbd">A</span>/<span class="kbd">S</span>/<span class="kbd">D</span> also work.<br><br>Wrong route or timeout costs one life. High score is stored only in this browser.</div>
+  </aside>
+ </div>
+</main>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id), scoreEl=$('score'),streakEl=$('streak'),livesEl=$('lives'),bestEl=$('best');
+const ROUTES=[22,25,80], names={22:'SSH',25:'MAIL',80:'WEB'}, cols={22:'#74d680',25:'#ffd75f',80:'#6fb7ff'};
+let best=+(localStorage.getItem('packet-panic-best')||0),score=0,streak=0,lives=3,running=false,last=0,spawnAt=0,packets=[],flash=0;
+bestEl.textContent=best;
+function reset(){score=0;streak=0;lives=3;packets=[];spawnAt=0;last=performance.now();running=true;updateHud()}
+function updateHud(){scoreEl.textContent=score;streakEl.textContent=streak;livesEl.textContent=lives;bestEl.textContent=best}
+function spawn(now){const port=ROUTES[Math.floor(Math.random()*ROUTES.length)];packets.push({port,y:-42,x:cv.width/2,vy:85+Math.min(190,streak*6)+Math.random()*20});spawnAt=now+Math.max(420,1050-streak*22)}
+function route(port){if(!running||!packets.length)return;const p=packets[0];if(p.y<45)return;document.querySelector(`[data-route="${port}"]`)?.classList.add('active');setTimeout(()=>document.querySelector(`[data-route="${port}"]`)?.classList.remove('active'),90);if(p.port===port){packets.shift();streak++;score+=100+streak*10;flash=1}else miss('WRONG ROUTE') ;if(score>best){best=score;localStorage.setItem('packet-panic-best',best)}updateHud()}
+function miss(){if(packets.length)packets.shift();streak=0;lives--;flash=-1;updateHud();if(lives<=0){running=false}}
+function draw(){ctx.fillStyle='#050b12';ctx.fillRect(0,0,cv.width,cv.height);ctx.strokeStyle='#17344f';ctx.lineWidth=2;for(let x=80;x<cv.width;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke()}for(let y=40;y<cv.height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke()}
+ ctx.fillStyle='#0c2737';ctx.fillRect(55,0,cv.width-110,cv.height-74);ctx.strokeStyle='#2e6d86';ctx.strokeRect(55,0,cv.width-110,cv.height-74);
+ ctx.fillStyle='#7d1b1b';ctx.fillRect(0,cv.height-74,cv.width,74);ctx.fillStyle='#fff';ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText('FIREWALL // DROP ZONE',cv.width/2,cv.height-31);
+ packets.forEach((p,i)=>{ctx.fillStyle=cols[p.port];ctx.fillRect(p.x-72,p.y-24,144,48);ctx.strokeStyle='#fff';ctx.strokeRect(p.x-72,p.y-24,144,48);ctx.fillStyle='#001018';ctx.font='bold 16px monospace';ctx.fillText(`${names[p.port]} :${p.port}`,p.x,p.y+6);if(i===0){ctx.strokeStyle='#fff';ctx.setLineDash([4,4]);ctx.strokeRect(p.x-78,p.y-30,156,60);ctx.setLineDash([])}});
+ ctx.fillStyle='#9fd8ff';ctx.font='12px monospace';ctx.textAlign='left';ctx.fillText('INCOMING NETWORK TRAFFIC',66,24);
+ if(!running){ctx.fillStyle='rgba(0,0,0,.68)';ctx.fillRect(0,0,cv.width,cv.height);ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 30px monospace';ctx.fillText(lives<=0?'CONNECTION LOST':'PACKET PANIC 98',cv.width/2,cv.height/2-18);ctx.font='16px monospace';ctx.fillText(lives<=0?`final score ${score} — press START to retry`:'press START or Enter',cv.width/2,cv.height/2+20)}
+ if(flash){ctx.fillStyle=flash>0?'rgba(80,255,130,.10)':'rgba(255,70,70,.16)';ctx.fillRect(0,0,cv.width,cv.height);flash*=.88;if(Math.abs(flash)<.02)flash=0}}
+function loop(now){const dt=Math.min(.04,(now-last)/1000||0);last=now;if(running){if(now>=spawnAt&&packets.length<3)spawn(now);for(const p of packets)p.y+=p.vy*dt;if(packets[0]&&packets[0].y>=cv.height-94)miss()}draw();requestAnimationFrame(loop)}
+for(const b of document.querySelectorAll('[data-route]'))b.addEventListener('click',()=>route(+b.dataset.route));$('start').onclick=reset;addEventListener('keydown',e=>{if(['1','a','A'].includes(e.key))route(22);else if(['2','s','S'].includes(e.key))route(25);else if(['3','d','D'].includes(e.key))route(80);else if(e.key==='Enter'&&!running)reset()});requestAnimationFrame(loop);
+})();
+</script>
+</body></html>
