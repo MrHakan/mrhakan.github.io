@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Window Panic 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;color:#000;background:#008080}*{box-sizing:border-box}html,body{margin:0;min-height:100%;overflow:hidden;background:#008080}button{font:inherit}.desktop{position:relative;width:100vw;height:100dvh;min-height:520px;overflow:hidden;background:#008080;user-select:none}.hud{position:absolute;z-index:1000;left:10px;right:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.panel,.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000}.panel{padding:5px 8px;font-size:12px}.panel b{font-family:monospace}.btn{padding:6px 12px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.zone{position:absolute;right:12px;bottom:54px;width:min(190px,42vw);height:94px;border:3px dashed #fff;background:rgba(0,0,128,.45);color:#fff;display:grid;place-items:center;text-align:center;font-weight:700;font-size:12px;text-shadow:1px 1px #000;z-index:3}.taskbar{position:absolute;left:0;right:0;bottom:0;height:40px;background:#c0c0c0;border-top:2px solid #fff;display:flex;align-items:center;padding:3px 5px;gap:6px;z-index:1200}.start{font-weight:700;padding:5px 10px}.clock{margin-left:auto;border:2px solid;border-color:#808080 #fff #fff #808080;padding:5px 8px;font-size:12px}.dialog{position:absolute;width:min(330px,88vw);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:3px 3px 0 rgba(0,0,0,.65);z-index:10;touch-action:none}.title{height:27px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;display:flex;align-items:center;gap:6px;padding:3px 4px 3px 7px;font-weight:700;font-size:13px;cursor:move}.title .caption{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.x{margin-left:auto;width:20px;height:20px;padding:0;background:#c0c0c0;color:#000;font-weight:700;border:2px solid;border-color:#fff #000 #000 #fff;line-height:15px;cursor:pointer}.body{display:flex;gap:12px;align-items:flex-start;padding:16px 14px 11px;font-size:13px;line-height:1.35}.icon{font-size:31px;line-height:1}.copy{flex:1}.hint{margin-top:7px;font-size:11px;color:#333}.actions{display:flex;justify-content:center;gap:8px;padding:0 10px 13px;flex-wrap:wrap}.actions button{min-width:74px;padding:5px 10px;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;cursor:pointer}.actions button:active{border-color:#000 #fff #fff #000}.wrong{animation:shake .2s linear 2}.good{filter:brightness(1.35)}@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}.overlay{position:absolute;z-index:2000;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.28);padding:18px}.window{max-width:520px;width:100%;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:6px 6px 0 rgba(0,0,0,.55)}.wtitle{background:#000080;color:#fff;padding:5px 7px;font-weight:700}.wbody{padding:18px;line-height:1.45;font-size:14px}.rules{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:9px;margin:10px 0 14px;font-family:monospace;font-size:12px;line-height:1.55}.big{font-size:18px;font-weight:700}.toast{position:absolute;z-index:1500;left:50%;top:68px;transform:translateX(-50%);background:#ffffc8;border:1px solid #000;padding:5px 9px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .12s}.toast.show{opacity:1}@media(max-width:600px){.desktop{min-height:480px}.hud{top:6px;left:6px;right:6px}.panel{padding:4px 6px}.dialog{width:min(300px,91vw)}.body{padding:12px 11px 8px}.zone{height:75px;bottom:48px}.taskbar{height:36px}.actions button{min-height:38px}}
+</style>
+</head>
+<body>
+<main class="desktop" id="desktop" aria-label="Window Panic 98 game area">
+  <div class="hud">
+    <div class="panel">TIME <b id="time">75.0</b></div>
+    <div class="panel">SCORE <b id="score">0</b></div>
+    <div class="panel">COMBO <b id="combo">x1</b></div>
+    <div class="panel">LIVES <b id="lives">♥♥♥</b></div>
+    <div class="panel">BEST <b id="best">0</b></div>
+  </div>
+  <div class="toast" id="toast">nice</div>
+  <div class="zone" id="zone">♻ RECYCLE ZONE<br><small>drag MOVE windows here</small></div>
+  <div class="taskbar"><button class="btn start">▣ Start</button><span class="panel">Window Panic 98</span><span class="clock" id="clock">--:--</span></div>
+  <section class="overlay" id="intro">
+    <div class="window">
+      <div class="wtitle">Window Panic 98 — training.exe</div>
+      <div class="wbody">
+        <div class="big">Your desktop has become sentient.</div>
+        <p>Read each window and perform the exact action it asks for before the screen fills up.</p>
+        <div class="rules">OK → click OK<br>CANCEL → click Cancel<br>ALLOW / DENY → choose the matching permission<br>CLOSE → use the title-bar ×<br>MOVE → drag the whole window into the recycle zone</div>
+        <p>Correct actions build combo. Wrong actions cost a life. You have <b>75 seconds</b>.</p>
+        <button class="btn" id="start">START PANIC</button>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),desk=$('desktop'),intro=$('intro'),zone=$('zone');
+const ui={time:$('time'),score:$('score'),combo:$('combo'),lives:$('lives'),best:$('best'),toast:$('toast')};
+const TYPES=[
+ {rule:'ok',title:'System Notice',icon:'ℹ️',msg:'Windows has detected absolutely nothing. Press OK to acknowledge.',buttons:['OK','Cancel']},
+ {rule:'cancel',title:'Setup Wizard',icon:'💿',msg:'Install 43 mystery toolbars and make Ask Jeeves your homepage?',buttons:['OK','Cancel']},
+ {rule:'allow',title:'Security Question',icon:'🔐',msg:'Allow dancingbaby.gif to access the sound card?',buttons:['Allow','Deny']},
+ {rule:'deny',title:'Internet Explorer',icon:'🌐',msg:'Unknown ActiveX control requests administrator privileges.',buttons:['Allow','Deny']},
+ {rule:'close',title:'Critical Update',icon:'⚠️',msg:'This dialog cannot be closed. Prove it wrong using the title-bar ×.',buttons:['OK']},
+ {rule:'move',title:'Desktop Cleanup',icon:'📁',msg:'This window is obsolete. Drag it into the RECYCLE ZONE.',buttons:[]}
+];
+let running=false,score=0,combo=0,lives=3,left=75,last=0,nextSpawn=0,seq=0,best=+(localStorage.getItem('window-panic-best')||0),raf=0,toastTimer=0;
+ui.best.textContent=best;
+function clock(){const d=new Date();$('clock').textContent=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}clock();setInterval(clock,10000);
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function toast(t){ui.toast.textContent=t;ui.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>ui.toast.classList.remove('show'),650)}
+function update(){ui.score.textContent=score;ui.combo.textContent='x'+(1+Math.floor(combo/4));ui.lives.textContent='♥'.repeat(Math.max(0,lives))+'♡'.repeat(Math.max(0,3-lives));ui.time.textContent=Math.max(0,left).toFixed(1)}
+function clearDialogs(){desk.querySelectorAll('.dialog').forEach(d=>d.remove())}
+function start(){clearDialogs();running=true;score=0;combo=0;lives=3;left=75;last=performance.now();nextSpawn=0;intro.style.display='none';update();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function end(){running=false;cancelAnimationFrame(raf);clearDialogs();if(score>best){best=score;localStorage.setItem('window-panic-best',best);ui.best.textContent=best}intro.style.display='grid';intro.querySelector('.big').textContent=lives<=0?'SYSTEM FAILURE':'SHIFT COMPLETE';intro.querySelector('p').innerHTML=`Final score: <b>${score}</b> &nbsp; Best: <b>${best}</b>`;$('start').textContent='PANIC AGAIN'}
+function wrong(d){if(!running||d.dataset.done)return;combo=0;lives--;d.classList.add('wrong');setTimeout(()=>d.classList.remove('wrong'),420);toast('wrong window action');update();if(lives<=0)end()}
+function right(d){if(!running||d.dataset.done)return;d.dataset.done='1';combo++;const mult=1+Math.floor(combo/4);score+=100*mult;d.classList.add('good');toast('+'+(100*mult)+'  combo '+combo);setTimeout(()=>d.remove(),90);update()}
+function clickAction(d,action){const rule=d.dataset.rule;if(rule===action)right(d);else wrong(d)}
+function spawn(){if(!running)return;const t=TYPES[Math.floor(Math.random()*TYPES.length)],d=document.createElement('section');d.className='dialog';d.dataset.rule=t.rule;d.dataset.id=++seq;d.setAttribute('role','dialog');
+ const maxX=Math.max(8,desk.clientWidth-Math.min(330,desk.clientWidth*.88)-12), maxY=Math.max(100,desk.clientHeight-240);
+ d.style.left=Math.round(8+Math.random()*Math.max(0,maxX-8))+'px';d.style.top=Math.round(92+Math.random()*Math.max(0,maxY-92))+'px';
+ d.innerHTML=`<div class="title"><span>${t.icon}</span><span class="caption">${t.title} #${seq}</span><button class="x" aria-label="close">×</button></div><div class="body"><div class="icon">${t.icon}</div><div class="copy">${t.msg}<div class="hint">required action: <b>${t.rule.toUpperCase()}</b></div></div></div><div class="actions">${t.buttons.map(b=>`<button data-act="${b.toLowerCase()}">${b}</button>`).join('')}</div>`;
+ d.querySelector('.x').addEventListener('click',e=>{e.stopPropagation();clickAction(d,'close')});d.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>clickAction(d,b.dataset.act)));
+ makeDraggable(d,d.querySelector('.title'));desk.appendChild(d);
+}
+function makeDraggable(d,handle){let drag=null;handle.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag={x:e.clientX,y:e.clientY,l:parseFloat(d.style.left)||0,t:parseFloat(d.style.top)||0};d.style.zIndex=50;handle.setPointerCapture(e.pointerId)});handle.addEventListener('pointermove',e=>{if(!drag)return;const nx=clamp(drag.l+e.clientX-drag.x,0,desk.clientWidth-d.offsetWidth),ny=clamp(drag.t+e.clientY-drag.y,58,desk.clientHeight-d.offsetHeight-38);d.style.left=nx+'px';d.style.top=ny+'px'});handle.addEventListener('pointerup',e=>{if(!drag)return;drag=null;d.style.zIndex=10;const a=d.getBoundingClientRect(),z=zone.getBoundingClientRect(),hit=a.left<z.right&&a.right>z.left&&a.top<z.bottom&&a.bottom>z.top;if(hit){if(d.dataset.rule==='move')right(d);else wrong(d)}})}
+function loop(now){if(!running)return;const dt=Math.min(.05,(now-last)/1000||0);last=now;left-=dt;nextSpawn-=dt;const elapsed=75-left;if(nextSpawn<=0){spawn();const pressure=Math.min(.9,elapsed/85);nextSpawn=Math.max(.48,1.55-pressure+Math.random()*.45)}if(desk.querySelectorAll('.dialog').length>12){lives--;combo=0;const first=desk.querySelector('.dialog');if(first)first.remove();toast('desktop overflow');update()}if(left<=0||lives<=0){end();return}update();raf=requestAnimationFrame(loop)}
+$('start').addEventListener('click',start);window.addEventListener('keydown',e=>{if(e.code==='Space'&&!running){e.preventDefault();start()}});update();
+})();
+</script>
+</body>
+</html>
