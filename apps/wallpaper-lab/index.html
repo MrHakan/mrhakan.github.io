@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Wallpaper Lab 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px}.win{max-width:1080px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.6)}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.content{display:grid;grid-template-columns:300px minmax(0,1fr);gap:10px;padding:10px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;margin-bottom:8px}.group h2{font-size:12px;margin:0 0 7px}.row{display:grid;grid-template-columns:88px 1fr 44px;gap:6px;align-items:center;margin:7px 0;font-size:12px}.row select,.row input[type=text]{width:100%;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px;font:12px inherit}.row input[type=range]{width:100%}.val{font-family:monospace;text-align:right}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.preview{min-width:0}.screen{background:#222;border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;overflow:auto;display:grid;place-items:center;min-height:480px}.screen canvas{max-width:100%;height:auto;box-shadow:0 0 0 1px #000;image-rendering:auto}.status{margin-top:7px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font-size:12px}.palette{display:flex;gap:4px;margin-top:7px}.sw{height:18px;flex:1;border:1px solid #000}.note{font-size:11px;line-height:1.4;color:#333;margin-top:8px}@media(max-width:760px){body{padding:6px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.screen{min-height:280px}.buttons{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main class="win">
+ <div class="title"><span>🖼️ WALLPAPER LAB 98.EXE</span><a href="../../" aria-label="back">×</a></div>
+ <div class="content">
+  <section class="controls">
+   <div class="group"><h2>GENERATOR</h2>
+    <label class="row"><span>Pattern</span><select id="pattern"><option value="plasma">Plasma</option><option value="maze">Maze</option><option value="tiles">Retro Tiles</option><option value="stars">Starfield</option><option value="waves">Waves</option></select><span></span></label>
+    <label class="row"><span>Palette</span><select id="palette"><option value="win">Windows</option><option value="vapor">Vapor</option><option value="amber">Amber</option><option value="mono">Mono</option><option value="gameboy">Game Boy</option></select><span></span></label>
+    <label class="row"><span>Seed</span><input id="seed" type="text" value="mrhakan98" maxlength="40"><span></span></label>
+    <label class="row"><span>Scale</span><input id="scale" type="range" min="4" max="64" value="24"><span class="val" id="scaleV"></span></label>
+    <label class="row"><span>Density</span><input id="density" type="range" min="10" max="100" value="58"><span class="val" id="densityV"></span></label>
+    <label class="row"><span>Noise</span><input id="noise" type="range" min="0" max="100" value="18"><span class="val" id="noiseV"></span></label>
+   </div>
+   <div class="group"><h2>CANVAS</h2>
+    <label class="row"><span>Format</span><select id="format"><option value="desktop">Desktop 16:9</option><option value="square">Square</option><option value="phone">Phone 9:16</option></select><span></span></label>
+    <label class="row"><span>Scanlines</span><input id="scan" type="range" min="0" max="100" value="12"><span class="val" id="scanV"></span></label>
+    <div class="palette" id="palettePreview"></div>
+   </div>
+   <div class="buttons"><button class="btn" id="regen">REGENERATE</button><button class="btn" id="random">RANDOMIZE</button><button class="btn" id="copy">COPY SEED</button><button class="btn" id="save">SAVE PNG</button></div>
+   <p class="note">Everything is generated locally with Canvas. Same seed + settings = same wallpaper. No upload, account, API, or tracking.</p>
+  </section>
+  <section class="preview"><div class="screen"><canvas id="canvas" width="960" height="540"></canvas></div><div class="status" id="status">Ready.</div></section>
+ </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),cv=$('canvas'),ctx=cv.getContext('2d');
+const palettes={win:['#008080','#000080','#c0c0c0','#ffffff','#1084d0'],vapor:['#251351','#7a2cff','#ff4fd8','#4df6ff','#ffe66d'],amber:['#090603','#3d2500','#9a5d00','#ffb000','#ffe0a3'],mono:['#000000','#333333','#777777','#bbbbbb','#ffffff'],gameboy:['#0f380f','#306230','#8bac0f','#9bbc0f','#d8e8a8']};
+const inputs=['pattern','palette','seed','scale','density','noise','format','scan'];
+function hash(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rngFrom(seed){let a=hash(seed)||1;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function setup(){const f=$('format').value;if(f==='desktop'){cv.width=960;cv.height=540}else if(f==='square'){cv.width=720;cv.height=720}else{cv.width=540;cv.height=960}}
+function paint(){setup();const pal=palettes[$('palette').value],r=rngFrom($('seed').value+'|'+$('pattern').value+'|'+$('scale').value+'|'+$('density').value+'|'+$('noise').value),s=+$('scale').value,d=+$('density').value/100,n=+$('noise').value/100,w=cv.width,h=cv.height;ctx.imageSmoothingEnabled=false;ctx.fillStyle=pal[0];ctx.fillRect(0,0,w,h);const p=$('pattern').value;if(p==='plasma')plasma(w,h,s,pal,r,n);else if(p==='maze')maze(w,h,s,pal,r,d);else if(p==='tiles')tiles(w,h,s,pal,r,d);else if(p==='stars')stars(w,h,s,pal,r,d);else waves(w,h,s,pal,r,n);finish(w,h,+$('scan').value/100,r,n);previewPal(pal);labels();$('status').textContent=`${w}×${h} · ${p} · seed: ${$('seed').value}`}
+function plasma(w,h,s,pal,r,n){for(let y=0;y<h;y+=s)for(let x=0;x<w;x+=s){const v=Math.sin(x/s*.55)+Math.cos(y/s*.7)+Math.sin((x+y)/s*.31)+(r()-.5)*n*4;let i=Math.floor(((v+3)/6)*pal.length);i=Math.max(0,Math.min(pal.length-1,i));ctx.fillStyle=pal[i];ctx.fillRect(x,y,s+1,s+1)}}
+function maze(w,h,s,pal,r,d){const cell=Math.max(8,s);ctx.strokeStyle=pal[3];ctx.lineWidth=Math.max(2,cell*.16);ctx.lineCap='square';for(let y=cell/2;y<h;y+=cell)for(let x=cell/2;x<w;x+=cell){if(r()>d*.35)continue;ctx.beginPath();if(r()>.5){ctx.moveTo(x-cell/2,y-cell/2);ctx.lineTo(x+cell/2,y+cell/2)}else{ctx.moveTo(x+cell/2,y-cell/2);ctx.lineTo(x-cell/2,y+cell/2)}ctx.stroke()}ctx.strokeStyle=pal[4];ctx.lineWidth=1;for(let y=0;y<h;y+=cell*4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}}
+function tiles(w,h,s,pal,r,d){const cell=Math.max(10,s);for(let y=0;y<h;y+=cell)for(let x=0;x<w;x+=cell){if(r()>d)continue;const c=pal[Math.floor(r()*pal.length)];ctx.fillStyle=c;ctx.fillRect(x,y,cell-2,cell-2);if(r()>.55){ctx.fillStyle=pal[(pal.indexOf(c)+2)%pal.length];ctx.fillRect(x+cell*.25,y+cell*.25,cell*.5-2,cell*.5-2)}}}
+function stars(w,h,s,pal,r,d){const count=Math.floor((w*h/900)*d);for(let i=0;i<count;i++){const x=r()*w,y=r()*h,z=.25+r()*.75,sz=Math.max(1,z*s*.16);ctx.fillStyle=pal[1+Math.floor(r()*(pal.length-1))];ctx.fillRect(x,y,sz,sz);if(r()>.93){ctx.fillRect(x-sz*1.5,y+sz*.35,sz*4,Math.max(1,sz*.35));ctx.fillRect(x+sz*.35,y-sz*1.5,Math.max(1,sz*.35),sz*4)}}}
+function waves(w,h,s,pal,r,n){ctx.lineWidth=Math.max(2,s*.15);for(let k=0;k<18;k++){ctx.strokeStyle=pal[k%pal.length];ctx.beginPath();for(let x=0;x<=w;x+=8){const y=h*(k+1)/19+Math.sin(x/(s*1.3)+k*.7)*s*(1.2+n*2)+Math.sin(x/(s*.45)+k)*s*.18;if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke()}}
+function finish(w,h,scan,r,n){if(n>0){ctx.globalAlpha=Math.min(.22,n*.22);for(let i=0;i<w*h*n/1300;i++){ctx.fillStyle=r()>.5?'#fff':'#000';ctx.fillRect(r()*w,r()*h,1+r()*2,1+r()*2)}ctx.globalAlpha=1}if(scan>0){ctx.globalAlpha=Math.min(.32,scan*.35);ctx.fillStyle='#000';for(let y=1;y<h;y+=4)ctx.fillRect(0,y,w,1);ctx.globalAlpha=1}}
+function labels(){['scale','density','noise','scan'].forEach(id=>$(id+'V').textContent=$(id).value+(id==='scale'?'px':'%'))}
+function previewPal(p){$('palettePreview').innerHTML=p.map(c=>`<span class="sw" style="background:${c}" title="${c}"></span>`).join('')}
+inputs.forEach(id=>$(id).addEventListener(id==='seed'?'change':'input',paint));$('regen').onclick=paint;$('random').onclick=()=>{const words=['glitch','teal','dialup','star','disk','night','pixel','bradar'];$('seed').value=words[Math.floor(Math.random()*words.length)]+'-'+Math.floor(Math.random()*9999);$('pattern').selectedIndex=Math.floor(Math.random()*$('pattern').options.length);$('palette').selectedIndex=Math.floor(Math.random()*$('palette').options.length);$('scale').value=8+Math.floor(Math.random()*49);$('density').value=25+Math.floor(Math.random()*70);$('noise').value=Math.floor(Math.random()*45);paint()};$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('seed').value);$('status').textContent='Seed copied.'}catch(e){$('seed').select();document.execCommand('copy')}};$('save').onclick=()=>cv.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`wallpaper-${$('seed').value.replace(/[^a-z0-9_-]+/gi,'-')}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);$('status').textContent='PNG saved.'},'image/png');paint();
+})();
+</script>
+</body>
+</html>
