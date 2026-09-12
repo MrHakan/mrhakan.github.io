@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>SFX Lab 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px}.window{max-width:980px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.content{display:grid;grid-template-columns:330px minmax(0,1fr);gap:10px;padding:10px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:9px;margin-bottom:9px}.group h2{font-size:12px;margin:0 0 8px}.row{display:grid;grid-template-columns:92px 1fr 45px;gap:6px;align-items:center;font-size:12px;margin:7px 0}.row select,.row input[type=range]{width:100%}.row select{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.val{font-family:monospace;text-align:right}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:8px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.preview{min-width:0}.screen{background:#030b05;border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;min-height:310px;display:flex;flex-direction:column;gap:8px}.screen h1{margin:0;color:#49ff6b;font:700 20px monospace}.screen p{margin:0;color:#8dff9f;font:12px/1.45 monospace}.scope{width:100%;height:230px;background:#001806;border:1px solid #1b7a2a;image-rendering:pixelated}.status{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font-size:12px;min-height:31px}.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.preset{font-size:11px;padding:6px 3px}.note{font-size:11px;line-height:1.4;color:#333;margin:8px 0 0}@media(max-width:760px){body{padding:6px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.screen{min-height:250px}.scope{height:180px}.presets{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>🔊 SFX LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="content">
+    <section class="controls">
+      <div class="group"><h2>PRESETS</h2><div class="presets" id="presets"></div></div>
+      <div class="group"><h2>SYNTH</h2>
+        <label class="row"><span>Wave</span><select id="wave"><option>sine</option><option>square</option><option>saw</option><option>triangle</option><option>noise</option></select><span></span></label>
+        <label class="row"><span>Pitch</span><input id="pitch" type="range" min="45" max="1800" value="440"><span class="val" id="pitchV"></span></label>
+        <label class="row"><span>Attack</span><input id="attack" type="range" min="0" max="350" value="5"><span class="val" id="attackV"></span></label>
+        <label class="row"><span>Decay</span><input id="decay" type="range" min="40" max="1800" value="320"><span class="val" id="decayV"></span></label>
+        <label class="row"><span>Sweep</span><input id="sweep" type="range" min="-1600" max="1600" value="-260"><span class="val" id="sweepV"></span></label>
+        <label class="row"><span>Vibrato</span><input id="vibrato" type="range" min="0" max="80" value="0"><span class="val" id="vibratoV"></span></label>
+        <label class="row"><span>Drive</span><input id="drive" type="range" min="0" max="100" value="10"><span class="val" id="driveV"></span></label>
+        <label class="row"><span>Bitcrush</span><input id="bits" type="range" min="3" max="16" value="16"><span class="val" id="bitsV"></span></label>
+        <label class="row"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="70"><span class="val" id="volumeV"></span></label>
+      </div>
+      <div class="buttons"><button class="btn" id="play">▶ PLAY</button><button class="btn" id="random">🎲 RANDOM</button><button class="btn" id="mutate">🧬 MUTATE</button><button class="btn" id="save">💾 SAVE WAV</button></div>
+      <p class="note">Everything is synthesized locally with browser audio. No samples, uploads, API keys or backend.</p>
+    </section>
+    <section class="preview">
+      <div class="screen"><h1>SOUND OSCILLOSCOPE</h1><p id="readout">ready // click PLAY</p><canvas id="scope" class="scope" width="760" height="260"></canvas></div>
+      <div class="status" id="status">Preset loaded: COIN. Press PLAY to wake the audio context.</div>
+    </section>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),SR=44100,scope=$('scope'),ctx2=scope.getContext('2d');let audioCtx=null,lastSamples=null,lastName='custom';
+const ids=['pitch','attack','decay','sweep','vibrato','drive','bits','volume'];
+const PRESETS={
+ COIN:{wave:'square',pitch:980,attack:0,decay:180,sweep:620,vibrato:8,drive:8,bits:10,volume:62},
+ JUMP:{wave:'square',pitch:220,attack:2,decay:280,sweep:680,vibrato:5,drive:4,bits:12,volume:65},
+ LASER:{wave:'saw',pitch:920,attack:0,decay:420,sweep:-1400,vibrato:13,drive:28,bits:8,volume:62},
+ EXPLOSION:{wave:'noise',pitch:140,attack:0,decay:900,sweep:-100,vibrato:0,drive:62,bits:7,volume:78},
+ POWERUP:{wave:'triangle',pitch:240,attack:8,decay:620,sweep:1150,vibrato:20,drive:8,bits:12,volume:65},
+ ERROR:{wave:'square',pitch:165,attack:5,decay:520,sweep:-80,vibrato:25,drive:18,bits:9,volume:65},
+ CLICK:{wave:'square',pitch:760,attack:0,decay:55,sweep:-250,vibrato:0,drive:5,bits:12,volume:52},
+ HIT:{wave:'noise',pitch:260,attack:0,decay:160,sweep:-300,vibrato:0,drive:38,bits:8,volume:70}
+};
+function state(){return{wave:$('wave').value,...Object.fromEntries(ids.map(id=>[id,+$(id).value]))}}
+function setState(s,name='custom'){if(s.wave)$('wave').value=s.wave;ids.forEach(id=>{if(s[id]!=null)$(id).value=s[id]});lastName=name;labels();refresh()}
+function labels(){const suffix={pitch:'Hz',attack:'ms',decay:'ms',sweep:'Hz',vibrato:'Hz',drive:'%',bits:'bit',volume:'%'};ids.forEach(id=>$(id+'V').textContent=$(id).value+suffix[id])}
+function synth(s){const total=Math.max(1,Math.floor(SR*((s.attack+s.decay)/1000+.04))),out=new Float32Array(total);let phase=0,hold=0,held=0,seed=(Date.now()^Math.floor(s.pitch*997))>>>0;const levels=Math.max(2,(1<<Math.min(16,s.bits))-1),crush=Math.max(1,Math.round((17-s.bits)*.7));
+ function rnd(){seed=(seed*1664525+1013904223)>>>0;return(seed/4294967296)*2-1}
+ for(let i=0;i<total;i++){const t=i/SR,ms=t*1000,f=Math.max(18,s.pitch+s.sweep*(ms/Math.max(1,s.decay))+Math.sin(t*Math.PI*2*7)*s.vibrato);phase+=f/SR;let x;if(s.wave==='noise')x=rnd();else{const p=phase%1;x=s.wave==='sine'?Math.sin(p*Math.PI*2):s.wave==='square'?(p<.5?1:-1):s.wave==='saw'?2*p-1:1-4*Math.abs(p-.5)}const a=s.attack<=0?1:Math.min(1,ms/s.attack),relStart=s.attack,rel=Math.max(0,(ms-relStart)/Math.max(1,s.decay)),env=a*Math.max(0,1-rel);x*=env*(s.volume/100);if(s.drive>0)x=Math.tanh(x*(1+s.drive/13))/Math.tanh(1+s.drive/13);if(i%crush===0){hold=Math.round(((x+1)*.5)*levels)/levels*2-1;held=hold}out[i]=held}return out}
+function draw(samples){const w=scope.width,h=scope.height;ctx2.fillStyle='#001806';ctx2.fillRect(0,0,w,h);ctx2.strokeStyle='#123b18';ctx2.lineWidth=1;for(let x=0;x<w;x+=38){ctx2.beginPath();ctx2.moveTo(x,0);ctx2.lineTo(x,h);ctx2.stroke()}for(let y=0;y<h;y+=26){ctx2.beginPath();ctx2.moveTo(0,y);ctx2.lineTo(w,y);ctx2.stroke()}ctx2.strokeStyle='#54ff70';ctx2.lineWidth=2;ctx2.beginPath();const step=Math.max(1,Math.floor(samples.length/w));for(let x=0;x<w;x++){const v=samples[Math.min(samples.length-1,x*step)]||0,y=h/2-v*h*.42;if(x===0)ctx2.moveTo(x,y);else ctx2.lineTo(x,y)}ctx2.stroke()}
+function refresh(){lastSamples=synth(state());draw(lastSamples);const s=state();$('readout').textContent=`${lastName.toUpperCase()} // ${s.wave.toUpperCase()} // ${s.pitch}Hz // ${s.decay}ms // ${s.bits}-BIT`;}
+async function play(){const s=state();lastSamples=synth(s);draw(lastSamples);audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')await audioCtx.resume();const b=audioCtx.createBuffer(1,lastSamples.length,SR);b.copyToChannel(lastSamples,0);const src=audioCtx.createBufferSource();src.buffer=b;src.connect(audioCtx.destination);src.start();$('status').textContent=`Playing ${lastName.toUpperCase()} · ${(lastSamples.length/SR).toFixed(2)}s · ${s.bits}-bit style`}
+function wav(samples){const buffer=new ArrayBuffer(44+samples.length*2),v=new DataView(buffer);const put=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));put(0,'RIFF');v.setUint32(4,36+samples.length*2,true);put(8,'WAVE');put(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,SR,true);v.setUint32(28,SR*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);put(36,'data');v.setUint32(40,samples.length*2,true);for(let i=0;i<samples.length;i++){const s=Math.max(-1,Math.min(1,samples[i]));v.setInt16(44+i*2,s<0?s*32768:s*32767,true)}return new Blob([buffer],{type:'audio/wav'})}
+function save(){lastSamples=synth(state());const a=document.createElement('a');a.href=URL.createObjectURL(wav(lastSamples));a.download=`sfx-${lastName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${Date.now()}.wav`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);$('status').textContent='WAV exported locally.'}
+function random(){const waves=['sine','square','saw','triangle','noise'];setState({wave:waves[Math.floor(Math.random()*waves.length)],pitch:80+Math.floor(Math.random()*1250),attack:Math.floor(Math.random()*80),decay:80+Math.floor(Math.random()*1050),sweep:-1300+Math.floor(Math.random()*2601),vibrato:Math.floor(Math.random()*50),drive:Math.floor(Math.random()*70),bits:4+Math.floor(Math.random()*13),volume:48+Math.floor(Math.random()*38)},'random')}
+function mutate(){const s=state(),j=(v,p,min,max)=>Math.max(min,Math.min(max,Math.round(v*(1+(Math.random()*2-1)*p))));setState({...s,pitch:j(s.pitch,.22,45,1800),attack:j(Math.max(1,s.attack),.65,0,350),decay:j(s.decay,.25,40,1800),sweep:j(s.sweep||1,.4,-1600,1600),vibrato:j(Math.max(1,s.vibrato),.5,0,80),drive:j(Math.max(1,s.drive),.45,0,100),bits:j(s.bits,.18,3,16),volume:j(s.volume,.12,0,100)},lastName+'-mut')}
+const wrap=$('presets');Object.entries(PRESETS).forEach(([name,p])=>{const b=document.createElement('button');b.className='btn preset';b.textContent=name;b.onclick=()=>setState(p,name);wrap.appendChild(b)});ids.concat('wave').forEach(id=>$(id).addEventListener('input',()=>{lastName='custom';labels();refresh()}));$('play').onclick=play;$('random').onclick=random;$('mutate').onclick=mutate;$('save').onclick=save;labels();setState(PRESETS.COIN,'coin');
+})();
+</script>
+</body>
+</html>
