@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Floppy Stack 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px;overflow:hidden}.win{max-width:760px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 #000}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.body{padding:10px}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.cell{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;text-align:center;font-size:12px}.cell b{display:block;font:700 18px monospace}.stage{position:relative;height:min(68vh,560px);min-height:390px;background:linear-gradient(#0d2f46,#061821);border:2px solid;border-color:#808080 #fff #fff #808080;overflow:hidden;touch-action:manipulation;cursor:pointer}.grid{position:absolute;inset:0;opacity:.15;background-image:linear-gradient(#5aa 1px,transparent 1px),linear-gradient(90deg,#5aa 1px,transparent 1px);background-size:24px 24px}.base{position:absolute;left:12%;right:12%;bottom:18px;height:18px;background:#666;border:2px solid;border-color:#aaa #222 #222 #aaa}.disk{position:absolute;height:28px;border:2px solid #101010;background:linear-gradient(#5b6680 0 74%,#d6d0b6 74%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.2)}.disk:after{content:"";position:absolute;left:40%;top:2px;width:20%;height:8px;background:#171717}.ghost{opacity:.9}.hint{margin-top:8px;background:#ffffc8;border:1px solid #000;padding:6px;font-size:12px;line-height:1.4}.actions{display:flex;gap:7px;margin-top:8px}.btn{flex:1;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px)}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);z-index:20;padding:20px}.card{max-width:430px;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 #000}.ct{background:#000080;color:white;padding:4px 6px;font-weight:700}.cb{padding:14px;font-size:13px;line-height:1.45}.big{font:700 22px monospace;margin:5px 0}.hidden{display:none}@media(max-width:560px){body{padding:5px}.body{padding:6px}.hud{grid-template-columns:repeat(2,1fr)}.stage{height:64vh;min-height:360px}.cell{padding:4px}.cell b{font-size:16px}}
+</style>
+</head>
+<body>
+<main class="win">
+ <div class="title"><span>💾 FLOPPY STACK 98.EXE</span><a href="../../" aria-label="back">×</a></div>
+ <div class="body">
+  <div class="hud"><div class="cell">STACK<b id="score">0</b></div><div class="cell">BEST<b id="best">0</b></div><div class="cell">WIDTH<b id="width">100%</b></div><div class="cell">SPEED<b id="speed">1.0x</b></div></div>
+  <section class="stage" id="stage" aria-label="tap to drop the moving floppy disk">
+   <div class="grid"></div><div class="base"></div><div id="stack"></div><div class="disk ghost" id="mover"></div>
+   <div class="overlay" id="overlay"><div class="card"><div class="ct">Floppy Stack 98</div><div class="cb"><div class="big">stack the disks.</div>Tap, click, or press <b>Space</b> to drop the moving floppy. Only the overlap survives. Miss the stack and the tower crashes.<br><br><button class="btn" id="start">START</button></div></div></div>
+  </section>
+  <div class="hint" id="hint">One button. No installs. Try to keep as much disk width as possible.</div>
+  <div class="actions"><button class="btn" id="restart">RESTART</button><button class="btn" id="mute">SOUND: ON</button></div>
+ </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),stage=$('stage'),stack=$('stack'),mover=$('mover');
+let score=0,best=+(localStorage.getItem('floppy-stack-best')||0),running=false,last=0,x=0,dir=1,w=76,speed=105,baseX=12,audioOn=true,ctx=null;
+$('best').textContent=best;
+function beep(f,d=.06,type='square'){if(!audioOn)return;ctx=ctx||new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(.045,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+d);o.connect(g).connect(ctx.destination);o.start();o.stop(ctx.currentTime+d)}
+function dims(){return {W:stage.clientWidth,H:stage.clientHeight}}
+function reset(){score=0;w=Math.min(280,stage.clientWidth*.58);baseX=(stage.clientWidth-w)/2;x=0;dir=1;speed=105;running=true;stack.innerHTML='';const {H}=dims();const base=document.createElement('div');base.className='disk';base.style.cssText=`left:${baseX}px;bottom:36px;width:${w}px`;stack.appendChild(base);syncMover();hud();last=performance.now();requestAnimationFrame(loop)}
+function syncMover(){const bottom=36+(score+1)*29;mover.style.width=w+'px';mover.style.left=x+'px';mover.style.bottom=bottom+'px';mover.style.display='block'}
+function hud(){$('score').textContent=score;$('best').textContent=best;$('width').textContent=Math.round(w/Math.min(280,stage.clientWidth*.58)*100)+'%';$('speed').textContent=(speed/105).toFixed(1)+'x'}
+function loop(t){if(!running)return;const dt=Math.min(.04,(t-last)/1000);last=t;const max=stage.clientWidth-w;x+=dir*speed*dt;if(x<=0){x=0;dir=1}else if(x>=max){x=max;dir=-1}syncMover();requestAnimationFrame(loop)}
+function drop(){if(!running)return;const left=Math.max(x,baseX),right=Math.min(x+w,baseX+w),over=right-left;if(over<=3){gameOver();return}const cut=w-over;w=over;baseX=left;score++;speed=Math.min(360,speed+9+score*1.1);const d=document.createElement('div');d.className='disk';d.style.cssText=`left:${baseX}px;bottom:${36+score*29}px;width:${w}px`;stack.appendChild(d);if(cut<2){beep(880,.05);$('hint').textContent='PERFECT DROP + clean alignment';}else{beep(520,.04);$('hint').textContent=`stack ${score} — lost ${Math.round(cut)} px`;}if(score>best){best=score;localStorage.setItem('floppy-stack-best',best)}x=dir>0?0:stage.clientWidth-w;hud();syncMover();if(36+(score+2)*29>stage.clientHeight-12){[...stack.children].forEach(el=>{el.style.bottom=(parseFloat(el.style.bottom)-29)+'px'})}}
+function gameOver(){running=false;mover.style.display='none';beep(95,.28,'sawtooth');$('overlay').classList.remove('hidden');$('overlay').querySelector('.big').textContent=`tower crashed at ${score}`;$('overlay').querySelector('.cb').childNodes[2].textContent=` Best: ${best}. Trim less width and keep the tower alive. `;$('start').textContent='TRY AGAIN';hud()}
+function go(){if(ctx&&ctx.state==='suspended')ctx.resume();$('overlay').classList.add('hidden');reset()}
+$('start').onclick=go;$('restart').onclick=go;stage.addEventListener('pointerdown',e=>{if(e.target.closest('button')||!$('overlay').classList.contains('hidden'))return;drop()});window.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();if(running)drop();else go()}});$('mute').onclick=()=>{audioOn=!audioOn;$('mute').textContent='SOUND: '+(audioOn?'ON':'OFF')};window.addEventListener('resize',()=>{if(running)reset()});
+})();
+</script>
+</body>
+</html>
