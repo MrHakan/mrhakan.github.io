@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Dial-Up Drift 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:10px;display:grid;place-items:center;min-height:100dvh}.window{width:min(980px,100%);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px;font-size:14px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px;line-height:18px}.toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:7px;border-bottom:1px solid #808080;box-shadow:inset 0 -1px #fff}.stat{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:5px 7px;font:12px monospace;min-width:105px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:5px 10px;font-weight:700;cursor:pointer}.btn:active,.btn.down{border-color:#000 #fff #fff #000;transform:translate(1px,1px)}.stage{position:relative;padding:8px}.frame{background:#000;border:2px solid;border-color:#808080 #fff #fff #808080;position:relative;overflow:hidden}canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#001214;touch-action:none}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.38);padding:18px}.overlay[hidden]{display:none}.dialog{max-width:500px;width:100%;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 #000}.dtitle{background:#000080;color:#fff;font-weight:700;padding:4px 6px}.dbody{padding:15px;font-size:13px;line-height:1.48}.rules{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:9px;margin:10px 0;font-family:monospace;font-size:12px}.hold{display:grid;place-items:center;margin:8px;min-height:62px;font-size:15px}.hint{text-align:center;padding:0 10px 10px;font-size:11px;color:#333}@media(max-width:620px){body{padding:5px}.toolbar{gap:4px}.stat{min-width:88px;padding:4px;font-size:11px}.stage{padding:5px}.hold{min-height:70px}.dbody{padding:12px}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>📞 DIAL-UP DRIFT 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="toolbar"><div class="stat">SCORE <b id="score">0</b></div><div class="stat">BEST <b id="best">0</b></div><div class="stat">SPEED <b id="speed">1.00x</b></div><div class="stat">CARRIER <b id="carrier">OFF</b></div><button class="btn" id="restart">RESTART</button></div>
+  <div class="stage">
+    <div class="frame"><canvas id="game" width="960" height="540" aria-label="Dial-Up Drift game"></canvas><div class="overlay" id="overlay"><div class="dialog"><div class="dtitle" id="overlayTitle">Dial-Up Networking</div><div class="dbody" id="overlayBody"><b>Keep the connection alive through the line noise.</b><div class="rules">HOLD SPACE / MOUSE / TOUCH = carrier rises<br>RELEASE = carrier falls<br>stay inside the green signal corridor<br>one crash = disconnected</div><p>This is a one-button arcade run. The line gets faster and tighter the longer you survive.</p><button class="btn" id="start">DIAL NOW</button></div></div></div></div>
+    <button class="btn hold" id="hold">HOLD FOR CARRIER ▲</button><div class="hint">Keyboard: SPACE · Mobile: hold the big button · R: restart</div>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id),scoreEl=$('score'),bestEl=$('best'),speedEl=$('speed'),carrierEl=$('carrier'),overlay=$('overlay'),overlayTitle=$('overlayTitle'),overlayBody=$('overlayBody'),hold=$('hold');
+let best=+(localStorage.getItem('dialup-drift-best')||0),running=false,pressed=false,last=0,score=0,y=270,vy=0,scroll=0,audio=null;
+bestEl.textContent=best;
+function ac(){if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();return audio}
+function beep(freq,dur=.05,type='square',vol=.035){try{const a=ac(),o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+dur);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+dur)}catch(e){}}
+function noise(x){return Math.sin(x*.013)*46+Math.sin(x*.0047+1.7)*65+Math.sin(x*.029+4.1)*16}
+function centerAt(x){return 270+noise(x+scroll)}
+function gap(){return Math.max(112,190-Math.min(78,score*.085))}
+function updateHud(){scoreEl.textContent=Math.floor(score);speedEl.textContent=(1+Math.min(1.65,score/1400)).toFixed(2)+'x';carrierEl.textContent=pressed?'ON':'OFF'}
+function reset(){running=true;pressed=false;last=performance.now();score=0;y=270;vy=0;scroll=0;overlay.hidden=true;updateHud();beep(440,.06);requestAnimationFrame(loop)}
+function end(){running=false;pressed=false;carrierEl.textContent='OFF';hold.classList.remove('down');if(score>best){best=Math.floor(score);localStorage.setItem('dialup-drift-best',best);bestEl.textContent=best}beep(100,.28,'sawtooth',.05);overlay.hidden=false;overlayTitle.textContent='Connection Lost';overlayBody.innerHTML='<b>NO CARRIER</b><div class="rules">score: '+Math.floor(score)+'<br>best: '+best+'</div><p>The modem hit line noise. Try another call.</p><button class="btn" id="again">REDIAL</button>';document.getElementById('again').onclick=reset}
+function setPress(v){if(!running)return;pressed=v;carrierEl.textContent=v?'ON':'OFF';hold.classList.toggle('down',v);if(v)beep(780,.025,'square',.012)}
+function loop(now){if(!running)return;const dt=Math.min(.032,(now-last)/1000||.016);last=now;const mult=1+Math.min(1.65,score/1400);scroll+=170*mult*dt;score+=50*mult*dt;vy+=(pressed?-720:520)*dt;vy=Math.max(-265,Math.min(300,vy));y+=vy*dt;const c=centerAt(170),g=gap(),top=c-g/2,bottom=c+g/2;if(y-9<top||y+9>bottom||y<8||y>532){draw();end();return}updateHud();draw();requestAnimationFrame(loop)}
+function draw(){ctx.fillStyle='#001214';ctx.fillRect(0,0,960,540);ctx.strokeStyle='#063b39';ctx.lineWidth=1;for(let x=0;x<960;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,540);ctx.stroke()}for(let yy=0;yy<540;yy+=40){ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(960,yy);ctx.stroke()}const g=gap();ctx.beginPath();for(let x=0;x<=960;x+=8){const yy=centerAt(x)-g/2;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.lineTo(960,0);ctx.lineTo(0,0);ctx.closePath();ctx.fillStyle='#1d2730';ctx.fill();ctx.beginPath();for(let x=0;x<=960;x+=8){const yy=centerAt(x)+g/2;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.lineTo(960,540);ctx.lineTo(0,540);ctx.closePath();ctx.fill();ctx.strokeStyle='#44ff88';ctx.lineWidth=3;ctx.beginPath();for(let x=0;x<=960;x+=8){const yy=centerAt(x)-g/2;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.stroke();ctx.beginPath();for(let x=0;x<=960;x+=8){const yy=centerAt(x)+g/2;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.stroke();ctx.strokeStyle='rgba(80,255,160,.3)';ctx.lineWidth=1;ctx.beginPath();for(let x=0;x<=960;x+=6){const yy=centerAt(x)+Math.sin((x+scroll)*.08)*12;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.stroke();for(let i=0;i<18;i++){const x=(i*137-scroll*1.7)%1100;if(x<0||x>960)continue;const cy=centerAt(x),amp=12+(i%4)*7;ctx.strokeStyle='rgba(255,220,80,.55)';ctx.beginPath();ctx.moveTo(x,cy-amp);ctx.lineTo(x+4,cy+amp);ctx.stroke()}ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(170,y,11,0,Math.PI*2);ctx.fill();ctx.fillStyle=pressed?'#42ff7a':'#ffde59';ctx.beginPath();ctx.arc(170,y,6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#70ff9e';ctx.font='14px monospace';ctx.fillText('56.6K  PPP  TCP/IP',18,28);ctx.fillText('LINE '+Math.floor(scroll/10).toString().padStart(5,'0'),780,28)}
+function bind(el){el.addEventListener('pointerdown',e=>{e.preventDefault();setPress(true);el.setPointerCapture?.(e.pointerId)});el.addEventListener('pointerup',e=>{e.preventDefault();setPress(false)});el.addEventListener('pointercancel',()=>setPress(false))}
+bind(hold);bind(cv);addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();if(!e.repeat)setPress(true)}if(e.key.toLowerCase()==='r')reset()});addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();setPress(false)}});$('start').onclick=reset;$('restart').onclick=reset;draw();
+})();
+</script>
+</body>
+</html>
