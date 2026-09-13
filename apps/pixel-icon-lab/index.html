@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Pixel Icon Lab 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:10px}.window{max-width:1050px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px;line-height:18px}.content{display:grid;grid-template-columns:310px minmax(0,1fr);gap:10px;padding:10px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;margin-bottom:9px}.group h2{font-size:12px;margin:0 0 7px}.row{display:grid;grid-template-columns:88px 1fr;gap:7px;align-items:center;margin:7px 0;font-size:12px}.row select,.row input[type=color]{width:100%;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;min-height:28px}.tools{display:grid;grid-template-columns:1fr 1fr;gap:5px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px;font-weight:700;font-size:12px;cursor:pointer}.btn:active,.btn.active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.palette{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}.swatch{aspect-ratio:1;border:2px solid;border-color:#fff #000 #000 #fff;cursor:pointer;min-width:0}.swatch.active{outline:2px solid #000;outline-offset:1px}.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}.checks label{display:flex;align-items:center;gap:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.editor{min-width:0}.canvasbox{background:#444;border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;display:grid;place-items:center;min-height:560px}.canvasbox canvas{display:block;width:min(100%,640px);height:auto;aspect-ratio:1;image-rendering:pixelated;touch-action:none;cursor:crosshair;background:#fff}.lower{display:grid;grid-template-columns:150px 1fr;gap:8px;margin-top:8px}.previewBox{border:2px solid;border-color:#808080 #fff #fff #808080;background:#fff;padding:5px}.previewBox canvas{width:100%;height:auto;aspect-ratio:1;image-rendering:pixelated;display:block}.status{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:7px;font:12px/1.45 monospace;min-height:100%}.note{font-size:11px;line-height:1.4;color:#333;margin:8px 0 0}@media(max-width:780px){body{padding:5px}.content{grid-template-columns:1fr;padding:6px}.editor{order:1}.controls{order:2}.canvasbox{min-height:0;padding:5px}.lower{grid-template-columns:110px 1fr}.btn{min-height:38px}.palette{grid-template-columns:repeat(8,1fr)}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>🎨 PIXEL ICON LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="content">
+    <section class="controls">
+      <div class="group">
+        <h2>CANVAS</h2>
+        <label class="row"><span>Icon size</span><select id="size"><option>16</option><option>24</option><option selected>32</option><option>48</option><option>64</option></select></label>
+        <div class="checks"><label><input id="grid" type="checkbox" checked> Grid</label><label><input id="mirrorX" type="checkbox"> Mirror X</label><label><input id="mirrorY" type="checkbox"> Mirror Y</label><label><input id="autosave" type="checkbox" checked> Autosave</label></div>
+      </div>
+      <div class="group">
+        <h2>TOOLS</h2>
+        <div class="tools">
+          <button class="btn active" data-tool="pencil">✎ PENCIL [B]</button>
+          <button class="btn" data-tool="eraser">⌫ ERASER [E]</button>
+          <button class="btn" data-tool="fill">▣ FILL [F]</button>
+          <button class="btn" data-tool="picker">⌾ PICKER [I]</button>
+        </div>
+        <label class="row"><span>Color</span><input id="color" type="color" value="#000080"></label>
+      </div>
+      <div class="group">
+        <h2>WINDOWS 98 PALETTE</h2>
+        <div class="palette" id="palette"></div>
+      </div>
+      <div class="group">
+        <h2>EDIT</h2>
+        <div class="actions">
+          <button class="btn" id="undo">↶ UNDO</button><button class="btn" id="redo">↷ REDO</button>
+          <button class="btn" id="clear">NEW / CLEAR</button><button class="btn" id="importBtn">IMPORT IMAGE</button>
+        </div>
+        <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+      </div>
+      <div class="group">
+        <h2>EXPORT</h2>
+        <div class="actions"><button class="btn" id="save1">SAVE PNG 1×</button><button class="btn" id="save8">SAVE PNG 8×</button></div>
+        <p class="note">Transparent pixels stay transparent. Imports are sampled locally and never uploaded.</p>
+      </div>
+    </section>
+    <section class="editor">
+      <div class="canvasbox"><canvas id="canvas" width="512" height="512" aria-label="pixel icon drawing canvas"></canvas></div>
+      <div class="lower">
+        <div class="previewBox"><canvas id="preview" width="128" height="128"></canvas></div>
+        <div class="status" id="status">32×32 canvas · pencil · #000080<br>Draw with mouse, pen, or touch. Shortcuts: B/E/F/I, Ctrl+Z, Ctrl+Y.</div>
+      </div>
+    </section>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),cv=$('canvas'),ctx=cv.getContext('2d'),pv=$('preview'),pctx=pv.getContext('2d'),sizeEl=$('size'),colorEl=$('color'),gridEl=$('grid'),mirrorX=$('mirrorX'),mirrorY=$('mirrorY'),autosave=$('autosave'),status=$('status'),file=$('file');
+const COLORS=['#000000','#808080','#c0c0c0','#ffffff','#800000','#ff0000','#808000','#ffff00','#008000','#00ff00','#008080','#00ffff','#000080','#0000ff','#800080','#ff00ff'];
+let n=32,pixels=Array(n*n).fill(null),tool='pencil',drawing=false,lastCell=null,undoStack=[],redoStack=[],strokeChanged=false,active='#000080';
+const palette=$('palette');
+COLORS.forEach(c=>{const b=document.createElement('button');b.className='swatch';b.style.background=c;b.title=c;b.setAttribute('aria-label','use '+c);b.onclick=()=>setColor(c);palette.appendChild(b)});
+function setColor(c){active=c.toLowerCase();colorEl.value=active;[...palette.children].forEach(x=>x.classList.toggle('active',rgbToHex(x.style.backgroundColor)===active));updateStatus()}
+function rgbToHex(s){if(s[0]==='#')return s.toLowerCase();const m=s.match(/\d+/g);if(!m)return s;return '#'+m.slice(0,3).map(x=>(+x).toString(16).padStart(2,'0')).join('')}
+function idx(x,y){return y*n+x}
+function snapshot(){undoStack.push(pixels.slice());if(undoStack.length>40)undoStack.shift();redoStack.length=0;updateButtons()}
+function updateButtons(){$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length}
+function persist(){if(!autosave.checked)return;try{localStorage.setItem('pixel-icon-lab-v1',JSON.stringify({n,pixels,active}))}catch(e){}}
+function restore(){try{const s=JSON.parse(localStorage.getItem('pixel-icon-lab-v1')||'null');if(s&&[16,24,32,48,64].includes(s.n)&&Array.isArray(s.pixels)&&s.pixels.length===s.n*s.n){n=s.n;pixels=s.pixels;active=s.active||active;sizeEl.value=String(n);colorEl.value=active}}catch(e){}}
+function checker(c,w,h,cell=12){for(let y=0;y<h;y+=cell)for(let x=0;x<w;x+=cell){c.fillStyle=((x/cell+y/cell)&1)?'#d0d0d0':'#f1f1f1';c.fillRect(x,y,cell,cell)}}
+function draw(){checker(ctx,cv.width,cv.height,16);const cell=cv.width/n;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const c=pixels[idx(x,y)];if(c){ctx.fillStyle=c;ctx.fillRect(x*cell,y*cell,Math.ceil(cell),Math.ceil(cell))}}if(gridEl.checked){ctx.strokeStyle='rgba(0,0,0,.22)';ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<=n;i++){const p=Math.round(i*cell)+.5;ctx.moveTo(p,0);ctx.lineTo(p,cv.height);ctx.moveTo(0,p);ctx.lineTo(cv.width,p)}ctx.stroke()}drawPreview();updateStatus()}
+function drawPreview(){checker(pctx,pv.width,pv.height,8);const cell=pv.width/n;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const c=pixels[idx(x,y)];if(c){pctx.fillStyle=c;pctx.fillRect(x*cell,y*cell,Math.ceil(cell),Math.ceil(cell))}}}
+function updateStatus(){const used=new Set(pixels.filter(Boolean)).size;status.innerHTML=n+'×'+n+' canvas · '+tool+' · '+active+'<br>'+used+' colors used · '+pixels.filter(Boolean).length+' painted pixels'+(mirrorX.checked||mirrorY.checked?' · symmetry on':'')}
+function point(e){const r=cv.getBoundingClientRect();return{x:Math.max(0,Math.min(n-1,Math.floor((e.clientX-r.left)/r.width*n))),y:Math.max(0,Math.min(n-1,Math.floor((e.clientY-r.top)/r.height*n)))}}
+function cellsFor(x,y){const a=[[x,y]];if(mirrorX.checked)a.push([n-1-x,y]);if(mirrorY.checked)a.push([x,n-1-y]);if(mirrorX.checked&&mirrorY.checked)a.push([n-1-x,n-1-y]);const seen=new Set();return a.filter(([cx,cy])=>{const k=cx+','+cy;if(seen.has(k))return false;seen.add(k);return true})}
+function paintCell(x,y){const value=tool==='eraser'?null:active;let changed=false;for(const [cx,cy] of cellsFor(x,y)){const i=idx(cx,cy);if(pixels[i]!==value){pixels[i]=value;changed=true}}strokeChanged=strokeChanged||changed;return changed}
+function line(a,b){let x0=a.x,y0=a.y,x1=b.x,y1=b.y,dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy;for(;;){paintCell(x0,y0);if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx}if(e2<=dx){err+=dx;y0+=sy}}}
+function flood(x,y){const target=pixels[idx(x,y)],replacement=active;if(target===replacement)return;const q=[[x,y]],seen=new Uint8Array(n*n);while(q.length){const [cx,cy]=q.pop(),i=idx(cx,cy);if(seen[i]||pixels[i]!==target)continue;seen[i]=1;for(const [mx,my] of cellsFor(cx,cy))pixels[idx(mx,my)]=replacement;if(cx>0)q.push([cx-1,cy]);if(cx<n-1)q.push([cx+1,cy]);if(cy>0)q.push([cx,cy-1]);if(cy<n-1)q.push([cx,cy+1])}}
+function chooseTool(t){tool=t;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));cv.style.cursor=t==='picker'?'copy':t==='fill'?'cell':'crosshair';updateStatus()}
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>chooseTool(b.dataset.tool));
+cv.addEventListener('pointerdown',e=>{const p=point(e);if(tool==='picker'){const c=pixels[idx(p.x,p.y)];if(c)setColor(c);status.textContent=c?'Picked '+c:'Transparent pixel';return}if(tool==='fill'){snapshot();flood(p.x,p.y);draw();persist();return}snapshot();drawing=true;strokeChanged=false;lastCell=p;paintCell(p.x,p.y);draw();cv.setPointerCapture?.(e.pointerId);e.preventDefault()});
+cv.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);if(!lastCell||p.x!==lastCell.x||p.y!==lastCell.y){line(lastCell||p,p);lastCell=p;draw()}e.preventDefault()});
+function endStroke(e){if(!drawing)return;drawing=false;lastCell=null;if(!strokeChanged){const prev=undoStack.pop();if(prev)pixels=prev}else persist();updateButtons();draw();e?.preventDefault()}
+cv.addEventListener('pointerup',endStroke);cv.addEventListener('pointercancel',endStroke);
+colorEl.oninput=()=>setColor(colorEl.value);
+gridEl.onchange=draw;mirrorX.onchange=updateStatus;mirrorY.onchange=updateStatus;autosave.onchange=()=>{if(autosave.checked)persist()};
+sizeEl.onchange=()=>{const next=+sizeEl.value;if(next===n)return;if(!confirm('Changing icon size clears the current canvas. Continue?')){sizeEl.value=String(n);return}n=next;pixels=Array(n*n).fill(null);undoStack=[];redoStack=[];persist();updateButtons();draw()};
+$('undo').onclick=()=>{if(!undoStack.length)return;redoStack.push(pixels.slice());pixels=undoStack.pop();updateButtons();persist();draw()};
+$('redo').onclick=()=>{if(!redoStack.length)return;undoStack.push(pixels.slice());pixels=redoStack.pop();updateButtons();persist();draw()};
+$('clear').onclick=()=>{if(pixels.some(Boolean)&&!confirm('Clear the current icon?'))return;snapshot();pixels=Array(n*n).fill(null);persist();draw()};
+$('importBtn').onclick=()=>file.click();
+file.onchange=()=>{const f=file.files&&file.files[0];if(!f)return;const u=URL.createObjectURL(f),img=new Image();img.onload=()=>{snapshot();const o=document.createElement('canvas');o.width=o.height=n;const c=o.getContext('2d');c.clearRect(0,0,n,n);c.imageSmoothingEnabled=false;const s=Math.min(n/img.width,n/img.height),w=Math.max(1,Math.round(img.width*s)),h=Math.max(1,Math.round(img.height*s)),x=Math.floor((n-w)/2),y=Math.floor((n-h)/2);c.drawImage(img,x,y,w,h);const d=c.getImageData(0,0,n,n).data;pixels=Array(n*n);for(let i=0;i<n*n;i++){const a=d[i*4+3];pixels[i]=a<40?null:'#'+[d[i*4],d[i*4+1],d[i*4+2]].map(v=>v.toString(16).padStart(2,'0')).join('')}URL.revokeObjectURL(u);persist();draw();status.textContent='Imported '+f.name+' into '+n+'×'+n+' canvas.'};img.onerror=()=>{URL.revokeObjectURL(u);status.textContent='Could not decode that image.'};img.src=u;file.value=''};
+function exportCanvas(scale){const o=document.createElement('canvas');o.width=o.height=n*scale;const c=o.getContext('2d');c.imageSmoothingEnabled=false;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const col=pixels[idx(x,y)];if(col){c.fillStyle=col;c.fillRect(x*scale,y*scale,scale,scale)}}o.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pixel-icon-'+n+'x'+n+(scale>1?'-'+scale+'x':'')+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200);status.textContent='Exported '+o.width+'×'+o.height+' transparent PNG.'},'image/png')}
+$('save1').onclick=()=>exportCanvas(1);$('save8').onclick=()=>exportCanvas(8);
+window.addEventListener('keydown',e=>{const tag=document.activeElement&&document.activeElement.tagName;if(tag==='INPUT'||tag==='SELECT')return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$('undo').click();return}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();$('redo').click();return}const map={b:'pencil',e:'eraser',f:'fill',i:'picker'};const t=map[e.key.toLowerCase()];if(t)chooseTool(t)});
+restore();setColor(active);updateButtons();draw();
+})();
+</script>
+</body>
+</html>
