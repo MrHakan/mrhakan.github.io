@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Recycle Bin Golf 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:10px}.window{max-width:980px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px;line-height:18px}.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:7px}.panel,.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff}.panel{padding:5px 8px;font-size:12px}.panel b{font-family:monospace}.btn{padding:6px 9px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px)}.stage{margin:0 8px 8px;border:2px solid;border-color:#808080 #fff #fff #808080;background:#006b6b;position:relative}.stage canvas{display:block;width:100%;height:auto;aspect-ratio:8/5;touch-action:none;cursor:crosshair}.status{margin:0 8px 8px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px 8px;font:12px/1.4 monospace;min-height:31px}.help{padding:0 10px 10px;font-size:11px;color:#333;line-height:1.45}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.28);padding:18px}.overlay[hidden]{display:none}.card{width:min(440px,92%);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 rgba(0,0,0,.6)}.card h2{margin:0;background:#000080;color:#fff;font-size:14px;padding:5px 7px}.card .body{padding:16px;font-size:13px;line-height:1.5}.card .body b{font-family:monospace}.card .actions{display:flex;justify-content:flex-end;gap:7px;margin-top:12px}.card button{min-width:88px}@media(max-width:640px){body{padding:5px}.toolbar{padding:5px;gap:4px}.panel{padding:4px 6px;font-size:11px}.btn{padding:6px 8px}.help{font-size:10px}.stage{margin:0 5px 6px}.status{margin:0 5px 6px}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>🗑️ RECYCLE BIN GOLF 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="toolbar">
+    <div class="panel">HOLE <b id="hole">1/5</b></div>
+    <div class="panel">PAR <b id="par">2</b></div>
+    <div class="panel">STROKES <b id="strokes">0</b></div>
+    <div class="panel">TOTAL <b id="total">0</b></div>
+    <div class="panel">BEST <b id="best">--</b></div>
+    <button class="btn" id="resetBall">RESET BALL +1</button>
+    <button class="btn" id="restart">RESTART RUN</button>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="game" width="800" height="500" aria-label="Recycle Bin Golf 98 game"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="card">
+        <h2>recycle-golf.exe</h2>
+        <div class="body" id="overlayBody">
+          Drag the file <b>backward</b> and release to fling it into the Recycle Bin.<br><br>
+          Bank shots off old windows. Fewer strokes wins.
+          <div class="actions"><button class="btn" id="overlayBtn">START</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="status" id="status">Ready. Pull the file opposite the direction you want it to fly.</div>
+  <div class="help">Mouse/touch: press the file, drag backward, release. The dotted guide previews the shot. Walls and windows bounce. Five holes, one local best score.</div>
+</main>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height,$=id=>document.getElementById(id);
+const holeEl=$('hole'),parEl=$('par'),strokesEl=$('strokes'),totalEl=$('total'),bestEl=$('best'),statusEl=$('status'),overlay=$('overlay'),overlayBody=$('overlayBody'),overlayBtn=$('overlayBtn');
+const holes=[
+ {par:2,start:[105,375],target:[690,365],obs:[[325,170,165,105,'my computer']]},
+ {par:3,start:[110,105],target:[684,390],obs:[[265,115,170,92,'setup.exe'],[420,310,160,82,'notepad']]},
+ {par:3,start:[95,400],target:[700,95],obs:[[235,230,165,88,'paint'],[455,125,155,92,'internet'],[500,345,145,78,'help']]},
+ {par:4,start:[120,245],target:[700,250],obs:[[290,75,145,125,'control panel'],[290,315,145,110,'documents'],[515,175,120,145,'properties']]},
+ {par:4,start:[95,410],target:[705,90],obs:[[205,255,150,88,'warning'],[385,95,145,92,'system'],[485,330,165,82,'network'],[620,170,105,82,'about']]}
+];
+let hi=0,completed=0,strokes=0,ball={x:0,y:0,vx:0,vy:0,r:15},holeIndex=0,drag=false,dragPos={x:0,y:0},started=false,finished=false,last=0,lastBounce=0,audio=null;
+try{hi=+(localStorage.getItem('recycle-golf-best')||0)}catch(e){} bestEl.textContent=hi||'--';
+function beep(freq=260,dur=.05,type='square',gain=.025){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=freq;g.gain.value=gain;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+dur);o.stop(audio.currentTime+dur)}catch(e){}}
+function loadHole(i){holeIndex=i;const h=holes[i];ball.x=h.start[0];ball.y=h.start[1];ball.vx=ball.vy=0;strokes=0;drag=false;finished=false;holeEl.textContent=(i+1)+'/5';parEl.textContent=h.par;updateHud();statusEl.textContent='Hole '+(i+1)+': drag the file backward and release.'}
+function updateHud(){strokesEl.textContent=strokes;totalEl.textContent=completed+strokes;bestEl.textContent=hi||'--'}
+function pt(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+function speed(){return Math.hypot(ball.vx,ball.vy)}
+cv.addEventListener('pointerdown',e=>{if(!started||finished||speed()>12)return;const p=pt(e);if(Math.hypot(p.x-ball.x,p.y-ball.y)<=40){drag=true;dragPos=p;cv.setPointerCapture?.(e.pointerId);e.preventDefault()}});
+cv.addEventListener('pointermove',e=>{if(!drag)return;dragPos=pt(e);e.preventDefault()});
+cv.addEventListener('pointerup',e=>{if(!drag)return;drag=false;const p=pt(e),dx=ball.x-p.x,dy=ball.y-p.y,d=Math.hypot(dx,dy);if(d<8){statusEl.textContent='Tiny pull ignored. Drag farther for a real shot.';return}const pull=Math.min(115,d),m=pull/d;ball.vx=dx*m*5.25;ball.vy=dy*m*5.25;strokes++;updateHud();statusEl.textContent='Stroke '+strokes+'. File in flight…';beep(180+pull*2,.06,'square',.02);e.preventDefault()});
+function resetBall(penalty=true){if(!started||finished)return;const h=holes[holeIndex];ball.x=h.start[0];ball.y=h.start[1];ball.vx=ball.vy=0;drag=false;if(penalty)strokes++;updateHud();statusEl.textContent=penalty?'Ball reset. +1 stroke.':'Ball reset.'}
+$('resetBall').onclick=()=>resetBall(true);
+$('restart').onclick=()=>{completed=0;started=true;finished=false;loadHole(0);overlay.hidden=true};
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function collideRect(r){const nx=clamp(ball.x,r[0],r[0]+r[2]),ny=clamp(ball.y,r[1],r[1]+r[3]);let dx=ball.x-nx,dy=ball.y-ny,d2=dx*dx+dy*dy;if(d2>=ball.r*ball.r)return false;let ux=0,uy=0,pen=0;if(d2>.0001){const d=Math.sqrt(d2);ux=dx/d;uy=dy/d;pen=ball.r-d}else{const left=Math.abs(ball.x-r[0]),right=Math.abs(r[0]+r[2]-ball.x),top=Math.abs(ball.y-r[1]),bottom=Math.abs(r[1]+r[3]-ball.y),m=Math.min(left,right,top,bottom);if(m===left){ux=-1;pen=ball.r+left}else if(m===right){ux=1;pen=ball.r+right}else if(m===top){uy=-1;pen=ball.r+top}else{uy=1;pen=ball.r+bottom}}
+ ball.x+=ux*pen;ball.y+=uy*pen;const dot=ball.vx*ux+ball.vy*uy;if(dot<0){ball.vx-=1.72*dot*ux;ball.vy-=1.72*dot*uy}return true}
+function finishHole(){if(finished)return;finished=true;ball.vx=ball.vy=0;completed+=strokes;beep(720,.09,'square',.03);setTimeout(()=>beep(980,.11,'square',.025),80);const h=holes[holeIndex],delta=strokes-h.par,grade=delta<0?'under par!':delta===0?'par!':('+'+delta+' over par');if(holeIndex<holes.length-1){overlayBody.innerHTML='<b>Hole '+(holeIndex+1)+' complete:</b> '+strokes+' strokes ('+grade+')<br><br>Total so far: <b>'+completed+'</b><div class="actions"><button class="btn" id="nextBtn">NEXT HOLE</button></div>';overlay.hidden=false;document.getElementById('nextBtn').onclick=()=>{overlay.hidden=true;loadHole(holeIndex+1)}}else{const parTotal=holes.reduce((s,x)=>s+x.par,0),diff=completed-parTotal;let record=false;if(!hi||completed<hi){hi=completed;record=true;try{localStorage.setItem('recycle-golf-best',hi)}catch(e){}}updateHud();overlayBody.innerHTML='<b>Run complete!</b><br><br>Score: <b>'+completed+'</b> strokes · Par '+parTotal+' · '+(diff===0?'EVEN':diff>0?'+'+diff:String(diff))+(record?'<br><br>🏆 NEW LOCAL BEST!':'')+'<div class="actions"><button class="btn" id="againBtn">PLAY AGAIN</button></div>';overlay.hidden=false;document.getElementById('againBtn').onclick=()=>{completed=0;overlay.hidden=true;loadHole(0)}}}
+function physics(dt){if(!started||finished||drag)return;if(speed()<3){ball.vx=ball.vy=0;return}ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;const bounce=.78;if(ball.x<ball.r){ball.x=ball.r;ball.vx=Math.abs(ball.vx)*bounce}if(ball.x>W-ball.r){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx)*bounce}if(ball.y<72+ball.r){ball.y=72+ball.r;ball.vy=Math.abs(ball.vy)*bounce}if(ball.y>H-ball.r){ball.y=H-ball.r;ball.vy=-Math.abs(ball.vy)*bounce}
+ let hit=false;for(const r of holes[holeIndex].obs)hit=collideRect(r)||hit;if(hit&&performance.now()-lastBounce>70){beep(120,.035,'square',.012);lastBounce=performance.now()}
+ const f=Math.pow(.986,dt*60);ball.vx*=f;ball.vy*=f;const t=holes[holeIndex].target;if(Math.hypot(ball.x-t[0],ball.y-t[1])<34&&speed()<520)finishHole()}
+function drawDesktop(){ctx.fillStyle='#008080';ctx.fillRect(0,0,W,H);ctx.fillStyle='#c0c0c0';ctx.fillRect(0,0,W,68);ctx.fillStyle='#fff';ctx.fillRect(0,68,W,2);ctx.fillStyle='#000';ctx.font='bold 16px "MS Sans Serif",sans-serif';ctx.fillText('C:\WINDOWS\DESKTOP\recycle-golf',16,28);ctx.font='12px monospace';ctx.fillText('drag backward → release → delete the file',16,49)}
+function drawWindow(r){const [x,y,w,h,name]=r;ctx.fillStyle='#c0c0c0';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeRect(x+1,y+1,w-2,h-2);ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.strokeRect(x+3,y+3,w-6,h-6);ctx.fillStyle='#000080';ctx.fillRect(x+6,y+6,w-12,21);ctx.fillStyle='#fff';ctx.font='bold 11px "MS Sans Serif",sans-serif';ctx.fillText(name,x+11,y+21);ctx.fillStyle='#fff';ctx.fillRect(x+11,y+35,w-22,h-47);ctx.fillStyle='#808080';ctx.font='10px monospace';ctx.fillText('obstacle window',x+17,y+55)}
+function drawTarget(t){const x=t[0],y=t[1];ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(255,255,255,.13)';ctx.beginPath();ctx.arc(0,0,38,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.setLineDash([5,5]);ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,34,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#d8d8d8';ctx.fillRect(-17,-16,34,35);ctx.fillStyle='#202080';ctx.fillRect(-14,-12,28,28);ctx.fillStyle='#bfc8ff';ctx.fillRect(-9,-7,18,18);ctx.strokeStyle='#111';ctx.strokeRect(-17,-16,34,35);ctx.fillStyle='#fff';ctx.font='bold 10px "MS Sans Serif",sans-serif';ctx.textAlign='center';ctx.fillText('RECYCLE',0,31);ctx.fillText('BIN',0,42);ctx.restore()}
+function drawBall(){ctx.save();ctx.translate(ball.x,ball.y);ctx.fillStyle='#fff';ctx.fillRect(-14,-12,28,24);ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(-14,-12,28,24);ctx.fillStyle='#000080';ctx.fillRect(-10,-7,15,3);ctx.fillRect(-10,-1,20,2);ctx.fillRect(-10,5,17,2);ctx.fillStyle='#d9d9d9';ctx.beginPath();ctx.moveTo(7,-12);ctx.lineTo(14,-5);ctx.lineTo(7,-5);ctx.closePath();ctx.fill();ctx.restore()}
+function drawAim(){if(!drag)return;let dx=dragPos.x-ball.x,dy=dragPos.y-ball.y,d=Math.hypot(dx,dy)||1,lim=Math.min(115,d),px=ball.x+dx/d*lim,py=ball.y+dy/d*lim;ctx.strokeStyle='#ffff00';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(ball.x,ball.y);ctx.lineTo(px,py);ctx.stroke();ctx.setLineDash([]);const ex=ball.x-dx/d*lim*1.6,ey=ball.y-dy/d*lim*1.6;ctx.strokeStyle='#fff';ctx.beginPath();ctx.moveTo(ball.x,ball.y);ctx.lineTo(ex,ey);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,ey,4,0,Math.PI*2);ctx.fill()}
+function render(){drawDesktop();const h=holes[holeIndex];for(const r of h.obs)drawWindow(r);drawTarget(h.target);drawBall();drawAim();ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(10,H-31,285,21);ctx.fillStyle='#fff';ctx.font='11px monospace';ctx.fillText('speed '+Math.round(speed())+'  |  pull '+(drag?Math.round(Math.min(115,Math.hypot(dragPos.x-ball.x,dragPos.y-ball.y))):0)+'/115',18,H-16)}
+function loop(t){if(!last)last=t;const dt=Math.min(.028,(t-last)/1000);last=t;physics(dt);render();requestAnimationFrame(loop)}
+overlayBtn.onclick=()=>{started=true;overlay.hidden=true;loadHole(0);beep(330,.05,'square',.02)};
+loadHole(0);started=false;requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
