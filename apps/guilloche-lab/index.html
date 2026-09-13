@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Guilloche Lab 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:10px}.window{max-width:1080px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 #000}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.content{display:grid;grid-template-columns:300px minmax(0,1fr);gap:9px;padding:9px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;margin-bottom:8px}.group h2{font-size:12px;margin:0 0 7px}.row{display:grid;grid-template-columns:88px 1fr 43px;gap:6px;align-items:center;font-size:11px;margin:7px 0}.row select,.row input[type=range],.row input[type=text]{width:100%}.row select,.seed{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.val{font-family:monospace;text-align:right}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px 6px;font-weight:700;font-size:11px;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.preview{min-width:0}.canvasWrap{background:#404040;border:2px solid;border-color:#808080 #fff #fff #808080;display:grid;place-items:center;padding:8px;min-height:520px;overflow:auto;background-image:linear-gradient(45deg,#555 25%,transparent 25%),linear-gradient(-45deg,#555 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#555 75%),linear-gradient(-45deg,transparent 75%,#555 75%);background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0}canvas{max-width:100%;height:auto;background:#f3ead2;box-shadow:0 0 0 1px #000}.status{margin-top:7px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font:11px monospace}.note{font-size:10px;line-height:1.4;color:#333;margin:7px 0 0}@media(max-width:760px){body{padding:5px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.canvasWrap{min-height:320px}.buttons{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>🪙 GUILLOCHE LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="content">
+    <section class="controls">
+      <div class="group"><h2>DESIGN</h2>
+        <label class="row"><span>Pattern</span><select id="pattern"><option value="rosette">Rosette</option><option value="hypo">Hypotrochoid</option><option value="lissa">Lissajous</option><option value="seal">Wave seal</option></select><span></span></label>
+        <label class="row"><span>Palette</span><select id="palette"><option value="banknote">Banknote</option><option value="navy">Navy ink</option><option value="emerald">Emerald</option><option value="burgundy">Burgundy</option><option value="mono">Monochrome</option></select><span></span></label>
+        <label class="row"><span>Seed</span><input class="seed" id="seed" type="text" value="MRHAKAN98"><span></span></label>
+        <label class="row"><span>Lobes</span><input id="lobes" type="range" min="3" max="32" value="11"><span class="val" id="lobesV"></span></label>
+        <label class="row"><span>Rings</span><input id="rings" type="range" min="1" max="18" value="8"><span class="val" id="ringsV"></span></label>
+        <label class="row"><span>Density</span><input id="density" type="range" min="120" max="1200" step="40" value="520"><span class="val" id="densityV"></span></label>
+        <label class="row"><span>Amplitude</span><input id="amp" type="range" min="8" max="160" value="72"><span class="val" id="ampV"></span></label>
+        <label class="row"><span>Twist</span><input id="twist" type="range" min="-120" max="120" value="19"><span class="val" id="twistV"></span></label>
+        <label class="row"><span>Stroke</span><input id="stroke" type="range" min="1" max="12" value="3"><span class="val" id="strokeV"></span></label>
+      </div>
+      <div class="buttons"><button class="btn" id="random">RANDOMIZE</button><button class="btn" id="copy">COPY SEED</button><button class="btn" id="png">SAVE PNG</button><button class="btn" id="svg">SAVE SVG</button></div>
+      <p class="note">Everything is generated locally. Same seed + settings reproduces the same engraving.</p>
+    </section>
+    <section class="preview"><div class="canvasWrap"><canvas id="art" width="900" height="700"></canvas></div><div class="status" id="status">ready</div></section>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),cv=$('art'),ctx=cv.getContext('2d'),status=$('status');
+const palettes={banknote:{bg:'#f2ead4',a:'#234f46',b:'#8b5035',grid:'#cabf9d'},navy:{bg:'#f4f0df',a:'#092b5d',b:'#406b8e',grid:'#c8c2a9'},emerald:{bg:'#eef2dc',a:'#0d5b42',b:'#49a36d',grid:'#c5cdb1'},burgundy:{bg:'#f4e8df',a:'#6d1738',b:'#a85466',grid:'#d7bbb2'},mono:{bg:'#f1f1ed',a:'#171717',b:'#666666',grid:'#c9c9c3'}};
+let paths=[];
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rng(seed){let a=hash(seed)||1;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function params(){return{pattern:$('pattern').value,palette:$('palette').value,seed:$('seed').value||'MRHAKAN98',lobes:+$('lobes').value,rings:+$('rings').value,density:+$('density').value,amp:+$('amp').value,twist:+$('twist').value,stroke:+$('stroke').value}}
+function point(p,i,n,j,rand){const t=i/n*Math.PI*2,tw=p.twist*Math.PI/180*j;let rad=190+j*6,x=0,y=0;if(p.pattern==='rosette'){rad+=Math.sin(p.lobes*t+tw)*p.amp*(.28+.72*j/Math.max(1,p.rings-1));x=Math.cos(t)*rad;y=Math.sin(t)*rad}else if(p.pattern==='hypo'){const R=205-j*2,r=42+(p.lobes%9)*3,d=p.amp*.9;x=(R-r)*Math.cos(t+tw)+d*Math.cos((R-r)/r*(t+tw));y=(R-r)*Math.sin(t+tw)-d*Math.sin((R-r)/r*(t+tw))}else if(p.pattern==='lissa'){const a=p.lobes,b=Math.max(2,p.lobes-1),phase=tw+j*.13;x=230*Math.sin(a*t+phase)*(1-j*.012);y=230*Math.sin(b*t)*(1-j*.012)}else{rad=200+Math.sin(p.lobes*t+tw)*p.amp*.48+Math.sin((p.lobes+3)*t-tw)*p.amp*.22;x=Math.cos(t)*rad;y=Math.sin(t)*rad}const jitter=(rand()-.5)*.65;return[450+x+jitter,350+y+jitter]}
+function labels(){for(const id of ['lobes','rings','density','amp','twist','stroke'])$(id+'V').textContent=$(id).value}
+function render(){const p=params(),pal=palettes[p.palette],rand=rng(p.seed);ctx.fillStyle=pal.bg;ctx.fillRect(0,0,900,700);ctx.strokeStyle=pal.grid;ctx.lineWidth=1;ctx.globalAlpha=.35;for(let x=30;x<900;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,700);ctx.stroke()}for(let y=20;y<700;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(900,y);ctx.stroke()}ctx.globalAlpha=1;paths=[];for(let j=0;j<p.rings;j++){const pts=[];for(let i=0;i<=p.density;i++)pts.push(point(p,i,p.density,j,rand));paths.push(pts);ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.closePath();ctx.strokeStyle=j%2?pal.b:pal.a;ctx.globalAlpha=.54+.42*(j/p.rings);ctx.lineWidth=Math.max(.35,p.stroke/3);ctx.stroke()}ctx.globalAlpha=1;ctx.strokeStyle=pal.a;ctx.lineWidth=1;ctx.beginPath();ctx.arc(450,350,267,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(450,350,275,0,Math.PI*2);ctx.stroke();ctx.fillStyle=pal.a;ctx.font='bold 18px Georgia,serif';ctx.textAlign='center';ctx.fillText('GUILLOCHE LAB · '+p.seed.toUpperCase().slice(0,22),450,655);ctx.font='11px monospace';ctx.fillText(p.pattern.toUpperCase()+' / '+p.lobes+' LOBES / '+p.rings+' RINGS',450,676);status.textContent=p.pattern+' · '+(p.density*p.rings)+' plotted points · seed '+p.seed;labels()}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]))}
+function svgText(){const p=params(),pal=palettes[p.palette];let s='<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700"><rect width="900" height="700" fill="'+pal.bg+'"/>';paths.forEach((pts,j)=>{const d=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(2)+' '+q[1].toFixed(2)).join(' ')+' Z';s+='<path d="'+d+'" fill="none" stroke="'+(j%2?pal.b:pal.a)+'" stroke-width="'+Math.max(.35,p.stroke/3)+'" opacity="'+(.54+.42*(j/p.rings)).toFixed(2)+'"/>'});s+='<circle cx="450" cy="350" r="267" fill="none" stroke="'+pal.a+'"/><circle cx="450" cy="350" r="275" fill="none" stroke="'+pal.a+'"/><text x="450" y="655" text-anchor="middle" font-family="Georgia,serif" font-size="18" font-weight="bold" fill="'+pal.a+'">GUILLOCHE LAB · '+esc(p.seed.toUpperCase().slice(0,22))+'</text></svg>';return s}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+for(const id of ['pattern','palette'])$(id).addEventListener('change',render);$('seed').addEventListener('input',render);for(const id of ['lobes','rings','density','amp','twist','stroke'])$(id).addEventListener('input',render);
+$('random').onclick=()=>{const r=rng(String(Date.now()));$('seed').value=Math.floor(r()*0xffffff).toString(16).toUpperCase();$('lobes').value=5+Math.floor(r()*25);$('rings').value=3+Math.floor(r()*13);$('density').value=280+Math.floor(r()*18)*40;$('amp').value=25+Math.floor(r()*115);$('twist').value=-90+Math.floor(r()*181);$('stroke').value=1+Math.floor(r()*7);const ps=['rosette','hypo','lissa','seal'];$('pattern').value=ps[Math.floor(r()*ps.length)];render()};
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('seed').value);status.textContent='seed copied'}catch(e){$('seed').select();document.execCommand('copy');status.textContent='seed copied'}};$('png').onclick=()=>cv.toBlob(b=>dl(b,'guilloche-'+($('seed').value||'design')+'.png'),'image/png');$('svg').onclick=()=>dl(new Blob([svgText()],{type:'image/svg+xml'}),'guilloche-'+($('seed').value||'design')+'.svg');render();
+})();
+</script>
+</body>
+</html>
