@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Selection Frenzy 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:8px}.window{max-width:1040px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.5)}.title{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px;line-height:18px}.toolbar{display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:7px}.panel,.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff}.panel{padding:5px 8px;font-size:12px}.panel b{font-family:monospace}.btn{padding:6px 10px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px)}.mission{margin:0 8px 6px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:7px 9px;font:12px/1.4 monospace}.desktop{position:relative;margin:0 8px 8px;height:min(66vh,620px);min-height:430px;overflow:hidden;background:#008080;border:2px solid;border-color:#808080 #fff #fff #808080;touch-action:none;user-select:none}.icon{position:absolute;width:78px;text-align:center;color:#fff;text-shadow:1px 1px #000;font-size:11px;line-height:1.1;padding:3px;border:1px solid transparent}.icon .pic{font-size:34px;display:block;line-height:40px}.icon.selected{background:rgba(0,0,128,.45);border-color:rgba(255,255,255,.5)}.selectbox{position:absolute;border:1px dotted #fff;background:rgba(0,0,128,.22);pointer-events:none}.status{margin:0 8px 8px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px 8px;font:12px/1.4 monospace;min-height:31px}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.3);padding:16px;z-index:5}.overlay[hidden]{display:none}.card{width:min(470px,94%);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 rgba(0,0,0,.6)}.card h2{margin:0;background:#000080;color:#fff;font-size:14px;padding:5px 7px}.card .body{padding:16px;font-size:13px;line-height:1.5}.actions{text-align:right;margin-top:12px}.flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .12s;background:#fff}.flash.bad{background:#f44}.flash.on{opacity:.18}@media(max-width:640px){body{padding:4px}.toolbar{padding:5px}.panel{font-size:11px;padding:4px 6px}.desktop{margin:0 4px 6px;min-height:390px;height:66vh}.mission,.status{margin-left:4px;margin-right:4px}.icon{width:64px;font-size:10px}.icon .pic{font-size:29px;line-height:34px}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>🖱️ SELECTION FRENZY 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="toolbar">
+    <div class="panel">TIME <b id="time">60.0</b></div>
+    <div class="panel">SCORE <b id="score">0</b></div>
+    <div class="panel">COMBO <b id="combo">x1</b></div>
+    <div class="panel">BEST <b id="best">0</b></div>
+    <button class="btn" id="restart">RESTART</button>
+  </div>
+  <div class="mission" id="mission">Mission loading...</div>
+  <section class="desktop" id="desktop" aria-label="selection game desktop">
+    <div class="flash" id="flash"></div>
+    <div class="overlay" id="overlay">
+      <div class="card"><h2>selection-frenzy.exe</h2><div class="body" id="overlayBody">Drag a Windows-style selection rectangle around <b>only the requested file type</b>.<br><br>Correct icons score points. Wrong icons break your combo and cost points. Clear the requested quota before time expires.<div class="actions"><button class="btn" id="start">START</button></div></div></div>
+    </div>
+  </section>
+  <div class="status" id="status">Tip: tiny precise drags beat giant panic-boxes.</div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),desk=$('desktop'),timeEl=$('time'),scoreEl=$('score'),comboEl=$('combo'),bestEl=$('best'),missionEl=$('mission'),status=$('status'),overlay=$('overlay'),overlayBody=$('overlayBody'),flash=$('flash');
+const TYPES=[
+ {id:'txt',name:'TEXT FILES',icon:'📄',ext:'.txt'},
+ {id:'img',name:'IMAGES',icon:'🖼️',ext:'.bmp'},
+ {id:'zip',name:'ARCHIVES',icon:'🗜️',ext:'.zip'},
+ {id:'exe',name:'PROGRAMS',icon:'💾',ext:'.exe'},
+ {id:'snd',name:'SOUNDS',icon:'🔊',ext:'.wav'}
+];
+const NAMES=['memo','secret','cat','setup','backup','party','notes','driver','vacation','system','doom','report','cool','final','untitled','stuff','music','logo','readme','taxes','virus','pizza','school','desktop','internet'];
+let running=false,score=0,combo=1,best=0,time=60,target=null,quota=0,done=0,icons=[],dragging=false,startPt=null,box=null,last=performance.now(),audio=null;
+try{best=+(localStorage.getItem('selection-frenzy-best')||0)}catch(e){}bestEl.textContent=best;
+function beep(f=420,d=.045,t='square',g=.02){try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),v=audio.createGain();o.type=t;o.frequency.value=f;v.gain.value=g;o.connect(v);v.connect(audio.destination);o.start();v.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+d);o.stop(audio.currentTime+d)}catch(e){}}
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function bounds(){return desk.getBoundingClientRect()}
+function spawn(){desk.querySelectorAll('.icon').forEach(x=>x.remove());icons=[];const r=bounds(),cols=Math.max(4,Math.floor(r.width/86)),rows=Math.max(4,Math.floor(r.height/82)),count=Math.min(24,cols*rows);const cells=[];for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)cells.push([x,y]);cells.sort(()=>Math.random()-.5);for(let i=0;i<count;i++){const type=Math.random()<.38?target:pick(TYPES),cell=cells[i],el=document.createElement('div');el.className='icon';el.dataset.type=type.id;el.innerHTML='<span class="pic">'+type.icon+'</span><span>'+pick(NAMES)+type.ext+'</span>';const maxX=Math.max(4,r.width-78),maxY=Math.max(4,r.height-66),x=Math.min(maxX,10+cell[0]*(maxX/Math.max(1,cols-1))+rand(-10,10)),y=Math.min(maxY,8+cell[1]*(maxY/Math.max(1,rows-1))+rand(-8,8));el.style.left=x+'px';el.style.top=y+'px';desk.appendChild(el);icons.push({el,type});}}
+function newMission(){target=pick(TYPES);quota=4+((Math.random()*4)|0);done=0;missionEl.textContent='SELECT: '+target.name+'  ·  quota '+quota+'  ·  drag only around matching icons';spawn()}
+function reset(){score=0;combo=1;time=60;running=true;last=performance.now();overlay.hidden=true;newMission();update();status.textContent='Drag a box around the requested files.'}
+function update(){timeEl.textContent=Math.max(0,time).toFixed(1);scoreEl.textContent=score;comboEl.textContent='x'+combo;bestEl.textContent=best;missionEl.textContent='SELECT: '+target.name+'  ·  '+done+'/'+quota+' complete'}
+function pt(e){const r=bounds();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function rect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)}}
+function overlaps(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function iconRect(el){return{x:el.offsetLeft,y:el.offsetTop,w:el.offsetWidth,h:el.offsetHeight}}
+function endDrag(p){if(!dragging)return;dragging=false;const r=rect(startPt,p);if(box){box.remove();box=null}icons.forEach(i=>i.el.classList.remove('selected'));if(r.w<8||r.h<8)return;const hit=icons.filter(i=>overlaps(r,iconRect(i.el)));if(!hit.length){status.textContent='Empty selection.';return}const good=hit.filter(i=>i.type.id===target.id).length,bad=hit.length-good;if(good){const gain=good*100*combo;score+=gain;done+=good;combo=Math.min(8,combo+1);status.textContent='+'+gain+' · '+good+' correct'+(bad?' · '+bad+' wrong!':' · clean box!');beep(520+combo*55,.05,'square',.025)}if(bad){score=Math.max(0,score-bad*120);combo=1;flash.className='flash bad on';setTimeout(()=>flash.className='flash',120);beep(120,.08,'sawtooth',.03)}hit.forEach(i=>{if(i.type.id===target.id)i.el.style.visibility='hidden'});update();if(done>=quota){score+=350;combo=Math.min(8,combo+1);status.textContent='Mission cleared! +350 bonus';beep(820,.08);setTimeout(()=>{if(running)newMission()},320)}}
+desk.addEventListener('pointerdown',e=>{if(!running||e.target.closest('.overlay'))return;dragging=true;startPt=pt(e);box=document.createElement('div');box.className='selectbox';desk.appendChild(box);desk.setPointerCapture?.(e.pointerId);e.preventDefault()});
+desk.addEventListener('pointermove',e=>{if(!dragging)return;const p=pt(e),r=rect(startPt,p);Object.assign(box.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});icons.forEach(i=>i.el.classList.toggle('selected',overlaps(r,iconRect(i.el))));e.preventDefault()});
+desk.addEventListener('pointerup',e=>{if(!dragging)return;endDrag(pt(e));e.preventDefault()});desk.addEventListener('pointercancel',()=>{if(box)box.remove();box=null;dragging=false});
+function finish(){running=false;dragging=false;if(box)box.remove();box=null;if(score>best){best=score;try{localStorage.setItem('selection-frenzy-best',best)}catch(e){}}update();overlayBody.innerHTML='<b>Time!</b><br><br>Score: <b>'+score+'</b><br>Best: <b>'+best+'</b><br><br>'+(score>=5000?'selection wizard.':'your desktop survives... barely.')+'<div class="actions"><button class="btn" id="again">PLAY AGAIN</button></div>';overlay.hidden=false;document.getElementById('again').onclick=reset;beep(180,.15,'sawtooth',.03)}
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(running){time-=dt;if(time<=0){time=0;finish()}update()}requestAnimationFrame(loop)}
+$('start').onclick=reset;$('restart').onclick=reset;window.addEventListener('resize',()=>{if(running)spawn()});requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
