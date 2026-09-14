@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#008080">
+<title>Palette Lab 98</title>
+<style>
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:10px}.window{max-width:1080px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px;line-height:18px}.content{display:grid;grid-template-columns:310px minmax(0,1fr);gap:10px;padding:10px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;margin-bottom:9px}.group h2{font-size:12px;margin:0 0 7px}.row{display:grid;grid-template-columns:95px 1fr 42px;gap:6px;align-items:center;font-size:12px;margin:7px 0}.row input[type=range],.row select{width:100%}.row select{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.val{text-align:right;font-family:monospace}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px;font-weight:700;font-size:12px;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.drop{min-height:130px;background:#fff;border:2px dashed #808080;display:grid;place-items:center;text-align:center;padding:12px;font-size:12px;line-height:1.45;cursor:pointer}.drop.drag{background:#ffffcf;border-color:#000080}.preview{min-width:0}.canvasbox{background:#202020;border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;display:grid;place-items:center;min-height:420px}.canvasbox canvas{max-width:100%;max-height:520px;width:auto;height:auto;display:block;background:#fff;image-rendering:auto}.palette{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px}.swatch{min-width:0;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:4px;cursor:pointer}.chip{height:64px;border:1px solid #000}.hex{font:11px monospace;text-align:center;margin-top:4px;overflow:hidden;text-overflow:ellipsis}.status{margin-top:8px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:7px;font:12px/1.45 monospace;min-height:42px}.note{font-size:11px;line-height:1.4;color:#333;margin:8px 0 0}@media(max-width:800px){body{padding:5px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.canvasbox{min-height:260px}.palette{grid-template-columns:repeat(3,1fr)}.btn{min-height:38px}}
+</style>
+</head>
+<body>
+<main class="window">
+  <div class="title"><span>🎨 PALETTE LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="content">
+    <section class="controls">
+      <div class="group"><h2>IMAGE SOURCE</h2><div class="drop" id="drop">Drop an image here<br>or click to browse<br><small>PNG · JPG · WEBP · GIF</small></div><input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden><div class="actions" style="margin-top:7px"><button class="btn" id="demo">LOAD DEMO</button><button class="btn" id="clear">CLEAR</button></div></div>
+      <div class="group"><h2>EXTRACT</h2>
+        <label class="row"><span>Colors</span><input id="count" type="range" min="3" max="12" value="6"><span class="val" id="countV">6</span></label>
+        <label class="row"><span>Quality</span><select id="quality"><option value="8">Fast</option><option value="4" selected>Balanced</option><option value="2">Fine</option></select><span></span></label>
+        <label class="row"><span>Sort</span><select id="sort"><option value="dominance">Dominance</option><option value="hue">Hue</option><option value="light">Lightness</option></select><span></span></label>
+        <button class="btn" id="extract" style="width:100%">EXTRACT PALETTE</button>
+      </div>
+      <div class="group"><h2>EXPORT</h2><div class="actions"><button class="btn" id="copyCss">COPY CSS</button><button class="btn" id="copyJson">COPY JSON</button><button class="btn" id="saveGpl">SAVE .GPL</button><button class="btn" id="saveTxt">SAVE .TXT</button></div><p class="note">Everything stays in your browser. No uploads, APIs, trackers, or accounts.</p></div>
+    </section>
+    <section class="preview">
+      <div class="canvasbox"><canvas id="canvas" width="720" height="460" aria-label="image preview"></canvas></div>
+      <div class="palette" id="palette"></div>
+      <div class="status" id="status">Load an image or use the generated demo, then extract its dominant colors.</div>
+    </section>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),cv=$('canvas'),ctx=cv.getContext('2d',{willReadFrequently:true}),drop=$('drop'),file=$('file'),paletteEl=$('palette'),status=$('status'),count=$('count'),countV=$('countV'),quality=$('quality'),sort=$('sort');
+let source=null,palette=[];
+count.oninput=()=>countV.textContent=count.value;
+function checker(){ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);for(let y=0;y<cv.height;y+=24)for(let x=0;x<cv.width;x+=24){if(((x/24+y/24)|0)%2===0){ctx.fillStyle='#e7e7e7';ctx.fillRect(x,y,24,24)}}}
+function drawImage(img){checker();const s=Math.min(cv.width/img.width,cv.height/img.height),w=Math.max(1,img.width*s),h=Math.max(1,img.height*s),x=(cv.width-w)/2,y=(cv.height-h)/2;ctx.drawImage(img,x,y,w,h);source={x,y,w,h};status.textContent='Image loaded locally. Ready to extract colors.'}
+function loadBlob(blob){if(!blob)return;const url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{drawImage(img);URL.revokeObjectURL(url);extractPalette()};img.onerror=()=>{status.textContent='Could not read that image.';URL.revokeObjectURL(url)};img.src=url}
+drop.onclick=()=>file.click();file.onchange=()=>loadBlob(file.files&&file.files[0]);
+['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>loadBlob(e.dataTransfer.files&&e.dataTransfer.files[0]));
+function demo(){checker();const g=ctx.createLinearGradient(0,0,cv.width,cv.height);g.addColorStop(0,'#07052a');g.addColorStop(.28,'#253ac9');g.addColorStop(.52,'#11c9a0');g.addColorStop(.76,'#ffb51b');g.addColorStop(1,'#ff4f70');ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);for(let i=0;i<26;i++){ctx.fillStyle=['#0df259','#fff4cf','#6b27ff','#ff2d95','#152135'][i%5];ctx.beginPath();ctx.arc((i*113)%cv.width,(i*67)%cv.height,18+(i%6)*9,0,Math.PI*2);ctx.fill()}ctx.fillStyle='rgba(0,0,0,.78)';ctx.fillRect(60,310,600,95);ctx.fillStyle='#fff';ctx.font='bold 44px monospace';ctx.fillText('PALETTE LAB 98',88,370);source={x:0,y:0,w:cv.width,h:cv.height};status.textContent='Generated demo loaded.';extractPalette()}
+function rgbHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('').toUpperCase()}
+function dist(a,b){const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return dr*dr+dg*dg+db*db}
+function rgbToHsl(c){let [r,g,b]=c.map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,s=0,l=(mx+mn)/2,d=mx-mn;if(d){s=l>.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4}h/=6}return[h,s,l]}
+function extractPalette(){if(!source){status.textContent='Load an image first.';return}const data=ctx.getImageData(source.x,source.y,source.w,source.h).data,step=+quality.value,k=+count.value,pts=[];for(let y=0;y<source.h;y+=step)for(let x=0;x<source.w;x+=step){const i=((Math.floor(source.y+y)*cv.width+Math.floor(source.x+x))*4);if(data[i+3]<180)continue;const r=data[i],g=data[i+1],b=data[i+2];if(r>248&&g>248&&b>248)continue;pts.push([r,g,b])}if(!pts.length){status.textContent='No usable opaque pixels found.';return}let cent=[];for(let i=0;i<k;i++)cent.push(pts[Math.floor(i*(pts.length-1)/Math.max(1,k-1))].slice());for(let iter=0;iter<8;iter++){const sum=Array.from({length:k},()=>[0,0,0,0]);for(const p of pts){let bi=0,bd=Infinity;for(let j=0;j<k;j++){const d=dist(p,cent[j]);if(d<bd){bd=d;bi=j}}sum[bi][0]+=p[0];sum[bi][1]+=p[1];sum[bi][2]+=p[2];sum[bi][3]++}for(let j=0;j<k;j++)if(sum[j][3])cent[j]=[sum[j][0]/sum[j][3],sum[j][1]/sum[j][3],sum[j][2]/sum[j][3]]}
+const counts=Array(k).fill(0);for(const p of pts){let bi=0,bd=Infinity;for(let j=0;j<k;j++){const d=dist(p,cent[j]);if(d<bd){bd=d;bi=j}}counts[bi]++}palette=cent.map((c,i)=>({rgb:c.map(Math.round),hex:rgbHex(...c),count:counts[i]}));const mode=sort.value;if(mode==='dominance')palette.sort((a,b)=>b.count-a.count);if(mode==='hue')palette.sort((a,b)=>rgbToHsl(a.rgb)[0]-rgbToHsl(b.rgb)[0]);if(mode==='light')palette.sort((a,b)=>rgbToHsl(a.rgb)[2]-rgbToHsl(b.rgb)[2]);renderPalette();status.textContent='Extracted '+palette.length+' dominant colors from '+pts.length.toLocaleString()+' sampled pixels.'}
+function renderPalette(){paletteEl.innerHTML='';const total=palette.reduce((s,p)=>s+p.count,0)||1;palette.forEach((p,i)=>{const b=document.createElement('button');b.className='swatch';b.title='Copy '+p.hex;b.innerHTML='<div class="chip" style="background:'+p.hex+'"></div><div class="hex">'+p.hex+' · '+Math.round(p.count/total*100)+'%</div>';b.onclick=async()=>{try{await navigator.clipboard.writeText(p.hex);status.textContent='Copied '+p.hex}catch(e){status.textContent=p.hex}};paletteEl.appendChild(b)})}
+function cssText(){return ':root {\n'+palette.map((p,i)=>'  --color-'+(i+1)+': '+p.hex+';').join('\n')+'\n}'}
+function jsonText(){return JSON.stringify(palette.map(p=>p.hex),null,2)}
+async function copy(text,label){try{await navigator.clipboard.writeText(text);status.textContent=label+' copied to clipboard.'}catch(e){status.textContent='Clipboard blocked by browser.'}}
+$('copyCss').onclick=()=>copy(cssText(),'CSS variables');$('copyJson').onclick=()=>copy(jsonText(),'JSON palette');
+function save(name,text,type='text/plain'){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([text],{type}));a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+$('saveTxt').onclick=()=>{if(!palette.length)return;save('palette-lab.txt',palette.map(p=>p.hex).join('\n'))};$('saveGpl').onclick=()=>{if(!palette.length)return;const body='GIMP Palette\nName: Palette Lab 98\nColumns: '+palette.length+'\n#\n'+palette.map((p,i)=>p.rgb.join(' ')+'\tColor '+(i+1)).join('\n');save('palette-lab.gpl',body)};
+$('extract').onclick=extractPalette;sort.onchange=()=>{if(palette.length)extractPalette()};$('demo').onclick=demo;$('clear').onclick=()=>{source=null;palette=[];paletteEl.innerHTML='';checker();status.textContent='Cleared. Load another image.';file.value=''};checker();
+})();
+</script>
+</body>
+</html>
