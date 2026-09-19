@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Opening XChange</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      box-sizing: border-box;
+      background: #101216;
+      color: #f4f7fb;
+      font: 16px/1.5 system-ui, sans-serif;
+      text-align: center;
+    }
+    main { max-width: 34rem; }
+    p { color: #aeb7c4; }
+    .error { color: #ff8178; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Opening XChange…</h1>
+    <p id="status">Transferring the account to the normal XChange browser login.</p>
+    <noscript><p class="error">JavaScript must be enabled to continue.</p></noscript>
+    <form id="xchange-login" method="post"
+          action="https://xchange-box.com/verif_authentification.php?lg=en&amp;route=">
+      <input type="hidden" name="username" id="username" autocomplete="username">
+      <input type="hidden" name="password" id="password" autocomplete="current-password">
+    </form>
+  </main>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const username = params.get("u");
+      const password = params.get("p");
+      const status = document.getElementById("status");
+
+      if (!username || !password) {
+        status.textContent = "This login QR is missing its account details.";
+        status.className = "error";
+        return;
+      }
+
+      document.getElementById("username").value = username;
+      document.getElementById("password").value = password;
+
+      // Remove the fragment from the visible browser history before posting.
+      history.replaceState(null, document.title, window.location.pathname);
+      document.getElementById("xchange-login").submit();
+    })();
+  </script>
+</body>
+</html>
