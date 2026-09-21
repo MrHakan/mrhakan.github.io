@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchShoutbox();
     fetchGitHubRepos();
     fetchManualProjects();
+    fetchPlaygroundCatalog();
 
 
     fetch('src/music/music.json')
@@ -1186,6 +1187,8 @@ function showSection(sectionId) {
     }
     document.getElementById('section-home').classList.add('hidden');
     document.getElementById('section-github').classList.add('hidden');
+    const playgroundSection = document.getElementById('section-playground');
+    if (playgroundSection) playgroundSection.classList.add('hidden');
     const linksSection = document.getElementById('section-links');
     if (linksSection) linksSection.classList.add('hidden');
     const guestbookSection = document.getElementById('section-guestbook');
@@ -1194,6 +1197,7 @@ function showSection(sectionId) {
     const title = document.getElementById('window-title');
     if (sectionId === 'home') title.textContent = "about me.html - microsoft internet explorer";
     if (sectionId === 'github') title.textContent = "my projects - github explorer";
+    if (sectionId === 'playground') title.textContent = "games & apps - daily drops";
     if (sectionId === 'links') title.textContent = "cool links - netscape navigator";
     if (sectionId === 'guestbook') {
         title.textContent = "guestbook.exe - sign my guestbook!";
@@ -2815,4 +2819,81 @@ function stopSpartaRemix() {
     document.querySelectorAll('.sparta-error').forEach(e => e.remove());
     showToast('system', 'vibes.sys restored. that was close bradar');
     playSound('startup');
+}
+
+
+// ===== daily games & apps catalog =====
+let playgroundCatalog = [];
+let playgroundFilter = 'all';
+
+async function fetchPlaygroundCatalog() {
+    try {
+        const res = await fetch('data/playground.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error('catalog http ' + res.status);
+        const data = await res.json();
+        playgroundCatalog = Array.isArray(data) ? data : [];
+        renderPlaygroundCatalog();
+    } catch (err) {
+        console.error('games & apps catalog:', err);
+        const grid = document.getElementById('playground-grid');
+        if (grid) grid.innerHTML = '<div class="col-span-full bg-[#ffffe1] border border-black p-3 text-black font-pixel text-xs">could not load data/playground.json</div>';
+    }
+}
+
+function setPlaygroundFilter(type) {
+    playgroundFilter = ['game', 'app'].includes(type) ? type : 'all';
+    document.querySelectorAll('.playground-filter').forEach(btn => {
+        const active = btn.dataset.playgroundFilter === playgroundFilter;
+        btn.classList.toggle('bevel-in', active);
+        btn.classList.toggle('bevel-out', !active);
+    });
+    renderPlaygroundCatalog();
+}
+
+function playgroundEscape(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+function renderPlaygroundCatalog() {
+    const grid = document.getElementById('playground-grid');
+    if (!grid) return;
+    const query = (document.getElementById('playground-search')?.value || '').trim().toLowerCase();
+    const visible = playgroundCatalog
+        .filter(item => playgroundFilter === 'all' || item.type === playgroundFilter)
+        .filter(item => !query || [item.name, item.description, item.type, ...(item.tags || [])].join(' ').toLowerCase().includes(query))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(a.name).localeCompare(String(b.name)));
+
+    const count = document.getElementById('playground-count');
+    if (count) {
+        const games = playgroundCatalog.filter(x => x.type === 'game').length;
+        const apps = playgroundCatalog.filter(x => x.type === 'app').length;
+        count.textContent = games + ' games · ' + apps + ' apps';
+    }
+
+    if (!visible.length) {
+        grid.innerHTML = '<div class="col-span-full bg-[#ffffe1] border border-black p-4 text-black font-pixel text-xs">nothing matched that filter bradar.</div>';
+        return;
+    }
+
+    grid.innerHTML = visible.map(item => {
+        const kind = item.type === 'game' ? 'GAME' : 'APP';
+        const icon = item.icon || (item.type === 'game' ? '🎮' : '🧰');
+        const tags = (item.tags || []).slice(0, 3).map(t =>
+            '<span class="bg-black text-[#0df259] px-1 py-[2px] text-[9px] font-pixel">' + playgroundEscape(t) + '</span>'
+        ).join('');
+        return '<article class="bg-[#f0f0f0] border-2 border-black shadow-[3px_3px_0_#808080] p-3 flex flex-col min-h-[190px]">' +
+            '<div class="flex items-start gap-2">' +
+              '<div class="text-3xl leading-none" aria-hidden="true">' + playgroundEscape(icon) + '</div>' +
+              '<div class="min-w-0 flex-1"><div class="flex items-center gap-2 flex-wrap">' +
+                '<h3 class="font-header font-bold text-black text-lg leading-tight">' + playgroundEscape(item.name) + '</h3>' +
+                '<span class="text-[9px] font-pixel border border-black bg-retro-gray px-1">' + kind + '</span>' +
+              '</div><div class="font-pixel text-[10px] text-gray-600 mt-1">' + playgroundEscape(item.date || '') + '</div></div>' +
+            '</div>' +
+            '<p class="text-black font-body text-sm leading-snug mt-3 flex-1">' + playgroundEscape(item.description || '') + '</p>' +
+            '<div class="flex flex-wrap gap-1 mt-3">' + tags + '</div>' +
+            '<a href="' + playgroundEscape(item.url) + '" target="_blank" rel="noopener" class="mt-3 text-center bg-retro-gray bevel-out active:translate-y-[1px] px-3 py-2 text-black font-header font-bold text-sm">launch ' + (item.type === 'game' ? 'game' : 'app') + ' ↗</a>' +
+          '</article>';
+    }).join('');
 }

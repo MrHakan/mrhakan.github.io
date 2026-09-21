@@ -139,6 +139,11 @@
               <span class="material-symbols-outlined text-purple-600 group-hover:text-purple-700">folder_open</span>
               <span class="text-black font-bold font-header">my work</span>
             </button>
+            <button onclick="showSection('playground')"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-green-700 group-hover:text-green-800">sports_esports</span>
+              <span class="text-black font-bold font-header">games &amp; apps</span>
+            </button>
             <button onclick="showSection('links')"
               class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
               <span class="material-symbols-outlined text-blue-600 group-hover:text-blue-700">link</span>
@@ -339,6 +344,37 @@
             </div>
             <div id="github-repos" class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="text-center w-full py-8 text-xs font-pixel">loading git objects...</div>
+            </div>
+          </div>
+
+
+
+          <div id="section-playground" class="hidden relative z-10 mx-auto w-full max-w-4xl">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3 mb-4 border-b-2 border-black pb-3">
+              <div class="flex-1">
+                <h2 class="text-3xl font-bold text-black font-header">games_and_apps.exe</h2>
+                <p class="text-black font-pixel text-xs mt-1">daily browser drops — games in /games, apps in /apps. click one to launch it.</p>
+              </div>
+              <div id="playground-count" class="text-black font-pixel text-xs bg-[#ffffe1] border border-gray-500 px-2 py-1">loading...</div>
+            </div>
+            <div class="bg-retro-gray bevel-out p-2 mb-4 flex flex-col md:flex-row gap-2 md:items-center">
+              <div class="flex gap-1" role="group" aria-label="filter games and apps">
+                <button type="button" data-playground-filter="all" onclick="setPlaygroundFilter('all')"
+                  class="playground-filter bevel-in bg-retro-gray px-3 py-1 text-black font-header font-bold text-sm">all</button>
+                <button type="button" data-playground-filter="game" onclick="setPlaygroundFilter('game')"
+                  class="playground-filter bevel-out bg-retro-gray px-3 py-1 text-black font-header font-bold text-sm">games</button>
+                <button type="button" data-playground-filter="app" onclick="setPlaygroundFilter('app')"
+                  class="playground-filter bevel-out bg-retro-gray px-3 py-1 text-black font-header font-bold text-sm">apps</button>
+              </div>
+              <input id="playground-search" type="search" oninput="renderPlaygroundCatalog()" placeholder="find something..."
+                class="md:ml-auto w-full md:w-64 bg-white bevel-in px-2 py-1 text-black font-pixel text-xs border-0 focus:ring-0" />
+            </div>
+            <div id="playground-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div class="text-center col-span-full py-8 text-xs text-black font-pixel">loading daily drops...</div>
+            </div>
+            <div class="mt-5 flex justify-between items-center gap-2">
+              <span class="text-[10px] text-gray-600 font-pixel">catalog: data/playground.json</span>
+              <button onclick="showSection('home')" class="bg-retro-gray bevel-out px-4 py-2 text-black font-header font-bold">&lt; back</button>
             </div>
           </div>
 
@@ -766,6 +802,9 @@
         </button>
         <button onclick="startMenuAction('github')" class="start-item">
           <span class="material-symbols-outlined text-purple-600">folder_open</span>my work
+        </button>
+        <button onclick="startMenuAction('playground')" class="start-item">
+          <span class="material-symbols-outlined text-green-700">sports_esports</span>games &amp; apps
         </button>
         <button onclick="startMenuAction('links')" class="start-item">
           <span class="material-symbols-outlined text-blue-600">link</span>cool links

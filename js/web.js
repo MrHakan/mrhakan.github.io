@@ -17,7 +17,7 @@ const WEB = (function () {
     // ---------- routes ----------
     // the four things the desktop calls "sections" — everything else is an
     // app window, and its slug is whatever key appActions() files it under
-    const SECTIONS = ['home', 'github', 'links', 'guestbook'];
+    const SECTIONS = ['home', 'github', 'playground', 'links', 'guestbook'];
 
     // the url should read the way the rest of the web writes these — /uses,
     // not /usespage — so a handful of routes get a public name that is not
@@ -38,6 +38,7 @@ const WEB = (function () {
     const INPUT_ALIASES = {
         blog: 'devlog', posts: 'devlog', writing: 'devlog',
         projects: 'github', work: 'github', portfolio: 'github',
+        arcade: 'playground', games: 'playground', apps: 'playground',
         friends: 'blogroll', badges: 'buttons', '88x31': 'buttons',
         timeline: 'nethistory', map: 'sitemap', settings: 'control',
         search: 'find', about: 'home', feed: 'rss'

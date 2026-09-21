@@ -203,7 +203,8 @@ const SITE_MAP = [
     {
         group: 'sections', items: [
             ['about me', "showSection('home')"], ['my work', "showSection('github')"],
-            ['cool links', "showSection('links')"], ['guestbook', "showSection('guestbook')"]
+            ['games & apps', "showSection('playground')"], ['cool links', "showSection('links')"],
+            ['guestbook', "showSection('guestbook')"]
         ]
     },
     {

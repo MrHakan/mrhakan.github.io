@@ -1,0 +1,366 @@
+[
+  {
+    "name": "Signal Sweep 98",
+    "type": "game",
+    "date": "2026-09-21",
+    "url": "/games/signal-sweep/",
+    "icon": "📡",
+    "description": "Triangulate a hidden network node using distance pings before your lives run out.",
+    "tags": [
+      "puzzle",
+      "signal",
+      "keyboard"
+    ]
+  },
+  {
+    "name": "JSON Lab 98",
+    "type": "app",
+    "date": "2026-09-21",
+    "url": "/apps/json-lab/",
+    "icon": "🧪",
+    "description": "Format, validate, sort, inspect, query and export JSON entirely in the browser.",
+    "tags": [
+      "json",
+      "developer",
+      "local"
+    ]
+  },
+  {
+    "name": "Icon Sorter 98",
+    "type": "game",
+    "date": "2026-09-20",
+    "url": "/games/icon-sorter/",
+    "icon": "🗂️",
+    "description": "Drag falling desktop files into the correct folders before the screen fills up.",
+    "tags": [
+      "drag-drop",
+      "arcade",
+      "touch"
+    ]
+  },
+  {
+    "name": "Image Privacy Lab 98",
+    "type": "app",
+    "date": "2026-09-20",
+    "url": "/apps/image-privacy-lab/",
+    "icon": "🛡️",
+    "description": "Re-encode images locally through Canvas to make clean shareable copies without uploads.",
+    "tags": [
+      "image",
+      "privacy",
+      "export"
+    ]
+  },
+  {
+    "name": "Cursor Maze 98",
+    "type": "game",
+    "date": "2026-09-19",
+    "url": "/games/cursor-maze/",
+    "icon": "🖱️",
+    "description": "Guide the cursor through procedural mazes without touching the walls.",
+    "tags": [
+      "maze",
+      "precision",
+      "procedural"
+    ]
+  },
+  {
+    "name": "Hash Lab 98",
+    "type": "app",
+    "date": "2026-09-19",
+    "url": "/apps/hash-lab/",
+    "icon": "🔐",
+    "description": "Generate and verify SHA-256, SHA-384 and SHA-512 hashes for text or local files.",
+    "tags": [
+      "hash",
+      "web-crypto",
+      "developer"
+    ]
+  },
+  {
+    "name": "Shutdown Sequence 98",
+    "type": "game",
+    "date": "2026-09-18",
+    "url": "/games/shutdown-sequence/",
+    "icon": "🔌",
+    "description": "Repeat an increasingly fast four-pad shutdown sequence in a retro memory challenge.",
+    "tags": [
+      "memory",
+      "simon",
+      "one-button"
+    ]
+  },
+  {
+    "name": "Sprite Sheet Lab 98",
+    "type": "app",
+    "date": "2026-09-18",
+    "url": "/apps/sprite-sheet-lab/",
+    "icon": "🧩",
+    "description": "Slice local sprite sheets into frames, preview cells and export selected frames as PNG.",
+    "tags": [
+      "sprites",
+      "image",
+      "game-dev"
+    ]
+  },
+  {
+    "name": "Desktop Sweeper 98",
+    "type": "game",
+    "date": "2026-09-17",
+    "url": "/games/desktop-sweeper/",
+    "icon": "💣",
+    "description": "A Windows desktop take on Minesweeper with safe first click, flags and mobile long-press.",
+    "tags": [
+      "minesweeper",
+      "puzzle",
+      "touch"
+    ]
+  },
+  {
+    "name": "Gradient Lab 98",
+    "type": "app",
+    "date": "2026-09-17",
+    "url": "/apps/gradient-lab/",
+    "icon": "🌈",
+    "description": "Design linear, radial and conic CSS gradients, then copy CSS or export a PNG.",
+    "tags": [
+      "css",
+      "gradient",
+      "design"
+    ]
+  },
+  {
+    "name": "BSOD Dodge 98",
+    "type": "game",
+    "date": "2026-09-16",
+    "url": "/games/bsod-dodge/",
+    "icon": "💥",
+    "description": "Dodge incoming fatal-error windows with your cursor and grab SAFE MODE pickups.",
+    "tags": [
+      "dodge",
+      "arcade",
+      "cursor"
+    ]
+  },
+  {
+    "name": "Text Transform Lab 98",
+    "type": "app",
+    "date": "2026-09-16",
+    "url": "/apps/text-transform-lab/",
+    "icon": "📝",
+    "description": "Transform casing, lines, whitespace and developer-friendly text formats locally.",
+    "tags": [
+      "text",
+      "utility",
+      "developer"
+    ]
+  },
+  {
+    "name": "Taskbar Tumble 98",
+    "type": "game",
+    "date": "2026-09-15",
+    "url": "/games/taskbar-tumble/",
+    "icon": "🪟",
+    "description": "Catch falling app windows on the taskbar tray while avoiding red error dialogs.",
+    "tags": [
+      "catch",
+      "arcade",
+      "touch"
+    ]
+  },
+  {
+    "name": "ASCII Lab 98",
+    "type": "app",
+    "date": "2026-09-15",
+    "url": "/apps/ascii-lab/",
+    "icon": "⌨️",
+    "description": "Turn local images into configurable ASCII art and export the result as text or PNG.",
+    "tags": [
+      "ascii",
+      "image",
+      "creative"
+    ]
+  },
+  {
+    "name": "Selection Frenzy 98",
+    "type": "game",
+    "date": "2026-09-14",
+    "url": "/games/selection-frenzy/",
+    "icon": "🖱️",
+    "description": "Draw desktop selection rectangles around only the requested file types before time expires.",
+    "tags": [
+      "selection",
+      "arcade",
+      "desktop"
+    ]
+  },
+  {
+    "name": "Palette Lab 98",
+    "type": "app",
+    "date": "2026-09-14",
+    "url": "/apps/palette-lab/",
+    "icon": "🎨",
+    "description": "Extract dominant color palettes from local images and export HEX, CSS, JSON or GPL.",
+    "tags": [
+      "palette",
+      "image",
+      "design"
+    ]
+  },
+  {
+    "name": "Dial-Up Drift 98",
+    "type": "game",
+    "date": "2026-09-13",
+    "url": "/games/dialup-drift/",
+    "icon": "📞",
+    "description": "Hold and release to keep a modem carrier inside an increasingly narrow signal corridor.",
+    "tags": [
+      "one-button",
+      "arcade",
+      "modem"
+    ]
+  },
+  {
+    "name": "Guilloche Lab 98",
+    "type": "app",
+    "date": "2026-09-13",
+    "url": "/apps/guilloche-lab/",
+    "icon": "🪙",
+    "description": "Generate seeded banknote-style guilloche patterns and export them as PNG or SVG.",
+    "tags": [
+      "generative",
+      "svg",
+      "design"
+    ]
+  },
+  {
+    "name": "Recycle Bin Golf 98",
+    "type": "game",
+    "date": "2026-09-13",
+    "url": "/games/recycle-golf/",
+    "icon": "🗑️",
+    "description": "Fling file icons into the Recycle Bin using bank shots across five desktop holes.",
+    "tags": [
+      "physics",
+      "golf",
+      "touch"
+    ]
+  },
+  {
+    "name": "Pixel Icon Lab 98",
+    "type": "app",
+    "date": "2026-09-13",
+    "url": "/apps/pixel-icon-lab/",
+    "icon": "🎨",
+    "description": "Draw pixel icons with symmetry, fill, eyedropper, undo/redo and transparent PNG export.",
+    "tags": [
+      "pixel-art",
+      "icon",
+      "drawing"
+    ]
+  },
+  {
+    "name": "Window Panic 98",
+    "type": "game",
+    "date": "2026-09-12",
+    "url": "/games/window-panic/",
+    "icon": "🪟",
+    "description": "Survive a flood of Windows dialogs by clicking, closing or dragging each one correctly.",
+    "tags": [
+      "reflex",
+      "windows",
+      "arcade"
+    ]
+  },
+  {
+    "name": "SFX Lab 98",
+    "type": "app",
+    "date": "2026-09-12",
+    "url": "/apps/sfx-lab/",
+    "icon": "🔊",
+    "description": "Synthesize retro game sound effects with presets, waveform controls and WAV export.",
+    "tags": [
+      "audio",
+      "synth",
+      "game-dev"
+    ]
+  },
+  {
+    "name": "Floppy Stack 98",
+    "type": "game",
+    "date": "2026-09-12",
+    "url": "/games/floppy-stack/",
+    "icon": "💾",
+    "description": "Drop moving floppy disks onto the stack with perfect timing as the platform narrows.",
+    "tags": [
+      "timing",
+      "stack",
+      "one-button"
+    ]
+  },
+  {
+    "name": "Wallpaper Lab 98",
+    "type": "app",
+    "date": "2026-09-12",
+    "url": "/apps/wallpaper-lab/",
+    "icon": "🖼️",
+    "description": "Generate seeded retro wallpapers with multiple patterns, palettes and PNG export.",
+    "tags": [
+      "wallpaper",
+      "generative",
+      "canvas"
+    ]
+  },
+  {
+    "name": "Packet Panic 98",
+    "type": "game",
+    "date": "2026-09-11",
+    "url": "/games/packet-panic/",
+    "icon": "📡",
+    "description": "Route SSH, MAIL and WEB packets to the correct network lane before they expire.",
+    "tags": [
+      "network",
+      "reflex",
+      "arcade"
+    ]
+  },
+  {
+    "name": "Kinetic Type Lab",
+    "type": "app",
+    "date": "2026-09-11",
+    "url": "/apps/kinetic-type-lab/",
+    "icon": "🔤",
+    "description": "Build animated typography compositions with palettes, wave controls and PNG capture.",
+    "tags": [
+      "typography",
+      "animation",
+      "design"
+    ]
+  },
+  {
+    "name": "Orbit Hop 98",
+    "type": "game",
+    "date": "2026-09-10",
+    "url": "/games/orbit-hop/",
+    "icon": "🌍",
+    "description": "A seeded daily orbit runner where you jump craters and collect starbits.",
+    "tags": [
+      "daily",
+      "runner",
+      "seeded"
+    ]
+  },
+  {
+    "name": "Pixel Dither Lab",
+    "type": "app",
+    "date": "2026-09-10",
+    "url": "/apps/pixel-dither-lab/",
+    "icon": "🖼️",
+    "description": "Dither local images with retro palettes, pixel sizing and multiple algorithms.",
+    "tags": [
+      "dither",
+      "image",
+      "pixel-art"
+    ]
+  }
+]

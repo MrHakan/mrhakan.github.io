@@ -878,6 +878,7 @@ function siteSearchIndex() {
     return [
         ['about me', 'section', () => showSection('home'), 'home bio profile intro'],
         ['my work', 'section', () => showSection('github'), 'projects repos github portfolio'],
+        ['games & apps', 'section', () => showSection('playground'), 'daily games apps arcade experiments tools labs'],
         ['cool links', 'section', () => showSection('links'), 'bookmarks friends sites'],
         ['guestbook', 'section', () => showSection('guestbook'), 'sign comment message'],
         ['devlog.txt', 'document', () => openDevlog(), 'blog posts writing journal news'],
