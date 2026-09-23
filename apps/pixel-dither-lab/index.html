@@ -4,9 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#008080">
+<meta name="description" content="Dither local images with retro palettes, pixel sizing and multiple algorithms.">
+<link rel="canonical" href="https://mrhakan.github.io/apps/pixel-dither-lab/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pixel Dither Lab">
+<meta property="og:description" content="Dither local images with retro palettes, pixel sizing and multiple algorithms.">
+<meta property="og:url" content="https://mrhakan.github.io/apps/pixel-dither-lab/">
 <title>Pixel Dither Lab</title>
 <style>
 :root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:16px}.window{max-width:1050px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:2px 2px 0 #000}.titlebar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:3px 4px;font-size:14px}.titlebar a{color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 5px;line-height:17px}.content{display:grid;grid-template-columns:280px minmax(0,1fr);gap:10px;padding:10px}.controls,.preview{background:#c0c0c0}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;margin-bottom:8px}.group h2{font-size:12px;margin:0 0 7px;font-weight:700}.row{display:grid;grid-template-columns:92px 1fr;align-items:center;gap:7px;margin:7px 0;font-size:12px}.row input[type=range]{width:100%}.row select,.row input[type=number]{width:100%;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px;font:12px inherit}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{appearance:none;background:#c0c0c0;color:#000;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px 8px;font:700 12px inherit;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.drop{display:grid;place-items:center;min-height:110px;text-align:center;background:#fff;border:2px dashed #808080;padding:12px;font-size:12px;line-height:1.45;cursor:pointer}.drop.drag{background:#ffffcc}.preview{min-width:0}.canvasWrap{background:#333;border:2px solid;border-color:#808080 #fff #fff #808080;min-height:420px;display:grid;place-items:center;padding:10px;overflow:auto;background-image:linear-gradient(45deg,#444 25%,transparent 25%),linear-gradient(-45deg,#444 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#444 75%),linear-gradient(-45deg,transparent 75%,#444 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}canvas{max-width:100%;height:auto;image-rendering:pixelated;box-shadow:0 0 0 1px #000}.status{margin-top:7px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font-size:12px;min-height:29px}.privacy{font-size:11px;line-height:1.4;margin:8px 0 0}.value{font-family:monospace;font-weight:700}@media(max-width:760px){body{padding:7px}.content{grid-template-columns:1fr;padding:7px}.canvasWrap{min-height:260px}.buttons{grid-template-columns:1fr 1fr}.controls{order:2}.preview{order:1}}
+
+:focus-visible{outline:2px solid #000080;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
+}
 </style>
 </head>
 <body>

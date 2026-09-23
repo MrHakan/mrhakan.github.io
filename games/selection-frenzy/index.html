@@ -4,9 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#008080">
+<meta name="description" content="Draw desktop selection rectangles around only the requested file types before time expires.">
+<link rel="canonical" href="https://mrhakan.github.io/games/selection-frenzy/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Selection Frenzy 98">
+<meta property="og:description" content="Draw desktop selection rectangles around only the requested file types before time expires.">
+<meta property="og:url" content="https://mrhakan.github.io/games/selection-frenzy/">
 <title>Selection Frenzy 98</title>
 <style>
 :root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:8px}.window{max-width:1040px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:5px 5px 0 rgba(0,0,0,.5)}.title{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px;line-height:18px}.toolbar{display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:7px}.panel,.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff}.panel{padding:5px 8px;font-size:12px}.panel b{font-family:monospace}.btn{padding:6px 10px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px)}.mission{margin:0 8px 6px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:7px 9px;font:12px/1.4 monospace}.desktop{position:relative;margin:0 8px 8px;height:min(66vh,620px);min-height:430px;overflow:hidden;background:#008080;border:2px solid;border-color:#808080 #fff #fff #808080;touch-action:none;user-select:none}.icon{position:absolute;width:78px;text-align:center;color:#fff;text-shadow:1px 1px #000;font-size:11px;line-height:1.1;padding:3px;border:1px solid transparent}.icon .pic{font-size:34px;display:block;line-height:40px}.icon.selected{background:rgba(0,0,128,.45);border-color:rgba(255,255,255,.5)}.selectbox{position:absolute;border:1px dotted #fff;background:rgba(0,0,128,.22);pointer-events:none}.status{margin:0 8px 8px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px 8px;font:12px/1.4 monospace;min-height:31px}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.3);padding:16px;z-index:5}.overlay[hidden]{display:none}.card{width:min(470px,94%);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 rgba(0,0,0,.6)}.card h2{margin:0;background:#000080;color:#fff;font-size:14px;padding:5px 7px}.card .body{padding:16px;font-size:13px;line-height:1.5}.actions{text-align:right;margin-top:12px}.flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .12s;background:#fff}.flash.bad{background:#f44}.flash.on{opacity:.18}@media(max-width:640px){body{padding:4px}.toolbar{padding:5px}.panel{font-size:11px;padding:4px 6px}.desktop{margin:0 4px 6px;min-height:390px;height:66vh}.mission,.status{margin-left:4px;margin-right:4px}.icon{width:64px;font-size:10px}.icon .pic{font-size:29px;line-height:34px}}
+
+:focus-visible{outline:2px solid #000080;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
+}
 </style>
 </head>
 <body>

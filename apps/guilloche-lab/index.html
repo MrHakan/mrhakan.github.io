@@ -4,9 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#008080">
+<meta name="description" content="Generate seeded banknote-style guilloche patterns and export them as PNG or SVG.">
+<link rel="canonical" href="https://mrhakan.github.io/apps/guilloche-lab/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Guilloche Lab 98">
+<meta property="og:description" content="Generate seeded banknote-style guilloche patterns and export them as PNG or SVG.">
+<meta property="og:url" content="https://mrhakan.github.io/apps/guilloche-lab/">
 <title>Guilloche Lab 98</title>
 <style>
 :root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:10px}.window{max-width:1080px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 #000}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.content{display:grid;grid-template-columns:300px minmax(0,1fr);gap:9px;padding:9px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;margin-bottom:8px}.group h2{font-size:12px;margin:0 0 7px}.row{display:grid;grid-template-columns:88px 1fr 43px;gap:6px;align-items:center;font-size:11px;margin:7px 0}.row select,.row input[type=range],.row input[type=text]{width:100%}.row select,.seed{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.val{font-family:monospace;text-align:right}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px 6px;font-weight:700;font-size:11px;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.preview{min-width:0}.canvasWrap{background:#404040;border:2px solid;border-color:#808080 #fff #fff #808080;display:grid;place-items:center;padding:8px;min-height:520px;overflow:auto;background-image:linear-gradient(45deg,#555 25%,transparent 25%),linear-gradient(-45deg,#555 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#555 75%),linear-gradient(-45deg,transparent 75%,#555 75%);background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0}canvas{max-width:100%;height:auto;background:#f3ead2;box-shadow:0 0 0 1px #000}.status{margin-top:7px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font:11px monospace}.note{font-size:10px;line-height:1.4;color:#333;margin:7px 0 0}@media(max-width:760px){body{padding:5px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.canvasWrap{min-height:320px}.buttons{grid-template-columns:repeat(2,1fr)}}
+
+:focus-visible{outline:2px solid #000080;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
+}
 </style>
 </head>
 <body>

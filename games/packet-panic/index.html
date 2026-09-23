@@ -2,9 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#008080">
+<meta name="description" content="Route SSH, MAIL and WEB packets to the correct network lane before they expire.">
+<link rel="canonical" href="https://mrhakan.github.io/games/packet-panic/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Packet Panic 98">
+<meta property="og:description" content="Route SSH, MAIL and WEB packets to the correct network lane before they expire.">
+<meta property="og:url" content="https://mrhakan.github.io/games/packet-panic/">
 <title>Packet Panic 98</title>
 <style>
 :root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px;display:grid;place-items:center}.win{width:min(920px,100%);background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:3px 3px 0 #000}.bar{height:28px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:3px 5px;font-weight:700}.bar a{color:#000;background:#c0c0c0;text-decoration:none;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.wrap{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:10px;padding:10px}.panel{border:2px solid;border-color:#808080 #fff #fff #808080;background:#bdbdbd;padding:8px}.screen{background:#050b12;border:2px solid;border-color:#808080 #fff #fff #808080;position:relative;overflow:hidden}.screen canvas{display:block;width:100%;height:auto;touch-action:none;image-rendering:pixelated}.status{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}.cell{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:5px;text-align:center;font-size:12px}.cell b{display:block;font-size:16px}.hint{font-size:12px;line-height:1.45;margin:0 0 10px}.ports{display:grid;gap:7px}.btn{appearance:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:10px 6px;font:700 13px inherit;cursor:pointer}.btn:active,.btn.active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.btn small{display:block;font-weight:400;margin-top:2px}.wide{width:100%;margin-top:8px}.legend{font-size:11px;line-height:1.5;margin-top:10px;padding-top:8px;border-top:1px solid #808080}.kbd{font-family:monospace;border:1px solid #555;background:#eee;padding:0 3px}@media(max-width:720px){body{padding:5px}.wrap{grid-template-columns:1fr}.status{grid-template-columns:repeat(2,1fr)}.ports{grid-template-columns:repeat(3,1fr)}.btn{padding:12px 3px;font-size:12px}}
+
+:focus-visible{outline:2px solid #000080;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
+}
 </style>
 </head>
 <body>

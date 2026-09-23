@@ -2,9 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#008080">
+<meta name="description" content="Build animated typography compositions with palettes, wave controls and PNG capture.">
+<link rel="canonical" href="https://mrhakan.github.io/apps/kinetic-type-lab/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kinetic Type Lab">
+<meta property="og:description" content="Build animated typography compositions with palettes, wave controls and PNG capture.">
+<meta property="og:url" content="https://mrhakan.github.io/apps/kinetic-type-lab/">
 <title>Kinetic Type Lab</title>
 <style>
 :root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px}.win{max-width:1040px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:3px 3px 0 #000}.bar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px;display:flex;justify-content:space-between}.bar a{color:#000;background:#c0c0c0;text-decoration:none;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.grid{display:grid;grid-template-columns:290px minmax(0,1fr);gap:10px;padding:10px}.panel{border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px}.group{margin-bottom:10px}.group h2{font-size:12px;margin:0 0 6px}.row{display:grid;grid-template-columns:92px 1fr;gap:7px;align-items:center;font-size:12px;margin:6px 0}.row input,.row select,.row textarea{width:100%;font:12px inherit;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.row textarea{resize:vertical;min-height:58px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{appearance:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:7px;font:700 12px inherit;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.stage{min-width:0}.canvasWrap{background:#222;border:2px solid;border-color:#808080 #fff #fff #808080;min-height:520px;display:grid;place-items:center;padding:10px;overflow:auto}canvas{display:block;max-width:100%;height:auto;box-shadow:0 0 0 1px #000}.status{margin-top:7px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font-size:11px}.swatches{display:flex;gap:5px}.swatches button{width:34px;height:24px;border:2px solid;border-color:#fff #000 #000 #fff;cursor:pointer}@media(max-width:760px){body{padding:5px}.grid{grid-template-columns:1fr}.stage{order:1}.panel{order:2}.canvasWrap{min-height:300px}.buttons{grid-template-columns:repeat(2,1fr)}}
+
+:focus-visible{outline:2px solid #000080;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
+}
 </style></head><body>
 <main class="win"><div class="bar"><span>🔤 KINETIC TYPE LAB.EXE</span><a href="../../">×</a></div><div class="grid">
 <section class="panel"><div class="group"><h2>TEXT</h2><label class="row"><span>Words</span><textarea id="text">MAKE THE WEB
