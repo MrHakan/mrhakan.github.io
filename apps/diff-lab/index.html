@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#c0c0c0">
+<title>Diff Lab 98</title>
+<meta name="description" content="Compare two blocks of text locally with line-level additions, removals, counts and unified diff copy.">
+<link rel="canonical" href="https://mrhakan.github.io/apps/diff-lab/">
+<meta property="og:title" content="Diff Lab 98">
+<meta property="og:description" content="A private client-side text diff tool with side-by-side output and useful comparison options.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mrhakan.github.io/apps/diff-lab/">
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#6b6b8e;color:#000;font-family:"MS Sans Serif",Tahoma,Arial,sans-serif}body{min-height:100vh;padding:16px;background-image:linear-gradient(135deg,#ffffff10 25%,transparent 25%,transparent 50%,#ffffff10 50%,#ffffff10 75%,transparent 75%);background-size:12px 12px}.win{width:min(1100px,100%);margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:7px 7px 0 #34344c;padding:3px}.title{height:31px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:space-between;padding:0 5px 0 8px}.title a{width:23px;height:23px;background:#c0c0c0;color:#000;text-decoration:none;display:grid;place-items:center;border:2px solid;border-color:#fff #404040 #404040 #fff}.body{padding:10px}.toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:9px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;padding:6px 10px;font-weight:700;cursor:pointer;min-height:34px}.btn:active{border-color:#404040 #fff #fff #404040}.check{display:flex;align-items:center;gap:5px;font-size:12px;margin-left:4px}.editors{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pane{min-width:0}.pane label{font-size:12px;font-weight:700;display:block;margin:0 0 4px 2px}.pane textarea{display:block;width:100%;height:230px;resize:vertical;background:#fff;border:2px inset #ddd;padding:8px;font:13px/1.45 "Courier New",monospace;color:#111}.stats{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0}.stat{background:#ffffe1;border:1px solid #808080;padding:5px 8px;font:12px "Courier New",monospace}.stat.add{background:#dcffdc}.stat.del{background:#ffdede}.diffbox{border:2px inset #ddd;background:#fff;max-height:420px;overflow:auto}.diffhead,.row{display:grid;grid-template-columns:46px minmax(0,1fr) 46px minmax(0,1fr);font:12px/1.45 "Courier New",monospace;min-width:680px}.diffhead{position:sticky;top:0;z-index:2;background:#000080;color:#fff;font-weight:700}.diffhead span,.row span{padding:4px 6px;border-right:1px solid #ccc;white-space:pre-wrap;overflow-wrap:anywhere}.no{text-align:right;color:#666;background:#eee;user-select:none}.row.eq .txt{background:#fff}.row.del .left{background:#ffe0e0}.row.add .right{background:#e0ffe0}.row.change .left{background:#ffe0e0}.row.change .right{background:#e0ffe0}.status{margin-top:8px;background:#ffffe1;border:1px solid #808080;padding:7px;font:12px "Courier New",monospace;min-height:31px}.privacy{font-size:11px;margin:8px 2px 0;color:#333}
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
+@media(max-width:720px){body{padding:7px}.body{padding:7px}.editors{grid-template-columns:1fr}.pane textarea{height:180px}.toolbar .btn{flex:1 1 auto}.diffbox{max-height:360px}.title{font-size:13px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="win" aria-label="Diff Lab 98 text comparison tool">
+  <div class="title"><span>🧾 DIFF LAB 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
+  <div class="body">
+    <div class="toolbar">
+      <button type="button" class="btn" id="compare">COMPARE</button>
+      <button type="button" class="btn" id="swap">SWAP</button>
+      <button type="button" class="btn" id="example">LOAD EXAMPLE</button>
+      <button type="button" class="btn" id="copy">COPY UNIFIED DIFF</button>
+      <button type="button" class="btn" id="clear">CLEAR</button>
+      <label class="check"><input id="space" type="checkbox"> ignore whitespace</label>
+      <label class="check"><input id="case" type="checkbox"> ignore case</label>
+    </div>
+    <div class="editors">
+      <div class="pane"><label for="left">BEFORE / LEFT</label><textarea id="left" spellcheck="false" placeholder="Paste original text here..."></textarea></div>
+      <div class="pane"><label for="right">AFTER / RIGHT</label><textarea id="right" spellcheck="false" placeholder="Paste changed text here..."></textarea></div>
+    </div>
+    <div class="stats">
+      <span class="stat add">+ <b id="added">0</b> added</span>
+      <span class="stat del">− <b id="removed">0</b> removed</span>
+      <span class="stat">= <b id="same">0</b> unchanged</span>
+      <span class="stat"><b id="total">0</b> output rows</span>
+    </div>
+    <div class="diffbox" id="diff" role="region" aria-label="side by side diff output">
+      <div class="diffhead"><span>#</span><span>BEFORE</span><span>#</span><span>AFTER</span></div>
+      <div class="row eq"><span class="no">—</span><span class="txt left">Paste text above to compare.</span><span class="no">—</span><span class="txt right">Everything stays in this tab.</span></div>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite">Ready. Comparison is local; no text is uploaded.</div>
+    <p class="privacy">Uses a line-level longest-common-subsequence diff in your browser. Inputs are limited to 600 lines per side to keep the page responsive. Shortcut: Ctrl/Cmd + Enter compares immediately.</p>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),left=$('left'),right=$('right'),diff=$('diff'),status=$('status');let lastOps=[];const MAX=600;
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function linesOf(text){return text.replace(/\r\n?/g,'\n').split('\n')}
+function norm(s){let v=s;if($('space').checked)v=v.replace(/\s+/g,' ').trim();if($('case').checked)v=v.toLowerCase();return v}
+function buildOps(a,b){const aa=a.map(norm),bb=b.map(norm),n=a.length,m=b.length,dp=Array.from({length:n+1},()=>new Uint16Array(m+1));for(let i=1;i<=n;i++)for(let j=1;j<=m;j++)dp[i][j]=aa[i-1]===bb[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]);const out=[];let i=n,j=m;while(i||j){if(i&&j&&aa[i-1]===bb[j-1]){out.push({t:'eq',l:a[i-1],r:b[j-1]});i--;j--}else if(j&&(!i||dp[i][j-1]>dp[i-1][j])){out.push({t:'add',r:b[j-1]});j--}else{out.push({t:'del',l:a[i-1]});i--}}return out.reverse()}
+function paired(ops){const rows=[];for(let i=0;i<ops.length;i++){const op=ops[i];if(op.t==='del'&&ops[i+1]?.t==='add'){rows.push({t:'change',l:op.l,r:ops[i+1].r});i++}else rows.push(op)}return rows}
+function renderRows(rows){let ln=0,rn=0;const head='<div class="diffhead"><span>#</span><span>BEFORE</span><span>#</span><span>AFTER</span></div>';const body=rows.map(row=>{let lno='',rno='',l='',r='';if(row.t==='eq'){ln++;rn++;lno=ln;rno=rn;l=row.l;r=row.r}else if(row.t==='del'){ln++;lno=ln;l=row.l}else if(row.t==='add'){rn++;rno=rn;r=row.r}else{ln++;rn++;lno=ln;rno=rn;l=row.l;r=row.r}return '<div class="row '+row.t+'"><span class="no">'+lno+'</span><span class="txt left">'+esc(l??'')+'</span><span class="no">'+rno+'</span><span class="txt right">'+esc(r??'')+'</span></div>'}).join('');diff.innerHTML=head+(body||'<div class="row eq"><span class="no">—</span><span class="txt left"></span><span class="no">—</span><span class="txt right"></span></div>')}
+function compare(){const t0=performance.now(),a=linesOf(left.value),b=linesOf(right.value);if(a.length>MAX||b.length>MAX){status.textContent='Too many lines. Keep each side at '+MAX+' lines or fewer.';return}lastOps=buildOps(a,b);const rows=paired(lastOps);renderRows(rows);const added=lastOps.filter(x=>x.t==='add').length,removed=lastOps.filter(x=>x.t==='del').length,same=lastOps.filter(x=>x.t==='eq').length;$('added').textContent=added;$('removed').textContent=removed;$('same').textContent=same;$('total').textContent=rows.length;status.textContent='Compared '+a.length+' vs '+b.length+' lines in '+Math.max(1,Math.round(performance.now()-t0))+' ms. '+(added+removed?'Changes highlighted below.':'No differences found.')}
+function unified(){let out=['--- before','+++ after'];for(const op of lastOps)out.push((op.t==='eq'?' ':op.t==='add'?'+':'-')+(op.t==='add'?op.r:op.l));return out.join('\n')}
+async function copyDiff(){if(!lastOps.length)compare();const text=unified();try{await navigator.clipboard.writeText(text);status.textContent='Unified diff copied to clipboard.'}catch{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();status.textContent='Unified diff copied using fallback clipboard mode.'}}
+function swap(){const v=left.value;left.value=right.value;right.value=v;compare()}
+function example(){left.value='crew=24\\nwatch=04-08\\nstatus=loading\\nport=Lagos\\neta=2026-09-28';right.value='crew=25\\nwatch=04-08\\nstatus=underway\\nport=Bonny\\neta=2026-09-29\\nremarks=all fast';compare()}
+function clearAll(){left.value='';right.value='';lastOps=[];$('added').textContent=$('removed').textContent=$('same').textContent=$('total').textContent='0';diff.innerHTML='<div class="diffhead"><span>#</span><span>BEFORE</span><span>#</span><span>AFTER</span></div><div class="row eq"><span class="no">—</span><span class="txt left"></span><span class="no">—</span><span class="txt right"></span></div>';status.textContent='Cleared. Ready for a new local comparison.'}
+let timer=0;function queue(){clearTimeout(timer);timer=setTimeout(compare,180)}
+$('compare').addEventListener('click',compare);$('swap').addEventListener('click',swap);$('example').addEventListener('click',example);$('copy').addEventListener('click',copyDiff);$('clear').addEventListener('click',clearAll);$('space').addEventListener('change',compare);$('case').addEventListener('change',compare);left.addEventListener('input',queue);right.addEventListener('input',queue);document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();compare()}});
+})();
+</script>
+</body>
+</html>
