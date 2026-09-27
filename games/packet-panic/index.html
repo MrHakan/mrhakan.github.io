@@ -16,11 +16,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="win">
- <div class="bar"><span>📡 PACKET PANIC 98.EXE</span><a href="../../">×</a></div>
+ <div class="bar"><span>📡 PACKET PANIC 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
  <div class="wrap">
   <section>
    <div class="status"><div class="cell">SCORE<b id="score">0</b></div><div class="cell">STREAK<b id="streak">0</b></div><div class="cell">LIVES<b id="lives">3</b></div><div class="cell">BEST<b id="best">0</b></div></div>
@@ -29,11 +32,11 @@
   <aside class="panel">
    <p class="hint"><b>Route each packet before it hits the firewall.</b><br>Read its destination port, then press the matching route. Speed climbs with your streak.</p>
    <div class="ports">
-    <button class="btn" data-route="22">1 · SSH<small>port 22</small></button>
-    <button class="btn" data-route="25">2 · MAIL<small>port 25</small></button>
-    <button class="btn" data-route="80">3 · WEB<small>port 80</small></button>
+    <button type="button" class="btn" data-route="22">1 · SSH<small>port 22</small></button>
+    <button type="button" class="btn" data-route="25">2 · MAIL<small>port 25</small></button>
+    <button type="button" class="btn" data-route="80">3 · WEB<small>port 80</small></button>
    </div>
-   <button class="btn wide" id="start">START / RESTART</button>
+   <button type="button" class="btn wide" id="start">START / RESTART</button>
    <div class="legend"><span class="kbd">1</span> SSH &nbsp; <span class="kbd">2</span> MAIL &nbsp; <span class="kbd">3</span> WEB<br><span class="kbd">A</span>/<span class="kbd">S</span>/<span class="kbd">D</span> also work.<br><br>Wrong route or timeout costs one life. High score is stored only in this browser.</div>
   </aside>
  </div>

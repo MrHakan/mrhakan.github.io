@@ -18,19 +18,22 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="win">
- <div class="title"><span>💾 FLOPPY STACK 98.EXE</span><a href="../../" aria-label="back">×</a></div>
+ <div class="title"><span>💾 FLOPPY STACK 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
  <div class="body">
   <div class="hud"><div class="cell">STACK<b id="score">0</b></div><div class="cell">BEST<b id="best">0</b></div><div class="cell">WIDTH<b id="width">100%</b></div><div class="cell">SPEED<b id="speed">1.0x</b></div></div>
   <section class="stage" id="stage" aria-label="tap to drop the moving floppy disk">
    <div class="grid"></div><div class="base"></div><div id="stack"></div><div class="disk ghost" id="mover"></div>
-   <div class="overlay" id="overlay"><div class="card"><div class="ct">Floppy Stack 98</div><div class="cb"><div class="big">stack the disks.</div>Tap, click, or press <b>Space</b> to drop the moving floppy. Only the overlap survives. Miss the stack and the tower crashes.<br><br><button class="btn" id="start">START</button></div></div></div>
+   <div class="overlay" id="overlay"><div class="card"><div class="ct">Floppy Stack 98</div><div class="cb"><div class="big">stack the disks.</div>Tap, click, or press <b>Space</b> to drop the moving floppy. Only the overlap survives. Miss the stack and the tower crashes.<br><br><button type="button" class="btn" id="start">START</button></div></div></div>
   </section>
   <div class="hint" id="hint">One button. No installs. Try to keep as much disk width as possible.</div>
-  <div class="actions"><button class="btn" id="restart">RESTART</button><button class="btn" id="mute">SOUND: ON</button></div>
+  <div class="actions"><button type="button" class="btn" id="restart">RESTART</button><button type="button" class="btn" id="mute">SOUND: ON</button></div>
  </div>
 </main>
 <script>

@@ -18,11 +18,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="win">
- <div class="title"><span>🖼️ WALLPAPER LAB 98.EXE</span><a href="../../" aria-label="back">×</a></div>
+ <div class="title"><span>🖼️ WALLPAPER LAB 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
  <div class="content">
   <section class="controls">
    <div class="group"><h2>GENERATOR</h2>
@@ -38,10 +41,10 @@
     <label class="row"><span>Scanlines</span><input id="scan" type="range" min="0" max="100" value="12"><span class="val" id="scanV"></span></label>
     <div class="palette" id="palettePreview"></div>
    </div>
-   <div class="buttons"><button class="btn" id="regen">REGENERATE</button><button class="btn" id="random">RANDOMIZE</button><button class="btn" id="copy">COPY SEED</button><button class="btn" id="save">SAVE PNG</button></div>
+   <div class="buttons"><button type="button" class="btn" id="regen">REGENERATE</button><button type="button" class="btn" id="random">RANDOMIZE</button><button type="button" class="btn" id="copy">COPY SEED</button><button type="button" class="btn" id="save">SAVE PNG</button></div>
    <p class="note">Everything is generated locally with Canvas. Same seed + settings = same wallpaper. No upload, account, API, or tracking.</p>
   </section>
-  <section class="preview"><div class="screen"><canvas id="canvas" width="960" height="540"></canvas></div><div class="status" id="status">Ready.</div></section>
+  <section class="preview"><div class="screen"><canvas id="canvas" width="960" height="540" aria-label="Wallpaper Lab 98 interactive canvas"></canvas></div><div class="status" id="status" role="status" aria-live="polite">Ready.</div></section>
  </div>
 </main>
 <script>

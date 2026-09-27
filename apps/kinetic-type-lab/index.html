@@ -16,13 +16,16 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style></head><body>
-<main class="win"><div class="bar"><span>🔤 KINETIC TYPE LAB.EXE</span><a href="../../">×</a></div><div class="grid">
+<main class="win"><div class="bar"><span>🔤 KINETIC TYPE LAB.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div><div class="grid">
 <section class="panel"><div class="group"><h2>TEXT</h2><label class="row"><span>Words</span><textarea id="text">MAKE THE WEB
 WEIRD AGAIN</textarea></label><label class="row"><span>Font</span><select id="font"><option value="Impact">Impact</option><option value="Arial Black">Arial Black</option><option value="Courier New">Courier New</option><option value="Georgia">Georgia</option></select></label></div>
 <div class="group"><h2>MOTION / LAYOUT</h2><label class="row"><span>Size</span><input id="size" type="range" min="32" max="150" value="86"></label><label class="row"><span>Tracking</span><input id="tracking" type="range" min="0" max="30" value="4"></label><label class="row"><span>Wave</span><input id="wave" type="range" min="0" max="80" value="26"></label><label class="row"><span>Speed</span><input id="speed" type="range" min="0" max="100" value="34"></label><label class="row"><span>Rotate</span><input id="rotate" type="range" min="-20" max="20" value="-4"></label><label class="row"><span>Grid</span><select id="grid"><option value="1">1×</option><option value="2">2×2</option><option value="3">3×3</option></select></label></div>
-<div class="group"><h2>PALETTE</h2><div class="swatches" id="swatches"></div></div><div class="buttons"><button class="btn" id="play">PAUSE</button><button class="btn" id="random">RANDOMIZE</button><button class="btn" id="png">SAVE PNG</button><button class="btn" id="square">SQUARE / WIDE</button></div><p style="font-size:11px;line-height:1.45">Everything renders locally with Canvas. No account, upload, API, or backend.</p></section>
-<section class="stage"><div class="canvasWrap"><canvas id="c" width="900" height="900"></canvas></div><div class="status" id="status">900×900 live poster · PNG export uses the current frame.</div></section>
+<div class="group"><h2>PALETTE</h2><div class="swatches" id="swatches"></div></div><div class="buttons"><button type="button" class="btn" id="play">PAUSE</button><button type="button" class="btn" id="random">RANDOMIZE</button><button type="button" class="btn" id="png">SAVE PNG</button><button type="button" class="btn" id="square">SQUARE / WIDE</button></div><p style="font-size:11px;line-height:1.45">Everything renders locally with Canvas. No account, upload, API, or backend.</p></section>
+<section class="stage"><div class="canvasWrap"><canvas id="c" width="900" height="900" aria-label="Kinetic Type Lab interactive canvas"></canvas></div><div class="status" id="status" role="status" aria-live="polite">900×900 live poster · PNG export uses the current frame.</div></section>
 </div></main>
 <script>
 (()=>{'use strict';const $=id=>document.getElementById(id),c=$('c'),x=c.getContext('2d');let playing=true,t0=performance.now(),wide=false,palette=0;

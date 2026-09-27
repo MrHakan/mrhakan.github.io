@@ -18,6 +18,9 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -31,7 +34,7 @@
   </div>
   <div class="toast" id="toast">nice</div>
   <div class="zone" id="zone">♻ RECYCLE ZONE<br><small>drag MOVE windows here</small></div>
-  <div class="taskbar"><button class="btn start">▣ Start</button><span class="panel">Window Panic 98</span><span class="clock" id="clock">--:--</span></div>
+  <div class="taskbar"><button type="button" class="btn start">▣ Start</button><span class="panel">Window Panic 98</span><span class="clock" id="clock">--:--</span></div>
   <section class="overlay" id="intro">
     <div class="window">
       <div class="wtitle">Window Panic 98 — training.exe</div>
@@ -40,7 +43,7 @@
         <p>Read each window and perform the exact action it asks for before the screen fills up.</p>
         <div class="rules">OK → click OK<br>CANCEL → click Cancel<br>ALLOW / DENY → choose the matching permission<br>CLOSE → use the title-bar ×<br>MOVE → drag the whole window into the recycle zone</div>
         <p>Correct actions build combo. Wrong actions cost a life. You have <b>75 seconds</b>.</p>
-        <button class="btn" id="start">START PANIC</button>
+        <button type="button" class="btn" id="start">START PANIC</button>
       </div>
     </div>
   </section>
@@ -72,7 +75,7 @@ function clickAction(d,action){const rule=d.dataset.rule;if(rule===action)right(
 function spawn(){if(!running)return;const t=TYPES[Math.floor(Math.random()*TYPES.length)],d=document.createElement('section');d.className='dialog';d.dataset.rule=t.rule;d.dataset.id=++seq;d.setAttribute('role','dialog');
  const maxX=Math.max(8,desk.clientWidth-Math.min(330,desk.clientWidth*.88)-12), maxY=Math.max(100,desk.clientHeight-240);
  d.style.left=Math.round(8+Math.random()*Math.max(0,maxX-8))+'px';d.style.top=Math.round(92+Math.random()*Math.max(0,maxY-92))+'px';
- d.innerHTML=`<div class="title"><span>${t.icon}</span><span class="caption">${t.title} #${seq}</span><button class="x" aria-label="close">×</button></div><div class="body"><div class="icon">${t.icon}</div><div class="copy">${t.msg}<div class="hint">required action: <b>${t.rule.toUpperCase()}</b></div></div></div><div class="actions">${t.buttons.map(b=>`<button data-act="${b.toLowerCase()}">${b}</button>`).join('')}</div>`;
+ d.innerHTML=`<div class="title"><span>${t.icon}</span><span class="caption">${t.title} #${seq}</span><button type="button" class="x" aria-label="close">×</button></div><div class="body"><div class="icon">${t.icon}</div><div class="copy">${t.msg}<div class="hint">required action: <b>${t.rule.toUpperCase()}</b></div></div></div><div class="actions">${t.buttons.map(b=>`<button type="button" data-act="${b.toLowerCase()}">${b}</button>`).join('')}</div>`;
  d.querySelector('.x').addEventListener('click',e=>{e.stopPropagation();clickAction(d,'close')});d.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>clickAction(d,b.dataset.act)));
  makeDraggable(d,d.querySelector('.title'));desk.appendChild(d);
 }

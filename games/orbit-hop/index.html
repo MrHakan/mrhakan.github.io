@@ -18,11 +18,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="window" aria-label="Orbit Hop 98 daily minigame">
-  <div class="titlebar"><span>🌍 ORBIT HOP 98 — DAILY CHALLENGE</span><a href="../../">×</a></div>
+  <div class="titlebar"><span>🌍 ORBIT HOP 98 — DAILY CHALLENGE</span><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="panel">
     <div class="hud">
       <div class="meter">DAILY SEED<b id="seed">----</b></div>
@@ -32,10 +35,10 @@
     </div>
     <canvas id="game" width="760" height="430" aria-label="Orbit Hop game canvas"></canvas>
     <div class="controls">
-      <button class="btn" id="jump">JUMP!</button>
-      <button class="btn" id="restart">NEW RUN</button>
-      <button class="btn" id="share">SHARE</button>
-      <div class="status" id="status">Press SPACE, ↑, tap the planet, or hit JUMP to begin.</div>
+      <button type="button" class="btn" id="jump">JUMP!</button>
+      <button type="button" class="btn" id="restart">NEW RUN</button>
+      <button type="button" class="btn" id="share">SHARE</button>
+      <div class="status" id="status" role="status" aria-live="polite">Press SPACE, ↑, tap the planet, or hit JUMP to begin.</div>
     </div>
     <p class="help">One tiny planet, one route per UTC day. Jump over red craters and collect gold starbits. Everyone gets the same obstacle layout. Controls: <span class="kbd">SPACE</span> / <span class="kbd">↑</span> / tap.</p>
   </div>

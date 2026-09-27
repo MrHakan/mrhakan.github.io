@@ -18,11 +18,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="window">
-  <div class="titlebar"><span>🎨 PIXEL DITHER LAB.EXE</span><a href="../../">×</a></div>
+  <div class="titlebar"><span>🎨 PIXEL DITHER LAB.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="content">
     <section class="controls">
       <div class="group">
@@ -39,16 +42,16 @@
         <label class="row"><span>Dither amt.</span><span><input id="strength" type="range" min="0" max="100" value="72"><span class="value" id="strengthV">72%</span></span></label>
       </div>
       <div class="buttons">
-        <button class="btn" id="demo">LOAD DEMO</button>
-        <button class="btn" id="random">RANDOMIZE</button>
-        <button class="btn" id="reset">RESET FX</button>
-        <button class="btn" id="save">SAVE PNG</button>
+        <button type="button" class="btn" id="demo">LOAD DEMO</button>
+        <button type="button" class="btn" id="random">RANDOMIZE</button>
+        <button type="button" class="btn" id="reset">RESET FX</button>
+        <button type="button" class="btn" id="save">SAVE PNG</button>
       </div>
       <p class="privacy">Everything runs locally in your browser. Images are never uploaded anywhere.</p>
     </section>
     <section class="preview">
-      <div class="canvasWrap"><canvas id="out" width="640" height="420"></canvas></div>
-      <div class="status" id="status">No upload required — a generated demo scene is ready.</div>
+      <div class="canvasWrap"><canvas id="out" width="640" height="420" aria-label="Pixel Dither Lab interactive canvas"></canvas></div>
+      <div class="status" id="status" role="status" aria-live="polite">No upload required — a generated demo scene is ready.</div>
     </section>
   </div>
 </main>

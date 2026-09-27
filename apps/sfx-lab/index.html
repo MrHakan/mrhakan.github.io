@@ -18,11 +18,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="window">
-  <div class="title"><span>🔊 SFX LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="title"><span>🔊 SFX LAB 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="content">
     <section class="controls">
       <div class="group"><h2>PRESETS</h2><div class="presets" id="presets"></div></div>
@@ -37,12 +40,12 @@
         <label class="row"><span>Bitcrush</span><input id="bits" type="range" min="3" max="16" value="16"><span class="val" id="bitsV"></span></label>
         <label class="row"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="70"><span class="val" id="volumeV"></span></label>
       </div>
-      <div class="buttons"><button class="btn" id="play">▶ PLAY</button><button class="btn" id="random">🎲 RANDOM</button><button class="btn" id="mutate">🧬 MUTATE</button><button class="btn" id="save">💾 SAVE WAV</button></div>
+      <div class="buttons"><button type="button" class="btn" id="play">▶ PLAY</button><button type="button" class="btn" id="random">🎲 RANDOM</button><button type="button" class="btn" id="mutate">🧬 MUTATE</button><button type="button" class="btn" id="save">💾 SAVE WAV</button></div>
       <p class="note">Everything is synthesized locally with browser audio. No samples, uploads, API keys or backend.</p>
     </section>
     <section class="preview">
-      <div class="screen"><h1>SOUND OSCILLOSCOPE</h1><p id="readout">ready // click PLAY</p><canvas id="scope" class="scope" width="760" height="260"></canvas></div>
-      <div class="status" id="status">Preset loaded: COIN. Press PLAY to wake the audio context.</div>
+      <div class="screen"><h1>SOUND OSCILLOSCOPE</h1><p id="readout">ready // click PLAY</p><canvas id="scope" class="scope" width="760" height="260" aria-label="SFX Lab 98 interactive canvas"></canvas></div>
+      <div class="status" id="status" role="status" aria-live="polite">Preset loaded: COIN. Press PLAY to wake the audio context.</div>
     </section>
   </div>
 </main>
