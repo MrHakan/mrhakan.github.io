@@ -18,26 +18,29 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="window">
-  <div class="title"><span>🖱️ SELECTION FRENZY 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="title"><span>🖱️ SELECTION FRENZY 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="toolbar">
     <div class="panel">TIME <b id="time">60.0</b></div>
     <div class="panel">SCORE <b id="score">0</b></div>
     <div class="panel">COMBO <b id="combo">x1</b></div>
     <div class="panel">BEST <b id="best">0</b></div>
-    <button class="btn" id="restart">RESTART</button>
+    <button type="button" class="btn" id="restart">RESTART</button>
   </div>
   <div class="mission" id="mission">Mission loading...</div>
   <section class="desktop" id="desktop" aria-label="selection game desktop">
     <div class="flash" id="flash"></div>
     <div class="overlay" id="overlay">
-      <div class="card"><h2>selection-frenzy.exe</h2><div class="body" id="overlayBody">Drag a Windows-style selection rectangle around <b>only the requested file type</b>.<br><br>Correct icons score points. Wrong icons break your combo and cost points. Clear the requested quota before time expires.<div class="actions"><button class="btn" id="start">START</button></div></div></div>
+      <div class="card"><h2>selection-frenzy.exe</h2><div class="body" id="overlayBody">Drag a Windows-style selection rectangle around <b>only the requested file type</b>.<br><br>Correct icons score points. Wrong icons break your combo and cost points. Clear the requested quota before time expires.<div class="actions"><button type="button" class="btn" id="start">START</button></div></div></div>
     </div>
   </section>
-  <div class="status" id="status">Tip: tiny precise drags beat giant panic-boxes.</div>
+  <div class="status" id="status" role="status" aria-live="polite">Tip: tiny precise drags beat giant panic-boxes.</div>
 </main>
 <script>
 (()=>{'use strict';
@@ -68,7 +71,7 @@ function endDrag(p){if(!dragging)return;dragging=false;const r=rect(startPt,p);i
 desk.addEventListener('pointerdown',e=>{if(!running||e.target.closest('.overlay'))return;dragging=true;startPt=pt(e);box=document.createElement('div');box.className='selectbox';desk.appendChild(box);desk.setPointerCapture?.(e.pointerId);e.preventDefault()});
 desk.addEventListener('pointermove',e=>{if(!dragging)return;const p=pt(e),r=rect(startPt,p);Object.assign(box.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});icons.forEach(i=>i.el.classList.toggle('selected',overlaps(r,iconRect(i.el))));e.preventDefault()});
 desk.addEventListener('pointerup',e=>{if(!dragging)return;endDrag(pt(e));e.preventDefault()});desk.addEventListener('pointercancel',()=>{if(box)box.remove();box=null;dragging=false});
-function finish(){running=false;dragging=false;if(box)box.remove();box=null;if(score>best){best=score;try{localStorage.setItem('selection-frenzy-best',best)}catch(e){}}update();overlayBody.innerHTML='<b>Time!</b><br><br>Score: <b>'+score+'</b><br>Best: <b>'+best+'</b><br><br>'+(score>=5000?'selection wizard.':'your desktop survives... barely.')+'<div class="actions"><button class="btn" id="again">PLAY AGAIN</button></div>';overlay.hidden=false;document.getElementById('again').onclick=reset;beep(180,.15,'sawtooth',.03)}
+function finish(){running=false;dragging=false;if(box)box.remove();box=null;if(score>best){best=score;try{localStorage.setItem('selection-frenzy-best',best)}catch(e){}}update();overlayBody.innerHTML='<b>Time!</b><br><br>Score: <b>'+score+'</b><br>Best: <b>'+best+'</b><br><br>'+(score>=5000?'selection wizard.':'your desktop survives... barely.')+'<div class="actions"><button type="button" class="btn" id="again">PLAY AGAIN</button></div>';overlay.hidden=false;document.getElementById('again').onclick=reset;beep(180,.15,'sawtooth',.03)}
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(running){time-=dt;if(time<=0){time=0;finish()}update()}requestAnimationFrame(loop)}
 $('start').onclick=reset;$('restart').onclick=reset;window.addEventListener('resize',()=>{if(running)spawn()});requestAnimationFrame(loop);
 })();

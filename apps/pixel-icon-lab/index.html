@@ -18,11 +18,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="window">
-  <div class="title"><span>🎨 PIXEL ICON LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="title"><span>🎨 PIXEL ICON LAB 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="content">
     <section class="controls">
       <div class="group">
@@ -33,10 +36,10 @@
       <div class="group">
         <h2>TOOLS</h2>
         <div class="tools">
-          <button class="btn active" data-tool="pencil">✎ PENCIL [B]</button>
-          <button class="btn" data-tool="eraser">⌫ ERASER [E]</button>
-          <button class="btn" data-tool="fill">▣ FILL [F]</button>
-          <button class="btn" data-tool="picker">⌾ PICKER [I]</button>
+          <button type="button" class="btn active" data-tool="pencil">✎ PENCIL [B]</button>
+          <button type="button" class="btn" data-tool="eraser">⌫ ERASER [E]</button>
+          <button type="button" class="btn" data-tool="fill">▣ FILL [F]</button>
+          <button type="button" class="btn" data-tool="picker">⌾ PICKER [I]</button>
         </div>
         <label class="row"><span>Color</span><input id="color" type="color" value="#000080"></label>
       </div>
@@ -47,22 +50,22 @@
       <div class="group">
         <h2>EDIT</h2>
         <div class="actions">
-          <button class="btn" id="undo">↶ UNDO</button><button class="btn" id="redo">↷ REDO</button>
-          <button class="btn" id="clear">NEW / CLEAR</button><button class="btn" id="importBtn">IMPORT IMAGE</button>
+          <button type="button" class="btn" id="undo">↶ UNDO</button><button type="button" class="btn" id="redo">↷ REDO</button>
+          <button type="button" class="btn" id="clear">NEW / CLEAR</button><button type="button" class="btn" id="importBtn">IMPORT IMAGE</button>
         </div>
         <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
       </div>
       <div class="group">
         <h2>EXPORT</h2>
-        <div class="actions"><button class="btn" id="save1">SAVE PNG 1×</button><button class="btn" id="save8">SAVE PNG 8×</button></div>
+        <div class="actions"><button type="button" class="btn" id="save1">SAVE PNG 1×</button><button type="button" class="btn" id="save8">SAVE PNG 8×</button></div>
         <p class="note">Transparent pixels stay transparent. Imports are sampled locally and never uploaded.</p>
       </div>
     </section>
     <section class="editor">
       <div class="canvasbox"><canvas id="canvas" width="512" height="512" aria-label="pixel icon drawing canvas"></canvas></div>
       <div class="lower">
-        <div class="previewBox"><canvas id="preview" width="128" height="128"></canvas></div>
-        <div class="status" id="status">32×32 canvas · pencil · #000080<br>Draw with mouse, pen, or touch. Shortcuts: B/E/F/I, Ctrl+Z, Ctrl+Y.</div>
+        <div class="previewBox"><canvas id="preview" width="128" height="128" aria-label="Pixel Icon Lab 98 interactive canvas"></canvas></div>
+        <div class="status" id="status" role="status" aria-live="polite">32×32 canvas · pencil · #000080<br>Draw with mouse, pen, or touch. Shortcuts: B/E/F/I, Ctrl+Z, Ctrl+Y.</div>
       </div>
     </section>
   </div>

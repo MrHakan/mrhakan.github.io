@@ -18,11 +18,14 @@
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}
 }
+
+/* Playground focus visibility */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
 </style>
 </head>
 <body>
 <main class="window">
-  <div class="title"><span>🪙 GUILLOCHE LAB 98.EXE</span><a href="../../" aria-label="back to site">×</a></div>
+  <div class="title"><span>🪙 GUILLOCHE LAB 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="content">
     <section class="controls">
       <div class="group"><h2>DESIGN</h2>
@@ -36,10 +39,10 @@
         <label class="row"><span>Twist</span><input id="twist" type="range" min="-120" max="120" value="19"><span class="val" id="twistV"></span></label>
         <label class="row"><span>Stroke</span><input id="stroke" type="range" min="1" max="12" value="3"><span class="val" id="strokeV"></span></label>
       </div>
-      <div class="buttons"><button class="btn" id="random">RANDOMIZE</button><button class="btn" id="copy">COPY SEED</button><button class="btn" id="png">SAVE PNG</button><button class="btn" id="svg">SAVE SVG</button></div>
+      <div class="buttons"><button type="button" class="btn" id="random">RANDOMIZE</button><button type="button" class="btn" id="copy">COPY SEED</button><button type="button" class="btn" id="png">SAVE PNG</button><button type="button" class="btn" id="svg">SAVE SVG</button></div>
       <p class="note">Everything is generated locally. Same seed + settings reproduces the same engraving.</p>
     </section>
-    <section class="preview"><div class="canvasWrap"><canvas id="art" width="900" height="700"></canvas></div><div class="status" id="status">ready</div></section>
+    <section class="preview"><div class="canvasWrap"><canvas id="art" width="900" height="700" aria-label="Guilloche Lab 98 interactive canvas"></canvas></div><div class="status" id="status" role="status" aria-live="polite">ready</div></section>
   </div>
 </main>
 <script>
