@@ -355,7 +355,7 @@
                 <h2 class="text-3xl font-bold text-black font-header">games_and_apps.exe</h2>
                 <p class="text-black font-pixel text-xs mt-1">daily browser drops — games in /games, apps in /apps. click one to launch it.</p>
               </div>
-              <div id="playground-count" class="text-black font-pixel text-xs bg-[#ffffe1] border border-gray-500 px-2 py-1">loading...</div>
+              <div id="playground-count" aria-live="polite" class="text-black font-pixel text-xs bg-[#ffffe1] border border-gray-500 px-2 py-1">loading...</div>
             </div>
             <div class="bg-retro-gray bevel-out p-2 mb-4 flex flex-col md:flex-row gap-2 md:items-center">
               <div class="flex gap-1" role="group" aria-label="filter games and apps">
@@ -366,7 +366,10 @@
                 <button type="button" data-playground-filter="app" onclick="setPlaygroundFilter('app')"
                   class="playground-filter bevel-out bg-retro-gray px-3 py-1 text-black font-header font-bold text-sm">apps</button>
               </div>
+              <button type="button" onclick="launchRandomPlayground()"
+                class="bg-retro-gray bevel-out px-3 py-1 text-black font-header font-bold text-sm whitespace-nowrap">surprise me</button>
               <input id="playground-search" type="search" oninput="renderPlaygroundCatalog()" placeholder="find something..."
+                aria-label="search games and apps" autocomplete="off"
                 class="md:ml-auto w-full md:w-64 bg-white bevel-in px-2 py-1 text-black font-pixel text-xs border-0 focus:ring-0" />
             </div>
             <div id="playground-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

@@ -2856,20 +2856,34 @@ function playgroundEscape(value) {
     })[c]);
 }
 
-function renderPlaygroundCatalog() {
-    const grid = document.getElementById('playground-grid');
-    if (!grid) return;
+function getVisiblePlaygroundItems() {
     const query = (document.getElementById('playground-search')?.value || '').trim().toLowerCase();
-    const visible = playgroundCatalog
+    return playgroundCatalog
         .filter(item => playgroundFilter === 'all' || item.type === playgroundFilter)
         .filter(item => !query || [item.name, item.description, item.type, ...(item.tags || [])].join(' ').toLowerCase().includes(query))
         .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(a.name).localeCompare(String(b.name)));
+}
+
+function launchRandomPlayground() {
+    const visible = getVisiblePlaygroundItems();
+    if (!visible.length) {
+        if (typeof showToast === 'function') showToast('playground', 'nothing to launch with the current filter');
+        return;
+    }
+    const item = visible[Math.floor(Math.random() * visible.length)];
+    window.open(item.url, '_blank', 'noopener,noreferrer');
+}
+
+function renderPlaygroundCatalog() {
+    const grid = document.getElementById('playground-grid');
+    if (!grid) return;
+    const visible = getVisiblePlaygroundItems();
 
     const count = document.getElementById('playground-count');
     if (count) {
         const games = playgroundCatalog.filter(x => x.type === 'game').length;
         const apps = playgroundCatalog.filter(x => x.type === 'app').length;
-        count.textContent = games + ' games · ' + apps + ' apps';
+        count.textContent = visible.length + ' shown · ' + games + ' games · ' + apps + ' apps';
     }
 
     if (!visible.length) {
