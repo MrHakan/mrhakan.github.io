@@ -1,5 +1,33 @@
 [
   {
+    "name": "Pixel Lock 98",
+    "type": "game",
+    "date": "2026-09-29",
+    "url": "/games/pixel-lock/",
+    "icon": "🔐",
+    "description": "Crack a seeded daily four-symbol lock in eight guesses using exact and misplaced clues.",
+    "tags": [
+      "daily",
+      "deduction",
+      "mastermind",
+      "touch"
+    ]
+  },
+  {
+    "name": "URL Lab 98",
+    "type": "app",
+    "date": "2026-09-29",
+    "url": "/apps/url-lab/",
+    "icon": "🔗",
+    "description": "Parse, edit and rebuild URLs locally with query parameters, encoding helpers and copy actions.",
+    "tags": [
+      "url",
+      "developer",
+      "encoding",
+      "local"
+    ]
+  },
+  {
     "name": "Network Patch 98",
     "type": "game",
     "date": "2026-09-27",
