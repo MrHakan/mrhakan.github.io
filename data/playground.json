@@ -1,4 +1,6 @@
 [
+{"name":"Wire Trace 98","type":"game","date":"2026-10-01","url":"/games/wire-trace/","icon":"〰","description":"Draw one continuous wire through every grid cell exactly once in a compact daily logic puzzle.","tags":["daily","path","logic","touch"]},
+{"name":"Shadow Lab 98","type":"app","date":"2026-10-01","url":"/apps/shadow-lab/","icon":"▣","description":"Build layered CSS box shadows visually with presets and copy production-ready CSS locally.","tags":["css","shadow","design","developer"]},
 {"name":"Hex Merge 98","type":"game","date":"2026-09-30","url":"/games/hex-merge/","icon":"⬡","description":"Slide numbered hex tiles in six directions, merge matching values and chase 2048 or a new high score.","tags":["hex","merge","puzzle","touch"]},
 {"name":"Contrast Matrix 98","type":"app","date":"2026-09-30","url":"/apps/contrast-matrix/","icon":"◐","description":"Test every color pair in a palette for WCAG contrast and copy accessible foreground/background combinations.","tags":["accessibility","contrast","wcag","design"]},
 {"name":"Pixel Lock 98","type":"game","date":"2026-09-29","url":"/games/pixel-lock/","icon":"🔐","description":"Crack a seeded daily four-symbol lock in eight guesses using exact and misplaced clues.","tags":["daily","deduction","mastermind","touch"]},
