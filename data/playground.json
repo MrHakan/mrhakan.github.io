@@ -1,4 +1,6 @@
 [
+{"name":"Color Fuse 98","type":"game","date":"2026-10-02","url":"/games/color-fuse/","icon":"◆","description":"Clear connected color clusters, chain big-group combos and chase a local high score.","tags":["cluster","puzzle","arcade","touch"]},
+{"name":"CSV JSON Lab 98","type":"app","date":"2026-10-02","url":"/apps/csv-json-lab/","icon":"▤","description":"Convert CSV and JSON locally with delimiter controls, validation and clipboard export.","tags":["csv","json","converter","developer"]},
 {"name":"Wire Trace 98","type":"game","date":"2026-10-01","url":"/games/wire-trace/","icon":"〰","description":"Draw one continuous wire through every grid cell exactly once in a compact daily logic puzzle.","tags":["daily","path","logic","touch"]},
 {"name":"Shadow Lab 98","type":"app","date":"2026-10-01","url":"/apps/shadow-lab/","icon":"▣","description":"Build layered CSS box shadows visually with presets and copy production-ready CSS locally.","tags":["css","shadow","design","developer"]},
 {"name":"Hex Merge 98","type":"game","date":"2026-09-30","url":"/games/hex-merge/","icon":"⬡","description":"Slide numbered hex tiles in six directions, merge matching values and chase 2048 or a new high score.","tags":["hex","merge","puzzle","touch"]},
