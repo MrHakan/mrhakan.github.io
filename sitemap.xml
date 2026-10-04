@@ -1,59 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://mrhakan.github.io/</loc><lastmod>2026-10-02</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://mrhakan.github.io/links.html</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://mrhakan.github.io/guestbook.html</loc><lastmod>2026-08-28</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=devlog</loc><lastmod>2026-08-28</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=now</loc><lastmod>2026-08-28</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=uses</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=colophon</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=changelog</loc><lastmod>2026-08-28</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=blogroll</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=buttons</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=shrine</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=internet-life</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=sitemap</loc><lastmod>2026-08-28</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://mrhakan.github.io/?app=github</loc><lastmod>2026-08-28</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://mrhakan.github.io/games/orbit-hop/</loc><lastmod>2026-09-10</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/pixel-dither-lab/</loc><lastmod>2026-09-10</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://mrhakan.github.io/games/packet-panic/</loc><lastmod>2026-09-11</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/kinetic-type-lab/</loc><lastmod>2026-09-11</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/window-panic/</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/sfx-lab/</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/floppy-stack/</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/wallpaper-lab/</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/dialup-drift/</loc><lastmod>2026-09-13</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/guilloche-lab/</loc><lastmod>2026-09-13</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/recycle-golf/</loc><lastmod>2026-09-13</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/pixel-icon-lab/</loc><lastmod>2026-09-13</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/selection-frenzy/</loc><lastmod>2026-09-14</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/palette-lab/</loc><lastmod>2026-09-14</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/taskbar-tumble/</loc><lastmod>2026-09-15</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/ascii-lab/</loc><lastmod>2026-09-15</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/bsod-dodge/</loc><lastmod>2026-09-16</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/text-transform-lab/</loc><lastmod>2026-09-16</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/desktop-sweeper/</loc><lastmod>2026-09-17</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/gradient-lab/</loc><lastmod>2026-09-17</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/shutdown-sequence/</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/sprite-sheet-lab/</loc><lastmod>2026-09-18</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/cursor-maze/</loc><lastmod>2026-09-19</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/hash-lab/</loc><lastmod>2026-09-19</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/icon-sorter/</loc><lastmod>2026-09-20</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/image-privacy-lab/</loc><lastmod>2026-09-20</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/signal-sweep/</loc><lastmod>2026-09-21</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/json-lab/</loc><lastmod>2026-09-21</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/cursor-snake/</loc><lastmod>2026-09-22</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/timestamp-lab/</loc><lastmod>2026-09-22</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/popup-pinball/</loc><lastmod>2026-09-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/regex-lab/</loc><lastmod>2026-09-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/network-patch/</loc><lastmod>2026-09-27</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/diff-lab/</loc><lastmod>2026-09-27</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/pixel-lock/</loc><lastmod>2026-09-29</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/url-lab/</loc><lastmod>2026-09-29</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/hex-merge/</loc><lastmod>2026-09-30</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/contrast-matrix/</loc><lastmod>2026-09-30</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/wire-trace/</loc><lastmod>2026-10-01</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/shadow-lab/</loc><lastmod>2026-10-01</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/games/color-fuse/</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://mrhakan.github.io/apps/csv-json-lab/</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+<url><loc>https://mrhakan.github.io/</loc><lastmod>2026-10-04</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+<url><loc>https://mrhakan.github.io/links.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+<url><loc>https://mrhakan.github.io/guestbook.html</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+<url><loc>https://mrhakan.github.io/?app=devlog</loc><priority>0.9</priority></url><url><loc>https://mrhakan.github.io/?app=now</loc><priority>0.8</priority></url><url><loc>https://mrhakan.github.io/?app=uses</loc><priority>0.7</priority></url><url><loc>https://mrhakan.github.io/?app=colophon</loc></url><url><loc>https://mrhakan.github.io/?app=changelog</loc></url><url><loc>https://mrhakan.github.io/?app=blogroll</loc></url><url><loc>https://mrhakan.github.io/?app=buttons</loc></url><url><loc>https://mrhakan.github.io/?app=shrine</loc></url><url><loc>https://mrhakan.github.io/?app=internet-life</loc></url><url><loc>https://mrhakan.github.io/?app=sitemap</loc></url><url><loc>https://mrhakan.github.io/?app=github</loc></url>
+<url><loc>https://mrhakan.github.io/games/orbit-hop/</loc></url><url><loc>https://mrhakan.github.io/apps/pixel-dither-lab/</loc></url><url><loc>https://mrhakan.github.io/games/packet-panic/</loc></url><url><loc>https://mrhakan.github.io/apps/kinetic-type-lab/</loc></url><url><loc>https://mrhakan.github.io/games/window-panic/</loc></url><url><loc>https://mrhakan.github.io/apps/sfx-lab/</loc></url><url><loc>https://mrhakan.github.io/games/floppy-stack/</loc></url><url><loc>https://mrhakan.github.io/apps/wallpaper-lab/</loc></url><url><loc>https://mrhakan.github.io/games/dialup-drift/</loc></url><url><loc>https://mrhakan.github.io/apps/guilloche-lab/</loc></url><url><loc>https://mrhakan.github.io/games/recycle-golf/</loc></url><url><loc>https://mrhakan.github.io/apps/pixel-icon-lab/</loc></url><url><loc>https://mrhakan.github.io/games/selection-frenzy/</loc></url><url><loc>https://mrhakan.github.io/apps/palette-lab/</loc></url><url><loc>https://mrhakan.github.io/games/taskbar-tumble/</loc></url><url><loc>https://mrhakan.github.io/apps/ascii-lab/</loc></url><url><loc>https://mrhakan.github.io/games/bsod-dodge/</loc></url><url><loc>https://mrhakan.github.io/apps/text-transform-lab/</loc></url><url><loc>https://mrhakan.github.io/games/desktop-sweeper/</loc></url><url><loc>https://mrhakan.github.io/apps/gradient-lab/</loc></url><url><loc>https://mrhakan.github.io/games/shutdown-sequence/</loc></url><url><loc>https://mrhakan.github.io/apps/sprite-sheet-lab/</loc></url><url><loc>https://mrhakan.github.io/games/cursor-maze/</loc></url><url><loc>https://mrhakan.github.io/apps/hash-lab/</loc></url><url><loc>https://mrhakan.github.io/games/icon-sorter/</loc></url><url><loc>https://mrhakan.github.io/apps/image-privacy-lab/</loc></url><url><loc>https://mrhakan.github.io/games/signal-sweep/</loc></url><url><loc>https://mrhakan.github.io/apps/json-lab/</loc></url><url><loc>https://mrhakan.github.io/games/cursor-snake/</loc></url><url><loc>https://mrhakan.github.io/apps/timestamp-lab/</loc></url><url><loc>https://mrhakan.github.io/games/popup-pinball/</loc></url><url><loc>https://mrhakan.github.io/apps/regex-lab/</loc></url><url><loc>https://mrhakan.github.io/games/network-patch/</loc></url><url><loc>https://mrhakan.github.io/apps/diff-lab/</loc></url><url><loc>https://mrhakan.github.io/games/pixel-lock/</loc></url><url><loc>https://mrhakan.github.io/apps/url-lab/</loc></url><url><loc>https://mrhakan.github.io/games/hex-merge/</loc></url><url><loc>https://mrhakan.github.io/apps/contrast-matrix/</loc></url><url><loc>https://mrhakan.github.io/games/wire-trace/</loc></url><url><loc>https://mrhakan.github.io/apps/shadow-lab/</loc></url><url><loc>https://mrhakan.github.io/games/color-fuse/</loc></url><url><loc>https://mrhakan.github.io/apps/csv-json-lab/</loc></url>
+<url><loc>https://mrhakan.github.io/games/binary-bloom/</loc><lastmod>2026-10-03</lastmod></url><url><loc>https://mrhakan.github.io/apps/base64-lab/</loc><lastmod>2026-10-03</lastmod></url><url><loc>https://mrhakan.github.io/games/ghost-click/</loc><lastmod>2026-10-04</lastmod></url><url><loc>https://mrhakan.github.io/apps/jwt-lens/</loc><lastmod>2026-10-04</lastmod></url>
 </urlset>
