@@ -27,11 +27,13 @@ for (const viewport of [{ name: 'desktop', width: 1280, height: 800 }, { name: '
             await page.waitForTimeout(80);
             const state = await page.evaluate(() => ({
                 title: document.title.trim(),
+                headings: document.querySelectorAll('h1').length,
                 main: !!document.querySelector('main'),
                 interactive: !!document.querySelector('button,input,select,textarea,canvas'),
                 overflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - document.documentElement.clientWidth
             }));
             if (!state.title) errors.push('document title is empty');
+            if (state.headings !== 1) errors.push('expected one page heading, found ' + state.headings);
             if (!state.main) errors.push('main element is missing');
             if (!state.interactive) errors.push('no interactive control/canvas found');
             if (state.overflow > 64) errors.push('horizontal overflow: ' + state.overflow + 'px');

@@ -43,7 +43,12 @@ for (const item of Array.isArray(catalog) ? catalog : []) {
     if (!/<link\b[^>]*rel=["']canonical["']/i.test(html)) fail(`${label}: canonical link is missing`);
     if (!/property=["']og:title["']/i.test(html) || !/property=["']og:description["']/i.test(html)) fail(`${label}: Open Graph title/description is missing`);
     if (!/prefers-reduced-motion/i.test(html)) fail(`${label}: reduced-motion fallback is missing`);
-    if (!/Playground focus visibility/i.test(html)) fail(`${label}: shared focus-visible treatment is missing`);
+    const styles = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)]
+        .map(match => match[1].replace(/\/\*[\s\S]*?\*\//g, '')).join('\n');
+    const focusRules = [...styles.matchAll(/[^{}]*:focus-visible[^{}]*\{([^{}]*)\}/gi)];
+    if (!focusRules.some(match => /\boutline\s*:\s*[1-9][\d.]*px\s+(?:solid|dashed|dotted|double)\b/i.test(match[1]))) {
+        fail(`${label}: visible keyboard focus outline is missing`);
+    }
     if (!/<a\b[^>]*href=["']\.\.\/\.\.\/["'][^>]*aria-label=["']Back to Playground["']/i.test(html)) fail(`${label}: back link needs an accessible label`);
 
     const buttonWithoutType = [...html.matchAll(/<button\b([^>]*)>/gi)].find(match => !/\btype=/i.test(match[1]));
