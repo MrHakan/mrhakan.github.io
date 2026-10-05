@@ -21,11 +21,18 @@
 
 /* Playground focus visibility */
 :where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
+
+.page-heading{margin:0;font:inherit}
 </style>
+
+<link rel="icon" type="image/png" href="/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png">
+<meta property="og:image" content="https://mrhakan.github.io/src/emoj/dusung.png">
+<meta property="og:image:alt" content="A cursed emoji from mrhakan’s retro corner of the web">
+<meta name="twitter:card" content="summary">
 </head>
 <body>
 <main class="window">
-  <div class="title"><span>📞 DIAL-UP DRIFT 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
+  <div class="title"><h1 class="page-heading">📞 DIAL-UP DRIFT 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="toolbar"><div class="stat">SCORE <b id="score">0</b></div><div class="stat">BEST <b id="best">0</b></div><div class="stat">SPEED <b id="speed">1.00x</b></div><div class="stat">CARRIER <b id="carrier">OFF</b></div><button type="button" class="btn" id="restart">RESTART</button></div>
   <div class="stage">
     <div class="frame"><canvas id="game" width="960" height="540" aria-label="Dial-Up Drift game"></canvas><div class="overlay" id="overlay"><div class="dialog"><div class="dtitle" id="overlayTitle">Dial-Up Networking</div><div class="dbody" id="overlayBody"><b>Keep the connection alive through the line noise.</b><div class="rules">HOLD SPACE / MOUSE / TOUCH = carrier rises<br>RELEASE = carrier falls<br>stay inside the green signal corridor<br>one crash = disconnected</div><p>This is a one-button arcade run. The line gets faster and tighter the longer you survive.</p><button type="button" class="btn" id="start">DIAL NOW</button></div></div></div></div>

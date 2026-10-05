@@ -12,7 +12,7 @@
 <meta property="og:url" content="https://mrhakan.github.io/apps/sfx-lab/">
 <title>SFX Lab 98</title>
 <style>
-:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px}.window{max-width:980px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.content{display:grid;grid-template-columns:330px minmax(0,1fr);gap:10px;padding:10px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:9px;margin-bottom:9px}.group h2{font-size:12px;margin:0 0 8px}.row{display:grid;grid-template-columns:92px 1fr 45px;gap:6px;align-items:center;font-size:12px;margin:7px 0}.row select,.row input[type=range]{width:100%}.row select{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.val{font-family:monospace;text-align:right}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:8px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.preview{min-width:0}.screen{background:#030b05;border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;min-height:310px;display:flex;flex-direction:column;gap:8px}.screen h1{margin:0;color:#49ff6b;font:700 20px monospace}.screen p{margin:0;color:#8dff9f;font:12px/1.45 monospace}.scope{width:100%;height:230px;background:#001806;border:1px solid #1b7a2a;image-rendering:pixelated}.status{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font-size:12px;min-height:31px}.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.preset{font-size:11px;padding:6px 3px}.note{font-size:11px;line-height:1.4;color:#333;margin:8px 0 0}@media(max-width:760px){body{padding:6px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.screen{min-height:250px}.scope{height:180px}.presets{grid-template-columns:repeat(2,1fr)}}
+:root{font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;background:#008080;color:#000}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080}body{padding:12px}.window{max-width:980px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:4px 4px 0 rgba(0,0,0,.55)}.title{display:flex;align-items:center;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 5px}.title a{margin-left:auto;color:#000;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;padding:0 6px}.content{display:grid;grid-template-columns:330px minmax(0,1fr);gap:10px;padding:10px}.group{border:2px solid;border-color:#808080 #fff #fff #808080;padding:9px;margin-bottom:9px}.group h2{font-size:12px;margin:0 0 8px}.row{display:grid;grid-template-columns:92px 1fr 45px;gap:6px;align-items:center;font-size:12px;margin:7px 0}.row select,.row input[type=range]{width:100%}.row select{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:4px}.val{font-family:monospace;text-align:right}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:1px 1px 0 #000;padding:8px;font-weight:700;cursor:pointer}.btn:active{border-color:#000 #fff #fff #000;transform:translate(1px,1px);box-shadow:none}.preview{min-width:0}.screen{background:#030b05;border:2px solid;border-color:#808080 #fff #fff #808080;padding:8px;min-height:310px;display:flex;flex-direction:column;gap:8px}.screen h2{margin:0;color:#49ff6b;font:700 20px monospace}.screen p{margin:0;color:#8dff9f;font:12px/1.45 monospace}.scope{width:100%;height:230px;background:#001806;border:1px solid #1b7a2a;image-rendering:pixelated}.status{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px;font-size:12px;min-height:31px}.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.preset{font-size:11px;padding:6px 3px}.note{font-size:11px;line-height:1.4;color:#333;margin:8px 0 0}@media(max-width:760px){body{padding:6px}.content{grid-template-columns:1fr;padding:6px}.preview{order:1}.controls{order:2}.screen{min-height:250px}.scope{height:180px}.presets{grid-template-columns:repeat(2,1fr)}}
 
 :focus-visible{outline:2px solid #000080;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){
@@ -21,11 +21,18 @@
 
 /* Playground focus visibility */
 :where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid #ff00ff;outline-offset:2px}
+
+.page-heading{margin:0;font:inherit}
 </style>
+
+<link rel="icon" type="image/png" href="/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png">
+<meta property="og:image" content="https://mrhakan.github.io/src/emoj/dusung.png">
+<meta property="og:image:alt" content="A cursed emoji from mrhakan’s retro corner of the web">
+<meta name="twitter:card" content="summary">
 </head>
 <body>
 <main class="window">
-  <div class="title"><span>🔊 SFX LAB 98.EXE</span><a href="../../" aria-label="Back to Playground">×</a></div>
+  <div class="title"><h1 class="page-heading">🔊 SFX LAB 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></div>
   <div class="content">
     <section class="controls">
       <div class="group"><h2>PRESETS</h2><div class="presets" id="presets"></div></div>
@@ -44,7 +51,7 @@
       <p class="note">Everything is synthesized locally with browser audio. No samples, uploads, API keys or backend.</p>
     </section>
     <section class="preview">
-      <div class="screen"><h1>SOUND OSCILLOSCOPE</h1><p id="readout">ready // click PLAY</p><canvas id="scope" class="scope" width="760" height="260" aria-label="SFX Lab 98 interactive canvas"></canvas></div>
+      <div class="screen"><h2>SOUND OSCILLOSCOPE</h2><p id="readout">ready // click PLAY</p><canvas id="scope" class="scope" width="760" height="260" aria-label="SFX Lab 98 interactive canvas"></canvas></div>
       <div class="status" id="status" role="status" aria-live="polite">Preset loaded: COIN. Press PLAY to wake the audio context.</div>
     </section>
   </div>
