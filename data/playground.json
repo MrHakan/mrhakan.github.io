@@ -1,4 +1,6 @@
 [
+{"name":"Bridge Logic 98","type":"game","date":"2026-10-05","url":"/games/bridge-logic/","icon":"🌉","description":"Connect numbered islands with one or two bridges until every island reaches its required count.","tags":["daily","hashi","logic","touch"]},
+{"name":"UUID Lab 98","type":"app","date":"2026-10-05","url":"/apps/uuid-lab/","icon":"🪪","description":"Generate UUID v4 values and inspect UUID syntax, version and variant entirely in the browser.","tags":["uuid","developer","crypto","local"]},
 {"name":"Ghost Click 98","type":"game","date":"2026-10-04","url":"/games/ghost-click/","icon":"◎","description":"Memorize a target that vanishes, then click its remembered center across five precision rounds.","tags":["memory","precision","touch","spatial"]},
 {"name":"JWT Lens 98","type":"app","date":"2026-10-04","url":"/apps/jwt-lens/","icon":"🔎","description":"Decode JWT headers and payloads locally, inspect timestamps and expiry without uploading tokens.","tags":["jwt","developer","security","local"]},
 {"name":"Binary Bloom 98","type":"game","date":"2026-10-03","url":"/games/binary-bloom/","icon":"☼","description":"Toggle a seeded daily binary grid until every lamp is lit in a compact lights-out logic puzzle.","tags":["daily","logic","lights-out","touch"]},
