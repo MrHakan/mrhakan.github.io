@@ -1,4 +1,6 @@
 [
+{"name":"Sum Circuit 98","type":"game","date":"2026-10-06","url":"/games/sum-circuit/","icon":"➗","description":"Reach a seeded daily arithmetic target using four number tiles and left-to-right operations.","tags":["daily","math","logic","numbers"]},
+{"name":"Clamp Lab 98","type":"app","date":"2026-10-06","url":"/apps/clamp-lab/","icon":"📐","description":"Generate responsive CSS clamp values from size and viewport ranges with a live local preview.","tags":["css","responsive","typography","developer"]},
 {"name":"Bridge Logic 98","type":"game","date":"2026-10-05","url":"/games/bridge-logic/","icon":"🌉","description":"Connect numbered islands with one or two bridges until every island reaches its required count.","tags":["daily","hashi","logic","touch"]},
 {"name":"UUID Lab 98","type":"app","date":"2026-10-05","url":"/apps/uuid-lab/","icon":"🪪","description":"Generate UUID v4 values and inspect UUID syntax, version and variant entirely in the browser.","tags":["uuid","developer","crypto","local"]},
 {"name":"Ghost Click 98","type":"game","date":"2026-10-04","url":"/games/ghost-click/","icon":"◎","description":"Memorize a target that vanishes, then click its remembered center across five precision rounds.","tags":["memory","precision","touch","spatial"]},
