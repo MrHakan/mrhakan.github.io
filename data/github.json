@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-05T12:19:46.129Z",
+  "generated_at": "2026-10-06T12:03:49.662Z",
   "user": {
     "login": "MrHakan",
     "avatar_url": "https://avatars.githubusercontent.com/u/15964553?v=4",
@@ -15,8 +15,8 @@
       "language": "JavaScript",
       "stargazers_count": 2,
       "forks_count": 0,
-      "pushed_at": "2026-10-05T07:52:37Z",
-      "updated_at": "2026-10-05T07:52:41Z",
+      "pushed_at": "2026-10-06T07:26:46Z",
+      "updated_at": "2026-10-06T07:26:50Z",
       "has_pages": true,
       "fork": false,
       "archived": false
@@ -28,9 +28,22 @@
       "language": "JavaScript",
       "stargazers_count": 1,
       "forks_count": 0,
-      "pushed_at": "2026-10-05T00:42:42Z",
-      "updated_at": "2026-10-05T00:42:46Z",
+      "pushed_at": "2026-10-05T20:00:32Z",
+      "updated_at": "2026-10-05T20:00:35Z",
       "has_pages": true,
+      "fork": false,
+      "archived": false
+    },
+    {
+      "name": "focusar",
+      "html_url": "https://github.com/MrHakan/focusar",
+      "description": "Focusing app working with AR tech.",
+      "language": "Dart",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-10-05T17:27:27Z",
+      "updated_at": "2026-10-05T17:17:36Z",
+      "has_pages": false,
       "fork": false,
       "archived": false
     },
@@ -238,19 +251,6 @@
       "forks_count": 0,
       "pushed_at": "2026-09-18T17:39:26Z",
       "updated_at": "2026-09-18T17:39:30Z",
-      "has_pages": false,
-      "fork": false,
-      "archived": false
-    },
-    {
-      "name": "focusar",
-      "html_url": "https://github.com/MrHakan/focusar",
-      "description": "Focusing app working with AR tech.",
-      "language": "Dart",
-      "stargazers_count": 1,
-      "forks_count": 0,
-      "pushed_at": "2026-10-04T21:51:37Z",
-      "updated_at": "2026-09-18T14:40:58Z",
       "has_pages": false,
       "fork": false,
       "archived": false
