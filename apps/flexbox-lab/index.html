@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080">
+<title>Flexbox Lab 98</title><meta name="description" content="Experiment with CSS Flexbox alignment, wrapping and spacing in a live local playground."><link rel="canonical" href="https://mrhakan.github.io/apps/flexbox-lab/">
+<meta property="og:title" content="Flexbox Lab 98"><meta property="og:description" content="Experiment with CSS Flexbox alignment, wrapping and spacing in a live local playground."><meta property="og:type" content="website"><meta property="og:url" content="https://mrhakan.github.io/apps/flexbox-lab/">
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Tahoma,"MS Sans Serif",Arial,sans-serif;background:#008080;color:#171717}body{min-height:100vh;display:grid;place-items:center;padding:10px}.win{width:min(780px,100%);background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:6px 6px #004747;padding:3px}.title{background:linear-gradient(90deg,#000080,#127eb8);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px}.title h1{margin:0;font:bold clamp(13px,3.6vw,17px) Tahoma,Arial,sans-serif}.title a{flex-shrink:0;background:#c0c0c0;color:#111;border:2px solid;border-color:#fff #444 #444 #fff;text-decoration:none;padding:1px 7px;font-weight:bold}.body{padding:13px}.panel{background:#fff;border:2px inset #d5d5d5;padding:9px}.hud,.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hud{margin-bottom:12px}.badge{background:#fff;border:2px inset #d5d5d5;padding:7px;font:12px monospace}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #444 #444 #fff;padding:8px 12px;font:bold 12px Tahoma,Arial;cursor:pointer}.btn:active{border-color:#444 #fff #fff #444}.status{margin-top:12px;background:#fff;border:2px inset #ddd;min-height:40px;padding:10px;font:13px/1.4 monospace}.help{font:12px/1.55 Tahoma,Arial;line-height:1.5} :where(a,button,input,select):focus-visible{outline:3px solid #f0f;outline-offset:2px}@media(max-width:500px){body{padding:4px}.body{padding:8px}.title{padding:6px}.hud{gap:5px}.badge{padding:5px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field{display:grid;gap:5px;font:bold 12px monospace;min-width:0}.field select,.field input{width:100%;min-width:0;background:#fff;border:2px inset #ddd;padding:8px;font:13px Tahoma,Arial}.stage{margin-top:12px;background:#e6e6e6;border:2px inset #ddd;padding:10px;overflow:auto}.preview{display:flex;gap:12px;width:100%;max-width:480px;min-height:255px;background:#fff;border:2px dashed #888;padding:10px;align-content:flex-start}.tile{flex:0 0 84px;min-height:62px;display:grid;place-items:center;font:bold 18px monospace;color:#fff;border:2px solid #000080;background:#1976a8}.tile:nth-child(3n+2){background:#6a328d}.tile:nth-child(3n){background:#277a60}.code{white-space:pre-wrap;overflow-wrap:anywhere;background:#080e1e;color:#b8ffc8;border:2px inset #aaa;padding:11px;font:12px/1.5 monospace;margin-top:12px;min-height:115px}.actions{margin-top:10px}
+@media(max-width:540px){.controls{grid-template-columns:1fr}.tile{flex-basis:66px;min-height:54px;font-size:15px}.preview{min-height:225px}}
+</style></head><body><main class="win"><header class="title"><h1>FLEXBOX LAB 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></header><div class="body">
+<p class="help">Explore CSS Flexbox with a live layout, then copy the exact container rules. All changes stay in your browser.</p>
+<div class="controls">
+<label class="field">DIRECTION<select id="direction"><option>row</option><option>row-reverse</option><option>column</option><option>column-reverse</option></select></label>
+<label class="field">JUSTIFY CONTENT<select id="justify"><option value="flex-start">flex-start</option><option>center</option><option>flex-end</option><option>space-between</option><option>space-around</option><option>space-evenly</option></select></label>
+<label class="field">ALIGN ITEMS<select id="align"><option>stretch</option><option>flex-start</option><option>center</option><option>flex-end</option><option>baseline</option></select></label>
+<label class="field">FLEX WRAP<select id="wrap"><option>nowrap</option><option>wrap</option><option>wrap-reverse</option></select></label>
+<label class="field">GAP <output id="gapValue" for="gap">12px</output><input id="gap" type="range" min="0" max="40" value="12"></label>
+<label class="field">ITEMS <output id="countValue" for="count">5</output><input id="count" type="range" min="2" max="9" value="5"></label>
+<label class="field">PREVIEW WIDTH <output id="widthValue" for="width">480px</output><input id="width" type="range" min="260" max="650" step="10" value="480"></label>
+</div>
+<div class="stage"><div id="preview" class="preview" aria-label="Live flexbox layout preview"></div></div>
+<pre class="code" id="code" aria-label="Generated CSS"></pre>
+<div class="actions"><button type="button" class="btn" id="copy">COPY CSS</button><button type="button" class="btn" id="preset">CENTER PRESET</button><button type="button" class="btn" id="reset">RESET</button></div>
+<div class="status" id="status" aria-live="polite">Change any control to explore the layout.</div></div></main><script>(()=>{
+'use strict';
+const ids=['direction','justify','align','wrap','gap','count','width'],els=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
+const preview=document.getElementById('preview'),code=document.getElementById('code'),status=document.getElementById('status');
+const defaults={direction:'row',justify:'flex-start',align:'stretch',wrap:'nowrap',gap:'12',count:'5',width:'480'};
+let css='';
+function update(){const direction=els.direction.value,justify=els.justify.value,align=els.align.value,wrap=els.wrap.value,gap=Number(els.gap.value),count=Number(els.count.value),width=Number(els.width.value);
+preview.style.flexDirection=direction;preview.style.justifyContent=justify;preview.style.alignItems=align;preview.style.flexWrap=wrap;preview.style.gap=gap+'px';preview.style.maxWidth=width+'px';
+document.getElementById('gapValue').textContent=gap+'px';document.getElementById('countValue').textContent=count;document.getElementById('widthValue').textContent=width+'px';
+preview.replaceChildren();for(let i=1;i<=count;i++){const tile=document.createElement('div');tile.className='tile';tile.textContent=String(i);tile.setAttribute('aria-label','Flex item '+i);preview.appendChild(tile);}
+css='.flex-container {\n  display: flex;\n  flex-direction: '+direction+';\n  justify-content: '+justify+';\n  align-items: '+align+';\n  flex-wrap: '+wrap+';\n  gap: '+gap+'px;\n}';
+code.textContent=css;status.textContent='Preview updated: '+count+' items, '+direction+', '+wrap+'.';
+}
+ids.forEach(id=>els[id].addEventListener('input',update));
+document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(css);status.textContent='CSS copied to clipboard.';}catch{status.textContent='Clipboard unavailable; select the CSS above to copy it manually.';}});
+document.getElementById('preset').addEventListener('click',()=>{Object.assign(defaults,{});els.direction.value='row';els.justify.value='center';els.align.value='center';els.wrap.value='wrap';els.gap.value='16';els.count.value='5';els.width.value='480';update();});
+document.getElementById('reset').addEventListener('click',()=>{ids.forEach(id=>els[id].value=defaults[id]);update();});
+update();
+})();</script></body></html>

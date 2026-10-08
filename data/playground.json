@@ -1,5 +1,33 @@
 [
   {
+    "name": "Arrow Escape 98",
+    "type": "game",
+    "date": "2026-10-08",
+    "url": "/games/arrow-escape/",
+    "icon": "➶",
+    "description": "Clear a guaranteed-solvable daily arrow grid by launching only unobstructed arrows, with hints, undo and local best time.",
+    "tags": [
+      "daily",
+      "arrows",
+      "logic",
+      "touch"
+    ]
+  },
+  {
+    "name": "Flexbox Lab 98",
+    "type": "app",
+    "date": "2026-10-08",
+    "url": "/apps/flexbox-lab/",
+    "icon": "▤",
+    "description": "Experiment with Flexbox direction, alignment, wrapping and spacing in a live preview, then copy the CSS.",
+    "tags": [
+      "css",
+      "flexbox",
+      "layout",
+      "developer"
+    ]
+  },
+  {
     "name": "Nonogram Mini 98",
     "type": "game",
     "date": "2026-10-07",
