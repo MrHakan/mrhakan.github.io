@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080">
+<title>Grid Studio 98</title><meta name="description" content="Design responsive CSS Grid layouts visually, test spans and alignment, then copy clean CSS.">
+<link rel="canonical" href="https://mrhakan.github.io/apps/grid-studio/">
+<meta property="og:title" content="Grid Studio 98"><meta property="og:description" content="A private, interactive CSS Grid playground with live preview and copyable code."><meta property="og:type" content="website"><meta property="og:url" content="https://mrhakan.github.io/apps/grid-studio/">
+<style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Tahoma,"MS Sans Serif",Arial,sans-serif;background:#008080;color:#151515}body{min-height:100vh;display:grid;place-items:center;padding:10px}.win{width:min(800px,100%);background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:6px 6px #004747;padding:3px}.title{background:linear-gradient(90deg,#000080,#127eb8);color:white;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px}.title h1{margin:0;font:bold clamp(13px,3.5vw,17px) Tahoma,Arial,sans-serif}.title a{flex-shrink:0;background:#c0c0c0;color:#111;border:2px solid;border-color:#fff #444 #444 #fff;text-decoration:none;padding:1px 8px;font-weight:bold}.body{padding:13px}.panel{background:white;border:2px inset #d5d5d5;padding:10px}.hud,.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hud{margin-bottom:12px}.badge{background:white;border:2px inset #d5d5d5;padding:7px;font:12px monospace}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #444 #444 #fff;padding:8px 12px;font:bold 12px Tahoma,Arial;cursor:pointer}.btn:active{border-color:#444 #fff #fff #444}.status{margin-top:12px;background:white;border:2px inset #ddd;min-height:40px;padding:10px;font:13px/1.4 monospace}.help{font:12px/1.55 Tahoma,Arial;line-height:1.5}:where(a,button,input,select):focus-visible{outline:3px solid #f0f;outline-offset:2px}@media(max-width:500px){body{padding:4px}.body{padding:8px}.title{padding:6px}.hud{gap:5px}.badge{padding:5px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field{display:grid;gap:5px;font:bold 12px monospace;min-width:0}.field select,.field input{width:100%;min-width:0;background:#fff;border:2px inset #ddd;padding:8px;font:13px Tahoma,Arial}.field output{font-weight:normal}.stage{margin-top:12px;background:#e6e6e6;border:2px inset #ddd;padding:10px;overflow:auto}.preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:68px;gap:12px;max-width:100%;min-height:220px;background:#fff;border:2px dashed #888;padding:10px}.tile{min-width:0;display:grid;place-items:center;font:bold 18px monospace;color:#fff;border:2px solid #000080;background:#1976a8}.tile:nth-child(3n+2){background:#6a328d}.tile:nth-child(3n){background:#277a60}.tile:first-child{background:#a33b56}.code{white-space:pre-wrap;overflow-wrap:anywhere;background:#080e1e;color:#b8ffc8;border:2px inset #aaa;padding:11px;font:12px/1.5 monospace;margin-top:12px;min-height:160px}.actions{margin-top:10px}
+@media(max-width:540px){.controls{grid-template-columns:1fr}.preview{min-height:200px}.stage{padding:5px}.tile{font-size:14px}}
+</style></head><body><main class="win"><header class="title"><h1>GRID STUDIO 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></header><div class="body">
+<p class="help">Explore CSS Grid columns, alignment and a featured item's span. Preview updates instantly; everything runs locally.</p>
+<div class="controls">
+<label class="field">COLUMNS<select id="cols"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+<label class="field">AUTO FLOW<select id="flow"><option>row</option><option>column</option></select></label>
+<label class="field">JUSTIFY ITEMS<select id="justify"><option>stretch</option><option>start</option><option>center</option><option>end</option></select></label>
+<label class="field">ALIGN ITEMS<select id="align"><option>stretch</option><option>start</option><option>center</option><option>end</option></select></label>
+<label class="field">GAP <output id="gapValue" for="gap">12px</output><input id="gap" type="range" min="0" max="32" value="12"></label>
+<label class="field">TILES <output id="countValue" for="count">7</output><input id="count" type="range" min="3" max="12" value="7"></label>
+<label class="field">FIRST TILE SPAN <output id="spanValue" for="span">2</output><input id="span" type="range" min="1" max="5" value="2"></label>
+<label class="field">PREVIEW WIDTH <output id="widthValue" for="width">520px</output><input id="width" type="range" min="280" max="660" step="20" value="520"></label>
+</div>
+<div class="stage"><div id="preview" class="preview" aria-label="Live CSS Grid layout preview"></div></div>
+<pre class="code" id="code" aria-label="Generated CSS" tabindex="0"></pre>
+<div class="actions"><button type="button" class="btn" id="copy">COPY CSS</button><button type="button" class="btn" id="magazine">MAGAZINE PRESET</button><button type="button" class="btn" id="dashboard">DASHBOARD PRESET</button><button type="button" class="btn" id="reset">RESET</button></div>
+<div class="status" id="status" aria-live="polite">Adjust controls to build your layout.</div>
+<p class="help">CSS Grid uses rows and columns rather than Flexbox's one-dimensional layout. For column auto-flow, this demo fixes the row count to three to keep the preview finite. Resize the viewport to inspect wrapping and overflow.</p>
+</div></main><script>(()=>{'use strict';
+const ids=['cols','flow','justify','align','gap','count','span','width'],els=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)])),defaults={cols:'3',flow:'row',justify:'stretch',align:'stretch',gap:'12',count:'7',span:'2',width:'520'};
+const preview=document.getElementById('preview'),code=document.getElementById('code'),status=document.getElementById('status');let css='';
+function update(){const cols=+els.cols.value,count=+els.count.value,gap=+els.gap.value,span=Math.min(+els.span.value,cols),width=+els.width.value,flow=els.flow.value,justify=els.justify.value,align=els.align.value;
+els.span.max=String(cols);if(+els.span.value>cols)els.span.value=String(cols);
+document.getElementById('gapValue').textContent=gap+'px';document.getElementById('countValue').textContent=String(count);document.getElementById('spanValue').textContent=String(span);document.getElementById('widthValue').textContent=width+'px';
+preview.style.gridTemplateColumns='repeat('+cols+', minmax(0, 1fr))';preview.style.gridAutoFlow=flow;preview.style.gridTemplateRows=flow==='column'?'repeat(3, 68px)':'';preview.style.gridAutoRows='68px';preview.style.gap=gap+'px';preview.style.justifyItems=justify;preview.style.alignItems=align;preview.style.width=width+'px';
+preview.replaceChildren();for(let i=1;i<=count;i++){const tile=document.createElement('div');tile.className='tile';tile.textContent=String(i);tile.setAttribute('aria-label','Grid tile '+i);if(i===1)tile.style.gridColumn='span '+span;preview.appendChild(tile);}
+css='.grid-container {\n  display: grid;\n  grid-template-columns: repeat('+cols+', minmax(0, 1fr));\n'+(flow==='column'?'  grid-template-rows: repeat(3, 68px);\n':'')+'  grid-auto-rows: 68px;\n  grid-auto-flow: '+flow+';\n  gap: '+gap+'px;\n  justify-items: '+justify+';\n  align-items: '+align+';\n}\n.grid-container > :first-child {\n  grid-column: span '+span+';\n}';
+code.textContent=css;status.textContent='Updated: '+cols+' columns, '+count+' tiles, '+flow+' flow.';}
+ids.forEach(id=>els[id].addEventListener('input',update));
+function preset(values){Object.entries(values).forEach(([k,v])=>els[k].value=String(v));update();}
+document.getElementById('magazine').addEventListener('click',()=>preset({cols:4,flow:'row',justify:'stretch',align:'stretch',gap:12,count:9,span:2,width:600}));
+document.getElementById('dashboard').addEventListener('click',()=>preset({cols:3,flow:'row',justify:'stretch',align:'stretch',gap:16,count:7,span:2,width:520}));
+document.getElementById('reset').addEventListener('click',()=>preset(defaults));
+document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(css);status.textContent='CSS copied to clipboard.';}catch{status.textContent='Clipboard unavailable. Select the CSS block to copy manually.';}});
+update();
+})();</script></body></html>

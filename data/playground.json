@@ -1,5 +1,33 @@
 [
   {
+    "name": "Color Stack 98",
+    "type": "game",
+    "date": "2026-10-09",
+    "url": "/games/color-stack/",
+    "icon": "🧱",
+    "description": "Sort color-coded chips into matching stacks in a guaranteed-solvable daily puzzle with undo and local best moves.",
+    "tags": [
+      "daily",
+      "sorting",
+      "logic",
+      "touch"
+    ]
+  },
+  {
+    "name": "Grid Studio 98",
+    "type": "app",
+    "date": "2026-10-09",
+    "url": "/apps/grid-studio/",
+    "icon": "▦",
+    "description": "Design CSS Grid columns, auto-flow, alignment and item spans with live preview, presets and copyable CSS.",
+    "tags": [
+      "css",
+      "grid",
+      "layout",
+      "developer"
+    ]
+  },
+  {
     "name": "Arrow Escape 98",
     "type": "game",
     "date": "2026-10-08",
