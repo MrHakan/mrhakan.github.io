@@ -603,7 +603,7 @@ function initScreensaver() {
         clearTimeout(screensaverTimer);
         if (getScreensaverId() === 'none') return;
         screensaverTimer = setTimeout(() => {
-            if (document.getElementById('boot-screen') || document.getElementById('bsod-screen')) return;
+            if (document.getElementById('boot-screen') || document.getElementById('bsod-screen') || document.body.classList.contains('concert-mode')) return;
             startScreensaver();
         }, SCREENSAVER_IDLE_MS);
     };

@@ -37,6 +37,9 @@
   <script src="js/defrag.js" defer></script>
   <script src="js/documents.js" defer></script>
   <script src="js/guestbook.js" defer></script>
+  <script src="js/vendor/motion.js" defer></script>
+  <script src="js/music-scenes.js" defer></script>
+  <script src="js/music-stage.js" defer></script>
   <script src="js/index.js" defer></script>
   <script src="js/themes.js" defer></script>
   <script src="js/apps.js" defer></script>
@@ -467,7 +470,7 @@
           </div>
         </div>
 
-        <div class="bg-black m-2 p-2 border-2 border-[#505060] rounded-sm relative">
+        <div id="winamp-display" class="bg-black m-2 p-2 border-2 border-[#505060] rounded-sm relative">
           <div class="flex gap-2 h-16">
             <div class="flex flex-col justify-between w-16 shrink-0">
               <div id="winamp-time" class="text-[#0df259] font-mono text-xl leading-none">00:00</div>
@@ -537,6 +540,10 @@
             class="mx-2 mb-2 bg-[#000] border-2 border-[#505060] h-32 overflow-y-auto p-1 font-pixel text-[10px] text-[#0df259] scrollbar-thin">
             <!-- Playlist items will be injected here -->
           </div>
+          <button id="winamp-concert" type="button" class="music-concert-button" aria-pressed="false"
+            onclick="MusicStage.toggleConcert()">&#10022; enter concert mode</button>
+          <button id="winamp-setlist" type="button" aria-expanded="false" aria-controls="winamp-playlist"
+            onclick="MusicStage.toggleSetlist()">setlist / 21 tracks ↑</button>
         </div>
       </div>
 

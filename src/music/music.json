@@ -39,7 +39,12 @@
             "the bpm equivalent of an exclamation point",
             "still the correct answer to 'name a song from nowhere and everywhere'",
             "the track every ringtone culture forgot to thank"
-        ]
+        ],
+        "stage": {
+            "mode": "space",
+            "speed": 0.8,
+            "description": "A dial-up dream. Hills, clouds and a Notepad transmission."
+        }
     },
     {
         "id": 2,
@@ -81,7 +86,12 @@
             "the reason school talent shows got significantly more dramatic in 2003",
             "the entrance music every goth club dj had memorized",
             "certified 'this is the one song we can all agree on' family road trip pick"
-        ]
+        ],
+        "stage": {
+            "mode": "rain",
+            "speed": 0.65,
+            "description": "Rain on stained glass. A midnight cathedral in blue."
+        }
     },
     {
         "id": 3,
@@ -123,7 +133,12 @@
             "still funnier than whatever your algorithm is showing you right now",
             "the mp3 every forum avatar secretly wanted playing behind it",
             "certified never-not-in-a-highlight-reel energy"
-        ]
+        ],
+        "stage": {
+            "mode": "candy",
+            "speed": 1.0,
+            "description": "Three bunny dancers. Candy confetti. No sitting still."
+        }
     },
     {
         "id": 4,
@@ -165,7 +180,12 @@
             "still the gold standard for cinematic dread",
             "the needle-drop every film-school student eventually discovers and overuses",
             "certified 'the plot just got serious' string section"
-        ]
+        ],
+        "stage": {
+            "mode": "matrix",
+            "speed": 0.85,
+            "description": "Falling code over a wireframe city. Enter the construct."
+        }
     },
     {
         "id": 5,
@@ -207,7 +227,12 @@
             "certified robots-doing-disco-better-than-humans energy",
             "the loop your feet start moving to before your brain agrees",
             "certified globe-spinning-disco-ball main character moment"
-        ]
+        ],
+        "stage": {
+            "mode": "disco",
+            "speed": 0.85,
+            "description": "Mirror-ball reflections and a vinyl deck. French touch all night."
+        }
     },
     {
         "id": 6,
@@ -249,7 +274,12 @@
             "still the most efficient pep talk in electronic music",
             "the anthem every treadmill secretly plays in its dreams",
             "certified robot-career-coach energy, results not guaranteed"
-        ]
+        ],
+        "stage": {
+            "mode": "circuit",
+            "speed": 1.0,
+            "description": "Four commands. One conveyor. The robot assembly line."
+        }
     },
     {
         "id": 7,
@@ -291,7 +321,12 @@
             "the riff that deserves its own comic book spinoff",
             "certified boss-fight-you-weren't-ready-for soundtrack",
             "the theme song equivalent of breaking the fourth wall mid-sentence"
-        ]
+        ],
+        "stage": {
+            "mode": "comic",
+            "speed": 1.1,
+            "description": "Halftone chaos, speech bubbles and a fourth-wall break."
+        }
     },
     {
         "id": 8,
@@ -333,7 +368,12 @@
             "this is what a norwegian birthday party sounds like at full volume",
             "certified 'nobody outside this country has heard this and that's a crime' status",
             "the song that makes a living room feel like a festival tent"
-        ]
+        ],
+        "stage": {
+            "mode": "smiley",
+            "speed": 1.0,
+            "description": "A warehouse full of bouncing faces. Jump on the next beat."
+        }
     },
     {
         "id": 9,
@@ -375,7 +415,12 @@
             "the anthem every underdog needed and got",
             "certified 'skip the alarm, this is how you should wake up' energy",
             "the breakbeat that made an entire decade feel optimistic"
-        ]
+        ],
+        "stage": {
+            "mode": "evolution",
+            "speed": 0.8,
+            "description": "From the first step to right now. A moving evolution study."
+        }
     },
     {
         "id": 10,
@@ -417,7 +462,12 @@
             "certified stadium-wide singalong, lyrics optional",
             "the track that turned a whole continent's terraces into a choir",
             "certified 'this came on and the whole bus started nodding' effect"
-        ]
+        ],
+        "stage": {
+            "mode": "line",
+            "speed": 1.0,
+            "description": "One continuous line. One walking character. Bla bla bla."
+        }
     },
     {
         "id": 11,
@@ -459,7 +509,12 @@
             "certified untouchable, twenty-plus years and counting",
             "the song that made an entire generation comfortable yelling their feelings",
             "certified 'i didn't know i still had this memorized' moment"
-        ]
+        ],
+        "stage": {
+            "mode": "dust",
+            "speed": 0.65,
+            "description": "Dust, broken monoliths and a silhouette over the wasteland."
+        }
     },
     {
         "id": 12,
@@ -501,7 +556,12 @@
             "still the most unsettling three minutes on this whole playlist",
             "the track that makes an empty room feel occupied by something you can't see",
             "certified 'why did i put this on before bed' regret generator"
-        ]
+        ],
+        "stage": {
+            "mode": "memory",
+            "speed": 0.4,
+            "description": "An empty ballroom. A piano. A memory slowly out of focus."
+        }
     },
     {
         "id": 13,
@@ -543,7 +603,12 @@
             "still the fastest way to make a gym feel like an arena",
             "the anthem that turns a treadmill into a personal grudge match",
             "certified 'the bouncer just turned this up' moment"
-        ]
+        ],
+        "stage": {
+            "mode": "metal",
+            "speed": 0.95,
+            "description": "Speaker cones breathe with the bass. Industrial mosh-pit energy."
+        }
     },
     {
         "id": 14,
@@ -585,7 +650,12 @@
             "certified minutes-to-midnight standout, no contest",
             "the track that made robots crying feel like a reasonable plot point",
             "certified 'the highway sunset shot needed strings, they got a whole bridge' energy"
-        ]
+        ],
+        "stage": {
+            "mode": "flare",
+            "speed": 0.8,
+            "description": "A sunset highway. Passing lights. One final drive."
+        }
     },
     {
         "id": 15,
@@ -627,6 +697,185 @@
             "still the best background noise for pretending you're productive",
             "certified 'unregistered hypercam 2' watermark's spiritual soulmate",
             "the loop that turns any all-nighter into a personal rave"
+        ],
+        "stage": {
+            "mode": "hypercam",
+            "speed": 0.9,
+            "description": "Stacked capture windows. Rendering the golden age of uploads."
+        }
+    },
+    {
+        "id": 16,
+        "filename": "Last Surprise.mp3",
+        "title": "Last Surprise",
+        "artist": "Lyn / Persona 5",
+        "theme": {
+            "primaryColor": "#f32647",
+            "accentColor": "#ffffff",
+            "backgroundColor": "#110910",
+            "fontStyle": "Impact, Arial Black, sans-serif"
+        },
+        "effect": "phantom_thief",
+        "bg": "A phantom thief concert: red and black cut-paper graphics, tilted white stars, sweeping crimson spotlights and a sharp comic-book title card.",
+        "stage": {
+            "label": "PHANTOM FREQUENCY / TAKE YOUR TIME",
+            "speed": 1.2,
+            "font": "Impact, Arial Black, sans-serif",
+            "mode": "phantom",
+            "description": "Cut-paper stars, a thief mask and a red takeover."
+        },
+        "memes": [
+            "the playlist has stolen your heart and several hours of your evening",
+            "your browser just developed a suspiciously stylish battle menu",
+            "one more track before the deadline becomes the whole evening",
+            "jazz hands, red spotlights, absolutely no normal entrances",
+            "the boss fight is answering your unread messages",
+            "this desktop now requires a calling card"
+        ]
+    },
+    {
+        "id": 17,
+        "filename": "Portal Radio - Unfiltered Audio Song _ 10 minutes Loop LOWEST QUALITY.mp3",
+        "title": "Portal Radio",
+        "artist": "Valve / Portal",
+        "theme": {
+            "primaryColor": "#3baeff",
+            "accentColor": "#ff9b3b",
+            "backgroundColor": "#08131f",
+            "fontStyle": "Arial, Helvetica, sans-serif"
+        },
+        "effect": "aperture_radio",
+        "bg": "Aperture's late-night radio booth: paired blue and orange light portals, cool laboratory haze, rotating calibration rings and a clean test-chamber grid.",
+        "stage": {
+            "label": "APERTURE FM / TEST CHAMBER 00",
+            "speed": 0.7,
+            "font": "Arial, Helvetica, sans-serif",
+            "mode": "portal",
+            "description": "Two linked portals. One companion cube. The test continues."
+        },
+        "memes": [
+            "please remain on the dance floor until testing is complete",
+            "two portals, one radio, absolutely no exit strategy",
+            "science has approved this extremely questionable audio quality",
+            "the tiny radio is carrying the entire laboratory's morale",
+            "your browser is now a controlled experiment",
+            "this transmission may contain trace amounts of cake"
+        ]
+    },
+    {
+        "id": 18,
+        "filename": "Postal 2_ Paradise Lost - Winter Wonderland Music Loop (10 Minutes).mp4",
+        "title": "Winter Wonderland",
+        "artist": "POSTAL 2: Paradise Lost OST",
+        "theme": {
+            "primaryColor": "#6ccad6",
+            "accentColor": "#e5efcf",
+            "backgroundColor": "#091b24",
+            "fontStyle": "Georgia, Times New Roman, serif"
+        },
+        "effect": "winter_wonderland",
+        "bg": "Paradise under nuclear winter: dark pine silhouettes, cold mountains, falling snow and warm amber concert lamps cutting through an eerie turquoise haze.",
+        "stage": {
+            "label": "PARADISE / NUCLEAR WINTER RADIO",
+            "speed": 0.55,
+            "font": "Georgia, Times New Roman, serif",
+            "mode": "winter",
+            "description": "Snowfall, frozen pines and the last streetlight in Paradise."
+        },
+        "memes": [
+            "paradise weather forecast: snow, static, questionable decisions",
+            "festive music for an errand that has gone terribly off schedule",
+            "the shopping list is normal; everything around it is not",
+            "snowflakes falling, common sense nowhere to be found",
+            "the coziest soundtrack to the least relaxing afternoon",
+            "winter wonderland, customer service unavailable"
+        ]
+    },
+    {
+        "id": 19,
+        "filename": "Red Sun in the Sky.mp3",
+        "title": "Red Sun in the Sky",
+        "artist": "Chinese Song Archive",
+        "theme": {
+            "primaryColor": "#f44532",
+            "accentColor": "#ffce63",
+            "backgroundColor": "#1b0b0d",
+            "fontStyle": "Impact, Arial Black, sans-serif"
+        },
+        "effect": "red_sun_rays",
+        "bg": "A giant scarlet sun over a dark stage, slowly turning golden rays, red haze, amber searchlights and a glowing sunrise LED floor.",
+        "stage": {
+            "label": "RED SUN / GOLDEN HOUR TRANSMISSION",
+            "speed": 0.75,
+            "font": "Impact, Arial Black, sans-serif",
+            "mode": "sun",
+            "description": "A rising sun, poster rays and banners in the evening wind."
+        },
+        "memes": [
+            "the desktop has entered its dramatic sunrise era",
+            "forecast: red skies and a suspiciously memorable chorus",
+            "one tiny speaker, an unreasonable amount of ceremony",
+            "the algorithm's idea of a quiet evening is getting out of hand",
+            "golden hour, but the whole browser is invited",
+            "this track does not believe in subtle entrances"
+        ]
+    },
+    {
+        "id": 20,
+        "filename": "metin 2-enter the east.mp3",
+        "title": "Enter the East",
+        "artist": "Metin2 OST",
+        "theme": {
+            "primaryColor": "#58c6ae",
+            "accentColor": "#ffb6c5",
+            "backgroundColor": "#0b1c20",
+            "fontStyle": "Georgia, Times New Roman, serif"
+        },
+        "effect": "eastern_mist",
+        "bg": "A jade-lit concert in an ink-wash mountain valley: layered eastern peaks, drifting cherry petals, a pale gold moon, soft mist and lantern-colored spotlights.",
+        "stage": {
+            "label": "ENTER THE EAST / VILLAGE 01",
+            "speed": 0.45,
+            "font": "Georgia, Times New Roman, serif",
+            "mode": "eastern",
+            "description": "Layered ink mountains, a lantern-lit pagoda and drifting blossoms."
+        },
+        "memes": [
+            "the village is quiet; your inventory is somehow still full",
+            "one more metin stone before logging off, said three hours ago",
+            "the internet cafe closes soon and the quest absolutely does not",
+            "that first map feeling, now available in a browser tab",
+            "jade mountains, pink petals, and a very long walk back to town",
+            "your homework can wait; the blacksmith has other plans"
+        ]
+    },
+    {
+        "id": 21,
+        "filename": "Эдуард Хиль _Вокализ_ (1976).mp3",
+        "title": "Trololo (Vocalise)",
+        "artist": "Eduard Khil",
+        "theme": {
+            "primaryColor": "#ffb85c",
+            "accentColor": "#81d6c7",
+            "backgroundColor": "#21150f",
+            "fontStyle": "Georgia, Times New Roman, serif"
+        },
+        "effect": "retro_tv_stage",
+        "bg": "A 1976 television concert studio: amber velvet curtains, mint and cream concentric stage rings, warm spotlights, floating dust and vintage broadcast typography.",
+        "stage": {
+            "label": "LIVE FROM STUDIO 1976 / COLOR BROADCAST",
+            "speed": 0.8,
+            "font": "Georgia, Times New Roman, serif",
+            "mode": "retro",
+            "description": "A wooden television. Velvet curtains. Live from studio 1976."
+        },
+        "memes": [
+            "the man, the smile, the internet's most cheerful detour",
+            "language barrier removed; dramatic hand gestures installed",
+            "your browser has accidentally tuned into a 1976 variety show",
+            "maximum confidence, zero need for subtitles",
+            "the stage curtains cost more than this entire website",
+            "the warmest possible welcome to the wrong television channel"
         ]
     }
 ]

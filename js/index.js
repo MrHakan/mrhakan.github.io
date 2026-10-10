@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             tracks = data;
             initPlaylist();
+            if (window.MusicStage && tracks.length) applyTheme(tracks[currentTrackIndex]);
             // this replaced the array, so an active theme has to put its own
             // track back on the end
             if (typeof themeOnTracksLoaded === 'function') themeOnTracksLoaded();
@@ -53,7 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
         audio.addEventListener('ended', nextTrack);
         audio.addEventListener('play', () => {
             initAudioVisualizer();
-            applyTheme(tracks[currentTrackIndex]);
+            // loadTrack already built the stage. Resuming should continue its
+            // light positions instead of destroying and recreating the scene.
+            if (!window.MusicStage) applyTheme(tracks[currentTrackIndex]);
         });
     }
 
@@ -544,7 +547,9 @@ function applyTheme(track) {
     // tint the space background towards the track color instead of painting the
     // whole page with it (raw #0000FF backgrounds made everything unreadable)
     body.classList.add('theme-transition');
-    if (track.theme && window.CSS && CSS.supports('background-color', 'color-mix(in srgb, red 50%, black)')) {
+    if (track.theme && track.theme.backgroundColor) {
+        body.style.backgroundColor = track.theme.backgroundColor;
+    } else if (track.theme && window.CSS && CSS.supports('background-color', 'color-mix(in srgb, red 50%, black)')) {
         body.style.backgroundColor = `color-mix(in srgb, ${track.theme.primaryColor} 30%, #0d0517)`;
     } else if (track.theme) {
         body.style.backgroundColor = '#1a0b2e';
@@ -559,7 +564,9 @@ function applyTheme(track) {
     if (typeof trollInterval !== 'undefined') clearInterval(trollInterval);
     stopMatrixRain();
 
-    if (track.effect) {
+    if (window.MusicStage) {
+        MusicStage.mount(effectsContainer, track);
+    } else if (track.effect) {
         if (track.effect === 'matrix_digital_rain') {
             effectsContainer.classList.add('effect-matrix');
             startMatrixRain(effectsContainer);
@@ -728,7 +735,7 @@ function initAudioVisualizer() {
         return;                             // already routed: leave the sound where it is
     }
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 32;
+    analyser.fftSize = 256;
     mediaSource.connect(analyser);
     analyser.connect(audioContext.destination);
     dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -762,7 +769,7 @@ function initDraggable() {
         let offsetX, offsetY;
         header.addEventListener('mousedown', (e) => {
             // clicking title-bar buttons (✕, □) must not start a drag
-            if (e.target.closest('button')) return;
+            if (e.target.closest('button') || document.body.classList.contains('concert-mode')) return;
             const rect = win.getBoundingClientRect();
             isDragging = true;
             offsetX = e.clientX - rect.left;
@@ -1097,45 +1104,24 @@ function loadTrack(index) {
 }
 
 let cachedEqBars = null;
-let cachedEffectsContainer = null;
-let cachedMainWindow = null;
 
 function updateVisualizer() {
     if (!analyser) return;
     analyser.getByteFrequencyData(dataArray);
 
     if (!cachedEqBars) cachedEqBars = document.querySelectorAll('.eq-bar');
-    const primaryColor = (getComputedStyle(document.documentElement).getPropertyValue('--primary-color') || '#0df259').trim();
+    const primaryColor = (getComputedStyle(document.documentElement).getPropertyValue('--stage-accent') || '#0df259').trim();
 
     cachedEqBars.forEach((bar, i) => {
-        const value = dataArray[i * 2 % dataArray.length] || 0;
-        const height = Math.max(10, (value / 255) * 100);
+        const value = dataArray[Math.floor(i * dataArray.length / cachedEqBars.length)] || 0;
+        const height = !window.FX || FX.on() ? Math.max(10, (value / 255) * 100) : 10;
         bar.style.height = `${height}%`;
         bar.style.backgroundColor = primaryColor;
     });
 
-    let bass = 0;
-    for (let i = 0; i < 4; i++) bass += dataArray[i];
-    bass = bass / 4;
-
-    if (!cachedEffectsContainer) cachedEffectsContainer = document.getElementById('effects-container');
-    if (!cachedMainWindow) cachedMainWindow = document.getElementById('main-window');
-
-    if (bass > 200) {
-
-        document.body.style.filter = `brightness(1.2) contrast(1.1)`;
-        if (cachedMainWindow && cachedMainWindow.classList.contains('effect-pulse')) {
-            cachedMainWindow.style.transform = `scale(${1 + (bass - 200) / 500})`;
-        }
-    } else {
-        document.body.style.filter = `brightness(1) contrast(1)`;
-        if (cachedMainWindow) cachedMainWindow.style.transform = 'scale(1)';
-    }
-
-    if (cachedEffectsContainer) {
-        const volume = dataArray.reduce((src, a) => src + a, 0) / dataArray.length;
-        cachedEffectsContainer.style.opacity = 0.5 + (volume / 510);
-    }
+    // Keep beat lighting inside the stage. Filtering the whole body made text
+    // flash and turned fixed windows into descendants of a filter container.
+    if (window.MusicStage) MusicStage.audioFrame(dataArray);
 
     requestAnimationFrame(updateVisualizer);
 }
@@ -2673,7 +2659,7 @@ function initAssistant() {
 }
 function showAssistant() {
     if (document.getElementById('troll-assistant')) return;
-    if (document.getElementById('boot-screen') || document.getElementById('screensaver')) {
+    if (document.getElementById('boot-screen') || document.getElementById('screensaver') || document.body.classList.contains('concert-mode')) {
         assistantTimer = setTimeout(showAssistant, 15000); return;
     }
     const tip = assistantTips[Math.floor(Math.random() * assistantTips.length)];

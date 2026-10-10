@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source = fs.readFileSync('sw.js', 'utf8');
+const currentCache = source.match(/const CACHE = ['"]([^'"]+)['"]/)[1];
 let checks = 0;
 async function test(name, run) { await run(); checks++; console.log('  ok    ' + name); }
 function setup(fetchImpl, hits = new Map()) {
     const handlers = {}, deleted = [], put = [], timers = new Map();
     const caches = {
-        keys: async () => ['mrhakan98-v21', 'mrhakan98-v23', 'unrelated-cache'],
+        keys: async () => ['mrhakan98-v21', 'mrhakan98-v23', currentCache, 'unrelated-cache'],
         delete: async key => deleted.push(key),
         match: async req => hits.get(typeof req === 'string' ? req : req.url),
         open: async () => ({ put: async req => put.push(req.url), add: async () => {} })
@@ -26,7 +27,7 @@ function setup(fetchImpl, hits = new Map()) {
 await test('activation cleans only older versions of this site cache', async () => {
     const env = setup(); let job;
     env.handlers.activate({ waitUntil: p => job = p }); await job;
-    assert.deepEqual(env.deleted, ['mrhakan98-v21']);
+    assert.deepEqual(env.deleted, ['mrhakan98-v21', 'mrhakan98-v23']);
 });
 await test('streamed media, range requests and external resources bypass caching', async () => {
     const env = setup(() => { throw new Error('must bypass'); });

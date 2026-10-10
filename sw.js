@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v23';
+const CACHE = 'mrhakan98-v25';
 
 // the bits worth having warm before the connection dies
 const PRECACHE = [
@@ -15,6 +15,9 @@ const PRECACHE = [
     '/index.html',
     '/css/style.css',
     '/js/index.js',
+    '/js/music-stage.js',
+    '/js/music-scenes.js',
+    '/js/vendor/motion.js',
     '/js/guestbook.js',
     '/js/touch.js',
     '/js/fx.js',
@@ -56,6 +59,7 @@ const PRECACHE = [
     '/data/posts.json',
     '/data/github.json',
     '/data/projects.json',
+    '/src/music/music.json',
     '/src/fonts/material-symbols-subset.woff2',
     '/src/emoj/dusung.png',
     '/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png'

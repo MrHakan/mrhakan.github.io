@@ -51,6 +51,9 @@ jobs:
             - name: Check spells, sigils and desktop wiring
               run: node .github/scripts/check-games.mjs
 
+            - name: Check concert lighting and music playback state
+              run: node .github/scripts/check-music-stage.mjs
+
             - name: Check Wizardz combat, input and offline behavior
               run: node .github/scripts/check-wizardz.mjs && node .github/scripts/check-offline.mjs
 

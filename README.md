@@ -20,6 +20,10 @@ js/                   everything the pages load
   apps.js  fun.js       the accessories and the toys
   pages.js  charts.js   /now, /uses, /colophon, and the graphs on them
   fx.js                 the motion layer, and the reduced-motion promise
+  music-stage.js        per-track concert scenes, live audio lighting and
+                        the immersive music room
+  music-scenes.js       21 original canvas sets, each with its own choreography
+  vendor/motion.js      Motion 14.1.0 (MIT), locally served reveal timelines
   touch.js              the site on a phone: device detection, the
                         on-screen pad, long press for the right click
   defrag.js             disk defragmenter, on a real disk
@@ -65,6 +69,20 @@ npm run serve      # python3 -m http.server 8099
 npm test           # the whole headless suite
 ```
 
+Winamp's **enter concert mode** button opens the music room. All 21 tracks
+have distinct sets and choreography: a rainy cathedral, bunny dancers,
+a robot factory, a walking line character, Persona's cut-paper poster,
+Portal's test chamber, Metin2's pagoda and a vintage television, among others.
+Bass drives the set's lights and props through the existing audio analyser.
+Local Motion timelines reveal the titles with staggered spring transitions.
+Pause holds the stage, and **Esc** or **back to desktop** restores the
+desktop. The player remains available in concert mode on phones too.
+The compact player has an expandable **setlist**; choosing a song closes it
+to keep the artwork visible.
+Reduced motion keeps a still scene, and hidden tabs stop drawing. Slower
+devices show the scene in concert mode at 20 fps with a smaller backing canvas;
+the background renderer rests while the desktop is open.
+
 The browser tests need Playwright's chromium and a server on :8099:
 
 ```sh
@@ -81,6 +99,7 @@ exits non-zero if anything drifted.
 
 | script | what it holds to |
 | --- | --- |
+| `check-music-stage.mjs` | uploaded music catalog, audio-reactive lighting, scene lifecycle, pause, reduced motion, hidden tabs and concert controls |
 | `check-wizardz.mjs` | combat, pause/resume, touch ownership, manual casting and refresh-rate consistency |
 | `check-offline.mjs` | offline fallbacks, stalled requests, cache scope and media streaming |
 | `check-games.mjs` | every script parses, the fifty spells and their sigils, desktop wiring, my documents' backup envelope, the GitHub snapshot |
