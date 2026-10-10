@@ -1,5 +1,33 @@
 [
   {
+    "name": "Mirror Beam 98",
+    "type": "game",
+    "date": "2026-10-10",
+    "url": "/games/mirror-beam/",
+    "icon": "🔦",
+    "description": "Rotate mirrors to guide a daily laser beam to its target, with undo, hints and local best moves.",
+    "tags": [
+      "daily",
+      "laser",
+      "logic",
+      "mirrors"
+    ]
+  },
+  {
+    "name": "Easing Lab 98",
+    "type": "app",
+    "date": "2026-10-10",
+    "url": "/apps/easing-lab/",
+    "icon": "〰️",
+    "description": "Drag CSS cubic-bezier handles, preview motion and copy timing functions without external services.",
+    "tags": [
+      "css",
+      "animation",
+      "bezier",
+      "developer"
+    ]
+  },
+  {
     "name": "Color Stack 98",
     "type": "game",
     "date": "2026-10-09",

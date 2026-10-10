@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080">
+<title>Easing Lab 98</title><meta name="description" content="Build CSS cubic-bezier timing functions with draggable handles, presets and live animation preview.">
+<link rel="canonical" href="https://mrhakan.github.io/apps/easing-lab/"><meta property="og:title" content="Easing Lab 98"><meta property="og:description" content="An interactive CSS easing curve editor with a motion preview and copyable code."><meta property="og:type" content="website"><meta property="og:url" content="https://mrhakan.github.io/apps/easing-lab/">
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Tahoma,Arial,sans-serif;background:#008080;color:#111}body{min-height:100vh;display:flex;justify-content:center;align-items:center;padding:10px}
+.win{width:min(780px,100%);min-width:0;background:silver;border:2px solid;border-color:white #444 #444 white;box-shadow:6px 6px #004747;padding:3px}
+.title{background:linear-gradient(90deg,navy,#127eb8);color:white;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px}.title h1{margin:0;font:bold clamp(13px,3.5vw,17px) Tahoma,Arial}.title a{color:#111;background:silver;border:2px solid;border-color:white #444 #444 white;text-decoration:none;padding:1px 8px;font-weight:bold}
+.body{padding:13px}.panel{background:white;border:2px inset #ddd;padding:10px}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+svg{display:block;width:100%;background:#12213b;border:2px inset #bbb;touch-action:none;user-select:none}.axis{stroke:#abbacf;stroke-width:1.5}.guide{stroke:#5a98bc;stroke-width:2;stroke-dasharray:5 5}.curve{stroke:#ffdb65;stroke-width:5;fill:none}.handle{fill:#ff81b9;stroke:white;stroke-width:3;cursor:grab}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.field{display:grid;gap:4px;min-width:0;font:bold 12px monospace}.field input{width:100%;accent-color:navy}.field output{font-weight:normal}
+.btn{background:silver;border:2px solid;border-color:white #444 #444 white;padding:8px 10px;font:bold 12px Tahoma,Arial;cursor:pointer}.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.track{position:relative;height:64px;overflow:hidden;border:2px inset #bbb;background:repeating-linear-gradient(90deg,#e8f1fa 0,#e8f1fa 31px,#d5e3f0 32px);margin-top:12px}.dot{position:absolute;left:0;top:10px;width:40px;height:40px;background:navy;color:white;border:2px solid white;display:grid;place-items:center}
+@keyframes travel{from{left:0}to{left:calc(100% - 40px)}}
+.code{background:#0d1828;color:#b8ffc8;border:2px inset #999;padding:11px;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 monospace}
+.status{background:white;border:2px inset #ddd;padding:10px;min-height:40px;font:13px/1.4 monospace;margin-top:12px}.help{font:12px/1.55 Tahoma,Arial}
+:where(a,button,input,select):focus-visible{outline:3px solid #f0f;outline-offset:2px}
+@media(max-width:620px){body{padding:4px}.body{padding:8px}.layout{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style></head><body><main class="win"><header class="title"><h1>EASING LAB 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></header><div class="body">
+<p class="help">Drag the pink handles or use the sliders to design a CSS cubic-bezier curve. X is restricted to 0–1; Y can overshoot for springy movement. No data leaves your browser.</p>
+<section class="panel"><div class="layout">
+<svg id="chart" viewBox="0 0 340 280" role="img" aria-label="Easing curve with draggable pink handles"><path class="axis" d="M40 30V270 M40 90H300 M40 210H300 M300 30V270"/><path id="g1" class="guide"/><path id="g2" class="guide"/><path id="curve" class="curve"/><circle id="h1" class="handle" r="11"/><circle id="h2" class="handle" r="11"/><text x="44" y="226" fill="white" font-size="13">0</text><text x="288" y="226" fill="white" font-size="13">1</text></svg>
+<div class="fields"><label class="field">X1 <output id="ox1" for="x1"></output><input id="x1" type="range" min="0" max="1" step=".01" value=".25"></label>
+<label class="field">Y1 <output id="oy1" for="y1"></output><input id="y1" type="range" min="-.5" max="1.5" step=".01" value=".1"></label>
+<label class="field">X2 <output id="ox2" for="x2"></output><input id="x2" type="range" min="0" max="1" step=".01" value=".25"></label>
+<label class="field">Y2 <output id="oy2" for="y2"></output><input id="y2" type="range" min="-.5" max="1.5" step=".01" value="1"></label></div></div>
+<div class="track" aria-label="Animation preview"><div class="dot" id="dot" aria-hidden="true">→</div></div>
+<div class="actions"><button type="button" class="btn" id="play">▶ PLAY</button><button type="button" class="btn" data-preset="ease">EASE</button><button type="button" class="btn" data-preset="smooth">SMOOTH</button><button type="button" class="btn" data-preset="spring">SPRING</button><button type="button" class="btn" data-preset="linear">LINEAR</button><button type="button" class="btn" id="copy">COPY CSS</button></div>
+<pre class="code" id="code" tabindex="0" aria-label="Generated CSS"></pre></section><div class="status" id="status" aria-live="polite">Edit the curve or choose a preset.</div>
+<p class="help">The horizontal axis is elapsed time; the vertical axis is animation progress. The preview uses CSS animation timing. With reduced motion enabled, only the static curve and code are shown.</p>
+</div></main><script>(()=>{'use strict';
+const names=['x1','y1','x2','y2'],inputs=Object.fromEntries(names.map(n=>[n,document.getElementById(n)])),chart=document.getElementById('chart'),curve=document.getElementById('curve'),dot=document.getElementById('dot'),code=document.getElementById('code'),status=document.getElementById('status');
+const presets={ease:[.25,.1,.25,1],smooth:[.42,0,.58,1],spring:[.34,1.5,.64,1],linear:[0,0,1,1]};
+let timing='',drag=0;const X=n=>40+260*n,Y=n=>210-120*n;
+function update(){const v=names.map(n=>+inputs[n].value),p=[X(v[0]),Y(v[1])],q=[X(v[2]),Y(v[3])];
+document.getElementById('g1').setAttribute('d','M40 210L'+p.join(' '));document.getElementById('g2').setAttribute('d','M'+q.join(' ')+'L300 90');
+curve.setAttribute('d','M40 210C'+p.join(' ')+','+q.join(' ')+',300 90');
+for(const [i,point] of [[1,p],[2,q]]){const h=document.getElementById('h'+i);h.setAttribute('cx',point[0]);h.setAttribute('cy',point[1]);}
+names.forEach((n,i)=>document.getElementById('o'+n).textContent=v[i].toFixed(2));
+timing='cubic-bezier('+v.map(n=>Number(n.toFixed(2))).join(', ')+')';code.textContent='transition-timing-function: '+timing+';\nanimation-timing-function: '+timing+';';status.textContent='Curve updated. Press PLAY to preview.';}
+function play(){dot.style.animation='none';void dot.offsetWidth;if(matchMedia('(prefers-reduced-motion: reduce)').matches){status.textContent='Reduced motion is on; copy the CSS below.';return;}dot.style.animation='travel 1.8s '+timing+' 1 forwards';status.textContent='Previewing '+timing;}
+names.forEach(n=>inputs[n].addEventListener('input',update));
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{names.forEach((n,i)=>inputs[n].value=presets[b.dataset.preset][i]);update();play();}));
+document.getElementById('play').addEventListener('click',play);
+document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(code.textContent);status.textContent='CSS copied.';}catch{status.textContent='Clipboard unavailable. Select the CSS block to copy.';}});
+chart.addEventListener('pointerdown',e=>{if(e.target.id!=='h1'&&e.target.id!=='h2')return;drag=e.target.id==='h1'?1:2;chart.setPointerCapture(e.pointerId);e.preventDefault();});
+chart.addEventListener('pointermove',e=>{if(!drag)return;const p=chart.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const m=chart.getScreenCTM();if(!m)return;const v=p.matrixTransform(m.inverse());inputs['x'+drag].value=Math.max(0,Math.min(1,(v.x-40)/260)).toFixed(2);inputs['y'+drag].value=Math.max(-.5,Math.min(1.5,(210-v.y)/120)).toFixed(2);update();});
+chart.addEventListener('pointerup',()=>drag=0);chart.addEventListener('pointercancel',()=>drag=0);
+update();
+})();</script></body></html>
