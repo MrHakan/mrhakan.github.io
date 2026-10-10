@@ -136,9 +136,9 @@ is(score > 0, 'and merging scores ('+score+')');
 
 section('tetris drops and clears');
 await fresh('tetris');
-const t0 = await p.evaluate(()=>document.querySelector('canvas').toDataURL().length);
+const t0 = await p.evaluate(()=>document.querySelector('.app-window canvas').toDataURL());
 await p.waitForTimeout(1600);
-const t1 = await p.evaluate(()=>document.querySelector('canvas').toDataURL().length);
+const t1 = await p.evaluate(()=>document.querySelector('.app-window canvas').toDataURL());
 is(t0 !== t1, 'the piece falls on its own');
 await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowUp');
 await p.keyboard.press(' '); await p.waitForTimeout(300);
@@ -154,7 +154,7 @@ is(shown1 !== shown0, 'guessing letters changes the board');
 
 section('breakout');
 await fresh('breakout');
-await p.locator('canvas').click({force:true});
+await p.locator('.app-window canvas').click({force:true});
 await p.waitForTimeout(1400);
 is(await p.evaluate(()=>true), 'it serves and runs without throwing');
 
