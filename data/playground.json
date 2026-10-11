@@ -1,5 +1,35 @@
 [
   {
+    "name": "Skyline Towers 98",
+    "type": "game",
+    "date": "2026-10-11",
+    "url": "/games/skyline-towers/",
+    "icon": "🏙️",
+    "description": "Solve a uniquely determined daily 4×4 skyscraper puzzle using edge visibility clues, undo and hints.",
+    "tags": [
+      "daily",
+      "skyscrapers",
+      "logic",
+      "keyboard",
+      "touch"
+    ]
+  },
+  {
+    "name": "Favicon Foundry 98",
+    "type": "app",
+    "date": "2026-10-11",
+    "url": "/apps/favicon-foundry/",
+    "icon": "🎨",
+    "description": "Design favicons locally from initials or pictures; export PNG, multi-size ICO and a web manifest.",
+    "tags": [
+      "favicon",
+      "design",
+      "canvas",
+      "developer",
+      "local"
+    ]
+  },
+  {
     "name": "Mirror Beam 98",
     "type": "game",
     "date": "2026-10-10",

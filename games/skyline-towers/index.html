@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080">
+<title>Skyline Towers 98</title><meta name="description" content="Solve a unique daily skyscraper visibility puzzle.">
+<link rel="canonical" href="https://mrhakan.github.io/games/skyline-towers/"><meta property="og:title" content="Skyline Towers 98"><meta property="og:description" content="A daily four-by-four skyline logic game.">
+<link rel="stylesheet" href="style.css"><style>:where(a,button):focus-visible{outline:3px solid #f0f;outline-offset:2px}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style></head><body><main class="win">
+<header class="title"><h1>🏙 SKYLINE TOWERS 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></header>
+<div class="body"><div class="hud"><span class="badge">DAILY <b id="day"></b></span><span class="badge">MOVES <b id="moves">0</b></span><span class="badge">HINTS <b id="hints">0</b></span></div>
+<div id="board" class="board" role="group" aria-label="Four by four skyscraper puzzle"></div>
+<div class="controls" role="group" aria-label="Choose building height">
+<button type="button" class="btn key" data-n="1">1</button><button type="button" class="btn key" data-n="2">2</button><button type="button" class="btn key" data-n="3">3</button><button type="button" class="btn key" data-n="4">4</button><button type="button" class="btn key" data-n="0" aria-label="Clear selected square">⌫</button></div>
+<div class="controls"><button type="button" class="btn" id="undo">UNDO</button><button type="button" class="btn" id="hint">HINT</button><button type="button" class="btn" id="reset">RESTART</button></div>
+<div id="status" aria-live="polite">Select a square and enter a building height.</div>
+<p class="help">Place 1–4 exactly once in every row and column. Each edge clue shows how many buildings are visible looking inward: taller buildings hide shorter ones. Tap a square to cycle its value, or use the keypad. Keyboard: 1–4, Backspace, arrow keys. Each UTC day has a uniquely solvable puzzle.</p></div></main>
+<script src="logic.js" defer></script><script src="game.js" defer></script></body></html>
