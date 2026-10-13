@@ -1,5 +1,35 @@
 [
   {
+    "name": "Knight Trail 98",
+    "type": "game",
+    "date": "2026-10-13",
+    "url": "/games/knight-trail/",
+    "icon": "♞",
+    "description": "Complete a daily 5×5 knight tour without revisiting squares; solver-backed hints, undo and local best.",
+    "tags": [
+      "daily",
+      "chess",
+      "knight",
+      "logic",
+      "touch"
+    ]
+  },
+  {
+    "name": "Meta Preview Lab 98",
+    "type": "app",
+    "date": "2026-10-13",
+    "url": "/apps/meta-preview-lab/",
+    "icon": "🪧",
+    "description": "Preview social and search cards, generate escaped Open Graph/Twitter tags and test local image previews privately.",
+    "tags": [
+      "open-graph",
+      "seo",
+      "social",
+      "developer",
+      "privacy"
+    ]
+  },
+  {
     "name": "Triad Finder 98",
     "type": "game",
     "date": "2026-10-12",
