@@ -1,5 +1,37 @@
 [
   {
+    "name": "Unequal Grid 98",
+    "type": "game",
+    "date": "2026-10-14",
+    "url": "/games/unequal-grid/",
+    "icon": "≠",
+    "description": "Solve a uniquely determined daily 4×4 Futoshiki with inequality clues, keyboard/touch controls, undo, hints and local best time.",
+    "tags": [
+      "daily",
+      "futoshiki",
+      "logic",
+      "inequality",
+      "keyboard",
+      "touch"
+    ]
+  },
+  {
+    "name": "Morse Beacon 98",
+    "type": "app",
+    "date": "2026-10-14",
+    "url": "/apps/morse-beacon/",
+    "icon": "📻",
+    "description": "Encode text as Morse, play adjustable WPM Web Audio tones, copy code and practice random letters entirely offline.",
+    "tags": [
+      "morse",
+      "audio",
+      "learning",
+      "maritime",
+      "offline",
+      "accessibility"
+    ]
+  },
+  {
     "name": "Camp Logic 98",
     "type": "game",
     "date": "2026-10-14",
