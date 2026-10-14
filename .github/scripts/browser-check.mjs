@@ -40,7 +40,7 @@ async function boot(tag, url) {
         // the cdn bits (tailwind, google fonts) are not part of this test
         if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource/.test(t)) errors.push(tag + ' console: ' + t);
     });
-    await p.goto(url || BASE, { waitUntil: 'load' });
+    await p.goto(url || BASE, { waitUntil: 'domcontentloaded' });
     await p.keyboard.press('Enter');          // the boot screen wants a keypress
     await p.waitForTimeout(900);
     await p.evaluate(() => { window.soundEnabled = false; });
