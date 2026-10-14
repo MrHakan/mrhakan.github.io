@@ -1,5 +1,29 @@
 [
   {
+    "name": "Camp Logic 98",
+    "type": "game",
+    "date": "2026-10-14",
+    "url": "/games/camp-logic/",
+    "icon": "⛺",
+    "description": "Daily campsite logic puzzle.",
+    "tags": [
+      "daily",
+      "logic"
+    ]
+  },
+  {
+    "name": "Meeting Window 98",
+    "type": "app",
+    "date": "2026-10-14",
+    "url": "/apps/meeting-window/",
+    "icon": "🌐",
+    "description": "Local time zone meeting planner.",
+    "tags": [
+      "timezone",
+      "calendar"
+    ]
+  },
+  {
     "name": "Knight Trail 98",
     "type": "game",
     "date": "2026-10-13",
