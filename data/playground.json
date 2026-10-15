@@ -1,5 +1,35 @@
 [
   {
+    "name": "Rectangle Relay 98",
+    "type": "game",
+    "date": "2026-10-15",
+    "url": "/games/rectangle-relay/",
+    "icon": "▦",
+    "description": "Partition a seeded daily 6×6 grid into rectangles with one area clue each, with hints, undo and local best time.",
+    "tags": [
+      "daily",
+      "shikaku",
+      "logic",
+      "rectangles",
+      "touch"
+    ]
+  },
+  {
+    "name": "Cron Compass 98",
+    "type": "app",
+    "date": "2026-10-15",
+    "url": "/apps/cron-compass/",
+    "icon": "⏱",
+    "description": "Validate classic five-field cron expressions and preview eight upcoming local run times without a server.",
+    "tags": [
+      "cron",
+      "developer",
+      "scheduling",
+      "time",
+      "local"
+    ]
+  },
+  {
     "name": "Unequal Grid 98",
     "type": "game",
     "date": "2026-10-14",
