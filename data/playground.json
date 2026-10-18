@@ -1,5 +1,35 @@
 [
   {
+    "name": "Gridlock Escape 98",
+    "type": "game",
+    "date": "2026-10-16",
+    "url": "/games/gridlock-escape/",
+    "description": "Daily 6×6 sliding-car logic puzzle with optimal hints, undo, touch and local records.",
+    "icon": "🚗",
+    "tags": [
+      "daily",
+      "logic",
+      "sliding",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Focus Sprint 98",
+    "type": "app",
+    "date": "2026-10-16",
+    "url": "/apps/focus-sprint/",
+    "description": "Private focus timer, adjustable breaks, task queue, daily stats and JSON backup.",
+    "icon": "⏱️",
+    "tags": [
+      "productivity",
+      "focus",
+      "timer",
+      "tasks",
+      "offline"
+    ]
+  },
+  {
     "name": "Rectangle Relay 98",
     "type": "game",
     "date": "2026-10-15",
