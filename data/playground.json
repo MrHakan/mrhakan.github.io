@@ -1,5 +1,39 @@
 [
   {
+    "name": "Loop Circuit 98",
+    "type": "game",
+    "date": "2026-10-19",
+    "url": "/games/loop-circuit/",
+    "description": "Draw one closed loop around a daily 5×5 Slitherlink grid; eight uniquely solvable boards, hints, undo and local records.",
+    "icon": "🔗",
+    "tags": [
+      "daily",
+      "slitherlink",
+      "logic",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Table Forge 98",
+    "type": "app",
+    "date": "2026-10-19",
+    "url": "/apps/table-forge/",
+    "description": "Edit Markdown tables visually, import CSV/TSV, transpose, align columns, preview and export locally.",
+    "icon": "📊",
+    "tags": [
+      "markdown",
+      "csv",
+      "tsv",
+      "tables",
+      "editor",
+      "productivity",
+      "offline"
+    ]
+  },
+  {
     "name": "Gridlock Escape 98",
     "type": "game",
     "date": "2026-10-16",
