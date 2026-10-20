@@ -1,5 +1,38 @@
 [
   {
+    "name": "Hitori Shade 98",
+    "type": "game",
+    "date": "2026-10-20",
+    "url": "/games/hitori-shade/",
+    "description": "Daily 5×5 Hitori: shade duplicate numbers and keep whites connected; eight unique boards, hints, undo and local records.",
+    "icon": "▦",
+    "tags": [
+      "daily",
+      "hitori",
+      "logic",
+      "number-puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Tap Tempo 98",
+    "type": "app",
+    "date": "2026-10-20",
+    "url": "/apps/tap-tempo/",
+    "description": "Find BPM by tapping and run a local Web Audio metronome with accents, subdivisions, swing and shareable settings.",
+    "icon": "🎵",
+    "tags": [
+      "music",
+      "bpm",
+      "metronome",
+      "web-audio",
+      "rhythm",
+      "offline"
+    ]
+  },
+  {
     "name": "Loop Circuit 98",
     "type": "game",
     "date": "2026-10-19",

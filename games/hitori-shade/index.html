@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080"><meta name="description" content="Solve a daily 5×5 Hitori number-shading logic puzzle with eight unique boards, hints, undo, and local records."><title>Hitori Shade 98 — Daily Number Puzzle</title><link rel="canonical" href="https://mrhakan.github.io/games/hitori-shade/"><meta property="og:title" content="Hitori Shade 98"><meta property="og:description" content="Shade duplicates, keep dark cells apart, and connect every remaining white cell.">
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#008080;color:#151515;font:14px Tahoma,Arial,sans-serif}body{min-height:100vh;display:grid;place-items:center;padding:14px}.window{width:min(920px,100%);min-width:0;background:#c0c0c0;padding:3px;border:2px solid;border-color:#fff #454545 #454545 #fff;box-shadow:6px 6px #004949}.titlebar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(90deg,#000080,#1680b9);color:#fff;padding:9px}.titlebar h1{margin:0;font-size:clamp(15px,3vw,21px)}.close{background:#c0c0c0;color:#111;padding:5px 12px;border:2px solid;border-color:#fff #444 #444 #fff;text-decoration:none;font-weight:bold}.body{padding:14px}.stats,.actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.badge,#status{background:#fff;border:2px inset #ddd;padding:9px;font:12px/1.5 Consolas,monospace}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.77fr);gap:14px}.panel{min-width:0;background:#e8e8e8;border:2px inset #ddd;padding:13px}.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;width:min(100%,460px);margin:0 auto;padding:8px;background:#788b9d;border:3px inset #ddd;aspect-ratio:1}.cell{min-width:0;min-height:0;border:2px solid;border-color:#fff #555 #555 #fff;background:#f3f8ff;color:#0b1d45;display:grid;place-items:center;position:relative;font:bold clamp(19px,5vw,35px) Consolas,monospace;cursor:pointer;touch-action:manipulation}.cell.shaded{background:#26354a;color:#f2f8ff;border-color:#182331 #708397 #708397 #182331}.cell.shaded::after{content:'×';position:absolute;right:4px;top:0;font-size:12px;color:#f4d06f}.cell.note{background:#e7ffda}.cell.note::after{content:'○';position:absolute;right:3px;top:0;font-size:14px;color:#1d7028}.cell.selected{outline:3px solid #ffbb19;outline-offset:-4px}.cell.error{box-shadow:inset 0 0 0 3px #e63845}.panel h2{margin:0 0 10px;font-size:15px;color:#000080}.panel p,.panel li{font:13px/1.6 Tahoma,Arial,sans-serif}.panel ol{padding-left:21px;margin:7px 0 15px}.btn{background:#c0c0c0;border:2px solid;border-color:#fff #444 #444 #fff;padding:9px 12px;font:bold 12px Tahoma,Arial;cursor:pointer;min-height:38px}.btn[aria-pressed=true]{background:#d6edff;border-color:#444 #fff #fff #444}.btn:disabled{opacity:.5;cursor:not-allowed}#status{min-height:54px;overflow-wrap:anywhere}.tip{font:12px/1.55 Consolas,monospace;color:#333}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin:10px 0}.swatch{display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:4px}.swatch.dark{background:#26354a}.swatch.light{background:#e7ffda}:where(button,a):focus-visible{outline:3px solid #f0f;outline-offset:3px}@media(max-width:680px){body{padding:5px}.body{padding:8px}.layout{grid-template-columns:minmax(0,1fr)}.panel{padding:10px}.board{max-width:440px;gap:4px;padding:6px}.stats{gap:5px}.badge{padding:6px}.cell{border-width:1px}}@media(max-width:350px){.board{gap:2px;padding:4px}.cell{font-size:20px}.btn{padding:7px 9px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style></head><body><main class="window"><header class="titlebar"><h1>▦ HITORI SHADE 98.EXE</h1><a class="close" href="../../" aria-label="Back to Playground">×</a></header><div class="body"><div class="stats"><span class="badge">UTC DAY <b id="day">—</b></span><span class="badge">TIME <b id="time">0:00</b></span><span class="badge">SHADES <b id="count">0</b></span><span class="badge">BEST <b id="best">—</b></span><span class="badge">HINTS <b id="hints">0</b></span></div><div class="layout"><section class="panel"><div id="board" class="board" role="group" aria-label="Five by five Hitori number-shading puzzle"></div><div class="legend"><span><i class="swatch dark"></i>Shaded</span><span><i class="swatch light"></i>Marked safe</span><span>Pink border = conflict</span></div></section><section class="panel"><h2>HOW TO PLAY</h2><ol><li>Shade repeated numbers until each <strong>white</strong> row and column has no duplicates.</li><li>Shaded squares must <strong>never touch by an edge</strong>.</li><li>Every unshaded square must remain connected by edges.</li></ol><p>Tap a square to shade or unshade it. Turn on <strong>Mark safe</strong> to annotate white squares without shading.</p><div class="actions"><button type="button" class="btn" id="mode" aria-pressed="false">○ MARK SAFE: OFF</button><button type="button" class="btn" id="undo">↶ UNDO</button><button type="button" class="btn" id="hint">💡 HINT</button><button type="button" class="btn" id="restart">RESTART</button><button type="button" class="btn" id="share">COPY RESULT</button></div><div id="status" role="status" aria-live="polite">Choose a square to begin.</div><p class="tip">KEYBOARD: arrows navigate · Space shades · Enter marks safe · Z undo · H hint. Eight solver-verified puzzles rotate by UTC date. Your progress stays on this device.</p></section></div></div></main><script>/* Each board is independently verified to have exactly one solution. */
+const LEVELS = [{"grid":[3,2,5,1,4,1,5,3,3,3,5,3,4,2,1,2,1,4,4,4,1,1,2,5,3],"shade":[5,7,9,17,19,21]},{"grid":[5,4,1,3,3,2,2,4,1,4,2,5,4,3,4,1,3,4,4,5,4,1,3,3,2],"shade":[3,5,7,14,17,23]},{"grid":[3,5,1,1,1,1,5,2,4,5,5,2,1,3,4,2,1,2,2,2,2,4,3,5,1],"shade":[2,4,6,15,17,19]},{"grid":[2,4,5,1,5,4,4,2,4,1,1,5,3,4,2,5,2,3,3,1,4,1,4,2,5],"shade":[4,6,8,17,19,20]},{"grid":[5,2,3,2,5,3,3,5,2,1,5,3,1,4,5,1,5,2,3,4,1,1,4,5,3],"shade":[0,3,6,14,20]},{"grid":[1,5,3,4,2,4,3,1,5,4,1,4,2,1,5,5,3,2,2,1,2,1,5,5,4],"shade":[6,9,10,17,23]},{"grid":[4,1,2,1,3,1,2,1,3,3,3,4,1,5,2,5,1,1,2,4,1,3,5,4,4],"shade":[1,7,9,17,20,24]},{"grid":[2,4,1,2,2,4,1,1,3,5,2,3,4,2,1,2,2,3,4,4,1,2,5,4,3],"shade":[0,3,7,10,16,18]}];
+
+(() => {
+'use strict';
+const N = 5, size = N * N, $ = id => document.getElementById(id);
+const today = new Date().toISOString().slice(0,10);
+const dayNumber = Math.floor(Date.parse(today+'T00:00:00Z') / 86400000);
+const level = LEVELS[((dayNumber % LEVELS.length) + LEVELS.length) % LEVELS.length];
+const solution = new Set(level.shade), storageKey = 'hitori-shade-98:'+today, bestKey = 'hitori-shade-98:best:'+today;
+const neighbors = i => { const r=Math.floor(i/N),c=i%N; return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([y,x])=>y>=0&&y<N&&x>=0&&x<N).map(([y,x])=>y*N+x); };
+const safeGet = key => { try { return localStorage.getItem(key); } catch { return null; } };
+const safeSet = (key,value) => { try { localStorage.setItem(key,value); } catch {} };
+const initial = (()=>{try{const s=JSON.parse(safeGet(storageKey));if(s?.date===today&&Array.isArray(s.states)&&s.states.length===size&&s.states.every(v=>[0,1,2].includes(v)))return s;}catch{}return null;})();
+let states = initial?.states.slice() || Array(size).fill(0), selected = 0, modeSafe = false, history = [], hints = Number.isInteger(initial?.hints)?Math.max(0,initial.hints):0;
+let elapsed = Number.isFinite(initial?.elapsed)?Math.max(0,initial.elapsed):0, startedAt = null, won = Boolean(initial?.won), best = Number(safeGet(bestKey)) || 0;
+const buttons = [];
+$('day').textContent=today;
+for(let i=0;i<size;i++){
+ const button=document.createElement('button');button.type='button';button.className='cell';button.dataset.index=i;button.addEventListener('click',()=>{selected=i;change(i,modeSafe?2:1);});$('board').append(button);buttons.push(button);
+}
+function seconds(){return elapsed+(startedAt===null?0:(Date.now()-startedAt)/1000);}
+function clock(n){n=Math.floor(n);return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;}
+function save(){safeSet(storageKey,JSON.stringify({date:today,states,hints,elapsed:seconds(),won}));}
+function check(){
+ const bad=new Set(), conflicts=[];
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+  const i=r*N+c;if(states[i]===1)continue;
+  for(let k=c+1;k<N;k++){const j=r*N+k;if(states[j]!==1&&level.grid[i]===level.grid[j]){bad.add(i);bad.add(j);conflicts.push([i,j]);}}
+  for(let k=r+1;k<N;k++){const j=k*N+c;if(states[j]!==1&&level.grid[i]===level.grid[j]){bad.add(i);bad.add(j);conflicts.push([i,j]);}}
+ }
+ let touching=false;
+ for(let i=0;i<size;i++)if(states[i]===1)for(const j of neighbors(i))if(states[j]===1){bad.add(i);bad.add(j);touching=true;}
+ const white=states.map((s,i)=>s===1?-1:i).filter(i=>i>=0), seen=new Set();
+ if(white.length){const queue=[white[0]];seen.add(white[0]);for(let k=0;k<queue.length;k++)for(const j of neighbors(queue[k]))if(states[j]!==1&&!seen.has(j)){seen.add(j);queue.push(j);}}
+ const disconnected=seen.size!==white.length;
+ if(disconnected)for(const i of white)if(!seen.has(i))bad.add(i);
+ return {bad,conflicts:conflicts.length,touching,disconnected,solved:!conflicts.length&&!touching&&!disconnected};
+}
+function render(message){
+ const result=check();
+ for(let i=0;i<size;i++){
+  const b=buttons[i],s=states[i];b.textContent=level.grid[i];b.className='cell'+(s===1?' shaded':s===2?' note':'')+(selected===i?' selected':'')+(result.bad.has(i)?' error':'');
+  b.setAttribute('aria-label',`Row ${Math.floor(i/N)+1}, column ${i%N+1}, number ${level.grid[i]}, ${s===1?'shaded':s===2?'marked safe':'unmarked'}`);
+  b.setAttribute('aria-pressed',String(s===1));b.disabled=won;
+ }
+ $('time').textContent=clock(seconds());$('count').textContent=states.filter(s=>s===1).length;$('best').textContent=best?clock(best):'—';$('hints').textContent=hints;
+ $('mode').setAttribute('aria-pressed',String(modeSafe));$('mode').textContent=modeSafe?'● MARK SAFE: ON':'○ MARK SAFE: OFF';
+ $('undo').disabled=won||!history.length;$('hint').disabled=won;
+ const summary=won?`🎉 SOLVED in ${clock(seconds())}! ${hints?'Hints used: '+hints+'.':'No hints used.'}`:
+  result.touching?'Two shaded squares share an edge.':result.disconnected?'White squares are disconnected.':
+  result.conflicts?`${result.conflicts} duplicate pair${result.conflicts===1?'':'s'} remain. Shade the repeats.`:'All rules satisfied!';
+ $('status').textContent=message||summary;
+}
+function finish(){if(won)return;const result=check();if(!result.solved)return;elapsed=seconds();startedAt=null;won=true;if(!best||elapsed<best){best=elapsed;safeSet(bestKey,String(best));}save();render();}
+function change(i,next){if(won)return;const before=states.slice();const value=states[i];const target=next===2?(value===2?0:2):(value===1?0:1);if(value===target){render();return;}history.push(before);if(history.length>80)history.shift();states[i]=target;if(startedAt===null)startedAt=Date.now();save();render();finish();}
+$('mode').addEventListener('click',()=>{modeSafe=!modeSafe;render();});
+$('undo').addEventListener('click',()=>{if(won||!history.length)return;states=history.pop();save();render('Previous move restored.');});
+$('hint').addEventListener('click',()=>{if(won)return;const wrong=states.findIndex((s,i)=>s===1&&!solution.has(i));let i=wrong>=0?wrong:level.shade.find(i=>states[i]!==1);if(i===undefined){i=states.findIndex((s,j)=>s===2&&solution.has(j));}if(i<0||i===undefined)return;selected=i;history.push(states.slice());states[i]=solution.has(i)?1:0;hints++;if(startedAt===null)startedAt=Date.now();save();render(`Hint ${hints}: ${solution.has(i)?'shade':'clear'} row ${Math.floor(i/N)+1}, column ${i%N+1}.`);finish();});
+$('restart').addEventListener('click',()=>{states=Array(size).fill(0);history=[];hints=0;elapsed=0;startedAt=null;won=false;save();render('Puzzle restarted.');});
+$('share').addEventListener('click',async()=>{const text=`Hitori Shade 98 • ${today}\n${won?'Solved in '+clock(seconds()):'In progress'} • ${hints} hints\n${Array.from({length:N},(_,r)=>states.slice(r*N,(r+1)*N).map(s=>s===1?'⬛':s===2?'🟩':'⬜').join('')).join('\n')}\nhttps://mrhakan.github.io/games/hitori-shade/`;try{await navigator.clipboard.writeText(text);render('Result copied to clipboard.');}catch{render('Clipboard unavailable; use your browser’s Share or Copy option.');}});
+window.addEventListener('keydown',event=>{if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('input,textarea,select'))return;const moves={ArrowLeft:-1,ArrowRight:1,ArrowUp:-N,ArrowDown:N};if(event.key in moves){event.preventDefault();const r=Math.floor(selected/N),c=selected%N;selected=event.key==='ArrowLeft'?r*N+(c+N-1)%N:event.key==='ArrowRight'?r*N+(c+1)%N:event.key==='ArrowUp'?((r+N-1)%N)*N+c:((r+1)%N)*N+c;render();buttons[selected].focus();return;}if(event.code==='Space'&&(event.target.tagName!=='BUTTON'||event.target.classList.contains('cell'))){event.preventDefault();change(selected,1);}else if(event.key==='Enter'&&(event.target.tagName!=='BUTTON'||event.target.classList.contains('cell'))){event.preventDefault();change(selected,2);}else if(event.key.toLowerCase()==='z'&&event.target.tagName!=='BUTTON')$('undo').click();else if(event.key.toLowerCase()==='h'&&event.target.tagName!=='BUTTON')$('hint').click();});
+setInterval(()=>{if(startedAt!==null){$('time').textContent=clock(seconds());if(Math.floor(seconds())%5===0)save();}},1000);
+render();
+})();
+</script></body></html>
