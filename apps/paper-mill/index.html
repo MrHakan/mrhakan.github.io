@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080">
+<meta name="description" content="Design printable graph, dot, ruled, isometric, hex and music staff paper. Preview, download SVG and print at actual size, all offline.">
+<title>Paper Mill 98 · Playground</title><link rel="canonical" href="https://mrhakan.github.io/apps/paper-mill/">
+<meta property="og:title" content="Paper Mill 98"><meta property="og:description" content="Make your own printable graph paper, dot grids, hex paper and music staves. No accounts or uploads.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;min-height:100vh;padding:16px;font:13px Tahoma,Verdana,sans-serif;color:#17212b}.window{width:min(1200px,100%);margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:white #444 #444 white;box-shadow:8px 8px 0 #005050}.titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(90deg,#000080,#1681b2);color:white;padding:8px 10px}.titlebar h1{font-size:17px;margin:0}.close{color:#111;background:#c0c0c0;border:2px solid;border-color:white #444 #444 white;padding:5px 10px;text-decoration:none;font-weight:bold}.menu{display:flex;gap:16px;padding:9px 12px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}.layout{display:grid;grid-template-columns:minmax(255px,320px) minmax(0,1fr);gap:12px;padding:0 12px 12px}.panel{background:#ededed;border:2px inset #ddd;padding:14px;min-width:0}.panel h2{font-size:15px;margin:0 0 10px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:flex;flex-direction:column;gap:5px;min-width:0}.field.wide{grid-column:1/-1}label{font-weight:bold;font-size:12px}select,input{width:100%;min-height:36px;background:#fff;border:2px inset #ddd;padding:6px;font:13px Tahoma,sans-serif;color:#17212b}input[type=color]{padding:2px;height:36px}input[type=range]{border:0;background:transparent;padding:0;accent-color:#000080}input[type=checkbox]{width:auto;min-height:0;accent-color:#000080}.check{display:flex;align-items:center;gap:8px}.check label{font-weight:normal}.rangeLabel{display:flex;justify-content:space-between;gap:6px}.rangeLabel output{font:700 12px Consolas,monospace}.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.btn{cursor:pointer;border:2px solid;border-color:white #555 #555 white;background:#c0c0c0;color:#111;font:700 12px Tahoma,sans-serif;padding:9px 12px;min-height:38px}.btn:active{border-color:#555 white white #555}.btn.primary{background:#d5e6f4}.btn:disabled{opacity:.5}.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}.tip{font-size:12px;line-height:1.55;color:#475466}.previewHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}.previewHeader h2{margin:0}.previewHeader small{font:12px Consolas,monospace;color:#445}.previewBox{background:repeating-linear-gradient(45deg,#d5d5d5 0,#d5d5d5 10px,#e2e2e2 10px,#e2e2e2 20px);border:2px inset #ddd;min-height:420px;padding:18px;display:grid;place-items:center;overflow:hidden}.previewBox svg{width:auto;height:auto;max-width:100%;max-height:72vh;box-shadow:0 7px 22px #0004;background:white}.status{border:2px inset #ddd;background:#fff;margin-top:12px;padding:9px;min-height:35px;font-size:12px;line-height:1.4}.footer{border-top:1px solid #fff;padding:8px 12px;display:flex;justify-content:space-between;gap:10px;color:#425;font-size:11px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffbd2f;outline-offset:2px}hr{border:0;border-top:1px solid #bbb;margin:15px 0}
+@media(max-width:760px){body{padding:8px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}.previewBox{min-height:260px;padding:10px}.previewBox svg{max-height:65vh}.titlebar h1{font-size:15px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media print{html,body{margin:0!important;padding:0!important;background:white!important;min-height:0!important}.window,.layout,.panel,.previewBox{border:0!important;box-shadow:none!important;margin:0!important;padding:0!important;background:transparent!important;width:auto!important;max-width:none!important;min-height:0!important;display:block!important}.titlebar,.menu,.settings,.previewHeader,.status,.footer{display:none!important}.previewBox svg{display:block!important;width:var(--print-width)!important;height:var(--print-height)!important;max-width:none!important;max-height:none!important;box-shadow:none!important;print-color-adjust:exact;-webkit-print-color-adjust:exact} }
+</style><style id="printPageStyle">@page{size:A4 portrait;margin:0}</style>
+</head><body>
+<main class="window"><header class="titlebar"><h1>📐 Paper Mill 98</h1><a href="../../" class="close" aria-label="Back to Playground">✕</a></header><div class="menu"><span>File</span><span>Patterns</span><span>Print</span><span>100% local</span></div>
+<div class="layout"><section class="panel settings" aria-label="Paper settings"><h2>Sheet setup</h2>
+<div class="presets"><button type="button" class="btn" data-preset="math">📊 Math</button><button type="button" class="btn" data-preset="notes">📝 Notes</button><button type="button" class="btn" data-preset="design">✏️ Design</button><button type="button" class="btn" data-preset="music">🎼 Music</button></div>
+<div class="fields">
+<div class="field wide"><label for="pattern">Pattern</label><select id="pattern"><option value="graph">Graph squares</option><option value="dots">Dot grid</option><option value="ruled">Ruled lines</option><option value="isometric">Isometric triangles</option><option value="hex">Hexagons</option><option value="music">Music staves</option></select></div>
+<div class="field"><label for="size">Paper size</label><select id="size"><option value="A4">A4 · 210×297 mm</option><option value="A5">A5 · 148×210 mm</option><option value="Letter">US Letter · 216×279 mm</option></select></div>
+<div class="field"><label for="orientation">Orientation</label><select id="orientation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></div>
+<div class="field wide"><div class="rangeLabel"><label for="spacing">Spacing</label><output id="spacingValue" for="spacing">5 mm</output></div><input type="range" id="spacing" min="3" max="20" step="0.5" value="5"></div>
+<div class="field wide"><div class="rangeLabel"><label for="margin">Page margin</label><output id="marginValue" for="margin">12 mm</output></div><input type="range" id="margin" min="5" max="25" step="1" value="12"></div>
+<div class="field"><label for="ink">Ink color</label><input id="ink" type="color" value="#52708e"></div>
+<div class="field"><label for="paper">Paper color</label><input id="paper" type="color" value="#ffffff"></div>
+<div class="field wide"><div class="rangeLabel"><label for="strength">Line strength</label><output id="strengthValue" for="strength">65%</output></div><input id="strength" type="range" min="15" max="100" step="5" value="65"></div>
+<div class="field wide check"><input id="guides" type="checkbox" checked><label for="guides">Show every fifth graph line darker</label></div>
+</div><hr><h2>Export</h2><p class="tip">SVG keeps physical dimensions in millimeters. For paper prints, select <strong>Actual size / 100%</strong> and enable background graphics if your browser asks.</p>
+<div class="actions"><button type="button" class="btn primary" id="download">⬇ Download SVG</button><button type="button" class="btn" id="print">🖨 Print / Save PDF</button><button type="button" class="btn" id="share">🔗 Copy settings link</button><button type="button" class="btn" id="restore">↺ Defaults</button></div>
+</section><section class="panel preview" aria-label="Live paper preview"><div class="previewHeader"><h2>Live preview</h2><small id="dimensions">A4 · 210 × 297 mm</small></div><div class="previewBox" id="preview"></div><div class="status" id="status" role="status" aria-live="polite">Ready. Adjust settings to preview your printable paper.</div></section></div>
+<footer class="footer"><span>🔒 Nothing uploaded. SVG and print are generated in your browser.</span><span>Paper Mill v1.0</span></footer></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const defaults={pattern:'graph',size:'A4',orientation:'portrait',spacing:5,margin:12,ink:'#52708e',paper:'#ffffff',strength:65,guides:true};
+const presets={math:{pattern:'graph',spacing:5,ink:'#52708e',strength:65,guides:true},notes:{pattern:'ruled',spacing:8,ink:'#6985a1',strength:55},design:{pattern:'dots',spacing:5,ink:'#536d88',strength:60},music:{pattern:'music',spacing:8,ink:'#404e63',strength:85}};
+const sizes={A4:[210,297],A5:[148,210],Letter:[215.9,279.4]};
+const fields=['pattern','size','orientation','spacing','margin','ink','paper','strength','guides'];
+const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+const cleanHex=(value,fallback)=>/^#[0-9a-fA-F]{6}$/.test(String(value))?value:fallback;
+function sanitize(input){const s={...defaults,...input};return {pattern:['graph','dots','ruled','isometric','hex','music'].includes(s.pattern)?s.pattern:defaults.pattern,size:sizes[s.size]?s.size:defaults.size,orientation:['portrait','landscape'].includes(s.orientation)?s.orientation:'portrait',spacing:clamp(Number(s.spacing)||5,3,20),margin:clamp(Number(s.margin)||12,5,25),ink:cleanHex(s.ink,defaults.ink),paper:cleanHex(s.paper,defaults.paper),strength:clamp(Number(s.strength)||65,15,100),guides:s.guides===true||s.guides==='true'||s.guides==='1'}}
+function readForm(){return sanitize(Object.fromEntries(fields.map(k=>[k,$(k).type==='checkbox'?$(k).checked:$(k).value])))}
+function setForm(s){for(const k of fields){if($(k).type==='checkbox')$(k).checked=s[k];else $(k).value=s[k]}}
+function message(s){$('status').textContent=s}
+const n=x=>Number(x.toFixed(3));
+function svgMarkup(s){
+ const base=sizes[s.size],w=s.orientation==='portrait'?base[0]:base[1],h=s.orientation==='portrait'?base[1]:base[0],m=s.margin,step=s.spacing,usableW=w-2*m,usableH=h-2*m;
+ const opacity=n(s.strength/100),st=.18;const shapes=[];
+ const line=(x1,y1,x2,y2,major=false)=>`<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" stroke-width="${major?.28:st}" opacity="${major?opacity:n(opacity*.48)}"/>`;
+ if(s.pattern==='graph'){
+  for(let i=0;i<=Math.floor(usableW/step);i++)shapes.push(line(m+i*step,m,m+i*step,h-m,s.guides&&i%5===0));
+  for(let i=0;i<=Math.floor(usableH/step);i++)shapes.push(line(m,m+i*step,w-m,m+i*step,s.guides&&i%5===0));
+ }else if(s.pattern==='dots'){
+  for(let y=m;y<=h-m+.0001;y+=step)for(let x=m;x<=w-m+.0001;x+=step)shapes.push(`<circle cx="${n(x)}" cy="${n(y)}" r="${n(Math.min(.5,step*.085))}" opacity="${opacity}"/>`);
+ }else if(s.pattern==='ruled'){
+  for(let y=m+step;y<=h-m+.0001;y+=step)shapes.push(line(m,y,w-m,y,true));
+ }else if(s.pattern==='isometric'){
+  const rise=step*Math.sqrt(3)/2;
+  for(let y=m;y<=h-m+rise;y+=rise)shapes.push(line(m,y,w-m,y,false));
+  for(let x=m-h;x<=w+h;x+=step){shapes.push(line(x,m,x+usableH/Math.sqrt(3),h-m,false));shapes.push(line(x,m,x-usableH/Math.sqrt(3),h-m,false))}
+ }else if(s.pattern==='hex'){
+  const r=step/Math.sqrt(3),dy=1.5*r;
+  for(let row=-1;row<=Math.ceil(usableH/dy)+1;row++){
+   const cy=m+row*dy,offset=(Math.abs(row)%2)*step/2;
+   for(let col=-1;col<=Math.ceil(usableW/step)+1;col++){
+    const cx=m+col*step+offset;
+    const points=Array.from({length:6},(_,i)=>{const a=Math.PI/180*(60*i-30);return `${n(cx+r*Math.cos(a))},${n(cy+r*Math.sin(a))}`}).join(' ');
+    shapes.push(`<polygon points="${points}" fill="none" stroke-width="${st}" opacity="${opacity}"/>`);
+   }
+  }
+ }else if(s.pattern==='music'){
+  const gap=step/4,period=gap*5+step;
+  for(let top=m+gap;top+4*gap<=h-m;top+=period)for(let i=0;i<5;i++)shapes.push(line(m,top+i*gap,w-m,top+i*gap,true));
+ }
+ const attrs=`xmlns="http://www.w3.org/2000/svg" width="${n(w)}mm" height="${n(h)}mm" viewBox="0 0 ${n(w)} ${n(h)}" role="img" aria-label="${s.pattern} paper preview"`;
+ const svg=`<svg ${attrs}><title>${s.pattern} paper · ${s.size}</title><rect width="${n(w)}" height="${n(h)}" fill="${s.paper}"/><defs><clipPath id="sheet-area"><rect x="${m}" y="${m}" width="${n(usableW)}" height="${n(usableH)}"/></clipPath></defs><g clip-path="url(#sheet-area)" stroke="${s.ink}" fill="${s.ink}">${shapes.join('')}</g></svg>`;
+ return {svg,w,h,count:shapes.length}
+}
+let current='',currentSettings=defaults;
+function render(quiet=false){
+ const s=readForm(),result=svgMarkup(s);current=result.svg;currentSettings=s;
+ $('preview').innerHTML=current;$('spacingValue').textContent=`${s.spacing} mm`;$('marginValue').textContent=`${s.margin} mm`;$('strengthValue').textContent=`${s.strength}%`;
+ $('dimensions').textContent=`${s.size} · ${n(result.w)} × ${n(result.h)} mm · ${result.count} marks`;
+ document.documentElement.style.setProperty('--print-width',`${n(result.w)}mm`);document.documentElement.style.setProperty('--print-height',`${n(result.h)}mm`);
+ $('printPageStyle').textContent=`@page{size:${s.size} ${s.orientation};margin:0}`;
+ try{localStorage.setItem('paper-mill98-settings',JSON.stringify(s))}catch{}
+ if(!quiet)message(`Updated ${s.pattern} paper. ${result.count} vector marks; ready to export.`)
+}
+function paramsToSettings(search){const q=new URLSearchParams(search);const o={};for(const k of fields)if(q.has(k))o[k]=q.get(k);return sanitize(o)}
+function shareURL(){const u=new URL(location.href);u.search='';for(const [k,v] of Object.entries(currentSettings))u.searchParams.set(k,String(v));return u.toString()}
+function saveSvg(){const blob=new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n',current],{type:'image/svg+xml;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`paper-mill-${currentSettings.pattern}-${currentSettings.size.toLowerCase()}-${currentSettings.orientation}.svg`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);message('SVG saved. Print at 100% scale for accurate millimeter spacing.')}
+$('download').addEventListener('click',saveSvg);
+$('print').addEventListener('click',()=>{message('Print dialog opening. Choose 100% / Actual size and background graphics.');window.print()});
+$('share').addEventListener('click',async()=>{const u=shareURL();try{await navigator.clipboard.writeText(u);message('Settings link copied to clipboard.')}catch{const input=document.createElement('textarea');input.value=u;document.body.append(input);input.select();const ok=document.execCommand('copy');input.remove();message(ok?'Settings link copied.':'Copy this link from your address bar after applying the settings.');history.replaceState(null,'',u)}});
+$('restore').addEventListener('click',()=>{setForm(defaults);render();message('Default graph paper restored.')});
+for(const k of fields)$(k).addEventListener('input',()=>render());
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{setForm(sanitize({...readForm(),...presets[b.dataset.preset]}));render();message(`${b.textContent.trim()} preset loaded.`)}));
+let saved={};try{saved=JSON.parse(localStorage.getItem('paper-mill98-settings')||'{}')}catch{}
+setForm(sanitize(location.search?paramsToSettings(location.search):saved));render(true);
+</script>
+</body></html>

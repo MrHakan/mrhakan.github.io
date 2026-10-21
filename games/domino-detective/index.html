@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080">
+<meta name="description" content="Solve a daily Dominosa puzzle: match all ten domino pairs on a 4×5 number grid. Unique boards, undo, hints and local records.">
+<title>Domino Detective 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/domino-detective/">
+<meta property="og:title" content="Domino Detective 98"><meta property="og:description" content="Ten dominoes, one perfect tiling. A daily logic game with hints and undo.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:18px;color:#17212b;font:14px Tahoma,Verdana,sans-serif;min-height:100vh;display:grid;place-items:center}
+.window{width:min(920px,100%);background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #464646 #464646 #fff;box-shadow:8px 8px 0 #005050}
+.titlebar{background:linear-gradient(90deg,#000080,#147ab0);display:flex;align-items:center;justify-content:space-between;color:white;padding:7px 10px;gap:10px}.titlebar h1{font-size:17px;margin:0;letter-spacing:.2px}.close{color:#111;background:#c0c0c0;padding:5px 10px;text-decoration:none;border:2px solid;border-color:#fff #444 #444 #fff;font-weight:bold}
+.menu{display:flex;gap:8px;padding:8px 9px 2px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}.content{padding:12px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(230px,.8fr);gap:14px}.panel{background:#ededed;border:2px inset #ddd;padding:14px;min-width:0}.panel h2{font-size:16px;margin:0 0 9px}.muted{color:#475466;line-height:1.55;font-size:12px}.hud{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}.badge{background:white;border:2px inset #ddd;padding:6px 9px;font:12px Consolas,monospace}
+.grid{width:min(100%,480px);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:auto;touch-action:manipulation}.cell{aspect-ratio:1;border:2px solid;border-color:white #666 #666 white;background:#fff;display:grid;place-items:center;font:700 clamp(17px,5vw,32px) Consolas,monospace;cursor:pointer;position:relative;min-width:0;min-height:0;user-select:none}.cell:hover{background:#e6f7fa}.cell.selected{background:#ffefb2;box-shadow:inset 0 0 0 3px #c08000}.cell.filled{background:#cce8ed}.cell.filled[data-color="1"]{background:#e7d8f5}.cell.filled[data-color="2"]{background:#d9ebcc}.cell.filled[data-color="3"]{background:#f3dec8}.cell.filled[data-color="4"]{background:#d5e2f5}.cell.filled[data-color="5"]{background:#f2d8dd}.cell.filled[data-color="6"]{background:#e5e2ba}.cell.filled[data-color="7"]{background:#d7e8df}.cell.filled[data-color="8"]{background:#eeddd0}.cell.filled[data-color="9"]{background:#e3e2f1}.cell.filled:after{content:attr(data-pair);position:absolute;bottom:3px;right:4px;font:10px Consolas,monospace;color:#354a55}.cell.filled{box-shadow:inset 0 0 0 2px #537483}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.btn{border:2px solid;border-color:white #555 #555 white;background:#c0c0c0;color:#111;padding:9px 11px;font:700 12px Tahoma,sans-serif;cursor:pointer;min-height:38px}.btn:active{border-color:#555 white white #555}.btn:disabled{opacity:.55;cursor:default}.btn.primary{background:#d7e8f2}.pairs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.pair{border:2px solid #999;background:#fff;text-align:center;padding:9px 2px;font:700 13px Consolas,monospace}.pair.done{background:#d3e9d1;color:#27612b;border-color:#60946a;text-decoration:line-through}.help{margin-top:12px;font-size:12px;line-height:1.6}.help ol{padding-left:20px}.help li{margin:4px 0}#status{min-height:46px;background:white;border:2px inset #ddd;padding:10px;font-size:12px;line-height:1.5}.footer{border-top:1px solid white;padding:8px 12px;font-size:11px;display:flex;justify-content:space-between;gap:8px}.win{color:#08651b;font-weight:bold}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+button:focus-visible,a:focus-visible{outline:3px solid #ffbd2f;outline-offset:3px;z-index:2}
+@media(max-width:680px){body{padding:8px;display:block}.content{grid-template-columns:1fr;padding:8px;gap:8px}.panel{padding:10px}.grid{gap:3px}.cell{font-size:clamp(17px,6vw,29px)}.pairs{grid-template-columns:repeat(5,1fr)}.titlebar h1{font-size:15px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main class="window">
+<header class="titlebar"><h1>🁣 Domino Detective 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕</a></header>
+<div class="menu"><span>File</span><span>Game</span><span>Help</span><span>4 × 5 · Double-three set</span></div>
+<div class="content">
+<section class="panel" aria-label="Domino puzzle">
+<h2 id="levelTitle">Daily case</h2><div class="hud"><span class="badge" id="progress">0 / 10 dominoes</span><span class="badge" id="clock">00:00</span><span class="badge" id="best">Best: —</span></div>
+<div class="grid" id="board" role="group" aria-label="4 row by 5 column number grid. Select two adjacent cells to place a domino."></div>
+<div class="controls"><button type="button" class="btn primary" id="undo">↶ Undo</button><button type="button" class="btn" id="hint">💡 Hint</button><button type="button" class="btn" id="reset">↻ Restart</button><button type="button" class="btn" id="next">▶ Practice board</button><button type="button" class="btn" id="daily">☀ Daily</button></div>
+<div id="status" role="status" aria-live="polite">Select a number, then a neighboring number to pair them.</div>
+</section>
+<aside class="panel"><h2>Case file · Ten pairs</h2><p class="muted">Every domino from 0–0 to 3–3 must appear exactly once. Find the only way to cover the board.</p><div class="pairs" id="pairs" aria-label="Required domino pairs"></div><div class="help"><h2>How to play</h2><ol><li>Tap two side-by-side cells to place one domino.</li><li>Use each unordered pair exactly once.</li><li>Tap a placed domino to remove it.</li><li>Fill all 20 cells to close the case.</li></ol><p><strong>Keyboard:</strong> Arrow keys move focus. Enter or Space selects. Escape cancels selection. Ctrl/⌘+Z undoes.</p><p class="muted">Eight independently verified, uniquely solvable boards. Your best time stays on this device; no sign-in or network requests.</p></div></aside>
+</div><footer class="footer"><span>🔒 Offline-friendly · No tracking</span><span id="caseId">Case 01/08</span></footer>
+</main>
+<script>
+'use strict';
+const LEVELS=[
+[3,0,2,2,1,3,3,3,0,2,2,1,0,0,3,1,1,2,0,1],
+[0,0,3,1,1,2,1,2,0,2,2,1,3,3,0,3,1,3,2,0],
+[1,0,3,3,1,0,3,2,0,1,0,3,1,2,2,2,1,0,3,2],
+[1,1,0,3,3,3,3,0,1,0,2,2,2,2,2,1,1,0,3,0],
+[2,1,1,0,3,2,2,2,0,3,0,0,3,2,1,3,3,1,0,1],
+[2,1,2,2,3,1,3,0,3,2,0,0,1,3,2,0,0,1,1,3],
+[3,2,2,2,2,3,0,1,3,0,1,2,0,0,3,1,3,1,1,0],
+[0,1,0,3,1,3,3,0,2,2,1,0,0,2,3,1,2,1,3,2]
+];
+const SOLUTIONS=[
+[[0,1],[2,3],[4,9],[5,10],[6,7],[8,13],[11,12],[14,19],[15,16],[17,18]],
+[[0,1],[2,7],[3,8],[4,9],[5,10],[6,11],[12,17],[13,14],[15,16],[18,19]],
+[[0,1],[2,3],[4,9],[5,10],[6,7],[8,13],[11,12],[14,19],[15,16],[17,18]],
+[[0,1],[2,7],[3,8],[4,9],[5,6],[10,15],[11,12],[13,18],[14,19],[16,17]],
+[[0,5],[1,2],[3,8],[4,9],[6,11],[7,12],[10,15],[13,14],[16,17],[18,19]],
+[[0,1],[2,7],[3,4],[5,10],[6,11],[8,13],[9,14],[12,17],[15,16],[18,19]],
+[[0,5],[1,2],[3,8],[4,9],[6,7],[10,11],[12,13],[14,19],[15,16],[17,18]],
+[[0,1],[2,3],[4,9],[5,6],[7,12],[8,13],[10,15],[11,16],[14,19],[17,18]]
+];
+const $=id=>document.getElementById(id), PAIRS=Array.from({length:4},(_,a)=>Array.from({length:4-a},(_,b)=>`${a}-${a+b}`)).flat();
+const today=new Date().toISOString().slice(0,10);
+const dailyIndex=((Math.floor(Date.now()/86400000))%LEVELS.length+LEVELS.length)%LEVELS.length;
+let level=dailyIndex, placements=[], selected=null, history=[], start=null, elapsed=0, won=false, hints=0, focused=0;
+function key(a,b){return [LEVELS[level][a],LEVELS[level][b]].sort((x,y)=>x-y).join('-')}
+function adjacent(a,b){return a!==b && (Math.abs(a-b)===5 || (Math.floor(a/5)===Math.floor(b/5)&&Math.abs(a-b)===1))}
+function occupied(i){return placements.find(p=>p.includes(i))}
+function format(t){const s=Math.floor(t/1000);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
+function storageGet(k){try{return localStorage.getItem(k)}catch{return null}}
+function storageSet(k,v){try{localStorage.setItem(k,v)}catch{}}
+function recordKey(){return `domino-detective98-best-${level}`}
+function announce(s){$('status').textContent=s}
+function snapshot(){history.push(placements.map(p=>p.slice()));if(history.length>100)history.shift()}
+function tick(){if(start&&!won){elapsed=Date.now()-start;$('clock').textContent=format(elapsed)}}
+function render(restoreFocus=false){
+ const board=$('board');board.replaceChildren();const used=new Set(placements.map(p=>key(...p)));
+ LEVELS[level].forEach((value,i)=>{
+  const placed=occupied(i), id=placed?placements.indexOf(placed):-1;
+  const b=document.createElement('button');b.type='button';b.className='cell'+(placed?' filled':'')+(selected===i?' selected':'');b.dataset.index=i;
+  if(placed){b.dataset.color=String(id%10);b.dataset.pair=key(...placed)}
+  b.textContent=String(value);b.setAttribute('aria-pressed',String(selected===i));
+  b.setAttribute('aria-label',`Row ${Math.floor(i/5)+1}, column ${i%5+1}, ${value}, ${placed?'paired with '+(placed[0]===i?placed[1]:placed[0])+', activate to remove':'unpaired'}`);
+  b.addEventListener('click',()=>choose(i));b.addEventListener('keydown',event=>moveFocus(event,i));board.append(b);
+ });
+ $('pairs').replaceChildren();for(const pair of PAIRS){const e=document.createElement('div');e.className='pair'+(used.has(pair)?' done':'');e.textContent=pair;e.setAttribute('aria-label',`${pair}, ${used.has(pair)?'placed':'missing'}`);$('pairs').append(e)}
+ $('progress').textContent=`${placements.length} / 10 dominoes`;
+ $('best').textContent='Best: '+(storageGet(recordKey())?format(Number(storageGet(recordKey()))):'—');
+ $('undo').disabled=history.length===0||won;$('hint').disabled=won;$('clock').textContent=format(elapsed);
+ if(restoreFocus)board.children[focused]?.focus();
+}
+function moveFocus(e,i){const d={ArrowLeft:-1,ArrowRight:1,ArrowUp:-5,ArrowDown:5}[e.key];if(d!==undefined){e.preventDefault();let n=i+d;if(n>=0&&n<20&&(Math.abs(d)===5||Math.floor(i/5)===Math.floor(n/5))){focused=n;$('board').children[n].focus()}}else if(e.key==='Escape'){selected=null;render(true)}}
+function choose(i){if(won)return;focused=i;
+ const existing=occupied(i);if(existing){snapshot();placements=placements.filter(p=>p!==existing);selected=null;announce('Domino removed. Try a different pairing.');render(true);return}
+ if(selected===null){selected=i;announce('Choose an adjacent unpaired cell.');render(true);return}
+ if(selected===i){selected=null;announce('Selection cleared.');render(true);return}
+ if(!adjacent(selected,i)){selected=i;announce('Dominoes must cover two side-by-side cells. New starting cell selected.');render(true);return}
+ const pair=key(selected,i);if(placements.some(p=>key(...p)===pair)){announce(`Pair ${pair} is already used. Choose another.`);selected=i;render(true);return}
+ if(start===null)start=Date.now()-elapsed;
+ snapshot();placements.push([selected,i]);selected=null;
+ if(placements.length===10){won=true;tick();elapsed=Date.now()-start;const previous=Number(storageGet(recordKey()))||Infinity;if(hints===0&&elapsed<previous)storageSet(recordKey(),String(elapsed));announce(`Case solved! ${format(elapsed)}. ${hints?'Hints used; no record saved.':'Clean solve — record eligible!'} 🎉`)}else announce(`Placed ${pair}. ${10-placements.length} dominoes left.`);
+ render(true)
+}
+function undo(){if(!history.length||won)return;placements=history.pop();selected=null;announce('Last move undone.');render(true)}
+function hint(){if(won)return;const correct=SOLUTIONS[level];const mismatch=placements.find(p=>!correct.some(s=>s.includes(p[0])&&s.includes(p[1])));hints++;
+ if(mismatch){snapshot();placements=placements.filter(p=>p!==mismatch);selected=null;announce('Hint: removed a misplaced domino.');render();return}
+ const next=correct.find(p=>!placements.some(s=>s.includes(p[0])));if(!next)return;
+ snapshot();placements.push(next.slice());selected=null;if(start===null)start=Date.now()-elapsed;
+ if(placements.length===10){won=true;elapsed=Date.now()-start;announce(`Solved with hints in ${format(elapsed)}!`)}else announce(`Hint: ${key(...next)} belongs at row ${Math.floor(next[0]/5)+1}, column ${next[0]%5+1}.`);render()
+}
+function load(n){level=(n+LEVELS.length)%LEVELS.length;placements=[];selected=null;history=[];start=null;elapsed=0;won=false;hints=0;focused=0;
+ $('levelTitle').textContent=level===dailyIndex?`Daily case · ${today}`:`Practice case · ${String(level+1).padStart(2,'0')}`;
+ $('caseId').textContent=`Case ${String(level+1).padStart(2,'0')}/08`;announce('Select a number, then an adjacent number. All ten pairs must appear once.');render()
+}
+$('undo').addEventListener('click',undo);$('hint').addEventListener('click',hint);
+$('reset').addEventListener('click',()=>load(level));$('next').addEventListener('click',()=>load(level+1));$('daily').addEventListener('click',()=>load(dailyIndex));
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo()}else if((e.key==='h'||e.key==='H')&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){hint()}});
+setInterval(tick,500);load(dailyIndex);
+</script>
+</body></html>

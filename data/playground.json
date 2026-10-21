@@ -1,5 +1,38 @@
 [
   {
+    "name": "Domino Detective 98",
+    "type": "game",
+    "date": "2026-10-21",
+    "url": "/games/domino-detective/",
+    "description": "Daily 4×5 Dominosa: pair all ten unique dominoes on eight solver-verified boards, with hints, undo and local records.",
+    "icon": "🁣",
+    "tags": [
+      "daily",
+      "dominosa",
+      "domino",
+      "logic",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Paper Mill 98",
+    "type": "app",
+    "date": "2026-10-21",
+    "url": "/apps/paper-mill/",
+    "description": "Create printable graph, dot, ruled, isometric, hex and music paper with millimeter-accurate SVG, print and shareable settings.",
+    "icon": "📐",
+    "tags": [
+      "print",
+      "svg",
+      "graph-paper",
+      "design",
+      "education",
+      "offline"
+    ]
+  },
+  {
     "name": "Hitori Shade 98",
     "type": "game",
     "date": "2026-10-20",
