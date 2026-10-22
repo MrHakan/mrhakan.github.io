@@ -1,5 +1,37 @@
 [
   {
+    "name": "Crate Shift 98",
+    "type": "game",
+    "date": "2026-10-22",
+    "url": "/games/crate-shift/",
+    "description": "Push crates onto goals across eight original Sokoban warehouses, with daily rotation, undo, solver hints and local best scores.",
+    "icon": "📦",
+    "tags": [
+      "sokoban",
+      "logic",
+      "warehouse",
+      "daily",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Unicode Microscope 98",
+    "type": "app",
+    "date": "2026-10-22",
+    "url": "/apps/unicode-microscope/",
+    "description": "Inspect grapheme clusters, code points, invisible characters, UTF-8 bytes and Unicode normalization entirely in your browser.",
+    "icon": "🔬",
+    "tags": [
+      "unicode",
+      "developer",
+      "text",
+      "emoji",
+      "encoding",
+      "privacy"
+    ]
+  },
+  {
     "name": "Domino Detective 98",
     "type": "game",
     "date": "2026-10-21",

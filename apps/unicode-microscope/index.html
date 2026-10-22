@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080"><meta name="description" content="Inspect Unicode graphemes, code points, invisible characters, UTF-8 bytes and normalization right in your browser.">
+<title>Unicode Microscope 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/unicode-microscope/">
+<meta property="og:title" content="Unicode Microscope 98"><meta property="og:description" content="Decode emoji, combining marks and invisible text; compare NFC, NFD, NFKC and NFKD. No uploads.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:16px;font:13px Tahoma,Verdana,sans-serif;color:#172332}
+.window{width:min(1160px,100%);margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #444 #444 #fff;box-shadow:8px 8px #005050}
+.titlebar{background:linear-gradient(90deg,#000080,#1683b9);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:10px}.titlebar h1{margin:0;font-size:17px}.close{background:#c0c0c0;color:#111;text-decoration:none;border:2px solid;border-color:#fff #555 #555 #fff;padding:5px 10px;font-weight:bold}
+.menu{padding:8px 12px;display:flex;gap:16px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+.layout{display:grid;grid-template-columns:minmax(255px,.9fr) minmax(0,1.3fr);gap:12px;padding:0 12px 12px}.panel{min-width:0;padding:14px;border:2px inset #ddd;background:#ededed}.panel h2{margin:0 0 10px;font-size:15px}
+textarea,select{width:100%;background:white;border:2px inset #ddd;padding:10px;font:14px/1.6 Consolas,'Courier New',monospace;color:#172332;min-height:42px}textarea{min-height:170px;resize:vertical;overflow-wrap:anywhere}label{display:block;font-weight:bold;margin:11px 0 6px}.muted{font-size:12px;color:#4d5b67;line-height:1.55}.actions{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.btn{cursor:pointer;min-height:39px;background:#c0c0c0;color:#111;border:2px solid;border-color:#fff #555 #555 #fff;padding:9px 11px;font:bold 12px Tahoma,sans-serif}.btn:active{border-color:#555 #fff #fff #555}.btn.primary{background:#d8e9f6}
+button:focus-visible,a:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #ffbd2f;outline-offset:3px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:13px}.stat{border:2px inset #ddd;background:white;padding:10px;min-width:0}.stat strong{display:block;font:700 clamp(16px,2.4vw,22px) Consolas,monospace;color:#001d72}.stat span{font-size:11px;color:#475667}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.row label{margin:0}.row select{width:auto;flex:1;min-width:120px}
+.box{border:2px inset #ddd;background:white;padding:10px;margin:10px 0;overflow-wrap:anywhere;white-space:pre-wrap;min-height:44px;font:13px/1.6 Consolas,monospace}.bytes{max-height:94px;overflow:auto;word-break:break-all}
+.tableWrap{max-height:430px;overflow:auto;border:2px inset #ddd;background:#fff;margin-top:10px}
+table{width:100%;border-collapse:collapse;font:12px/1.4 Consolas,monospace}th,td{padding:8px;border:1px solid #d8dee2;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{position:sticky;top:0;background:#dbe8f4;color:#102b46;z-index:1}tr:nth-child(even){background:#f4f7f8}.glyph{font:20px 'Segoe UI Emoji','Apple Color Emoji',sans-serif;min-width:55px;display:inline-block}.special{color:#a04916;font-weight:bold;font-size:12px}
+#status{background:white;border:2px inset #ddd;padding:9px;min-height:39px;font-size:12px;line-height:1.5}.footer{border-top:1px solid white;padding:8px 12px;font-size:11px;display:flex;justify-content:space-between;gap:8px;color:#455}
+@media(max-width:760px){body{padding:8px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.titlebar h1{font-size:15px}.tableWrap{max-height:350px}th,td{padding:6px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style></head><body>
+<main class="window"><header class="titlebar"><h1>🔬 Unicode Microscope 98</h1><a href="../../" aria-label="Back to Playground" class="close">✕ Close</a></header>
+<nav class="menu" aria-label="Window menu"><span>File</span><span>Inspect</span><span>View</span><span>Help</span></nav>
+<div class="layout"><section class="panel" aria-label="Text input">
+<h2>Specimen input</h2><p class="muted">Paste text or open a local UTF-8 file. Everything stays in your browser. Up to 4,000 UTF-16 code units are inspected.</p>
+<label for="source">Text to examine</label><textarea id="source" maxlength="4000" spellcheck="false" aria-describedby="privacy">Café 👩🏽‍💻 🇹🇷&#8203;</textarea>
+<p id="privacy" class="muted">No server, tracking or text history. Invisible characters are marked in the results.</p>
+<div class="actions"><button type="button" class="btn" id="sample">Try examples</button><button type="button" class="btn" id="clear">Clear</button><button type="button" class="btn" id="openFile">Open .txt…</button><input type="file" id="file" accept=".txt,text/plain" hidden></div>
+<label for="form">Unicode normalization</label><select id="form"><option>NFC</option><option>NFD</option><option>NFKC</option><option>NFKD</option></select>
+<p class="muted">NFC composes compatible sequences; NFD decomposes them. NFKC/NFKD also apply compatibility mappings that can change presentation or meaning.</p>
+<h2>Normalized output</h2><div id="normalized" class="box" aria-label="Normalized text"></div>
+<div class="actions"><button type="button" class="btn primary" id="copyText">Copy output</button><button type="button" class="btn" id="copyEscapes">Copy escapes</button><button type="button" class="btn" id="download">Export JSON</button></div>
+<div id="status" role="status" aria-live="polite">Ready. Edit the text to inspect it.</div>
+</section><section class="panel" aria-label="Unicode inspection">
+<h2>Character anatomy</h2><div class="stats">
+<div class="stat"><strong id="graphemes">0</strong><span>Grapheme clusters</span></div>
+<div class="stat"><strong id="points">0</strong><span>Code points</span></div>
+<div class="stat"><strong id="units">0</strong><span>UTF-16 units</span></div>
+<div class="stat"><strong id="bytesCount">0</strong><span>UTF-8 bytes</span></div>
+<div class="stat"><strong id="words">0</strong><span>Words</span></div>
+<div class="stat"><strong id="changed">—</strong><span>Normalization</span></div>
+</div>
+<div class="row"><label for="view">Inspect by</label><select id="view"><option value="graphemes">Grapheme clusters</option><option value="points">Code points</option></select><button type="button" class="btn" id="copyHex">Copy UTF-8 hex</button></div>
+<div class="tableWrap" tabindex="0" aria-label="Scrollable character inspection table"><table><thead><tr><th scope="col">#</th><th scope="col">Glyph</th><th scope="col">Code points</th><th scope="col">UTF-8 bytes</th><th scope="col">Notes</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p id="truncation" class="muted">Inspecting your text locally.</p>
+<h2>Raw UTF-8 bytes</h2><div class="box bytes" id="hex" aria-label="UTF-8 hexadecimal bytes"></div>
+<p class="muted">A visible symbol is not always one code point. Flags, skin tones, emoji sequences and combining accents may span several code points. UTF-16 lengths can differ again.</p>
+</section></div><footer class="footer"><span>Windows 98-style · Browser only</span><span>Uses built-in Intl.Segmenter and TextEncoder</span></footer></main>
+<script>
+'use strict';
+const el=id=>document.getElementById(id);
+const encoder=new TextEncoder();
+const segmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
+const wordSegmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(undefined,{granularity:'word'}):null;
+const invisible={
+0:'NUL',9:'TAB',10:'LINE FEED',13:'CARRIAGE RETURN',32:'SPACE',127:'DELETE',160:'NO-BREAK SPACE',173:'SOFT HYPHEN',
+0x200b:'ZERO WIDTH SPACE',0x200c:'ZERO WIDTH NON-JOINER',0x200d:'ZERO WIDTH JOINER',0x200e:'LEFT-TO-RIGHT MARK',0x200f:'RIGHT-TO-LEFT MARK',
+0x2028:'LINE SEPARATOR',0x2029:'PARAGRAPH SEPARATOR',0x202a:'LEFT-TO-RIGHT EMBEDDING',0x202b:'RIGHT-TO-LEFT EMBEDDING',0x202c:'POP DIRECTIONAL FORMATTING',0x202d:'LEFT-TO-RIGHT OVERRIDE',0x202e:'RIGHT-TO-LEFT OVERRIDE',0x2060:'WORD JOINER',0x2066:'LEFT-TO-RIGHT ISOLATE',0x2067:'RIGHT-TO-LEFT ISOLATE',0x2068:'FIRST STRONG ISOLATE',0x2069:'POP DIRECTIONAL ISOLATE',0xfe0f:'EMOJI VARIATION SELECTOR',0xfeff:'BYTE ORDER MARK'
+};
+const pointHex=c=>'U+'+c.codePointAt(0).toString(16).toUpperCase().padStart(4,'0');
+const byteHex=text=>Array.from(encoder.encode(text),b=>b.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+function cps(text){return Array.from(text);}
+function groups(text){return segmenter?Array.from(segmenter.segment(text),s=>s.segment):cps(text);}
+function describe(text){
+ const codes=cps(text).map(c=>c.codePointAt(0));const tags=[];
+ for(const cp of codes){if(invisible[cp])tags.push(invisible[cp]);else if(cp<32||cp>=0x80&&cp<=0x9f)tags.push('CONTROL');else if(cp>=0x300&&cp<=0x36f)tags.push('COMBINING MARK');else if(cp>=0x1f3fb&&cp<=0x1f3ff)tags.push('SKIN TONE');}
+ return [...new Set(tags)].join(' · ')||'—';
+}
+function displayGlyph(text){
+ const codes=cps(text).map(c=>c.codePointAt(0));
+ if(codes.every(cp=>cp===32||cp===9||cp===10||cp===13||invisible[cp]||cp<32||cp===127))return '⟦'+codes.map(cp=>invisible[cp]||'CONTROL').join('+')+'⟧';
+ return text;
+}
+function compute(){
+ const text=el('source').value,form=el('form').value;
+ const normalized=text.normalize(form),g=groups(text),p=cps(text),bytes=encoder.encode(text);
+ const wordCount=wordSegmenter?Array.from(wordSegmenter.segment(text)).filter(s=>s.isWordLike).length:(text.trim()?text.trim().split(/\s+/u).length:0);
+ el('graphemes').textContent=g.length;el('points').textContent=p.length;el('units').textContent=text.length;el('bytesCount').textContent=bytes.length;el('words').textContent=wordCount;
+ el('changed').textContent=text===normalized?'Unchanged':'Changed';
+ el('normalized').textContent=normalized||'(empty)';
+ const entries=el('view').value==='graphemes'?g:p,body=el('rows');const frag=document.createDocumentFragment();
+ entries.slice(0,100).forEach((segment,i)=>{
+  const tr=document.createElement('tr');
+  const values=[String(i+1),displayGlyph(segment),cps(segment).map(pointHex).join(' '),byteHex(segment),describe(segment)];
+  values.forEach((value,index)=>{const td=document.createElement('td');if(index===1){const span=document.createElement('span');span.className='glyph';span.textContent=value;td.append(span);}else{td.textContent=value;if(index===4&&value!=='—')td.className='special';}tr.append(td);});
+  frag.append(tr);
+ });
+ body.replaceChildren(frag);
+ el('truncation').textContent='Showing '+Math.min(100,entries.length)+' of '+entries.length+' '+(el('view').value==='graphemes'?'grapheme clusters':'code points')+'. '+(segmenter?'Unicode-aware segmentation enabled.':'Intl.Segmenter unavailable: fallback splits code points.');
+ el('hex').textContent=Array.from(bytes.slice(0,512),b=>b.toString(16).toUpperCase().padStart(2,'0')).join(' ')+(bytes.length>512?' … ('+(bytes.length-512)+' more bytes)':'')||'(empty)';
+}
+function announce(s){el('status').textContent=s;}
+async function copy(text,what){
+ try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);}
+ else{const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.left='-9999px';document.body.append(t);t.select();if(!document.execCommand('copy'))throw Error('Copy unavailable');t.remove();}
+ announce(what+' copied to clipboard.');}catch(_){announce('Clipboard access unavailable. Select the text manually instead.');}
+}
+function escapes(text){return cps(text).map(c=>'\\u{'+c.codePointAt(0).toString(16).toUpperCase()+'}').join('');}
+const samples=['Café 👩🏽‍💻 🇹🇷\u200B','e\u0301 / é · ＡＢＣ · ① ② ③','A\u00a0B  A\u200bB  A\u200dB','🏳️‍🌈 👨‍👩‍👧‍👦 🧑🏾‍🚀','مرحبا שלום नमस्ते こんにちは'];
+let sampleIndex=0;
+el('source').addEventListener('input',compute);el('form').addEventListener('change',compute);el('view').addEventListener('change',compute);
+el('sample').addEventListener('click',()=>{sampleIndex=(sampleIndex+1)%samples.length;el('source').value=samples[sampleIndex];compute();announce('Example '+(sampleIndex+1)+' loaded.');});
+el('clear').addEventListener('click',()=>{el('source').value='';compute();announce('Input cleared.');el('source').focus();});
+el('copyText').addEventListener('click',()=>copy(el('source').value.normalize(el('form').value),'Normalized text'));
+el('copyEscapes').addEventListener('click',()=>copy(escapes(el('source').value),'Unicode escapes'));
+el('copyHex').addEventListener('click',()=>copy(byteHex(el('source').value),'UTF-8 hex'));
+el('openFile').addEventListener('click',()=>el('file').click());
+el('file').addEventListener('change',async e=>{
+ const file=e.target.files[0];if(!file)return;
+ if(file.size>250000){announce('File too large. Choose a text file under 250 KB.');e.target.value='';return;}
+ try{const text=await file.text();el('source').value=text.slice(0,4000);compute();announce('Loaded '+file.name+(text.length>4000?' (first 4,000 UTF-16 units only).':'.'));}
+ catch(_){announce('Unable to read this file.');}e.target.value='';
+});
+el('download').addEventListener('click',()=>{
+ const text=el('source').value,form=el('form').value;
+ const data={form:form,original:text,normalized:text.normalize(form),codePoints:cps(text).map(pointHex),graphemes:groups(text),utf8Hex:byteHex(text)};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='unicode-microscope.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);announce('Inspection exported as JSON.');
+});
+compute();
+</script></body></html>
