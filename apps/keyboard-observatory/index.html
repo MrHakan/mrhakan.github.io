@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Test your keyboard in-browser: live key highlights, chords, rollover, repeat, key/code inspector and a private event log.">
+<title>Keyboard Observatory 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/keyboard-observatory/">
+<meta property="og:title" content="Keyboard Observatory 98">
+<meta property="og:description" content="See physical key codes, modifiers, rollover and repeats with no uploads or tracking.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:15px;color:#172332;font:13px Tahoma,Verdana,sans-serif}
+.window{max-width:1120px;margin:0 auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #444 #444 #fff;box-shadow:8px 8px #005050}
+.titlebar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(90deg,#000080,#147db6);color:#fff}.titlebar h1{font-size:17px;margin:0}
+.close,.btn{background:#c0c0c0;color:#172332;border:2px solid;border-color:#fff #555 #555 #fff;font:bold 12px Tahoma,Verdana,sans-serif;padding:9px 12px;cursor:pointer;text-decoration:none;min-height:38px}.close{padding:6px 10px}
+.menu{padding:8px 12px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.85fr);gap:12px;padding:0 12px 12px}
+.panel{background:#ededed;border:2px inset #ddd;padding:13px;min-width:0}.panel h2{font-size:15px;margin:0 0 9px}
+.capture{padding:17px 12px;background:#fff;border:2px inset #ddd;text-align:center;line-height:1.7;cursor:text;min-height:90px}
+.capture:focus{background:#eaf7fc;outline:3px solid #f5ae1d;outline-offset:2px}.capture strong{display:block;font-size:16px;color:#003f70}
+.keyboard{margin:12px 0;background:#b6b6b6;border:2px inset #ddd;padding:9px;overflow-x:auto;max-width:100%}
+.keyrow{display:flex;gap:4px;margin-bottom:4px;min-width:max-content}.keyrow:last-child{margin-bottom:0}
+.key{min-width:35px;min-height:37px;padding:4px 6px;border:2px solid;border-color:#fff #555 #555 #fff;background:#e9e9e9;font:11px Consolas,monospace;color:#233343;cursor:pointer;flex:1;white-space:nowrap}
+.key.wide{flex:1.65}.key.space{flex:5}.key.active{background:#d7a84b;border-color:#805600 #fff #fff #805600;box-shadow:inset 0 0 0 2px #ffe59b;color:#111}
+.btn:active,.key:active{border-color:#555 #fff #fff #555}
+button:focus-visible,a:focus-visible{outline:3px solid #ffb72b;outline-offset:3px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:11px}
+.stat{background:#fff;border:2px inset #ddd;padding:9px;min-width:0}.stat strong{display:block;font:700 clamp(16px,2vw,23px) Consolas,monospace;color:#001c72}.stat span{font-size:10px;color:#43515d}
+.controls{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}.btn.primary{background:#d9eaf4}
+#status{padding:9px;background:#fff;border:2px inset #ddd;min-height:43px;line-height:1.5}
+.details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.detail{background:#fff;border:2px inset #ddd;padding:9px;min-width:0;overflow-wrap:anywhere}.detail small{display:block;color:#53616c;margin-bottom:5px}.detail strong{font:13px Consolas,monospace}
+.log{margin-top:10px;max-height:340px;overflow:auto;background:#fff;border:2px inset #ddd;padding:6px;list-style:none}.log li{padding:7px 5px;border-bottom:1px solid #ddd;font:11px/1.45 Consolas,monospace;overflow-wrap:anywhere}.log li:last-child{border-bottom:0}
+.muted{color:#4c5a68;line-height:1.6;font-size:12px}.tag{display:inline-block;background:#dbeaf4;padding:2px 5px;border:1px solid #a1b7c7}
+.footer{padding:7px 12px;border-top:1px solid #888;font-size:11px;color:#45505b}
+@media(max-width:760px){body{padding:8px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}.stats{grid-template-columns:repeat(2,1fr)}.titlebar h1{font-size:15px}.keyboard{padding:6px}.key{min-width:31px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style></head><body>
+<main class="window">
+<header class="titlebar"><h1>⌨ Keyboard Observatory 98</h1><a href="../../" aria-label="Back to Playground" class="close">✕</a></header>
+<nav class="menu" aria-label="Window menu"><span>Test</span> &nbsp; <span>View</span> &nbsp; <span>Help</span></nav>
+<div class="layout">
+<section class="panel">
+<h2>Live keyboard map</h2>
+<div id="capture" class="capture" role="region" tabindex="0" aria-label="Keyboard test area" aria-describedby="capture-help"><strong>Click or Tab here, then press keys</strong><span id="capture-help">Only this focused test area listens for physical key presses. Avoid typing passwords.</span></div>
+<div id="keyboard" class="keyboard" aria-label="Interactive keyboard visualization"></div>
+<div class="stats"><div class="stat"><strong id="presses">0</strong><span>Keydowns</span></div><div class="stat"><strong id="unique">0</strong><span>Unique keys</span></div><div class="stat"><strong id="rollover">0</strong><span>Peak held</span></div><div class="stat"><strong id="repeats">0</strong><span>Auto repeats</span></div></div>
+<div class="controls"><button type="button" class="btn primary" id="focus">Start testing</button><button type="button" class="btn" id="clear">Clear session</button><button type="button" class="btn" id="export">Export JSON</button></div>
+<p class="muted">Tap the illustrated keys to try a <span class="tag">DEMO</span> on phones. Real hardware tests require a keyboard. Browser or operating-system shortcuts may not be delivered to the page.</p>
+<p id="status" role="status" aria-live="polite">Ready. No keystrokes recorded.</p>
+</section>
+<aside class="panel">
+<h2>Event inspector</h2>
+<div class="details">
+<div class="detail"><small>Last key</small><strong id="lastKey">—</strong></div>
+<div class="detail"><small>Physical code</small><strong id="lastCode">—</strong></div>
+<div class="detail"><small>Modifiers</small><strong id="lastMods">—</strong></div>
+<div class="detail"><small>Location</small><strong id="lastLocation">—</strong></div>
+<div class="detail"><small>Current chord</small><strong id="chord">—</strong></div>
+<div class="detail"><small>Last source</small><strong id="source">—</strong></div>
+</div>
+<h2 style="margin-top:15px">Recent events</h2>
+<ol class="log" id="log" aria-label="Recent keyboard events"><li>No events yet.</li></ol>
+<p class="muted"><strong>key</strong> is the interpreted character or action; <strong>code</strong> identifies the physical key position, regardless of keyboard layout. Key repeats are counted separately. Press and release events stay in memory until you clear or close this tab.</p>
+<p class="muted">Privacy: no analytics, cookies, persistence, external scripts, network calls or background listening. JSON export happens only when you click Export.</p>
+</aside>
+</div><footer class="footer">Playground / Apps / Keyboard Observatory 98 · Private, local and keyboard-friendly</footer>
+</main>
+<script>
+'use strict';
+const rows=[
+'Escape F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12',
+'Backquote Digit1 Digit2 Digit3 Digit4 Digit5 Digit6 Digit7 Digit8 Digit9 Digit0 Minus Equal Backspace',
+'Tab KeyQ KeyW KeyE KeyR KeyT KeyY KeyU KeyI KeyO KeyP BracketLeft BracketRight Backslash',
+'CapsLock KeyA KeyS KeyD KeyF KeyG KeyH KeyJ KeyK KeyL Semicolon Quote Enter',
+'ShiftLeft KeyZ KeyX KeyC KeyV KeyB KeyN KeyM Comma Period Slash ShiftRight',
+'ControlLeft MetaLeft AltLeft Space AltRight MetaRight ArrowLeft ArrowDown ArrowUp ArrowRight'
+];
+const labels={Escape:'Esc',Backquote:'~',Minus:'-',Equal:'=',Backspace:'Backspace',Tab:'Tab',BracketLeft:'[',BracketRight:']',Backslash:'\\',CapsLock:'Caps',Semicolon:';',Quote:"'",Enter:'Enter',ShiftLeft:'Shift',ShiftRight:'Shift',Comma:',',Period:'.',Slash:'/',ControlLeft:'Ctrl',ControlRight:'Ctrl',MetaLeft:'Win',MetaRight:'Win',AltLeft:'Alt',AltRight:'Alt',Space:'Space',ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓'};
+const keyLabel=code=>labels[code]||code.replace(/^Key/,'').replace(/^Digit/,'');
+const keyboard=document.getElementById('keyboard'),capture=document.getElementById('capture'),status=document.getElementById('status');
+const held=new Set(),unique=new Set(),events=[];let presses=0,repeats=0,peak=0,last=null;
+const tiles=new Map();
+rows.forEach((row,i)=>{const line=document.createElement('div');line.className='keyrow';line.setAttribute('role','group');line.setAttribute('aria-label','Keyboard row '+(i+1));
+ row.split(' ').forEach(code=>{const b=document.createElement('button');b.type='button';b.className='key';b.textContent=keyLabel(code);b.title=code+' (tap to demo)';b.setAttribute('aria-label','Demo '+keyLabel(code)+' key');
+ if(['Backspace','Tab','CapsLock','Enter','ShiftLeft','ShiftRight','ControlLeft','ControlRight'].includes(code))b.classList.add('wide');if(code==='Space')b.classList.add('space');
+ b.addEventListener('click',()=>demo(code));line.append(b);tiles.set(code,b);});
+ keyboard.append(line);});
+const el=id=>document.getElementById(id);
+function modsOf(e){const m=[];if(e.ctrlKey)m.push('Ctrl');if(e.altKey)m.push('Alt');if(e.shiftKey)m.push('Shift');if(e.metaKey)m.push('Meta');if(e.getModifierState&&e.getModifierState('CapsLock'))m.push('CapsLock');return m.join(' + ')||'None';}
+function addEvent(type,e,source){const entry={time:new Date().toLocaleTimeString(),type,source,key:e.key||'Unidentified',code:e.code||'Unidentified',modifiers:modsOf(e),location:e.location||0,repeat:!!e.repeat};
+ events.unshift(entry);if(events.length>80)events.pop();last=entry;return entry;}
+function draw(){
+ el('presses').textContent=String(presses);el('unique').textContent=String(unique.size);el('rollover').textContent=String(peak);el('repeats').textContent=String(repeats);
+ tiles.forEach((node,code)=>{const active=held.has(code);node.classList.toggle('active',active);node.setAttribute('aria-pressed',active?'true':'false');});
+ el('chord').textContent=held.size?Array.from(held).map(keyLabel).join(' + '):'—';
+ if(last){el('lastKey').textContent=last.key;el('lastCode').textContent=last.code;el('lastMods').textContent=last.modifiers;el('lastLocation').textContent=String(last.location);el('source').textContent=last.source;}
+ const list=el('log');list.replaceChildren();
+ if(!events.length){const li=document.createElement('li');li.textContent='No events yet.';list.append(li);}
+ else for(const entry of events.slice(0,16)){const li=document.createElement('li');li.textContent=entry.time+' · '+entry.source.toUpperCase()+' '+entry.type+' · '+entry.code+' ('+entry.key+')'+(entry.repeat?' · repeat':'');list.append(li);}
+}
+function press(e,source){const code=e.code||'Unidentified';if(!held.has(code))held.add(code);unique.add(code);presses++;if(e.repeat)repeats++;peak=Math.max(peak,held.size);addEvent('down',e,source);status.textContent=(source==='demo'?'Demo key: ':'Detected: ')+(e.key||code)+' · '+held.size+' currently held';draw();}
+function release(e,source){const code=e.code||'Unidentified';if(!held.has(code))return;held.delete(code);addEvent('up',e,source);status.textContent='Released '+(e.key||code)+'.';draw();}
+function demo(code){const key=keyLabel(code),fake={code,key,repeat:false,location:0,ctrlKey:false,altKey:false,shiftKey:false,metaKey:false,getModifierState:()=>false};press(fake,'demo');setTimeout(()=>release(fake,'demo'),260);}
+capture.addEventListener('keydown',e=>{if(e.key===' '||e.key.startsWith('Arrow'))e.preventDefault();press(e,'hardware');});
+window.addEventListener('keyup',e=>{if(held.has(e.code))release(e,'hardware');});
+window.addEventListener('blur',()=>{if(held.size){held.clear();status.textContent='Focus lost. Held-key state reset.';draw();}});
+capture.addEventListener('focus',()=>{status.textContent='Listening while the blue test area is focused.';});
+el('focus').addEventListener('click',()=>capture.focus());
+el('clear').addEventListener('click',()=>{held.clear();unique.clear();events.length=0;presses=0;repeats=0;peak=0;last=null;
+ for(const id of ['lastKey','lastCode','lastMods','lastLocation','source'])el(id).textContent='—';
+ status.textContent='Session cleared. No data retained.';draw();});
+el('export').addEventListener('click',()=>{const payload={app:'Keyboard Observatory 98',generatedAt:new Date().toISOString(),summary:{presses,uniqueKeys:unique.size,peakHeld:peak,repeats},events:[...events].reverse()};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='keyboard-observatory-session.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='JSON exported locally.';});
+draw();
+</script></body></html>

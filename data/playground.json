@@ -1,5 +1,37 @@
 [
   {
+    "name": "Peg Patrol 98",
+    "type": "game",
+    "date": "2026-10-24",
+    "url": "/games/peg-patrol/",
+    "description": "Eight solvable peg-solitaire missions on a classic 33-hole cross, with smart hints, undo, daily rotation and local records.",
+    "icon": "🔵",
+    "tags": [
+      "peg-solitaire",
+      "logic",
+      "daily",
+      "puzzle",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Keyboard Observatory 98",
+    "type": "app",
+    "date": "2026-10-24",
+    "url": "/apps/keyboard-observatory/",
+    "description": "Private live keyboard tester showing key codes, chords, rollover, repeats and an optional JSON event export.",
+    "icon": "⌨️",
+    "tags": [
+      "keyboard",
+      "testing",
+      "developer",
+      "accessibility",
+      "privacy",
+      "offline"
+    ]
+  },
+  {
     "name": "Crate Shift 98",
     "type": "game",
     "date": "2026-10-22",
