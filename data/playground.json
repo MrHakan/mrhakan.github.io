@@ -1,5 +1,39 @@
 [
   {
+    "name": "Lightkeeper 98",
+    "type": "game",
+    "date": "2026-10-25",
+    "url": "/games/lightkeeper/",
+    "description": "Eight independently verified unique Akari galleries: light every square, satisfy wall clues, use notes, hints and undo.",
+    "icon": "💡",
+    "tags": [
+      "akari",
+      "light-up",
+      "daily",
+      "logic",
+      "puzzle",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Bézier Workshop 98",
+    "type": "app",
+    "date": "2026-10-25",
+    "url": "/apps/bezier-workshop/",
+    "description": "Draw multi-segment cubic Bézier paths with draggable handles, curve splitting, presets, SVG export and share links.",
+    "icon": "✒️",
+    "tags": [
+      "svg",
+      "bezier",
+      "vector",
+      "design",
+      "developer",
+      "offline",
+      "interactive"
+    ]
+  },
+  {
     "name": "Peg Patrol 98",
     "type": "game",
     "date": "2026-10-24",

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Light up eight unique Akari logic puzzles in a nostalgic Windows 98 window. Daily puzzle, notes, hints, undo and local records.">
+<title>Lightkeeper 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/lightkeeper/">
+<meta property="og:title" content="Lightkeeper 98">
+<meta property="og:description" content="Illuminate every square without letting two bulbs see each other. Eight unique Akari puzzles.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:16px;color:#172435;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1000px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #464646 #464646 #fff;box-shadow:8px 8px #005454}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(90deg,#000080,#177cb6);color:#fff;padding:8px 10px}
+.titlebar h1{font-size:18px;margin:0}.close,.btn,select{font:700 12px Tahoma,Verdana,sans-serif;background:#c0c0c0;color:#172435;border:2px solid;border-color:#fff #555 #555 #fff;min-height:38px;padding:8px 12px;text-decoration:none}
+.close{min-height:0;padding:5px 10px}.menu{padding:8px 10px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+.layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(245px,.8fr);gap:12px;padding:0 12px 12px}
+.panel{min-width:0;background:#ececec;border:2px inset #ddd;padding:13px}.panel h2{margin:0 0 10px;font-size:15px}
+.badges,.controls{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}.badge{padding:7px 9px;background:#fff;border:2px inset #ddd;font:12px Consolas,monospace}
+.board{width:min(100%,440px);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:15px auto;touch-action:manipulation}
+.cell,.wall{min-width:0;aspect-ratio:1;display:grid;place-items:center;position:relative;font-weight:700}
+.cell{border:2px solid;border-color:#fff #8a8a8a #8a8a8a #fff;background:#f8f8ef;color:#33455b;font-size:clamp(14px,3vw,26px);cursor:pointer;padding:0}
+.cell.lit{background:#fff3c1}.cell.bulb{background:#ffe095;color:#835300}.cell.bulb::before{content:"";position:absolute;width:60%;height:60%;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff 4%,#fff5a3 27%,#f5b826 65%,#d38108 100%);box-shadow:0 0 0 2px #bc821c,0 0 15px #e2aa22}
+.cell.bulb::after{content:"✦";position:absolute;color:#704b00;font-size:18px}
+.cell.mark{color:#7e8691}.cell.clash{background:#f4b3ae!important;box-shadow:inset 0 0 0 3px #bd2d27}.cell.hint{outline:4px solid #ee9d00;outline-offset:-4px}
+.wall{background:#353d55;border:2px solid;border-color:#67718c #111827 #111827 #67718c;color:#fff;font-size:clamp(16px,3vw,23px)}
+.wall.satisfied{background:#235a48}.wall.over{background:#9c3632}
+.cell:focus-visible,.btn:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #ffb323;outline-offset:3px;z-index:1}
+.btn{cursor:pointer}.btn:active{border-color:#555 #fff #fff #555}.btn:disabled{opacity:.55;cursor:not-allowed}.btn.primary{background:#d5ebf4}
+select{max-width:100%;min-width:150px}.field{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+#status{padding:11px;background:#fff;border:2px inset #ddd;min-height:65px;line-height:1.6;margin:12px 0}
+.instructions{padding-left:18px;margin:8px 0}.instructions li{font-size:12px;line-height:1.65;margin-bottom:5px}
+.note{font-size:12px;line-height:1.65;color:#425261}.kbd{font:11px Consolas,monospace;padding:2px 5px;background:#fff;border:1px solid #aaa}
+.footer{padding:8px 12px;border-top:1px solid #999;color:#485565;font-size:11px}
+@media(max-width:730px){body{padding:8px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}.board{gap:3px;margin:10px auto}.titlebar h1{font-size:16px}.cell.bulb::after{font-size:14px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main class="window">
+<header class="titlebar"><h1>💡 Lightkeeper 98</h1><a href="../../" aria-label="Back to Playground" class="close">✕</a></header>
+<nav class="menu" aria-label="Window menu"><span>Game</span> &nbsp; <span>Puzzles</span> &nbsp; <span>Help</span></nav>
+<div class="layout">
+<section class="panel" aria-labelledby="game-title">
+<h2 id="game-title">Akari · illuminate the gallery</h2>
+<div class="badges"><span class="badge" id="lit-count">Lit: 0/0</span><span class="badge" id="bulb-count">Bulbs: 0</span><span class="badge" id="clock">00:00</span></div>
+<div id="board" class="board" role="group" aria-label="Six by six Light Up puzzle"></div>
+<div class="controls"><button type="button" class="btn" id="undo">↶ Undo</button><button type="button" class="btn" id="hint">💡 Hint</button><button type="button" class="btn" id="check">✓ Check</button><button type="button" class="btn" id="restart">⟳ Restart</button></div>
+</section>
+<aside class="panel" aria-labelledby="mission-title">
+<h2 id="mission-title">Mission control</h2>
+<div class="field"><label for="level">Puzzle</label><select id="level"></select><button type="button" class="btn primary" id="daily">Today's puzzle</button></div>
+<div class="badges"><span class="badge" id="best">Best: —</span><span class="badge" id="hint-count">Hints: 0</span></div>
+<p id="status" role="status" aria-live="polite">Loading your gallery…</p>
+<h2>How to play</h2>
+<ol class="instructions">
+<li>Place light bulbs on white squares. Each bulb lights its row and column until a wall.</li>
+<li>Every white square must be illuminated. Two bulbs must never see each other.</li>
+<li>A numbered wall requires exactly that many bulbs directly beside it.</li>
+<li>Tap a square to cycle <strong>empty → bulb → X → empty</strong>. X is only a note.</li>
+</ol>
+<p class="note">Right-click to mark X. Use <span class="kbd">arrows</span> to navigate, <span class="kbd">B</span> for bulb, <span class="kbd">X</span> for note and <span class="kbd">U</span> to undo. Eight independently verified single-solution boards. Daily rotation uses UTC. Progress and clean best times stay on this device.</p>
+</aside>
+</div>
+<footer class="footer">Playground / Lightkeeper 98 · No accounts, tracking, external scripts or network requests.</footer>
+</main>
+<script>
+(function(){
+'use strict';
+const LEVELS=[
+{grid:'..##..3........00.........0...#...#.',bulbs:[0,4,7,12,23,28,33]},
+{grid:'...#......0#...##..1.1.#...##.2..0..',bulbs:[5,8,13,17,22,24,31,35]},
+{grid:'.....101.0#....#..#..#.#.......#1##.',bulbs:[4,13,17,22,26,30,35]},
+{grid:'........11...2#..1#..#1.#2.#........',bulbs:[0,7,11,15,19,26,28,35]},
+{grid:'.#.##...21...............01#.....00.',bulbs:[2,7,10,17,20,30]},
+{grid:'##....#..2.#.02###.....#.0..#.......',bulbs:[5,8,10,20,27,29,30]},
+{grid:'....#......##2........#...1.1#.1#..#',bulbs:[3,5,7,14,18,23,25,34]},
+{grid:'..##...3.1..#...1.#2..#.#....1.1..#.',bulbs:[1,5,6,10,13,20,27,30,35]}
+];
+const get=id=>document.getElementById(id);
+const dailyIndex=()=>Math.floor(Date.now()/86400000)%LEVELS.length;
+const storage={
+get(key){try{return JSON.parse(localStorage.getItem(key));}catch(e){return null;}},
+set(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(e){}},
+del(key){try{localStorage.removeItem(key);}catch(e){}}
+};
+const dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+const inside=(r,c)=>r>=0&&r<6&&c>=0&&c<6;
+function adjacent(i){
+const r=Math.floor(i/6),c=i%6;
+return dirs.map(d=>[r+d[0],c+d[1]]).filter(p=>inside(p[0],p[1])).map(p=>p[0]*6+p[1]);
+}
+function clockText(t){return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');}
+let index=0,marks=Array(36).fill(0),history=[],elapsed=0,startedAt=0,running=false,finished=false,hints=0,hintCell=-1;
+function puzzle(){return LEVELS[index];}
+function progressKey(){return 'lightkeeper98-progress-'+index;}
+function bestKey(){return 'lightkeeper98-best-'+index;}
+function analyze(){
+const grid=puzzle().grid,lit=Array(36).fill(0),clash=new Set();
+for(let i=0;i<36;i++){
+if(marks[i]!==1||grid[i]!=='.')continue;
+lit[i]++;
+const r=Math.floor(i/6),c=i%6;
+for(const d of dirs){
+let y=r+d[0],x=c+d[1];
+while(inside(y,x)&&grid[y*6+x]==='.'){
+const j=y*6+x;lit[j]++;
+if(marks[j]===1){clash.add(i);clash.add(j);}
+y+=d[0];x+=d[1];
+}
+}
+}
+let white=0,litWhite=0,allClues=true,over=0,clueState={};
+for(let i=0;i<36;i++){
+const ch=grid[i];
+if(ch==='.'){white++;if(lit[i])litWhite++;}
+else if(ch!=='#'){
+const n=adjacent(i).filter(j=>marks[j]===1).length,need=Number(ch);
+clueState[i]=n===need?'satisfied':n>need?'over':'pending';
+if(n!==need)allClues=false;
+if(n>need)over++;
+}
+}
+return {lit,clash,white,litWhite,allClues,over,clueState,won:litWhite===white&&allClues&&clash.size===0};
+}
+function save(){
+storage.set(progressKey(),{marks,elapsed,hints,finished,running});
+}
+function startTimer(){if(!running&&!finished){running=true;startedAt=Date.now()-elapsed*1000;}}
+function tick(){
+if(running){elapsed=Math.max(0,Math.floor((Date.now()-startedAt)/1000));get('clock').textContent=clockText(elapsed);}
+}
+function finish(){
+if(finished)return;
+tick();finished=true;running=false;
+if(hints===0){
+const prev=storage.get(bestKey());
+if(!Number.isFinite(prev)||elapsed<prev)storage.set(bestKey(),elapsed);
+}
+save();
+}
+function render(focusIndex){
+tick();
+const p=puzzle(),a=analyze();
+if(a.won)finish();
+const pieces=[];
+for(let i=0;i<36;i++){
+const ch=p.grid[i];
+if(ch!=='.'){
+const s=a.clueState[i]||'';
+pieces.push('<div class="wall '+s+'" aria-label="'+(ch==='#'?'Wall':'Wall, '+ch+' bulbs required')+'">'+(ch==='#'?'':ch)+'</div>');
+}else{
+const state=marks[i]===1?'bulb':marks[i]===2?'mark':'';
+const light=a.lit[i]?'lit':'';
+const clash=a.clash.has(i)?'clash':'';
+const hint=hintCell===i?'hint':'';
+const name='Row '+(Math.floor(i/6)+1)+', column '+(i%6+1)+', '+(marks[i]===1?'bulb':marks[i]===2?'X note':'empty')+', '+(a.lit[i]?'lit':'unlit');
+pieces.push('<button type="button" class="cell '+state+' '+light+' '+clash+' '+hint+'" data-i="'+i+'" aria-label="'+name+'" aria-pressed="'+(marks[i]===1)+'">'+(marks[i]===2?'×':'')+'</button>');
+}
+}
+get('board').innerHTML=pieces.join('');
+if(Number.isInteger(focusIndex)){
+const button=get('board').querySelector('[data-i="'+focusIndex+'"]');
+if(button)button.focus({preventScroll:true});
+}
+get('lit-count').textContent='Lit: '+a.litWhite+'/'+a.white;
+get('bulb-count').textContent='Bulbs: '+marks.filter(x=>x===1).length;
+get('hint-count').textContent='Hints: '+hints;
+const best=storage.get(bestKey());
+get('best').textContent='Clean best: '+(Number.isFinite(best)?clockText(best):'—');
+get('undo').disabled=history.length===0||finished;
+get('hint').disabled=finished;
+get('clock').textContent=clockText(elapsed);
+if(a.won)get('status').textContent='✨ Gallery illuminated! '+clockText(elapsed)+(hints?' · '+hints+' hint(s) used.':' · Clean solve! Record saved locally.');
+else if(a.clash.size)get('status').textContent='⚠ Two bulbs can see each other. Red bulbs are in conflict.';
+else if(a.over)get('status').textContent='⚠ A numbered wall has too many neighboring bulbs.';
+else if(hintCell>=0)get('status').textContent='💡 Hint: inspect the highlighted square.';
+else get('status').textContent='Illuminate all '+a.white+' white squares. '+a.litWhite+' lit so far. Green walls have their required bulbs.';
+}
+function load(next,fresh){
+index=next;history=[];hintCell=-1;finished=false;running=false;elapsed=0;hints=0;marks=Array(36).fill(0);
+const data=!fresh?storage.get(progressKey()):null;
+if(data&&Array.isArray(data.marks)&&data.marks.length===36&&data.marks.every((v,i)=>[0,1,2].includes(v)&&(puzzle().grid[i]==='.'||v===0))){
+marks=data.marks.slice();elapsed=Math.max(0,Math.min(86400,Number(data.elapsed)||0));hints=Math.max(0,Number(data.hints)||0);finished=!!data.finished;
+if(data.running&&!finished){running=true;startedAt=Date.now()-elapsed*1000;}
+}
+get('level').value=String(index);
+render();
+}
+function move(i,mode){
+if(finished||puzzle().grid[i]!=='.')return;
+history.push(marks.slice());if(history.length>150)history.shift();
+const old=marks[i];
+marks[i]=mode==='bulb'?(old===1?0:1):mode==='mark'?(old===2?0:2):(old+1)%3;
+hintCell=-1;startTimer();render(i);save();
+}
+function undo(){
+if(!history.length||finished)return;
+marks=history.pop();hintCell=-1;render();save();
+}
+function showHint(){
+if(finished)return;
+const solution=new Set(puzzle().bulbs);
+let target=marks.findIndex((v,i)=>v===1&&!solution.has(i));
+if(target<0)target=puzzle().bulbs.find(i=>marks[i]!==1);
+if(target===undefined||target<0){get('status').textContent='Your bulb positions match the solution. Check the remaining rules.';return;}
+hintCell=target;hints++;render();
+get('status').textContent=solution.has(target)?'💡 Put a bulb in the highlighted square.':'💡 Remove the incorrect bulb in the highlighted square.';
+save();
+const keep=target;
+setTimeout(()=>{if(hintCell===keep){hintCell=-1;render();}},2800);
+}
+get('board').addEventListener('click',e=>{
+const b=e.target.closest('button[data-i]');if(b)move(Number(b.dataset.i));
+});
+get('board').addEventListener('contextmenu',e=>{
+const b=e.target.closest('button[data-i]');if(b){e.preventDefault();move(Number(b.dataset.i),'mark');}
+});
+get('board').addEventListener('keydown',e=>{
+const b=e.target.closest('button[data-i]');if(!b)return;
+const i=Number(b.dataset.i);
+const delta={ArrowUp:-6,ArrowDown:6,ArrowLeft:-1,ArrowRight:1}[e.key];
+if(delta!==undefined){
+e.preventDefault();
+let j=i;
+for(let n=0;n<36;n++){
+const k=j+delta;
+if(k<0||k>=36||(delta===1&&j%6===5)||(delta===-1&&j%6===0))break;
+j=k;if(puzzle().grid[j]==='.'){const next=get('board').querySelector('[data-i="'+j+'"]');if(next)next.focus();break;}
+}
+}else if(e.key.toLowerCase()==='b'){e.preventDefault();move(i,'bulb');}
+else if(e.key.toLowerCase()==='x'){e.preventDefault();move(i,'mark');}
+else if(e.key.toLowerCase()==='u'){e.preventDefault();undo();}
+});
+get('undo').addEventListener('click',undo);
+get('hint').addEventListener('click',showHint);
+get('restart').addEventListener('click',()=>{storage.del(progressKey());load(index,true);});
+get('daily').addEventListener('click',()=>load(dailyIndex()));
+get('check').addEventListener('click',()=>{
+render();const a=analyze();
+if(!a.won)get('status').textContent='Check: '+(a.white-a.litWhite)+' unlit squares, '+a.clash.size+' conflicting bulbs, '+(a.allClues?'all numbered walls satisfied':'some numbered walls incomplete or overfilled')+'.';
+});
+get('level').addEventListener('change',e=>load(Number(e.target.value)));
+LEVELS.forEach((_,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent='Gallery '+(i+1);get('level').append(o);});
+load(dailyIndex());setInterval(tick,400);
+})();
+</script>
+</body>
+</html>
