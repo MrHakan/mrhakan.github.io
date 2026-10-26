@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="A private, customizable decision spinner with weighted choices, accessible odds, presets, shareable lists and fair browser randomness.">
+<title>Decision Wheel 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/decision-wheel/">
+<meta property="og:title" content="Decision Wheel 98">
+<meta property="og:description" content="Spin a fair, customizable decision wheel with optional weights. Everything stays in your browser.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:15px;color:#1d2b3a;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1120px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #505050 #505050 #fff;padding:4px;box-shadow:8px 8px #005252}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(90deg,#000080,#187cb5);padding:8px 11px;color:#fff}.titlebar h1{font-size:18px;margin:0}.menu{padding:8px 11px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+.layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.85fr);gap:12px;padding:0 12px 12px}.panel{min-width:0;background:#ececec;border:2px inset #ddd;padding:13px}.panel h2{font-size:15px;margin:0 0 9px}.btn,.close,select,textarea{font:700 12px Tahoma,Verdana,Arial,sans-serif;border:2px solid;border-color:#fff #555 #555 #fff;background:#c0c0c0;color:#1d2b3a;padding:8px 11px;min-height:39px}.close{text-decoration:none;min-height:0;padding:5px 10px}.btn{cursor:pointer}.btn:active{border-color:#555 #fff #fff #555}.btn.primary{background:#d6ebf8}.btn:disabled,textarea:disabled,select:disabled{opacity:.6;cursor:not-allowed}
+.controls,.field,.badges{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:10px 0}.badge{background:#fff;border:2px inset #ddd;padding:8px 10px;font:12px Consolas,monospace}.field label{font-weight:700}.field select{max-width:100%}
+.wheel-wrap{background:#f9faf6;border:2px inset #ddd;padding:8px;display:grid;place-items:center;position:relative}.wheel-wrap canvas{display:block;width:min(100%,560px);height:auto;aspect-ratio:1;max-height:70vh}
+#result{display:block;text-align:center;min-height:58px;margin:12px 0;padding:10px;background:#fff;border:2px inset #ddd;font:700 clamp(16px,3vw,23px) Tahoma,Verdana,Arial,sans-serif;overflow-wrap:anywhere}
+#status{background:#fff;border:2px inset #ddd;min-height:43px;padding:9px 10px;line-height:1.5}.error{background:#fff0ec!important}.good{background:#e6f8e9!important}
+textarea{display:block;width:100%;min-height:182px;resize:vertical;background:#fff;border:2px inset #ddd;font:13px/1.55 Consolas,monospace;padding:10px;min-width:0}.note{font-size:12px;line-height:1.6;color:#475a69}.odds{list-style:none;padding:0;margin:8px 0;max-height:190px;overflow:auto;border:2px inset #ddd;background:#fff}.odds li{display:flex;justify-content:space-between;gap:10px;padding:7px 9px;border-bottom:1px solid #e0e7eb;font-size:12px}.odds li:last-child{border-bottom:0}.odds strong{font:700 12px Consolas,monospace;white-space:nowrap}.history{list-style:none;padding:0;margin:8px 0;display:flex;flex-wrap:wrap;gap:6px}.history li{padding:5px 7px;border:1px solid #b4c0c6;background:#fff;font:12px Tahoma;overflow-wrap:anywhere}.footer{padding:8px 12px;border-top:1px solid #aaa;color:#435463;font-size:11px}
+button:focus-visible,a:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #ffb62b;outline-offset:3px}
+@media(max-width:790px){body{padding:8px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}.titlebar h1{font-size:16px}.wheel-wrap canvas{max-height:none}.controls .btn{flex:1}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main class="window">
+<header class="titlebar"><h1>🎡 Decision Wheel 98</h1><a href="../../" aria-label="Back to Playground" class="close">✕</a></header>
+<nav class="menu" aria-label="Window menu"><span>File</span> &nbsp; <span>Spin</span> &nbsp; <span>Help</span></nav>
+<div class="layout">
+<section class="panel"><h2>Leave it to the wheel</h2>
+<div class="wheel-wrap"><canvas id="wheel" width="640" height="640" role="img" aria-label="Decision wheel. Choices and their probabilities are listed beside the wheel.">The choices and their odds appear in the list below.</canvas></div>
+<div class="controls"><button type="button" class="btn primary" id="spin">🎯 Spin the wheel</button><button type="button" class="btn" id="copyResult">Copy result</button><button type="button" class="btn" id="share">🔗 Copy share link</button></div>
+<output id="result" aria-live="polite" aria-atomic="true">Ready to spin?</output>
+<div id="status" role="status" aria-live="polite">Every spin uses the browser's secure random number generator. No server needed.</div>
+<div class="badges"><span class="badge" id="count">Choices: 0</span><span class="badge" id="weight">Total weight: 0</span><span class="badge" id="spins">Spins: 0</span></div>
+<h2>Recent results</h2><ol id="history" class="history" aria-label="Recent spin results"></ol>
+</section>
+<aside class="panel"><h2>Choices &amp; weights</h2>
+<label for="entries" class="note">One choice per line. Optional <strong>| weight</strong> sets a relative chance (1–20).</label>
+<textarea id="entries" spellcheck="false" maxlength="1600" aria-describedby="instructions" placeholder="Pizza | 3&#10;Sushi | 2&#10;Tacos | 1"></textarea>
+<p id="instructions" class="note">Use 2–20 distinct choices, each up to 36 characters. Without weights, every choice is equally likely. Changes save locally. For example, <strong>Pizza | 3</strong> is three times as likely as <strong>Sushi | 1</strong>.</p>
+<div class="field"><label for="preset">Quick preset:</label><select id="preset"><option value="">Choose a preset…</option><option value="lunch">Lunch ideas</option><option value="weekend">Weekend plans</option><option value="yesno">Yes / No / Maybe</option><option value="chores">Who goes first?</option></select><button type="button" class="btn" id="apply">Load preset</button></div>
+<div class="controls"><button type="button" class="btn" id="shuffle">Shuffle display</button><button type="button" class="btn" id="clearHistory">Clear history</button></div>
+<h2>Accessible odds</h2><p class="note">These are the exact selection probabilities; the drawing is decorative. Spin results are also announced as text.</p>
+<ol id="odds" class="odds" aria-label="Choices and selection probabilities"></ol>
+<p class="note">🔒 No tracking, paid API, account, or network request. Choices and the last 12 results are stored only in this browser. Share links include your choice list, so avoid private text.</p>
+</aside>
+</div>
+<footer class="footer">Playground / Decision Wheel 98 · Fair weighted selection via crypto.getRandomValues().</footer>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const STORAGE='playground.decision-wheel98.v1';
+const DEFAULT='Pizza | 3\nSushi | 2\nTacos | 1\nPasta | 2\nSurprise me | 1';
+const PRESETS={lunch:'Pizza | 3\nSushi | 2\nTacos | 1\nPasta | 2\nSalad | 1',weekend:'Go hiking\nWatch a movie\nPlay a game\nVisit a museum\nTry a new cafe',yesno:'Yes\nNo\nMaybe',chores:'Alex\nSam\nJordan\nTaylor'};
+const COLORS=['#18669b','#e6a42a','#318b72','#a05ca3','#d75f50','#5d80bd','#b2792b','#528b8f','#b45183','#6c9744','#a76645','#5972a7'];
+const canvas=$('wheel'),ctx=canvas.getContext('2d');
+const ratio=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(640*ratio);canvas.height=Math.round(640*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);
+let choices=[],rotation=0,spinning=false,history=[],spins=0,lastResult='',lastError='';
+const safeRead=()=>{try{return JSON.parse(localStorage.getItem(STORAGE)||'null');}catch{return null;}};
+const safeWrite=()=>{try{localStorage.setItem(STORAGE,JSON.stringify({text:$('entries').value,history,spins}));}catch{}};
+function parse(text){
+  const lines=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(lines.length<2 || lines.length>20)throw Error('Enter between 2 and 20 choices.');
+  const names=new Set(),out=[];
+  for(let i=0;i<lines.length;i++){
+    const parts=lines[i].split('|');
+    if(parts.length>2)throw Error('Line '+(i+1)+': use only one | weight separator.');
+    const label=parts[0].trim();
+    if(!label || label.length>36)throw Error('Line '+(i+1)+': choose a label of 1–36 characters.');
+    const lower=label.toLocaleLowerCase();
+    if(names.has(lower))throw Error('Duplicate choice: '+label+'.');
+    names.add(lower);
+    const raw=parts.length===2?parts[1].trim():'1';
+    if(!/^(?:[1-9]|1\d|20)$/.test(raw))throw Error('Line '+(i+1)+': weight must be an integer from 1 to 20.');
+    out.push({label,weight:Number(raw)});
+  }
+  return out;
+}
+function announce(text,kind=''){const status=$('status');status.textContent=text;status.className=kind;}
+function draw(){
+  const C=320,R=273;ctx.clearRect(0,0,640,640);ctx.save();
+  ctx.fillStyle='#eef4f6';ctx.fillRect(0,0,640,640);
+  ctx.beginPath();ctx.arc(C,C,R+13,0,Math.PI*2);ctx.fillStyle='#a4b1bd';ctx.fill();
+  ctx.beginPath();ctx.arc(C,C,R+6,0,Math.PI*2);ctx.fillStyle='#f5f8f9';ctx.fill();
+  const total=choices.reduce((sum,c)=>sum+c.weight,0);let start=-Math.PI/2+rotation;
+  for(let i=0;i<choices.length;i++){
+    const c=choices[i],span=2*Math.PI*c.weight/total,mid=start+span/2;
+    ctx.beginPath();ctx.moveTo(C,C);ctx.arc(C,C,R,start,start+span);ctx.closePath();ctx.fillStyle=COLORS[i%COLORS.length];ctx.fill();ctx.strokeStyle='#f7f9fa';ctx.lineWidth=3;ctx.stroke();
+    ctx.save();ctx.translate(C,C);ctx.rotate(mid);ctx.translate(R*.61,0);
+    if(Math.cos(mid)<0)ctx.rotate(Math.PI);
+    ctx.fillStyle='#fff';ctx.shadowColor='#172c43';ctx.shadowBlur=3;
+    const fontSize=choices.length>13?13:choices.length>9?15:18;
+    ctx.font='bold '+fontSize+'px Tahoma,Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const max=choices.length>13?13:16;const label=c.label.length>max?c.label.slice(0,max-1)+'…':c.label;
+    ctx.fillText(label,0,0,Math.max(58,R*.62));ctx.restore();start+=span;
+  }
+  ctx.beginPath();ctx.arc(C,C,42,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=6;ctx.strokeStyle='#263f58';ctx.stroke();
+  ctx.fillStyle='#244967';ctx.font='bold 16px Tahoma,Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SPIN',C,C);
+  ctx.beginPath();ctx.moveTo(C-20,19);ctx.lineTo(C+20,19);ctx.lineTo(C,67);ctx.closePath();ctx.fillStyle='#f9bc3e';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#27364a';ctx.stroke();
+  ctx.restore();
+}
+function renderOdds(){
+  const list=$('odds');list.replaceChildren();const total=choices.reduce((s,c)=>s+c.weight,0);
+  choices.forEach((choice,i)=>{const li=document.createElement('li'),label=document.createElement('span'),pct=document.createElement('strong');
+    label.textContent=(i+1)+'. '+choice.label;pct.textContent=(100*choice.weight/total).toFixed(1)+'%';li.append(label,pct);list.append(li);
+  });
+  $('count').textContent='Choices: '+choices.length;$('weight').textContent='Total weight: '+total;
+}
+function renderHistory(){const list=$('history');list.replaceChildren();for(const item of history){const li=document.createElement('li');li.textContent=item;list.append(li);}if(!history.length){const li=document.createElement('li');li.textContent='No spins yet';list.append(li);}$('spins').textContent='Spins: '+spins;}
+function lock(locked){$('spin').disabled=locked||!!lastError;$('entries').disabled=locked;$('apply').disabled=locked;$('shuffle').disabled=locked;$('preset').disabled=locked;}
+function refresh(){
+  if(spinning)return;
+  try{choices=parse($('entries').value);lastError='';renderOdds();draw();lock(false);announce('Ready: '+choices.length+' choices. Spin to pick one.');safeWrite();}
+  catch(error){lastError=error.message;choices=[];ctx.clearRect(0,0,640,640);$('odds').replaceChildren();$('count').textContent='Choices: 0';$('weight').textContent='Total weight: 0';lock(false);announce(lastError,'error');}
+}
+// Rejection sampling avoids modulo bias. Maximum total weight is 400.
+function randomBelow(max){
+  if(!Number.isInteger(max)||max<1||max>400)throw Error('Invalid random range.');
+  const range=4294967296,limit=range-(range%max),buffer=new Uint32Array(1);let n;
+  do{crypto.getRandomValues(buffer);n=buffer[0];}while(n>=limit);
+  return n%max;
+}
+function randomFraction(){const buffer=new Uint32Array(1);crypto.getRandomValues(buffer);return buffer[0]/4294967296;}
+function finishSpin(index){
+  spinning=false;const chosen=choices[index];lastResult=chosen.label;$('result').textContent='🎉 '+chosen.label;
+  history.unshift(chosen.label);history=history.slice(0,12);spins++;renderHistory();lock(false);safeWrite();announce('Selected '+chosen.label+' (weight '+chosen.weight+').','good');
+}
+function spin(){
+  if(spinning||lastError||choices.length<2)return;
+  const total=choices.reduce((sum,c)=>sum+c.weight,0),ticket=randomBelow(total);
+  let cumulative=0,chosen=0;
+  for(let i=0;i<choices.length;i++){cumulative+=choices[i].weight;if(ticket<cumulative){chosen=i;break;}}
+  const before=cumulative-choices[chosen].weight;
+  const offset=(before+choices[chosen].weight*(.18+.64*randomFraction()))/total;
+  const desired=-2*Math.PI*offset;
+  const turn=2*Math.PI;
+  const delta=((desired-rotation)%turn+turn)%turn;
+  const end=rotation+turn*6+delta,start=rotation;
+  spinning=true;lock(true);$('result').textContent='Spinning…';announce('The wheel is spinning.');
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduced){rotation=end%turn;draw();finishSpin(chosen);return;}
+  const duration=3900,begin=performance.now();
+  function frame(now){
+    const t=Math.min(1,(now-begin)/duration),ease=1-Math.pow(1-t,5);
+    rotation=start+(end-start)*ease;draw();
+    if(t<1)requestAnimationFrame(frame);else{rotation=end%turn;draw();finishSpin(chosen);}
+  }
+  requestAnimationFrame(frame);
+}
+async function copy(text,what){try{await navigator.clipboard.writeText(text);announce(what+' copied to clipboard.','good');}catch{announce('Clipboard unavailable. Select and copy the text manually.','error');}}
+$('spin').addEventListener('click',spin);
+$('entries').addEventListener('input',()=>{lastResult='';$('result').textContent='Ready to spin?';refresh();});
+$('apply').addEventListener('click',()=>{const value=PRESETS[$('preset').value];if(!value)return announce('Choose a preset first.','error');$('entries').value=value;lastResult='';$('result').textContent='Ready to spin?';refresh();});
+$('shuffle').addEventListener('click',()=>{if(spinning||lastError)return;const rows=$('entries').value.trim().split(/\r?\n/);for(let i=rows.length-1;i>0;i--){const j=randomBelow(i+1);[rows[i],rows[j]]=[rows[j],rows[i]];}$('entries').value=rows.join('\n');refresh();announce('Display order shuffled. Weights and probabilities are unchanged.');});
+$('copyResult').addEventListener('click',()=>{if(!lastResult)return announce('Spin the wheel before copying a result.','error');copy(lastResult,'Result');});
+$('share').addEventListener('click',()=>{if(lastError)return announce('Fix your choices before sharing.','error');const url=new URL(location.href);url.search='';url.searchParams.set('items',$('entries').value);copy(url.toString(),'Share link');});
+$('clearHistory').addEventListener('click',()=>{history=[];spins=0;renderHistory();safeWrite();announce('Local spin history cleared.');});
+const stored=safeRead();let initial=DEFAULT;
+if(stored && typeof stored.text==='string' && stored.text.length<=1600){initial=stored.text;history=Array.isArray(stored.history)?stored.history.filter(x=>typeof x==='string').slice(0,12):[];spins=Number.isSafeInteger(stored.spins)?Math.max(0,stored.spins):0;}
+try{const params=new URLSearchParams(location.search);if(params.has('items')){const shared=params.get('items');if(shared && shared.length<=1600){parse(shared);initial=shared;}}}catch{}
+$('entries').value=initial;renderHistory();refresh();
+</script>
+</body>
+</html>

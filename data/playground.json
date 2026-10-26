@@ -1,5 +1,39 @@
 [
   {
+    "name": "Word Ladder 98",
+    "type": "game",
+    "date": "2026-10-26",
+    "url": "/games/word-ladder/",
+    "description": "Eight offline four-letter word ladders with shortest-path hints, daily rotation, undo and local records.",
+    "icon": "🪜",
+    "tags": [
+      "word",
+      "daily",
+      "puzzle",
+      "logic",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Decision Wheel 98",
+    "type": "app",
+    "date": "2026-10-26",
+    "url": "/apps/decision-wheel/",
+    "description": "Private weighted choice spinner with fair browser randomness, presets, accessible odds, share links and local history.",
+    "icon": "🎡",
+    "tags": [
+      "random",
+      "decision",
+      "spinner",
+      "weighted",
+      "playful",
+      "privacy",
+      "offline"
+    ]
+  },
+  {
     "name": "Lightkeeper 98",
     "type": "game",
     "date": "2026-10-25",
