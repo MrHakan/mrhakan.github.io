@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="A retro Tower of Hanoi puzzle with daily challenges, optimal-path hints, undo, keyboard controls and local records.">
+<title>Disk Transfer 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/disk-transfer/">
+<meta property="og:title" content="Disk Transfer 98">
+<meta property="og:description" content="Move every disk to the right peg without stacking larger disks on smaller ones. Play a daily Tower of Hanoi.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:16px;color:#172638;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1030px;margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #4c4c4c #4c4c4c #fff;box-shadow:8px 8px #005151}
+.titlebar{background:linear-gradient(90deg,#000080,#1884b7);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;color:white}.titlebar h1{font-size:18px;margin:0}
+.close,.btn,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#172638;border:2px solid;border-color:white #555 #555 white;padding:9px 11px;min-height:40px}.close{min-height:0;padding:5px 10px;text-decoration:none}
+.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,.8fr);gap:12px;padding:0 12px 12px}
+.panel{background:#ededed;border:2px inset #ddd;min-width:0;padding:13px}.panel h2{margin:0 0 10px;font-size:15px}
+.toolbar,.badges{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}.btn{cursor:pointer}.btn.primary{background:#d4ebfa}.btn:disabled{opacity:.55;cursor:not-allowed}
+.badge{padding:8px 10px;border:2px inset #ddd;background:#fff;font:12px Consolas,monospace}
+.board{background:linear-gradient(#dceef6,#f9fcfc);border:2px inset #ddd;padding:14px 10px 8px}
+.pegs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;align-items:end;min-height:285px}
+.peg{position:relative;display:flex;flex-direction:column-reverse;align-items:center;justify-content:flex-start;min-width:0;height:267px;padding:0 3px 7px;border:2px solid transparent;border-radius:6px;background:transparent;cursor:pointer;color:#20374d}
+.peg:before{content:"";position:absolute;z-index:0;bottom:10px;left:calc(50% - 5px);width:10px;height:195px;border:1px solid #96774b;border-radius:6px 6px 0 0;background:linear-gradient(90deg,#ad8655,#d4b783,#987348)}
+.peg:after{content:"";position:absolute;z-index:0;bottom:4px;width:96%;height:11px;background:linear-gradient(#ab8254,#765535);border:1px solid #755332;border-radius:3px}
+.peg.selected{background:rgba(42,111,171,.12);border-color:#2465b0}.peg.target{background:rgba(38,134,86,.12);border-color:#268b61}
+.disk{z-index:1;position:relative;flex:none;height:25px;max-width:100%;border:1px solid rgba(10,30,55,.45);border-bottom-width:3px;border-radius:9px;background:var(--disk);box-shadow:inset 0 3px rgba(255,255,255,.4),0 2px 2px #0002;color:#172638;font:bold 12px Tahoma,Arial;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.peg-label{position:absolute;bottom:-28px;font-weight:700;font-size:12px}
+.board-note{margin:38px 0 4px;text-align:center;font-size:12px;color:#4d6171}
+#status{background:#fff;border:2px inset #ddd;padding:10px;min-height:44px;line-height:1.5}
+.help{line-height:1.7;color:#3c5061}.help strong{color:#173552}
+.records{margin-top:12px;background:#fff;border:2px inset #ddd;padding:9px;min-height:75px;font:12px/1.7 Consolas,monospace}
+footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid #999;padding:8px 12px;font-size:11px}
+:focus-visible{outline:3px solid #e99c00;outline-offset:3px}
+@media(max-width:760px){body{padding:8px}.layout{grid-template-columns:1fr}.panel{padding:10px}.pegs{min-height:245px}.peg{height:225px}.peg:before{height:165px}.disk{height:23px}.titlebar h1{font-size:16px}}
+@media(max-width:380px){.board{padding:9px 3px}.pegs{gap:1px}.peg{padding-inline:1px}.disk{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="window">
+<header class="titlebar"><h1>🗼 Disk Transfer 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>Game</span>　<span>Daily</span>　<span>Help</span>　<span>About</span></div>
+<main class="layout">
+<section class="panel" aria-labelledby="board-title">
+<h2 id="board-title">Tower of Hanoi</h2>
+<div class="badges"><span class="badge" id="challenge">Daily challenge</span><span class="badge" id="moves">Moves: 0</span><span class="badge" id="minimum">Optimal: 31</span><span class="badge" id="timer">00:00</span></div>
+<div class="board"><div class="pegs" id="pegs" role="group" aria-label="Three puzzle pegs"></div><p class="board-note">Select a source peg, then a destination peg. Only smaller disks can rest on larger ones.</p></div>
+<div class="toolbar"><button class="btn primary" type="button" id="hint">💡 Best next move</button><button class="btn" type="button" id="undo">↶ Undo</button><button class="btn" type="button" id="restart">⟲ Restart</button></div>
+<p id="status" role="status" aria-live="polite">Move all disks from A to C.</p>
+</section>
+<aside class="panel">
+<h2>⚙ Challenge setup</h2>
+<div class="toolbar"><button class="btn primary" type="button" id="daily">📅 Today's puzzle</button><label for="difficulty">Free play:</label><select id="difficulty" aria-label="Choose disk count"><option value="3">3 disks · Easy</option><option value="4">4 disks</option><option value="5" selected>5 disks</option><option value="6">6 disks</option><option value="7">7 disks · Expert</option></select><button class="btn" type="button" id="free">Play</button></div>
+<h2>📖 How to play</h2><p class="help">Move the whole tower from <strong>A</strong> to <strong>C</strong>, one top disk at a time. Never place a larger disk on a smaller disk. The theoretical minimum is <strong>2ⁿ − 1</strong> moves.</p>
+<p class="help">Keyboard: <strong>1, 2, 3</strong> choose pegs; <strong>Escape</strong> cancels selection; <strong>U</strong> undoes; <strong>H</strong> suggests a shortest-path move. Hints work even after mistakes.</p>
+<h2>🏆 Local records</h2><div class="records" id="records">No records yet.</div>
+<p class="help">Your records stay in this browser. No account, tracking, server, or downloads required.</p>
+</aside>
+</main>
+<footer><span>Disk Transfer 98 · Windows-style logic lab</span><span>Offline-ready • Touch + keyboard</span></footer>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const KEY='mrhakan.disk-transfer.v1';
+const COLORS=['#f8c46a','#a8d6f5','#b6e6b1','#f7a4ae','#c9b4f0','#f1dc8d','#96d5cb'];
+let pegs=[],n=5,selected=-1,moves=0,undos=[],hints=0,startedAt=0,elapsed=0,finished=false,mode='daily',recordKey='',records={};
+try{const r=JSON.parse(localStorage.getItem(KEY)||'{}');if(r&&typeof r==='object'&&!Array.isArray(r))records=r;}catch{}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(records));}catch{}}
+function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function dayNumber(d){return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);}
+function format(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function seconds(){return elapsed+(startedAt&&!finished?Math.floor((Date.now()-startedAt)/1000):0);}
+function announce(s){$('status').textContent=s;}
+function snapshot(){return pegs.map(p=>p.slice());}
+function reset(count,daily){
+ n=count;mode=daily?'daily':'free';pegs=[Array.from({length:n},(_,i)=>n-i),[],[]];selected=-1;moves=0;undos=[];hints=0;startedAt=0;elapsed=0;finished=false;
+ recordKey=(daily?'daily-'+dateKey(new Date()):'free-'+n);
+ $('challenge').textContent=daily?'📅 '+dateKey(new Date())+' · '+n+' disks':'🎯 Free play · '+n+' disks';
+ $('minimum').textContent='Optimal: '+(Math.pow(2,n)-1);
+ announce('Select a disk on A, then move it to B or C. Good luck!');
+ render();
+}
+function top(p){return p.length?p[p.length-1]:Infinity;}
+function legal(a,b){return a!==b&&pegs[a].length>0&&top(a)<top(b);}
+function render(){
+ const host=$('pegs');host.replaceChildren();
+ pegs.forEach((stack,i)=>{
+  const button=document.createElement('button');button.type='button';button.className='peg'+(selected===i?' selected':'')+(selected>=0&&legal(selected,i)?' target':'');
+  button.setAttribute('aria-pressed',String(selected===i));button.setAttribute('aria-label','Peg '+String.fromCharCode(65+i)+', '+stack.length+' disks'+(stack.length?', top disk '+top(i):', empty')+(selected===i?', selected':''));
+  button.addEventListener('click',()=>pick(i));
+  stack.forEach(size=>{const disk=document.createElement('span');disk.className='disk';disk.style.width=(29+size*9)+'%';disk.style.setProperty('--disk',COLORS[(size-1)%COLORS.length]);disk.textContent=size;button.appendChild(disk);});
+  const label=document.createElement('span');label.className='peg-label';label.textContent=String.fromCharCode(65+i);button.appendChild(label);host.appendChild(button);
+ });
+ $('moves').textContent='Moves: '+moves;
+ $('timer').textContent=format(seconds());
+ $('undo').disabled=!undos.length||finished;
+ $('hint').disabled=finished;
+ renderRecords();
+}
+function pick(i){
+ if(finished)return;
+ if(selected<0){if(!pegs[i].length){announce('Peg '+String.fromCharCode(65+i)+' is empty. Select a peg with disks.');return;}selected=i;announce('Peg '+String.fromCharCode(65+i)+' selected. Choose its destination.');render();return;}
+ if(i===selected){selected=-1;announce('Selection cleared.');render();return;}
+ if(!legal(selected,i)){announce('Invalid move: larger disks cannot rest on smaller disks.');return;}
+ const from=selected;undos.push(snapshot());const disk=pegs[from].pop();pegs[i].push(disk);selected=-1;moves++;
+ if(!startedAt)startedAt=Date.now();
+ if(pegs[2].length===n){elapsed=seconds();startedAt=0;finished=true;const score={moves,seconds:elapsed,hints};const old=records[recordKey];if(!old||score.moves<old.moves||(score.moves===old.moves&&score.seconds<old.seconds)){records[recordKey]=score;save();}announce('🏆 Solved in '+moves+' moves ('+format(elapsed)+')! '+(hints?'Hints used: '+hints+'.':'No hints used!'));}else announce('Moved disk '+disk+' from '+String.fromCharCode(65+from)+' to '+String.fromCharCode(65+i)+'.');
+ render();
+}
+function encode(stacks){let code=0,place=1;for(let size=1;size<=n;size++){let at=stacks.findIndex(s=>s.includes(size));code+=at*place;place*=3;}return code;}
+function decode(code){const stacks=[[],[],[]];for(let size=1;size<=n;size++){stacks[code%3].push(size);code=Math.floor(code/3);}for(const stack of stacks)stack.reverse();return stacks;}
+function nextShortest(){
+ const start=encode(pegs),goal=Math.pow(3,n)-1; // all digits 2
+ if(start===goal)return null;
+ const queue=[start],seen=new Set([start]),parent=new Map();
+ for(let head=0;head<queue.length;head++){
+  const cur=queue[head],state=decode(cur);
+  if(cur===goal)break;
+  for(let a=0;a<3;a++)for(let b=0;b<3;b++){
+   if(a===b||!state[a].length||state[b].length&&state[a][state[a].length-1]>state[b][state[b].length-1])continue;
+   const copy=state.map(s=>s.slice());copy[b].push(copy[a].pop());const next=encode(copy);
+   if(!seen.has(next)){seen.add(next);parent.set(next,{prev:cur,a,b});queue.push(next);}
+  }
+ }
+ if(!seen.has(goal))return null;
+ let cur=goal,step=null;while(cur!==start){step=parent.get(cur);cur=step.prev;}return step;
+}
+$('hint').addEventListener('click',()=>{const step=nextShortest();if(!step)return;hints++;selected=step.a;announce('💡 Shortest-path hint: '+String.fromCharCode(65+step.a)+' → '+String.fromCharCode(65+step.b)+'. Hint #'+hints+'.');render();});
+$('undo').addEventListener('click',()=>{if(!undos.length||finished)return;pegs=undos.pop();moves--;selected=-1;announce('Previous move undone.');render();});
+$('restart').addEventListener('click',()=>reset(n,mode==='daily'));
+$('daily').addEventListener('click',()=>daily());
+$('free').addEventListener('click',()=>reset(Number($('difficulty').value),false));
+function daily(){const sizes=[4,5,6,5,4,6,5,7];reset(sizes[((dayNumber(new Date())%sizes.length)+sizes.length)%sizes.length],true);}
+function renderRecords(){const keys=Object.keys(records).filter(k=>k.startsWith('daily-')||k.startsWith('free-')).sort().reverse().slice(0,5);$('records').textContent=keys.length?keys.map(k=>{const v=records[k];return k+': '+(Number.isFinite(v?.moves)?v.moves:'?')+' moves / '+format(Number.isFinite(v?.seconds)?v.seconds:0);}).join('\n'):'No records yet. Finish a puzzle to set one.';$('records').style.whiteSpace='pre-line';}
+document.addEventListener('keydown',e=>{if(e.altKey||e.ctrlKey||e.metaKey||/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))return;if(['1','2','3'].includes(e.key)){e.preventDefault();pick(Number(e.key)-1);}else if(e.key==='Escape'){selected=-1;announce('Selection cleared.');render();}else if(e.key.toLowerCase()==='u')$('undo').click();else if(e.key.toLowerCase()==='h')$('hint').click();});
+setInterval(()=>{if(startedAt&&!finished)$('timer').textContent=format(seconds());},1000);
+daily();
+})();
+</script>
+</body>
+</html>

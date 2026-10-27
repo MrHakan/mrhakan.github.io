@@ -1,5 +1,38 @@
 [
   {
+    "name": "Disk Transfer 98",
+    "type": "game",
+    "date": "2026-10-27",
+    "url": "/games/disk-transfer/",
+    "description": "Daily Tower of Hanoi with shortest-path hints, undo, 3–7 disks, keyboard/touch controls and local records.",
+    "icon": "🗼",
+    "tags": [
+      "hanoi",
+      "daily",
+      "logic",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Streak Garden 98",
+    "type": "app",
+    "date": "2026-10-27",
+    "url": "/apps/streak-garden/",
+    "description": "Private habit tracker with 14-day check-ins, streak statistics, local storage and JSON backup/import.",
+    "icon": "🌱",
+    "tags": [
+      "habits",
+      "productivity",
+      "streaks",
+      "calendar",
+      "privacy",
+      "offline"
+    ]
+  },
+  {
     "name": "Word Ladder 98",
     "type": "game",
     "date": "2026-10-26",

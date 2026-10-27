@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="A private, offline-friendly habit tracker with a 14-day check-in calendar, streaks, local storage and JSON backups.">
+<title>Streak Garden 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/streak-garden/">
+<meta property="og:title" content="Streak Garden 98">
+<meta property="og:description" content="Grow daily habits with a friendly Windows 98 tracker. All your data stays in your browser.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:15px;color:#1a2b3c;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1120px;margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005353}
+.titlebar{background:linear-gradient(90deg,#000080,#197db7);color:#fff;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px}.titlebar h1{margin:0;font-size:18px}
+.close,.btn,input,select{font:700 12px Tahoma,Arial,sans-serif;color:#1a2b3c;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;padding:9px 11px;min-height:40px}.close{min-height:0;text-decoration:none;padding:5px 10px}
+.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+main{padding:0 12px 12px}.panel{background:#ededed;border:2px inset #ddd;padding:13px;margin-bottom:12px;min-width:0}
+.panel h2{margin:0 0 10px;font-size:15px}.intro{margin:0 0 10px;color:#405669;line-height:1.5}
+.toolbar,.add-form,.badges{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:9px 0}
+.add-form input{background:#fff;border:2px inset #ddd;flex:1;min-width:160px;max-width:380px;font-weight:400}
+.btn{cursor:pointer}.btn.primary{background:#d9edf8}.btn.danger{color:#8a1d1d}.btn:disabled{opacity:.55;cursor:not-allowed}
+select{max-width:100%}.badge{background:#fff;border:2px inset #ddd;padding:8px 10px;font:12px Consolas,monospace}
+.calendar-scroll{overflow-x:auto;overscroll-behavior-x:contain;border:2px inset #ddd;background:#fff;max-width:100%;padding-bottom:3px}
+.calendar{min-width:810px}.calendar-row{display:grid;grid-template-columns:190px repeat(14,minmax(43px,1fr));align-items:stretch}
+.calendar-row>*{border-bottom:1px solid #dbe2e7;border-right:1px solid #e6e9ec;min-width:0}
+.calendar-head{background:#dce8f0;color:#253b4e;font:700 11px Tahoma,Arial,sans-serif}
+.day-label{text-align:center;padding:9px 1px;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.day-label.today{background:#fff0c9}.day-label span{font-weight:400;color:#587082}
+.habit-name,.calendar-head .corner{position:sticky;left:0;z-index:2;background:#f1f4f7;box-shadow:2px 0 #cbd4dc}
+.calendar-head .corner{z-index:3;background:#dce8f0;padding:11px 9px}
+.habit-name{display:flex;align-items:center;gap:5px;padding:5px 6px;border-left:5px solid var(--habit)}
+.habit-name.active{background:#e0f0fc}
+.name-btn{border:0;background:transparent;color:#1a2b3c;font:700 12px Tahoma,Arial;text-align:left;cursor:pointer;min-width:0;flex:1;overflow-wrap:anywhere;padding:5px 2px}
+.remove{border:1px solid #b0bbc4;background:#fff;color:#7b2424;border-radius:3px;padding:3px 6px;cursor:pointer}
+.check-cell{display:grid;place-items:center;min-height:54px;background:#fff}.check-cell.today{background:#fff9e7}.check-cell.weekend{background:#f7f9fa}
+.check{display:grid;place-items:center;width:34px;height:34px;border:2px solid #a6b7c6;border-radius:6px;background:#fff;color:#1e523d;font-size:19px;cursor:pointer}
+.check.done{background:var(--habit);border-color:#405d6c;color:#10283b;font-weight:900;box-shadow:inset 0 2px #ffffff88}
+.check:disabled{opacity:.35;cursor:not-allowed}
+.empty{padding:20px 12px;text-align:center;line-height:1.7;color:#42596c}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.stat{padding:11px;background:#fff;border:2px inset #ddd;min-width:0}.stat strong{display:block;font:700 clamp(19px,3vw,26px) Consolas,monospace;color:#173f5f}.stat span{display:block;margin-top:5px;font-size:11px;color:#4d6070}
+#status{background:#fff;border:2px inset #ddd;padding:9px;min-height:38px;line-height:1.5}
+.privacy{color:#4c6070;font-size:12px;line-height:1.6}.privacy code{background:#fff;padding:2px 4px}
+footer{padding:9px 12px;border-top:1px solid #999;font-size:11px;display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+:focus-visible{outline:3px solid #f1a000;outline-offset:3px}
+@media(max-width:700px){body{padding:8px}.titlebar h1{font-size:16px}.panel{padding:10px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.add-form input{flex-basis:100%;max-width:none}}
+@media(max-width:350px){.stats{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="window">
+<header class="titlebar"><h1>🌱 Streak Garden 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>File</span>　<span>Habits</span>　<span>Calendar</span>　<span>Help</span></div>
+<main>
+<section class="panel" aria-labelledby="new-title">
+<h2 id="new-title">Plant a new habit</h2>
+<p class="intro">Small steps add up. Track up to 12 habits, one day at a time. Your check-ins stay on this device.</p>
+<form id="addForm" class="add-form"><label for="habitInput">Habit</label><input id="habitInput" maxlength="36" autocomplete="off" required placeholder="e.g. Read for 15 minutes"><label for="color">Color</label><select id="color" aria-label="Habit color"><option value="#a4d8b3">Mint</option><option value="#a6cdf2">Sky</option><option value="#f6d08c">Honey</option><option value="#e9b5d6">Rose</option><option value="#c7b6ee">Lavender</option></select><button class="btn primary" type="submit">＋ Add habit</button></form>
+<div class="toolbar"><span class="badge" id="count">0 / 12 habits</span><span class="badge" id="today">Today</span><button class="btn" type="button" id="presetWater">💧 Add water</button><button class="btn" type="button" id="presetRead">📚 Add reading</button></div>
+</section>
+<section class="panel" aria-labelledby="calendar-title">
+<h2 id="calendar-title">📅 Check-in calendar</h2>
+<div class="toolbar"><button class="btn" type="button" id="previous">← Earlier week</button><button class="btn" type="button" id="current">Today</button><button class="btn" type="button" id="next">Later week →</button><span class="badge" id="range">Last 14 days</span></div>
+<div class="calendar-scroll" tabindex="0" role="region" aria-label="Scrollable 14-day habit calendar"><div class="calendar" id="calendar"></div></div>
+<p class="intro" style="margin-top:10px">Select a square to check in or undo a check-in. Select a habit name to see its statistics. Scroll the grid horizontally on small screens.</p>
+</section>
+<section class="panel" aria-labelledby="stats-title">
+<h2 id="stats-title">📈 Habit statistics</h2><p id="selected" class="intro">Select a habit to inspect its progress.</p>
+<div class="stats"><div class="stat"><strong id="currentStreak">0</strong><span>Current streak · days</span></div><div class="stat"><strong id="bestStreak">0</strong><span>Longest streak · days</span></div><div class="stat"><strong id="month">0 / 30</strong><span>Check-ins · last 30 days</span></div><div class="stat"><strong id="rate">0%</strong><span>Completion · last 30 days</span></div></div>
+</section>
+<section class="panel" aria-labelledby="backup-title">
+<h2 id="backup-title">💾 Your data</h2>
+<div class="toolbar"><button class="btn primary" type="button" id="export">↓ Export JSON backup</button><button class="btn" type="button" id="importTrigger">↑ Import JSON backup</button><input type="file" id="import" accept=".json,application/json" hidden aria-label="Choose JSON backup file"><button class="btn danger" type="button" id="clear">Delete all data</button></div>
+<p class="privacy">No accounts, cookies, analytics, API calls, or server storage. Uses browser <code>localStorage</code>; clearing browser data or using private mode may erase it. Export a JSON backup to keep your progress.</p>
+<p id="status" role="status" aria-live="polite">Ready. Your garden is private.</p>
+</section>
+</main>
+<footer><span>Streak Garden 98 · Private habit journal</span><span>Offline-friendly • Keyboard accessible</span></footer>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const KEY='mrhakan.streak-garden.v1',COLORS=['#a4d8b3','#a6cdf2','#f6d08c','#e9b5d6','#c7b6ee'];
+let habits=[],selectedId=null,offset=0;
+function dateOnly(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);}
+function shift(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n,12);}
+function key(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function parseKey(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const a=s.split('-').map(Number);const d=new Date(a[0],a[1]-1,a[2],12);return key(d)===s?d:null;}
+function announce(s){$('status').textContent=s;}
+function uid(){return typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+String(Math.random()).slice(2);}
+function sanitize(input){
+ if(!input||typeof input!=='object'||!Array.isArray(input.habits)||input.habits.length>12)throw Error('Expected a backup with 0–12 habits.');
+ const out=[],names=new Set(),today=dateOnly(new Date()),oldest=shift(today,-730);
+ for(const raw of input.habits){
+  if(!raw||typeof raw!=='object'||typeof raw.name!=='string')throw Error('Invalid habit entry.');
+  const name=raw.name.trim().slice(0,36),lower=name.toLocaleLowerCase();
+  if(!name||names.has(lower))throw Error('Duplicate or empty habit name.');
+  names.add(lower);
+  const days={};let checked=0;
+  if(raw.days&&typeof raw.days==='object'&&!Array.isArray(raw.days)){
+   for(const [day,val] of Object.entries(raw.days)){
+    if(++checked>1000)throw Error('Too many check-ins in backup.');
+    const d=parseKey(day);
+    if(val===true&&d&&d>=oldest&&d<=today)days[day]=true;
+   }
+  }
+  out.push({id:uid(),name,color:COLORS.includes(raw.color)?raw.color:COLORS[0],days});
+ }
+ return out;
+}
+function load(){try{const raw=localStorage.getItem(KEY);if(raw){habits=sanitize(JSON.parse(raw));}}catch{habits=[];announce('Stored data could not be read. Import a backup if you have one.');}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({version:1,habits}));return true;}catch{announce('Browser storage unavailable. Export a backup before leaving.');return false;}}
+function add(name,color){
+ name=String(name||'').trim().slice(0,36);
+ if(!name)return announce('Enter a habit name first.');
+ if(habits.length>=12)return announce('Limit reached: maximum 12 habits.');
+ if(habits.some(h=>h.name.toLocaleLowerCase()===name.toLocaleLowerCase()))return announce('That habit already exists.');
+ const h={id:uid(),name,color:COLORS.includes(color)?color:COLORS[0],days:{}};
+ habits.push(h);selectedId=h.id;save();render();announce('Planted: '+name+'. Check in today to begin!');
+}
+function stats(h){
+ const today=dateOnly(new Date()),done=d=>!!h.days[key(d)];
+ let current=0,at=done(today)?today:shift(today,-1);
+ while(current<731&&done(at)){current++;at=shift(at,-1);}
+ let best=0,run=0;
+ for(let i=730;i>=0;i--){if(done(shift(today,-i))){run++;best=Math.max(best,run);}else run=0;}
+ let count=0;for(let i=0;i<30;i++)if(done(shift(today,-i)))count++;
+ return {current,best,count};
+}
+function renderStats(){
+ const h=habits.find(x=>x.id===selectedId)||habits[0];
+ if(h)selectedId=h.id;
+ $('selected').textContent=h?'Viewing: '+h.name:'No habits yet. Add one above to get started.';
+ const s=h?stats(h):{current:0,best:0,count:0};
+ $('currentStreak').textContent=s.current;
+ $('bestStreak').textContent=s.best;
+ $('month').textContent=s.count+' / 30';
+ $('rate').textContent=Math.round(s.count/30*100)+'%';
+}
+function cell(tag,cls,text){const el=document.createElement(tag);el.className=cls;if(text!==undefined)el.textContent=text;return el;}
+function render(){
+ $('count').textContent=habits.length+' / 12 habits';$('today').textContent='Today: '+key(new Date());
+ $('next').disabled=offset>=0;
+ const end=shift(dateOnly(new Date()),offset),start=shift(end,-13);
+ $('range').textContent=key(start)+' → '+key(end);
+ const host=$('calendar');host.replaceChildren();
+ const header=cell('div','calendar-row calendar-head');
+ header.appendChild(cell('div','corner','Habit / day'));
+ const days=Array.from({length:14},(_,i)=>shift(start,i));
+ days.forEach(d=>{const today=key(d)===key(new Date());const label=cell('div','day-label'+(today?' today':''));label.textContent=d.toLocaleDateString('en-US',{weekday:'short'});label.appendChild(cell('span','',String(d.getDate())));label.title=key(d);header.appendChild(label);});
+ host.appendChild(header);
+ if(!habits.length){host.appendChild(cell('div','empty','Your garden is empty. Add a habit above, or use a quick-start button.'));}
+ habits.forEach(h=>{
+  const row=cell('div','calendar-row');
+  const name=cell('div','habit-name'+(selectedId===h.id?' active':''));name.style.setProperty('--habit',h.color);
+  const choose=cell('button','name-btn',h.name);choose.type='button';choose.setAttribute('aria-label','Show statistics for '+h.name);choose.addEventListener('click',()=>{selectedId=h.id;render();announce('Showing statistics for '+h.name+'.');});
+  const remove=cell('button','remove','✕');remove.type='button';remove.setAttribute('aria-label','Delete '+h.name);remove.title='Delete habit';remove.addEventListener('click',()=>{if(!confirm('Delete "'+h.name+'" and its check-ins?'))return;habits=habits.filter(x=>x.id!==h.id);if(selectedId===h.id)selectedId=habits[0]?.id||null;save();render();announce('Deleted '+h.name+'.');});
+  name.append(choose,remove);row.appendChild(name);
+  days.forEach(d=>{
+   const day=key(d),today=day===key(new Date()),weekend=[0,6].includes(d.getDay()),checked=!!h.days[day];
+   const wrap=cell('div','check-cell'+(today?' today':'')+(weekend?' weekend':''));const b=cell('button','check'+(checked?' done':''),checked?'✓':'');
+   b.type='button';b.style.setProperty('--habit',h.color);b.setAttribute('aria-pressed',String(checked));b.setAttribute('aria-label',(checked?'Unmark ':'Mark ')+h.name+' on '+day+(checked?'':' as complete'));b.title=h.name+' · '+day;b.disabled=d>dateOnly(new Date());
+   b.addEventListener('click',()=>{if(h.days[day])delete h.days[day];else h.days[day]=true;selectedId=h.id;save();render();announce(h.name+' · '+day+(h.days[day]?' checked in.':' check-in removed.'));});
+   wrap.appendChild(b);row.appendChild(wrap);
+  });host.appendChild(row);
+ });
+ renderStats();
+}
+$('addForm').addEventListener('submit',e=>{e.preventDefault();add($('habitInput').value,$('color').value);$('habitInput').value='';$('habitInput').focus();});
+$('presetWater').addEventListener('click',()=>add('Drink water','#a6cdf2'));
+$('presetRead').addEventListener('click',()=>add('Read for 15 minutes','#c7b6ee'));
+$('previous').addEventListener('click',()=>{offset=Math.max(-714,offset-7);render();});
+$('next').addEventListener('click',()=>{offset=Math.min(0,offset+7);render();});
+$('current').addEventListener('click',()=>{offset=0;render();});
+$('export').addEventListener('click',()=>{
+ const content=JSON.stringify({version:1,exportedAt:new Date().toISOString(),habits},null,2);
+ const blob=new Blob([content],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='streak-garden-'+key(new Date())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);announce('JSON backup downloaded.');
+});
+$('importTrigger').addEventListener('click',()=>$('import').click());
+$('import').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>200000)throw Error('Backup is larger than 200 KB.');
+  const parsed=JSON.parse(await file.text()),incoming=sanitize(parsed);
+  if(!confirm('Replace your '+habits.length+' existing habits with '+incoming.length+' imported habits?'))return;
+  habits=incoming;selectedId=habits[0]?.id||null;offset=0;save();render();announce('Imported '+habits.length+' habits from JSON.');
+ }catch(err){announce('Import failed: '+err.message);}finally{e.target.value='';}
+});
+$('clear').addEventListener('click',()=>{if(!habits.length)return announce('Nothing to delete.');if(!confirm('Permanently delete all '+habits.length+' habits and check-ins on this device?'))return;habits=[];selectedId=null;offset=0;save();render();announce('All local habits deleted.');});
+load();render();
+})();
+</script>
+</body>
+</html>
