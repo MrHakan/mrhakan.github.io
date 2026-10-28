@@ -131,7 +131,7 @@ if(['2','3','4','5','6','8'].includes(String(p)))precision=p;
 $('precision').value=String(precision);
 if(v!==null&&v.trim()!==''&&Number.isFinite(Number(v))&&Math.abs(Number(v))<=1e15)$('amount').value=v;
 setCategory(GROUPS[cat]?cat:'speed',query.get('from'),query.get('to'));
-if(Math.abs(convert(12,'kn','kmh')-22.224)>1e-9&&category==='speed')throw Error('Speed conversion regression');
+if(category==='speed'&&Math.abs(convert(12,'kn','kmh')-22.224)>1e-9)throw Error('Speed conversion regression');
 })();
 </script>
 </body></html>
