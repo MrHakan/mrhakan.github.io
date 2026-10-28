@@ -1,5 +1,40 @@
 [
   {
+    "name": "River Ferry 98",
+    "type": "game",
+    "date": "2026-10-28",
+    "url": "/games/river-ferry/",
+    "description": "Eight safe river-crossing cargo puzzles with shortest-route hints, undo, daily rotation, keyboard/touch controls and local records.",
+    "icon": "🛶",
+    "tags": [
+      "river-crossing",
+      "logic",
+      "daily",
+      "puzzle",
+      "ferry",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Deck Converter 98",
+    "type": "app",
+    "date": "2026-10-28",
+    "url": "/apps/deck-converter/",
+    "description": "Private nautical unit converter for knots, nautical miles, fathoms, mass, pressure, volume and temperature with quick presets and share links.",
+    "icon": "⚓",
+    "tags": [
+      "maritime",
+      "converter",
+      "units",
+      "nautical",
+      "navigation",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Disk Transfer 98",
     "type": "game",
     "date": "2026-10-27",

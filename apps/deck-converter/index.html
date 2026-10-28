@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Offline nautical and everyday unit converter for speed, distance, depth, mass, pressure, volume and temperature with shareable values.">
+<title>Deck Converter 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/deck-converter/">
+<meta property="og:title" content="Deck Converter 98"><meta property="og:description" content="Convert knots, nautical miles, fathoms, tonnes, pressure, volume and temperatures entirely in your browser.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:15px;color:#193042;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1010px;margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005353}
+.titlebar{background:linear-gradient(90deg,#000080,#1581b5);color:#fff;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.titlebar h1{margin:0;font-size:18px}.close,.btn,input,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#172c3e;border:2px solid;border-color:#fff #555 #555 #fff;padding:9px 11px;min-height:42px}
+.close{min-height:0;text-decoration:none;padding:5px 10px}.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline;text-underline-offset:2px}
+main{padding:0 12px 12px}.layout{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(265px,.75fr);gap:12px}
+.panel{background:#ededed;border:2px inset #ddd;padding:13px;min-width:0}.panel h2{font-size:15px;margin:0 0 10px}
+.intro,.note{line-height:1.65;color:#455b6c;font-size:12px}
+label{display:block;font-weight:700;margin:10px 0 5px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.field{min-width:0}.field input,.field select{width:100%;background:#fff;border:2px inset #ddd;font:16px Consolas,monospace;min-width:0}
+#result{background:#e4f4e8;color:#163b2a}.toolbar,.presets{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;align-items:center}
+.btn{cursor:pointer}.btn.primary{background:#d8edfa}.btn:disabled{opacity:.5;cursor:not-allowed}
+#status{background:#fff;border:2px inset #ddd;padding:10px;min-height:43px;line-height:1.5}
+.summary{background:#fff;border:2px inset #ddd;padding:12px;font:700 clamp(17px,3vw,23px) Consolas,monospace;overflow-wrap:anywhere}
+.tablewrap{overflow-x:auto;border:2px inset #ddd;background:#fff}
+table{border-collapse:collapse;width:100%;font:12px Consolas,monospace}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #dbe4eb}th{background:#dcebf4}td:last-child{text-align:right;font-weight:700;overflow-wrap:anywhere}
+.preset{font-size:11px;min-height:36px;padding:7px 8px}.note a{color:#174e80}
+footer{padding:9px 12px;border-top:1px solid #999;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px}
+:focus-visible{outline:3px solid #f1a000;outline-offset:3px}
+@media(max-width:750px){body{padding:8px}.layout{grid-template-columns:1fr}.panel{padding:10px}}
+@media(max-width:430px){.fields{grid-template-columns:1fr}.titlebar h1{font-size:16px}.toolbar .btn{flex:1}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body><div class="window">
+<header class="titlebar"><h1>⚓ Deck Converter 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>File</span>　<span>Convert</span>　<span>Reference</span>　<span>About</span></div>
+<main class="layout">
+<section class="panel">
+<h2>Shipboard & everyday conversions</h2><p class="intro">A small offline calculator for nautical miles, knots, fathoms, tonnes and other common units. Change any value to update instantly.</p>
+<label for="category">Category</label><select id="category"></select>
+<div class="fields">
+<div class="field"><label for="amount">From value</label><input id="amount" type="number" step="any" inputmode="decimal" value="12" aria-describedby="status"><label for="from">From unit</label><select id="from"></select></div>
+<div class="field"><label for="result">Converted value</label><input id="result" type="text" readonly aria-label="Converted value"><label for="to">To unit</label><select id="to"></select></div>
+</div>
+<div class="toolbar"><button class="btn" type="button" id="swap">⇄ Swap units</button><label for="precision" style="margin:0">Decimals</label><select id="precision" aria-label="Decimal precision"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>8</option></select><button class="btn primary" type="button" id="copy">📋 Copy result</button><button class="btn" type="button" id="share">🔗 Copy link</button></div>
+<div class="summary" id="summary" aria-live="polite">12 kn = 22.224 km/h</div>
+<p id="status" role="status" aria-live="polite">Ready. No data leaves this browser.</p>
+<h2>Quick presets</h2>
+<div class="presets" id="presets">
+<button class="btn preset" type="button" data-preset="speed|kn|kmh|12">12 kn → km/h</button>
+<button class="btn preset" type="button" data-preset="distance|nm|km|6">6 NM → km</button>
+<button class="btn preset" type="button" data-preset="depth|ft|m|30">30 ft → m</button>
+<button class="btn preset" type="button" data-preset="pressure|bar|psi|1">1 bar → psi</button>
+<button class="btn preset" type="button" data-preset="temperature|c|f|20">20 °C → °F</button>
+<button class="btn preset" type="button" data-preset="mass|kg|t|1000">1000 kg → t</button>
+</div>
+<p class="note">Conversions are reference calculations, not substitutes for calibrated shipboard instruments or approved navigation and cargo procedures.</p>
+</section>
+<aside class="panel">
+<h2>📐 All units in this category</h2><p class="intro">The table uses your current input value and updates automatically.</p>
+<div class="tablewrap"><table><thead><tr><th scope="col">Unit</th><th scope="col">Value</th></tr></thead><tbody id="reference"></tbody></table></div>
+<h2>Exact definitions</h2><p class="note">1 international nautical mile = 1,852 m; 1 knot = 1 NM/hour; 1 international foot = 0.3048 m; 1 fathom = 6 ft; 1 international pound = 0.45359237 kg; 1 US liquid gallon = 3.785411784 L.</p>
+<p class="note">Sources: <a href="https://www.nist.gov/pml/us-surveyfoot/revised-unit-conversion-factors" target="_blank" rel="noopener noreferrer">NIST length factors</a> and <a href="https://www.nist.gov/pml/special-publication-811" target="_blank" rel="noopener noreferrer">NIST SI guide</a>.</p>
+<p class="note">Calculations happen entirely on this device. Sharing creates a link containing only your selected units and number; no analytics, accounts or paid APIs.</p>
+</aside>
+</main><footer><span>Deck Converter 98 · Maritime pocket calculator</span><span>Offline-friendly • Keyboard accessible</span></footer>
+</div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const GROUPS={
+ speed:{label:'Speed',units:[['kn','knot (kn)',1852/3600],['kmh','kilometres/hour (km/h)',1000/3600],['mph','miles/hour (mph)',1609.344/3600],['ms','metres/second (m/s)',1],['fts','feet/second (ft/s)',.3048]]},
+ distance:{label:'Distance',units:[['nm','nautical mile (NM)',1852],['km','kilometre (km)',1000],['m','metre (m)',1],['mi','statute mile (mi)',1609.344],['ft','foot (ft)',.3048],['fathom','fathom (fm)',1.8288]]},
+ depth:{label:'Depth & draught',units:[['m','metre (m)',1],['ft','foot (ft)',.3048],['fathom','fathom (fm)',1.8288],['cm','centimetre (cm)',.01]]},
+ mass:{label:'Mass',units:[['t','metric tonne (t)',1000],['kg','kilogram (kg)',1],['lb','pound (lb)',.45359237],['short','US short ton',907.18474]]},
+ pressure:{label:'Pressure',units:[['bar','bar',100000],['kpa','kilopascal (kPa)',1000],['psi','pounds/in² (psi)',6894.757293168],['atm','standard atmosphere (atm)',101325]]},
+ volume:{label:'Volume',units:[['m3','cubic metre (m³)',1000],['l','litre (L)',1],['usgal','US liquid gallon (gal)',3.785411784],['ft3','cubic foot (ft³)',28.316846592]]},
+ temperature:{label:'Temperature',units:[['c','Celsius (°C)',1],['f','Fahrenheit (°F)',1],['k','kelvin (K)',1]]}
+};
+const DEFAULTS={speed:['kn','kmh'],distance:['nm','km'],depth:['ft','m'],mass:['kg','t'],pressure:['bar','psi'],volume:['m3','l'],temperature:['c','f']};
+let category='speed',from='kn',to='kmh',precision=4;
+function unit(id){return GROUPS[category].units.find(u=>u[0]===id);}
+function convert(value,a,b){
+ let base;
+ if(category==='temperature'){
+  base=a==='c'?value+273.15:a==='f'?(value-32)*5/9+273.15:value;
+  return b==='c'?base-273.15:b==='f'?(base-273.15)*9/5+32:base;
+ }
+ base=value*unit(a)[2];return base/unit(b)[2];
+}
+function fmt(x){if(!Number.isFinite(x))return 'Out of range';if(x!==0&&Math.abs(x)<Math.pow(10,-precision))return x.toExponential(Math.max(2,precision-1));return new Intl.NumberFormat('en-US',{maximumFractionDigits:precision}).format(x);}
+function announce(s){$('status').textContent=s;}
+function options(select,values){select.replaceChildren();values.forEach(v=>{const o=document.createElement('option');o.value=v[0];o.textContent=v[1];select.appendChild(o);});}
+function setCategory(cat,a,b){
+ if(!GROUPS[cat])return;category=cat;const ids=GROUPS[cat].units.map(u=>u[0]);from=ids.includes(a)?a:DEFAULTS[cat][0];to=ids.includes(b)?b:DEFAULTS[cat][1];
+ $('category').value=cat;options($('from'),GROUPS[cat].units);options($('to'),GROUPS[cat].units);$('from').value=from;$('to').value=to;render();
+}
+function render(){
+ const raw=$('amount').value,valid=raw.trim()!==''&&Number.isFinite(Number(raw))&&Math.abs(Number(raw))<=1e15;
+ const n=Number(raw),output=valid?convert(n,from,to):NaN;
+ $('result').value=valid?fmt(output):'';
+ $('copy').disabled=!valid;$('share').disabled=!valid;
+ $('summary').textContent=valid?fmt(n)+' '+unit(from)[1]+' = '+fmt(output)+' '+unit(to)[1]:'Enter a finite number (magnitude ≤ 10¹⁵).';
+ const tbody=$('reference');tbody.replaceChildren();
+ GROUPS[category].units.forEach(u=>{const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td');a.textContent=u[1];b.textContent=valid?fmt(convert(n,from,u[0])):'—';tr.append(a,b);tbody.appendChild(tr);});
+}
+function copyText(text){
+ if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text);
+ return new Promise((resolve,reject)=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();ok?resolve():reject(Error('Copy unavailable'));});
+}
+$('amount').addEventListener('input',render);
+$('category').addEventListener('change',()=>{setCategory($('category').value);announce('Category changed.');});
+$('from').addEventListener('change',()=>{from=$('from').value;render();});
+$('to').addEventListener('change',()=>{to=$('to').value;render();});
+$('precision').addEventListener('change',()=>{precision=Number($('precision').value);render();});
+$('swap').addEventListener('click',()=>{const a=from;from=to;to=a;$('from').value=from;$('to').value=to;render();announce('Units swapped.');});
+$('copy').addEventListener('click',()=>{copyText($('result').value+' '+unit(to)[1]).then(()=>announce('Converted value copied.')).catch(()=>announce('Clipboard blocked. Select the result field to copy manually.'));});
+$('share').addEventListener('click',()=>{
+ const q=new URLSearchParams({cat:category,from,to,v:$('amount').value,p:String(precision)});
+ copyText(location.origin+location.pathname+'?'+q.toString()).then(()=>announce('Shareable link copied.')).catch(()=>announce('Clipboard blocked. Use your browser address bar instead.'));
+});
+$('presets').addEventListener('click',e=>{
+ const button=e.target.closest('button[data-preset]');if(!button)return;
+ const parts=button.dataset.preset.split('|');$('amount').value=parts[3];setCategory(parts[0],parts[1],parts[2]);announce('Quick preset loaded.');
+});
+Object.keys(GROUPS).forEach(k=>{const opt=document.createElement('option');opt.value=k;opt.textContent=GROUPS[k].label;$('category').appendChild(opt);});
+const query=new URLSearchParams(location.search),cat=query.get('cat'),v=query.get('v'),p=Number(query.get('p'));
+if(['2','3','4','5','6','8'].includes(String(p)))precision=p;
+$('precision').value=String(precision);
+if(v!==null&&v.trim()!==''&&Number.isFinite(Number(v))&&Math.abs(Number(v))<=1e15)$('amount').value=v;
+setCategory(GROUPS[cat]?cat:'speed',query.get('from'),query.get('to'));
+if(Math.abs(convert(12,'kn','kmh')-22.224)>1e-9&&category==='speed')throw Error('Speed conversion regression');
+})();
+</script>
+</body></html>
