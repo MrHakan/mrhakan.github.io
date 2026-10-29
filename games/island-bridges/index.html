@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Solve eight uniquely determined Hashiwokakero island bridge puzzles. Connect every island with no crossings, using hints, undo and daily challenges.">
+<title>Island Bridges 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/island-bridges/">
+<meta property="og:title" content="Island Bridges 98">
+<meta property="og:description" content="Build one connected network of numbered islands. Eight unique puzzles, daily challenges, hints and offline play.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:15px;color:#173044;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1040px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005353}
+.titlebar{background:linear-gradient(90deg,#000080,#1683b6);color:white;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.titlebar h1{font-size:18px;margin:0}.close,.btn,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#173044;border:2px solid;border-color:white #555 #555 white;padding:9px 11px;min-height:40px}
+.close{min-height:0;text-decoration:none;padding:5px 10px}.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline}
+.layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(250px,.8fr);gap:12px;padding:0 12px 12px}.panel{min-width:0;background:#ededed;border:2px inset #ddd;padding:12px}.panel h2{font-size:15px;margin:0 0 9px}
+.toolbar,.badges{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:9px 0}.btn{cursor:pointer}.btn.primary{background:#d7ecfa}.btn:disabled{opacity:.5;cursor:not-allowed}
+select{background:white;max-width:100%}.badge{background:white;border:2px inset #ddd;padding:8px 10px;font:12px Consolas,monospace}
+.boardwrap{background:#f3fafc;border:2px inset #ddd;max-width:640px;margin:auto;touch-action:manipulation}svg{display:block;width:100%;height:auto}
+.guide{stroke:#b8d4dc;stroke-width:3;stroke-dasharray:5 9}.bridge{stroke:#125e91;stroke-width:8;stroke-linecap:round;pointer-events:none}.bridge.bad{stroke:#bc3737}
+.hit{stroke:transparent;stroke-width:32;cursor:pointer;outline:none}.hit:hover{stroke:rgba(29,105,171,.16)}.hit:focus-visible{stroke:rgba(244,161,0,.45);outline:3px solid #e99a00}
+.island{fill:#fff8d6;stroke:#28455a;stroke-width:4}.island.done{fill:#d6f5df;stroke:#22804b}.island.over{fill:#ffd4d4;stroke:#b33}.number{font:700 28px Tahoma,Arial;fill:#172e42;pointer-events:none}
+#status{background:white;border:2px inset #ddd;padding:10px;line-height:1.6;min-height:56px}
+.rules{background:white;border:2px inset #ddd;padding:10px;line-height:1.65}.rules ul{padding-left:18px;margin:7px 0}
+.connections{max-height:245px;overflow:auto;background:white;border:2px inset #ddd;padding:7px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.edgebtn{background:#f5f7fb;border:1px solid #9bafbd;min-height:36px;text-align:left;padding:7px;cursor:pointer;font:12px Tahoma,Arial;overflow-wrap:anywhere}.edgebtn.active{background:#dcecf9}.edgebtn.bad{background:#ffdada}
+.help{font-size:12px;line-height:1.6;color:#405569}.records{background:white;border:2px inset #ddd;padding:10px;line-height:1.5}
+footer{padding:9px 12px;border-top:1px solid #999;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11px}
+:focus-visible{outline:3px solid #e99a00;outline-offset:2px}
+@media(max-width:760px){body{padding:8px}.layout{grid-template-columns:1fr}.panel{padding:9px}.connections{max-height:180px}}
+@media(max-width:420px){.titlebar h1{font-size:15px}.connections{grid-template-columns:1fr}.btn{flex:1}.badge{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body><div class="window">
+<header class="titlebar"><h1>🌉 Island Bridges 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>Game</span>　<span>Daily</span>　<span>Connections</span>　<span>Help</span></div>
+<main class="layout">
+<section class="panel">
+<h2>Connect the islands</h2>
+<div class="toolbar"><label for="level"><strong>Board</strong></label><select id="level" aria-label="Choose a puzzle"></select><button type="button" class="btn primary" id="daily">Today's board</button></div>
+<div class="badges"><span class="badge" id="progress">0 / 0 islands</span><span class="badge" id="moves">0 moves</span><span class="badge" id="assists">0 hints</span></div>
+<div class="boardwrap"><svg id="board" viewBox="0 0 640 640" role="group" aria-label="Interactive island bridge board. Tab to a connection and press Enter or Space to add bridges."></svg></div>
+<div class="toolbar"><button type="button" class="btn" id="undo">↶ Undo</button><button type="button" class="btn" id="hint">💡 Hint</button><button type="button" class="btn" id="check">✓ Check</button><button type="button" class="btn" id="reset">↻ Reset</button></div>
+<div id="status" role="status" aria-live="polite">Choose a connection to place a bridge.</div>
+</section>
+<aside class="panel">
+<h2>How to play</h2>
+<div class="rules"><strong>Hashiwokakero rules</strong><ul><li>Each island's number is the total bridges touching it.</li><li>Connect two islands with <strong>0, 1 or 2</strong> straight bridges.</li><li>Bridges cannot cross or pass through an island.</li><li>All islands must belong to <strong>one connected network</strong>.</li></ul>Click a pale line repeatedly to cycle 0 → 1 → 2 → 0. Keyboard: Tab to a line, Enter/Space to change it. U = undo, H = hint.</div>
+<h2 style="margin-top:16px">Accessible connection list</h2>
+<p class="help">The buttons below work the same as the lines on the board.</p>
+<div id="connections" class="connections" aria-label="Connections between islands"></div>
+<h2 style="margin-top:16px">Personal best</h2>
+<div class="records" id="record">No clean solve recorded yet.</div>
+<p class="help">Eight independently solver-checked, uniquely solvable boards. The daily pick uses UTC. Your unassisted best move count stays on this device only. No account, network calls or tracking.</p>
+</aside>
+</main>
+<footer><span>Windows 98 Playground · offline puzzle</span><span>Inspired by Nikoli's Hashiwokakero</span></footer>
+</div>
+<script>
+"use strict";
+const LEVELS=[
+{n:[[0,0,1],[2,0,4],[4,0,2],[0,2,1],[2,2,3],[6,2,2],[0,4,1],[6,4,2]],s:[1,0,2,1,1,0,1,1,1]},
+{n:[[0,0,3],[2,0,2],[4,2,1],[6,2,3],[0,4,3],[6,4,5],[0,6,2],[2,6,1],[4,6,2],[6,6,4]],s:[2,1,0,1,0,2,1,1,2,1,0,2]},
+{n:[[0,0,1],[2,0,2],[4,0,1],[2,2,3],[4,4,2],[0,6,2],[2,6,5],[4,6,5],[6,6,1]],s:[0,1,1,1,0,2,2,1,2,1]},
+{n:[[2,0,3],[4,0,2],[2,2,2],[6,2,2],[0,4,1],[2,4,4],[6,4,2],[0,6,2],[2,6,6],[4,6,2]],s:[2,1,0,1,0,1,1,0,1,2,2,2]},
+{n:[[0,0,3],[2,0,4],[6,0,3],[0,2,3],[0,6,1],[2,6,2],[4,6,1],[6,6,1]],s:[1,2,2,1,1,1,0,1,0]},
+{n:[[2,0,1],[4,0,2],[0,2,1],[4,2,4],[6,2,3],[0,4,1],[4,4,2],[4,6,1],[6,6,3]],s:[1,1,1,0,1,1,2,1,0,1]},
+{n:[[0,0,2],[6,0,3],[2,2,1],[4,2,2],[6,2,3],[4,4,1],[2,6,2],[4,6,4],[6,6,2]],s:[2,1,1,0,1,0,1,1,2,1]},
+{n:[[0,0,3],[2,0,2],[0,2,3],[4,2,2],[6,2,1],[0,4,2],[2,4,1],[0,6,3],[2,6,3]],s:[2,1,0,1,1,1,0,1,1,2]}
+];
+const $=id=>document.getElementById(id);
+const ns="http://www.w3.org/2000/svg";
+let level=0,nodes=[],edges=[],values=[],history=[],moves=0,hints=0,won=false;
+function makeEdges(n){
+ const e=[];
+ for(let i=0;i<n.length;i++)for(let j=i+1;j<n.length;j++){
+  const a=n[i],b=n[j];
+  if(a[0]===b[0]&&!n.some((p,k)=>k!==i&&k!==j&&p[0]===a[0]&&p[1]>Math.min(a[1],b[1])&&p[1]<Math.max(a[1],b[1])))e.push([i,j]);
+  else if(a[1]===b[1]&&!n.some((p,k)=>k!==i&&k!==j&&p[1]===a[1]&&p[0]>Math.min(a[0],b[0])&&p[0]<Math.max(a[0],b[0])))e.push([i,j]);
+ }
+ return e;
+}
+function crossing(a,b){
+ const p=nodes[edges[a][0]],q=nodes[edges[a][1]],r=nodes[edges[b][0]],s=nodes[edges[b][1]];
+ if(p[0]===q[0]&&r[1]===s[1])return r[1]>Math.min(p[1],q[1])&&r[1]<Math.max(p[1],q[1])&&p[0]>Math.min(r[0],s[0])&&p[0]<Math.max(r[0],s[0]);
+ if(p[1]===q[1]&&r[0]===s[0])return r[0]>Math.min(p[0],q[0])&&r[0]<Math.max(p[0],q[0])&&p[1]>Math.min(r[1],s[1])&&p[1]<Math.max(r[1],s[1]);
+ return false;
+}
+function audit(){
+ const totals=nodes.map(()=>0),bad=new Set();
+ edges.forEach(([a,b],k)=>{totals[a]+=values[k];totals[b]+=values[k];});
+ for(let a=0;a<edges.length;a++)if(values[a])for(let b=0;b<a;b++)if(values[b]&&crossing(a,b)){bad.add(a);bad.add(b);}
+ const visited=new Set([0]),stack=[0];
+ while(stack.length){const u=stack.pop();edges.forEach(([a,b],k)=>{if(!values[k])return;const v=a===u?b:b===u?a:-1;if(v>=0&&!visited.has(v)){visited.add(v);stack.push(v);}});}
+ return {totals,bad,complete:totals.every((v,i)=>v===nodes[i][2]),connected:visited.size===nodes.length};
+}
+function svg(tag,attrs){const el=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,String(v)));return el;}
+function point(i){return [62+nodes[i][0]*86,62+nodes[i][1]*86];}
+function label(k){const [a,b]=edges[k];return "Island "+(a+1)+" to "+(b+1)+" ("+values[k]+" bridges)";}
+function paint(){
+ const result=audit(),board=$("board"),list=$("connections");board.replaceChildren();list.replaceChildren();
+ for(let i=0;i<=6;i++){board.append(svg("line",{x1:62+i*86,y1:40,x2:62+i*86,y2:600,stroke:"#e3edf0","stroke-width":1}));board.append(svg("line",{x1:40,y1:62+i*86,x2:600,y2:62+i*86,stroke:"#e3edf0","stroke-width":1}));}
+ edges.forEach(([a,b],k)=>{
+  const p=point(a),q=point(b),vertical=p[0]===q[0],bad=result.bad.has(k);
+  board.append(svg("line",{x1:p[0],y1:p[1],x2:q[0],y2:q[1],class:"guide"}));
+  for(let t=0;t<values[k];t++){const shift=values[k]===2?(t?6:-6):0;board.append(svg("line",{x1:p[0]+(vertical?shift:0),y1:p[1]+(vertical?0:shift),x2:q[0]+(vertical?shift:0),y2:q[1]+(vertical?0:shift),class:"bridge"+(bad?" bad":"")}));}
+  const hit=svg("line",{x1:p[0],y1:p[1],x2:q[0],y2:q[1],class:"hit",role:"button",tabindex:"0","data-edge":k,"aria-label":label(k)});
+  hit.addEventListener("click",()=>change(k));hit.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();change(k);const next=board.querySelector('[data-edge="'+k+'"]');if(next)next.focus();}});
+  board.append(hit);
+  const button=document.createElement("button");button.type="button";button.className="edgebtn"+(values[k]?" active":"")+(bad?" bad":"");button.textContent=(a+1)+" ↔ "+(b+1)+" : "+values[k];button.setAttribute("aria-label",label(k));button.addEventListener("click",()=>change(k));list.append(button);
+ });
+ nodes.forEach((node,i)=>{const p=point(i),done=result.totals[i]===node[2],over=result.totals[i]>node[2];const g=svg("g",{"aria-label":"Island "+(i+1)+", "+result.totals[i]+" of "+node[2]+" bridges"});g.append(svg("circle",{cx:p[0],cy:p[1],r:24,class:"island"+(over?" over":done?" done":"")}));const txt=svg("text",{x:p[0],y:p[1]+9,"text-anchor":"middle",class:"number"});txt.textContent=node[2];g.append(txt);board.append(g);});
+ $("progress").textContent=result.totals.filter((v,i)=>v===nodes[i][2]).length+" / "+nodes.length+" islands";
+ $("moves").textContent=moves+" moves";$("assists").textContent=hints+" hints";
+ $("undo").disabled=!history.length||won;
+ $("record").textContent=recordText();
+ return result;
+}
+function recordText(){try{const v=localStorage.getItem("island-bridges98-best-"+level);return v?"Board "+(level+1)+": "+v+" moves (without hints).":"No clean solve recorded for this board.";}catch{return "Records unavailable in private browsing.";}}
+function announce(s){$("status").textContent=s;}
+function checkWin(result){
+ if(!result.complete||result.bad.size||!result.connected)return false;
+ won=true;
+ if(!hints){try{const key="island-bridges98-best-"+level,old=Number(localStorage.getItem(key))||Infinity;if(moves<old)localStorage.setItem(key,String(moves));}catch{}}
+ announce("🎉 Network complete! "+moves+" moves"+(hints?" · assisted solve.": " · clean solve!"));paint();return true;
+}
+function change(k){
+ if(won)return;
+ history.push({values:values.slice(),moves,hints});if(history.length>150)history.shift();
+ values[k]=(values[k]+1)%3;moves++;
+ const result=paint();
+ if(!checkWin(result))announce(result.bad.size?"⚠ Bridges are crossing. Remove the red connection.":"Keep going! "+result.totals.filter((v,i)=>v===nodes[i][2]).length+" islands match their numbers.");
+}
+function start(index){level=index;nodes=LEVELS[level].n;edges=makeEdges(nodes);values=edges.map(()=>0);history=[];moves=0;hints=0;won=false;$("level").value=String(index);paint();announce("Board "+(level+1)+" ready. Click a connection to place a bridge.");}
+function undo(){if(!history.length||won)return;const last=history.pop();values=last.values;moves=last.moves;hints=last.hints;paint();announce("Last action undone.");}
+function hint(){
+ if(won)return;const answer=LEVELS[level].s;const wrong=values.findIndex((v,i)=>v!==answer[i]);if(wrong<0){announce("All bridge counts match. Press Check to verify connectivity.");return;}
+ history.push({values:values.slice(),moves,hints});values[wrong]=answer[wrong];hints++;moves++;const result=paint();if(!checkWin(result))announce("Hint: corrected connection "+(edges[wrong][0]+1)+" ↔ "+(edges[wrong][1]+1)+".");
+}
+function verify(){
+ const r=audit();if(checkWin(r))return;
+ const mismatch=r.totals.filter((v,i)=>v!==nodes[i][2]).length;
+ announce(r.bad.size?"⚠ "+r.bad.size+" crossing connections need attention.":mismatch?mismatch+" islands still need their bridge counts corrected.":"All numbers match, but the network is not fully connected.");
+}
+$("level").addEventListener("change",e=>start(Number(e.target.value)));
+$("daily").addEventListener("click",()=>start(Math.floor(Date.now()/86400000)%LEVELS.length));
+$("undo").addEventListener("click",undo);$("hint").addEventListener("click",hint);$("check").addEventListener("click",verify);$("reset").addEventListener("click",()=>start(level));
+document.addEventListener("keydown",e=>{if(["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)||e.altKey||e.ctrlKey||e.metaKey)return;if(e.key.toLowerCase()==="u")undo();if(e.key.toLowerCase()==="h")hint();});
+LEVELS.forEach((item,i)=>{const option=document.createElement("option");option.value=String(i);option.textContent="Board "+(i+1)+" · "+item.n.length+" islands";$("level").append(option);});
+start(Math.floor(Date.now()/86400000)%LEVELS.length);
+</script>
+</body></html>

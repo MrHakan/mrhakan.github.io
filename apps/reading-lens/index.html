@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Private offline writing analyzer with word counts, reading time, sentence insights, frequent words and approximate English Flesch readability scores.">
+<title>Reading Lens 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/reading-lens/">
+<meta property="og:title" content="Reading Lens 98">
+<meta property="og:description" content="Explore English or Turkish writing with live reading-time estimates, sentence lengths, keyword frequency and local-only analysis.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:15px;color:#183145;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1080px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:white #555 #555 white;box-shadow:8px 8px #005353}
+.titlebar{background:linear-gradient(90deg,#000080,#1683b6);color:white;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}.titlebar h1{margin:0;font-size:18px}
+.close,.btn,input,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#173044;border:2px solid;border-color:white #555 #555 white;padding:9px 11px;min-height:40px}.close{min-height:0;text-decoration:none;padding:5px 10px}
+.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline}
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(270px,.85fr);gap:12px;padding:0 12px 12px}.panel{background:#ededed;border:2px inset #ddd;padding:13px;min-width:0}.panel h2{font-size:15px;margin:0 0 10px}
+.note{color:#3e586a;font-size:12px;line-height:1.6}.toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin:12px 0}.field{min-width:115px;flex:1}.field label{display:block;font-weight:700;margin-bottom:5px}.field input,.field select{width:100%;background:white;min-width:0;font:14px Tahoma,Arial}
+.btn{cursor:pointer}.btn.primary{background:#d8eafa}.btn:disabled{opacity:.5;cursor:not-allowed}
+textarea{width:100%;min-height:355px;resize:vertical;background:#fff;color:#152d40;border:2px inset #ddd;padding:13px;font:15px/1.7 Georgia,serif}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric{background:white;border:2px inset #ddd;padding:11px;min-width:0}.metric b{display:block;font:700 clamp(18px,3vw,26px) Consolas,monospace;overflow-wrap:anywhere}.metric small{display:block;margin-top:5px;color:#4a6070;font:12px Tahoma,Arial}
+#status{background:white;border:2px inset #ddd;padding:10px;line-height:1.6;min-height:46px}
+#easebar{height:14px;background:#d7e0e8;border:1px solid #8b9aa5;margin:9px 0}#easefill{height:100%;width:0;background:#3476a4;transition:width .15s}
+.insight{background:white;border:2px inset #ddd;padding:10px;margin:9px 0;line-height:1.55}.insight strong{display:block;margin-bottom:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:6px 8px;background:#e8f3fc;border:1px solid #a7c3d8;font:12px Consolas,monospace}
+.longlist{margin:5px 0 0;padding-left:18px}.longlist li{margin:7px 0;overflow-wrap:anywhere}
+footer{padding:9px 12px;border-top:1px solid #999;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11px}
+:focus-visible{outline:3px solid #f2a100;outline-offset:2px}
+@media(max-width:790px){body{padding:8px}.layout{grid-template-columns:1fr}.panel{padding:10px}textarea{min-height:240px}}
+@media(max-width:440px){.titlebar h1{font-size:16px}.toolbar .btn{flex:1}.field{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body><div class="window">
+<header class="titlebar"><h1>📖 Reading Lens 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>File</span>　<span>Analyze</span>　<span>Reading Time</span>　<span>Privacy</span></div>
+<main class="layout">
+<section class="panel">
+<h2>Inspect your writing</h2><p class="note">Paste a draft or import a plain-text file. Analysis runs in your browser; the original text is never uploaded, tracked or saved automatically.</p>
+<div class="toolbar">
+<div class="field"><label for="language">Language</label><select id="language"><option value="en">English</option><option value="tr">Türkçe</option></select></div>
+<div class="field"><label for="wpm">Reading speed (words/min)</label><input id="wpm" type="number" min="100" max="500" step="10" value="220"></div>
+</div>
+<label for="source" style="display:block;font-weight:700;margin-bottom:7px">Text to analyze</label>
+<textarea id="source" spellcheck="true" placeholder="Write or paste text here...">Good writing helps people find the information they need. Short sentences make instructions easier to follow. A clear structure gives readers a useful map. Try to use familiar words whenever possible.
+
+Long sentences can sometimes hide important ideas, especially when several separate explanations and exceptions are packed into the same line without a pause.</textarea>
+<div class="toolbar">
+<button type="button" class="btn primary" id="sample">Load sample</button>
+<button type="button" class="btn" id="import">Import .txt</button>
+<input id="file" type="file" accept=".txt,text/plain" hidden aria-label="Choose a text file">
+<button type="button" class="btn" id="copy">Copy report</button>
+<button type="button" class="btn" id="download">Export JSON</button>
+<button type="button" class="btn" id="clear">Clear</button>
+</div>
+<div id="status" role="status" aria-live="polite">Ready. Your text stays on this device.</div>
+</section>
+<aside class="panel">
+<h2>Live writing dashboard</h2>
+<div class="metrics">
+<div class="metric"><b id="words">0</b><small>Words</small></div>
+<div class="metric"><b id="sentences">0</b><small>Sentences</small></div>
+<div class="metric"><b id="characters">0</b><small>Characters</small></div>
+<div class="metric"><b id="minutes">0</b><small>Reading time</small></div>
+<div class="metric"><b id="paragraphs">0</b><small>Paragraphs</small></div>
+<div class="metric"><b id="average">0</b><small>Words per sentence</small></div>
+</div>
+<div class="insight"><strong>English readability (approximate)</strong><div id="ease">—</div><div id="easebar" role="progressbar" aria-label="English reading ease" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="easefill"></div></div><div id="grade" class="note">Flesch scores are available for English only.</div></div>
+<div class="insight"><strong>Most frequent meaningful words</strong><div class="chips" id="frequency">Add some text to see recurring words.</div></div>
+<div class="insight"><strong>Longest sentences</strong><ol class="longlist" id="longest"><li>Add text to see sentence lengths.</li></ol></div>
+<p class="note">Word and sentence boundaries use your chosen language when supported by the browser. English syllables are estimated from spelling, so Flesch results are approximate and most useful for longer passages. Turkish receives language-aware counts, not an invalid English readability score. Exported JSON contains statistics, never your source text.</p>
+</aside>
+</main>
+<footer><span>Windows 98 Playground · private writing helper</span><span>English · Türkçe · no external services</span></footer>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const STOP={
+ en:new Set("a an the and or but if of to in on at for from with by is are was were be been being it this that these those i you we they he she my your our their as not so can will would could should do does did have has had than then there here into about over under more most very just".split(" ")),
+ tr:new Set("ve veya ile bir bu şu o da de için gibi ama fakat ki mi mı mu mü ben sen biz siz onlar onun onunla olarak daha çok en her ne nasıl neden hangi kadar sonra önce ise olan var yok".split(" "))
+};
+const SAMPLE={
+ en:"Good writing helps people find the information they need. Short sentences make instructions easier to follow. A clear structure gives readers a useful map. Try to use familiar words whenever possible.\n\nLong sentences can sometimes hide important ideas, especially when several separate explanations and exceptions are packed into the same line without a pause.",
+ tr:"Açık ve anlaşılır yazmak okuyucuların bilgiyi daha hızlı bulmasını sağlar. Kısa cümleler özellikle eğitim metinlerinde faydalıdır. Her paragraf tek bir ana fikre odaklanabilir.\n\nÇok uzun cümleler bazen önemli ayrıntıların gözden kaçmasına neden olur. Metni düzenlerken gereksiz tekrarları azaltmak iyi bir başlangıçtır."
+};
+let report=null;
+function wordsOf(text,locale){
+ if(typeof Intl!=="undefined"&&Intl.Segmenter){const seg=new Intl.Segmenter(locale,{granularity:"word"});return Array.from(seg.segment(text)).filter(x=>x.isWordLike&&/[\p{L}\p{N}]/u.test(x.segment)).map(x=>x.segment);}
+ return text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)||[];
+}
+function sentencesOf(text,locale){
+ if(!text.trim())return [];
+ if(typeof Intl!=="undefined"&&Intl.Segmenter){return Array.from(new Intl.Segmenter(locale,{granularity:"sentence"}).segment(text)).map(x=>x.segment.trim()).filter(x=>wordsOf(x,locale).length>0);}
+ return (text.match(/[^.!?]+(?:[.!?]+|$)/g)||[]).map(x=>x.trim()).filter(x=>wordsOf(x,locale).length>0);
+}
+function syllables(word){
+ let w=word.toLowerCase().replace(/[^a-z]/g,"");
+ if(!w)return 1;
+ if(w.length<=3)return 1;
+ w=w.replace(/(?:[^l]es|[^l]ed|[^l]e)$/,"").replace(/^y/,"");
+ const n=(w.match(/[aeiouy]+/g)||[]).length;
+ return Math.max(1,n);
+}
+function summarize(){
+ const text=$("source").value,lang=$("language").value,ws=wordsOf(text,lang),ss=sentencesOf(text,lang);
+ const speed=Math.max(100,Math.min(500,Number($("wpm").value)||220)),chars=Array.from(text).length;
+ const counts=new Map();ws.forEach(w=>{const key=w.toLocaleLowerCase(lang);if(key.length>2&&!STOP[lang].has(key))counts.set(key,(counts.get(key)||0)+1);});
+ const frequent=Array.from(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],lang)).slice(0,10).map(([word,count])=>({word,count}));
+ const lengths=ss.map(s=>({text:s,words:wordsOf(s,lang).length})).sort((a,b)=>b.words-a.words).slice(0,4);
+ const paragraphs=text.trim()?text.trim().split(/\n\s*\n/).filter(p=>p.trim()).length:0;
+ let ease=null,grade=null;
+ if(lang==="en"&&ws.length&&ss.length){
+  const y=ws.reduce((sum,w)=>sum+syllables(w),0),asl=ws.length/ss.length,asw=y/ws.length;
+  ease=206.835-1.015*asl-84.6*asw;grade=0.39*asl+11.8*asw-15.59;
+ }
+ report={language:lang,words:ws.length,sentences:ss.length,characters:chars,paragraphs,readingSpeed:speed,readingSeconds:ws.length/speed*60,averageSentenceWords:ss.length?ws.length/ss.length:0,englishReadingEase:ease,englishGradeLevel:grade,frequentWords:frequent,longestSentenceWordCounts:lengths.map(x=>x.words)};
+ return {data:report,lengths};
+}
+function metric(id,v){$(id).textContent=String(v);}
+function render(){
+ const {data:d,lengths}=summarize();
+ metric("words",d.words.toLocaleString());metric("sentences",d.sentences);metric("characters",d.characters.toLocaleString());metric("paragraphs",d.paragraphs);
+ metric("minutes",d.words?d.readingSeconds<60?Math.ceil(d.readingSeconds)+" sec":(d.readingSeconds/60).toFixed(1)+" min":"0 sec");
+ metric("average",d.averageSentenceWords.toFixed(1));
+ if(d.englishReadingEase===null){$("ease").textContent=d.language==="tr"?"English-only score unavailable for Turkish text.":"Add English text for a score.";$("grade").textContent="Sentence length and reading-time metrics remain available.";$("easefill").style.width="0%";$("easebar").setAttribute("aria-valuenow","0");}
+ else{
+  const ease=d.englishReadingEase,band=ease>=90?"Very easy":ease>=70?"Easy":ease>=60?"Plain English":ease>=50?"Fairly difficult":ease>=30?"Difficult":"Very difficult";
+  $("ease").textContent=ease.toFixed(1)+" / 100 · "+band;
+  $("grade").textContent="Estimated US grade "+d.englishGradeLevel.toFixed(1)+" · spelling-based syllables"+(d.words<100?" · short sample: treat cautiously":"");
+  const bounded=Math.max(0,Math.min(100,ease));$("easefill").style.width=bounded+"%";$("easebar").setAttribute("aria-valuenow",String(Math.round(bounded)));
+ }
+ const freq=$("frequency");freq.replaceChildren();
+ if(!d.frequentWords.length)freq.textContent="Add some text to see recurring words.";
+ else d.frequentWords.forEach(x=>{const chip=document.createElement("span");chip.className="chip";chip.textContent=x.word+" × "+x.count;freq.append(chip);});
+ const longest=$("longest");longest.replaceChildren();
+ if(!lengths.length){const li=document.createElement("li");li.textContent="Add text to see sentence lengths.";longest.append(li);}
+ else lengths.forEach(x=>{const li=document.createElement("li");li.textContent=x.words+" words — "+(x.text.length>180?x.text.slice(0,180)+"…":x.text);longest.append(li);});
+}
+function status(message){$("status").textContent=message;}
+function reportText(){
+ if(!report)return "";
+ const d=report;
+ return "Reading Lens 98 · "+(d.language==="tr"?"Türkçe":"English")+"\nWords: "+d.words+"\nSentences: "+d.sentences+"\nCharacters: "+d.characters+"\nParagraphs: "+d.paragraphs+"\nReading time: "+Math.ceil(d.readingSeconds)+" seconds at "+d.readingSpeed+" WPM\nAverage sentence: "+d.averageSentenceWords.toFixed(1)+" words"+(d.englishReadingEase===null?"":"\nApproximate English reading ease: "+d.englishReadingEase.toFixed(1)+"\nApproximate grade: "+d.englishGradeLevel.toFixed(1))+"\nFrequent words: "+d.frequentWords.map(x=>x.word+" ("+x.count+")").join(", ");
+}
+$("source").addEventListener("input",render);$("language").addEventListener("change",()=>{render();status("Language updated. English-only readability scores are not applied to Turkish.");});
+$("wpm").addEventListener("input",render);
+$("sample").addEventListener("click",()=>{$("source").value=SAMPLE[$("language").value];render();status("Sample loaded.");});
+$("clear").addEventListener("click",()=>{$("source").value="";render();status("Text cleared. Nothing was uploaded.");});
+$("import").addEventListener("click",()=>$("file").click());
+$("file").addEventListener("change",async e=>{
+ const file=e.target.files[0];if(!file)return;
+ if(file.size>1024*1024){status("File too large. Limit: 1 MB.");e.target.value="";return;}
+ try{$("source").value=await file.text();render();status("Imported "+file.name+" locally.");}catch{status("Could not read that file.");}e.target.value="";
+});
+$("copy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(reportText());status("Statistical report copied. Original text excluded.");}catch{status("Clipboard access was blocked by the browser.");}});
+$("download").addEventListener("click",()=>{
+ const payload={tool:"Reading Lens 98",generatedAt:new Date().toISOString(),...report};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="reading-lens-report.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);status("JSON statistics exported. Original text excluded.");
+});
+render();
+</script>
+</body></html>

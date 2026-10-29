@@ -1,5 +1,41 @@
 [
   {
+    "name": "Island Bridges 98",
+    "type": "game",
+    "date": "2026-10-29",
+    "url": "/games/island-bridges/",
+    "description": "Eight uniquely solvable Hashiwokakero island networks with bridge-count clues, crossing checks, hints, undo, daily rotation and local bests.",
+    "icon": "🌉",
+    "tags": [
+      "hashiwokakero",
+      "bridges",
+      "daily",
+      "logic",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Reading Lens 98",
+    "type": "app",
+    "date": "2026-10-29",
+    "url": "/apps/reading-lens/",
+    "description": "Private English/Turkish writing dashboard with word counts, reading time, long-sentence insights, keyword frequency and approximate English readability.",
+    "icon": "📖",
+    "tags": [
+      "writing",
+      "readability",
+      "reading-time",
+      "text",
+      "english",
+      "turkish",
+      "privacy",
+      "offline"
+    ]
+  },
+  {
     "name": "River Ferry 98",
     "type": "game",
     "date": "2026-10-28",
