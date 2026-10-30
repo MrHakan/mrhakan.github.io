@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Clip Studio 98 is a private visual CSS clip-path polygon editor. Drag vertices, choose presets, import CSS, copy code, export SVG and share shapes.">
+<title>Clip Studio 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/clip-studio/">
+<meta property="og:title" content="Clip Studio 98">
+<meta property="og:description" content="Create CSS clip-path polygons visually with draggable handles, presets, SVG export and shareable links.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:14px;font:13px Tahoma,Verdana,Arial,sans-serif;color:#203348}
+.window{max-width:1150px;margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005151}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;background:linear-gradient(90deg,#000080,#1680b9);color:#fff}.titlebar h1{font-size:18px;margin:0}
+.close,.btn,select,input[type="number"]{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#1b3043;border:2px solid;border-color:#fff #555 #555 #fff;padding:9px 10px;min-height:38px}.close{text-decoration:none;min-height:0;padding:5px 10px}
+.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline}
+.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(265px,.85fr);gap:12px;padding:0 12px 12px}
+.panel{min-width:0;background:#ededed;border:2px inset #ddd;padding:12px}.panel h2{font-size:15px;margin:0 0 10px}
+.toolbar,.badges,.field{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:9px 0}.btn{cursor:pointer}.btn.primary{background:#d8edfa}.btn:disabled{opacity:.5;cursor:not-allowed}select{background:#fff;max-width:100%}
+.badge{background:#fff;border:2px inset #ddd;padding:7px 9px;font:12px Consolas,monospace}
+.editor-wrap{background:#fff;border:2px inset #ddd;padding:7px}.editor{display:block;width:100%;height:auto;aspect-ratio:5/3;background:#f5f9fc;touch-action:none;cursor:crosshair}
+.preview-frame{padding:8px;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 50%/22px 22px;border:2px inset #ddd}.preview{width:100%;aspect-ratio:5/3;background:linear-gradient(135deg,#156eab,#e7a13a);clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%);transition:clip-path .15s}
+.settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.setting{min-width:0;background:#fff;border:2px inset #ddd;padding:8px}.setting label{display:block;margin-bottom:6px;font-size:12px;font-weight:700}.setting input[type="color"]{width:100%;height:38px;cursor:pointer}.setting input[type="number"],.setting select{width:100%;min-width:0}
+textarea{display:block;width:100%;min-height:110px;padding:10px;resize:vertical;background:#fff;border:2px inset #ddd;font:12px/1.6 Consolas,monospace;color:#203448;overflow-wrap:anywhere}
+#status{min-height:45px;background:#fff;border:2px inset #ddd;padding:10px;line-height:1.5}
+.help{font-size:12px;line-height:1.65;color:#405568}.help code{background:#fff;padding:1px 4px}
+footer{border-top:1px solid #999;padding:9px 12px;font-size:11px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+:focus-visible{outline:3px solid #e89d00;outline-offset:2px}
+@media(max-width:800px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:9px}.preview{max-height:280px}}
+@media(max-width:440px){.titlebar h1{font-size:16px}.toolbar .btn{flex:1}.badge{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body><main class="window">
+<header class="titlebar"><h1>✂️ Clip Studio 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<nav class="menu" aria-label="Window menu"><span>File</span>　<span>Edit</span>　<span>Shape</span>　<span>Help</span></nav>
+<div class="layout">
+<section class="panel" aria-labelledby="editorTitle">
+<h2 id="editorTitle">Polygon workbench</h2>
+<div class="toolbar"><label for="preset"><strong>Shape</strong></label><select id="preset" aria-label="Choose a shape preset">
+<option value="hex">Hexagon</option><option value="triangle">Triangle</option><option value="arrow">Arrow</option><option value="chevron">Chevron</option><option value="star">Star</option><option value="ticket">Ticket</option><option value="diamond">Diamond</option><option value="ribbon">Ribbon</option></select><button class="btn primary" id="apply" type="button">Apply preset</button></div>
+<div class="badges"><span class="badge" id="vertices">6 vertices</span><span class="badge" id="selected">Point 1</span><span class="badge">Percent-based CSS</span></div>
+<div class="editor-wrap"><svg class="editor" id="editor" viewBox="0 0 500 300" tabindex="0" role="group" aria-label="Polygon vertex editor. Drag a handle, or choose a point and use arrow keys. Shift and arrow moves by ten percent." xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div class="toolbar"><button class="btn" id="add" type="button">＋ Add vertex</button><button class="btn" id="remove" type="button">− Remove vertex</button><button class="btn" id="undo" type="button">↶ Undo</button><button class="btn" id="reset" type="button">↻ Reset</button></div>
+<div class="settings">
+<div class="setting"><label for="point">Selected vertex</label><select id="point"></select></div>
+<div class="setting"><label for="x">X coordinate (%)</label><input id="x" type="number" min="0" max="100" step="0.5" inputmode="decimal"></div>
+<div class="setting"><label for="y">Y coordinate (%)</label><input id="y" type="number" min="0" max="100" step="0.5" inputmode="decimal"></div>
+<div class="setting"><label for="colorA">Gradient start</label><input id="colorA" type="color" value="#156eab"></div>
+<div class="setting"><label for="colorB">Gradient end</label><input id="colorB" type="color" value="#e7a13a"></div>
+</div>
+<p class="help">Drag blue handles. Click a handle to select it; use arrow keys on the editor to nudge by 1%, or Shift + arrow for 10%. The add button inserts a point on the longest edge.</p>
+</section>
+<aside class="panel">
+<h2>Live shape preview</h2>
+<div class="preview-frame"><div id="preview" class="preview" role="img" aria-label="Live preview of the clipped polygon shape"></div></div>
+<h2>Copy-ready CSS</h2><label for="css">Edit or paste a <code>polygon(...)</code> clip-path, then choose Import.</label>
+<textarea id="css" spellcheck="false" aria-label="Generated CSS, editable for importing"></textarea>
+<div class="toolbar"><button class="btn primary" id="copy" type="button">📋 Copy CSS</button><button class="btn" id="import" type="button">↥ Import CSS</button><button class="btn" id="svg" type="button">↓ SVG</button><button class="btn" id="share" type="button">🔗 Share</button></div>
+<div id="status" role="status" aria-live="polite">Choose a preset or drag a vertex to begin.</div>
+<p class="help">The shape uses CSS <code>clip-path: polygon(...)</code> with percentage coordinates, so it scales with its element. Export creates a standalone vector SVG. Share stores only the polygon and colours in the URL fragment. Everything runs locally; no uploads or tracking.</p>
+</aside>
+</div>
+<footer><span>Clip Studio 98 · CSS shapes without dependencies</span><a href="../../">← Playground</a></footer>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+const PRESETS={
+hex:[[25,0],[75,0],[100,50],[75,100],[25,100],[0,50]],
+triangle:[[50,0],[100,100],[0,100]],
+arrow:[[0,20],[60,20],[60,0],[100,50],[60,100],[60,80],[0,80]],
+chevron:[[0,0],[70,0],[100,50],[70,100],[0,100],[30,50]],
+star:[[50,0],[61,35],[98,35],[68,57],[79,94],[50,72],[21,94],[32,57],[2,35],[39,35]],
+ticket:[[0,0],[35,0],[35,12],[65,12],[65,0],[100,0],[100,100],[65,100],[65,88],[35,88],[35,100],[0,100]],
+diamond:[[50,0],[100,50],[50,100],[0,50]],
+ribbon:[[0,0],[100,0],[82,50],[100,100],[0,100],[18,50]]
+};
+const clone=p=>p.map(q=>q.slice()),clamp=n=>Math.max(0,Math.min(100,Math.round(n*10)/10));
+let points=clone(PRESETS.hex),selected=0,history=[],dragging=-1,dragStart=null;
+function note(s){$('status').textContent=s}
+function snapshot(){return{p:clone(points),a:$('colorA').value,b:$('colorB').value}}
+function remember(){history.push(snapshot());if(history.length>100)history.shift()}
+function coords(){return points.map(p=>p[0]+'% '+p[1]+'%').join(', ')}
+function css(){return '.clip-shape {\n  background: linear-gradient(135deg, '+$('colorA').value+', '+$('colorB').value+');\n  clip-path: polygon('+coords()+');\n}'}
+function render(){
+const editor=$('editor');editor.replaceChildren();
+for(let n=0;n<=10;n++){const line=document.createElementNS(NS,'line');line.setAttribute('x1',n*50);line.setAttribute('y1',0);line.setAttribute('x2',n*50);line.setAttribute('y2',300);line.setAttribute('stroke','#d6e3ed');line.setAttribute('stroke-width','1');editor.appendChild(line)}
+for(let n=0;n<=10;n++){const line=document.createElementNS(NS,'line');line.setAttribute('x1',0);line.setAttribute('y1',n*30);line.setAttribute('x2',500);line.setAttribute('y2',n*30);line.setAttribute('stroke','#d6e3ed');line.setAttribute('stroke-width','1');editor.appendChild(line)}
+const poly=document.createElementNS(NS,'polygon');poly.setAttribute('points',points.map(p=>p[0]*5+','+p[1]*3).join(' '));poly.setAttribute('fill',$('colorA').value);poly.setAttribute('fill-opacity','.28');poly.setAttribute('stroke','#184d74');poly.setAttribute('stroke-width','3');poly.setAttribute('pointer-events','none');editor.appendChild(poly);
+points.forEach((p,i)=>{const circle=document.createElementNS(NS,'circle');circle.setAttribute('cx',p[0]*5);circle.setAttribute('cy',p[1]*3);circle.setAttribute('r',i===selected?'9':'7');circle.setAttribute('fill',i===selected?'#e7a13a':'#1767a0');circle.setAttribute('stroke','#fff');circle.setAttribute('stroke-width','2');circle.setAttribute('data-index',i);circle.setAttribute('role','button');circle.setAttribute('aria-label','Vertex '+(i+1)+', '+p[0]+' percent horizontal, '+p[1]+' percent vertical');circle.style.cursor='grab';editor.appendChild(circle)});
+const chooser=$('point'),old=chooser.value;chooser.replaceChildren();points.forEach((p,i)=>{const opt=document.createElement('option');opt.value=i;opt.textContent='Point '+(i+1);chooser.appendChild(opt)});chooser.value=String(selected);
+$('x').value=points[selected][0];$('y').value=points[selected][1];$('vertices').textContent=points.length+' vertices';$('selected').textContent='Point '+(selected+1);
+$('remove').disabled=points.length<=3;$('add').disabled=points.length>=20;$('undo').disabled=!history.length;
+$('preview').style.clipPath='polygon('+coords()+')';$('preview').style.background='linear-gradient(135deg, '+$('colorA').value+', '+$('colorB').value+')';$('css').value=css();
+}
+function changePoint(i,x,y){points[i]=[clamp(x),clamp(y)];render()}
+function setPreset(name){if(!PRESETS[name])return;remember();points=clone(PRESETS[name]);selected=0;render();note('Preset applied: '+name+'. Drag a handle to customize it.')}
+function add(){if(points.length>=20)return;let edge=0,dist=-1;points.forEach((p,i)=>{const q=points[(i+1)%points.length],d=(p[0]-q[0])**2+(p[1]-q[1])**2;if(d>dist){dist=d;edge=i}});remember();const p=points[edge],q=points[(edge+1)%points.length];points.splice(edge+1,0,[(p[0]+q[0])/2,(p[1]+q[1])/2]);selected=edge+1;render();note('Vertex inserted on the longest edge.')}
+function remove(){if(points.length<=3)return;remember();points.splice(selected,1);selected=Math.min(selected,points.length-1);render();note('Vertex removed.')}
+function undo(){if(!history.length)return;const s=history.pop();points=clone(s.p);$('colorA').value=s.a;$('colorB').value=s.b;selected=Math.min(selected,points.length-1);render();note('Previous shape restored.')}
+function pointer(e){const box=$('editor').getBoundingClientRect();return[clamp((e.clientX-box.left)/box.width*100),clamp((e.clientY-box.top)/box.height*100)]}
+$('editor').addEventListener('pointerdown',e=>{const idx=e.target.getAttribute('data-index');if(idx===null)return;e.preventDefault();selected=Number(idx);dragging=selected;dragStart=snapshot();$('editor').setPointerCapture(e.pointerId);render()});
+$('editor').addEventListener('pointermove',e=>{if(dragging<0)return;const p=pointer(e);changePoint(dragging,p[0],p[1])});
+function stopDrag(){if(dragging<0)return;if(dragStart&&JSON.stringify(points)!==JSON.stringify(dragStart.p)){history.push(dragStart);if(history.length>100)history.shift();note('Vertex moved. CSS updated.')}dragging=-1;dragStart=null;render()}
+$('editor').addEventListener('pointerup',stopDrag);$('editor').addEventListener('pointercancel',stopDrag);
+$('editor').addEventListener('keydown',e=>{const step=e.shiftKey?10:1;let x=points[selected][0],y=points[selected][1];if(e.key==='ArrowLeft')x-=step;else if(e.key==='ArrowRight')x+=step;else if(e.key==='ArrowUp')y-=step;else if(e.key==='ArrowDown')y+=step;else return;e.preventDefault();remember();changePoint(selected,x,y);note('Vertex '+(selected+1)+' moved to '+points[selected].join('%, ')+'%.')});
+$('point').addEventListener('change',e=>{selected=Number(e.target.value);render();$('editor').focus()});
+['x','y'].forEach(id=>$(id).addEventListener('change',()=>{const x=Number($('x').value),y=Number($('y').value);if(!Number.isFinite(x)||!Number.isFinite(y))return;remember();changePoint(selected,x,y);note('Vertex coordinates updated.')}));
+['colorA','colorB'].forEach(id=>$(id).addEventListener('input',render));
+$('apply').addEventListener('click',()=>setPreset($('preset').value));$('add').addEventListener('click',add);$('remove').addEventListener('click',remove);$('undo').addEventListener('click',undo);$('reset').addEventListener('click',()=>setPreset('hex'));
+async function copy(value){try{await navigator.clipboard.writeText(value);return true}catch(e){const field=document.createElement('textarea');field.value=value;field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);field.select();let ok=false;try{ok=document.execCommand('copy')}catch(err){}field.remove();return ok}}
+$('copy').addEventListener('click',async()=>note(await copy(css())?'CSS copied to clipboard.':'Select the CSS text to copy it manually.'));
+$('import').addEventListener('click',()=>{const m=$('css').value.match(/polygon\s*\(([^)]*)\)/i);if(!m){note('Import failed: paste CSS containing polygon(...).');return}const chunks=m[1].split(',').map(x=>x.trim());if(chunks.length<3||chunks.length>20){note('Import requires 3–20 vertices.');return}const parsed=[];for(const chunk of chunks){const p=chunk.match(/^(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%$/);if(!p){note('Use pairs of percentage coordinates, e.g. 25% 50%.');return}parsed.push([clamp(Number(p[1])),clamp(Number(p[2]))])}remember();points=parsed;selected=0;render();note('Imported '+points.length+' polygon vertices.')});
+function svgSource(){const a=$('colorA').value,b=$('colorB').value,ps=points.map(p=>p[0]*10+','+p[1]*6).join(' ');return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600"><defs><linearGradient id="fill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+a+'"/><stop offset="1" stop-color="'+b+'"/></linearGradient></defs><polygon points="'+ps+'" fill="url(#fill)"/></svg>'}
+$('svg').addEventListener('click',()=>{const blob=new Blob([svgSource()],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='clip-studio-shape.svg';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);note('Standalone SVG downloaded.')});
+$('share').addEventListener('click',async()=>{const params=new URLSearchParams();params.set('p',points.map(p=>p.join(',')).join(';'));params.set('a',$('colorA').value.slice(1));params.set('b',$('colorB').value.slice(1));const link=location.href.split('#')[0]+'#'+params.toString();note(await copy(link)?'Share link copied.':'Share URL: '+link)});
+function restore(){try{const params=new URLSearchParams(location.hash.slice(1)),raw=params.get('p');if(!raw)return;const arr=raw.split(';').map(v=>v.split(',').map(Number));if(arr.length<3||arr.length>20||arr.some(p=>p.length!==2||p.some(x=>!Number.isFinite(x))))return;points=arr.map(p=>p.map(clamp));for(const key of ['a','b']){const value=params.get(key);if(value&&/^[0-9a-f]{6}$/i.test(value))$('color'+key.toUpperCase()).value='#'+value}}catch(e){}}
+restore();render();
+})();
+</script></body></html>

@@ -1,5 +1,41 @@
 [
   {
+    "name": "Star Sector 98",
+    "type": "game",
+    "date": "2026-10-30",
+    "url": "/games/star-sector/",
+    "description": "Eight uniquely solvable 6×6 star-placement puzzles with coloured regions, no-touch rules, hints, undo, daily rotation and local records.",
+    "icon": "🌟",
+    "tags": [
+      "star-battle",
+      "queens",
+      "daily",
+      "logic",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Clip Studio 98",
+    "type": "app",
+    "date": "2026-10-30",
+    "url": "/apps/clip-studio/",
+    "description": "Private visual CSS clip-path polygon editor with draggable vertices, presets, CSS import/copy, SVG export and shareable shapes.",
+    "icon": "✂️",
+    "tags": [
+      "css",
+      "clip-path",
+      "polygon",
+      "svg",
+      "design",
+      "developer",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Island Bridges 98",
     "type": "game",
     "date": "2026-10-29",

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Star Sector 98: eight uniquely solvable 6×6 star placement puzzles with daily play, hints, undo, keyboard support and local records.">
+<title>Star Sector 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/star-sector/">
+<meta property="og:title" content="Star Sector 98">
+<meta property="og:description" content="One star per row, column and coloured region. No stars touching, even diagonally.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:14px;font:13px Tahoma,Verdana,Arial,sans-serif;color:#203447}
+.window{max-width:1000px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;padding:4px;box-shadow:8px 8px #005151}
+.titlebar{background:linear-gradient(90deg,#000080,#187eb3);color:#fff;padding:9px 11px;display:flex;justify-content:space-between;align-items:center;gap:12px}.titlebar h1{margin:0;font-size:18px}
+.close,.btn,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#1d3044;border:2px solid;border-color:#fff #555 #555 #fff;padding:9px 11px;min-height:39px}.close{text-decoration:none;min-height:0;padding:5px 10px}
+.menu{padding:9px 12px;font-size:12px}.menu span{text-decoration:underline}
+.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(245px,.8fr);gap:12px;padding:0 12px 12px}.panel{min-width:0;background:#ededed;border:2px inset #ddd;padding:12px}.panel h2{font-size:15px;margin:0 0 10px}
+.toolbar,.badges{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.badge{background:#fff;border:2px inset #ddd;padding:7px 9px;font:12px Consolas,monospace}.btn{cursor:pointer}.btn.primary{background:#d8edfb}.btn:disabled{opacity:.5;cursor:not-allowed}select{background:white;max-width:100%}
+.board{width:min(100%,510px);margin:auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:4px solid #263e55;background:#263e55;box-shadow:inset 2px 2px #fff}
+.cell{aspect-ratio:1;min-width:0;min-height:0;display:grid;place-items:center;padding:0;border:1px solid #8395a4;cursor:pointer;font:700 clamp(16px,4.6vw,32px) Tahoma,Arial;color:#183149;touch-action:manipulation}
+.cell.star{color:#1c3970;text-shadow:1px 1px #fff}.cell.note{color:#51636b;font-size:clamp(13px,3vw,21px)}.cell.bad{box-shadow:inset 0 0 0 4px #d44}.cell:hover{filter:brightness(1.07)}
+#status,.rules,.records{background:white;border:2px inset #ddd;padding:10px;line-height:1.6}#status{min-height:52px}.rules ul{padding-left:18px;margin:6px 0}.records{margin-top:10px}.help{font-size:12px;line-height:1.6;color:#405365}
+.legend{display:flex;gap:9px;flex-wrap:wrap;margin:10px 0;font-size:11px}.swatch{width:13px;height:13px;border:1px solid #526a7d;display:inline-block;vertical-align:middle}
+footer{border-top:1px solid #999;padding:9px 12px;font-size:11px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+:focus-visible{outline:3px solid #e79b00;outline-offset:2px}
+@media(max-width:760px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:9px}.board{max-width:460px}}
+@media(max-width:420px){.titlebar h1{font-size:16px}.toolbar .btn{flex:1}.cell{font-size:22px}.badge{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body><main class="window">
+<header class="titlebar"><h1>🌟 Star Sector 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>Game</span>　<span>Daily</span>　<span>Star map</span>　<span>Help</span></div>
+<div class="layout">
+<section class="panel" aria-labelledby="boardTitle">
+<h2 id="boardTitle">The star map</h2>
+<div class="toolbar"><label for="level"><strong>Puzzle</strong></label><select id="level" aria-label="Choose a star puzzle"></select><button class="btn primary" id="daily" type="button">📅 Today's map</button></div>
+<div class="badges"><span class="badge" id="count">0 / 6 stars</span><span class="badge" id="moves">0 moves</span><span class="badge" id="hints">0 hints</span><span class="badge" id="clock">00:00</span></div>
+<div id="board" class="board" role="group" aria-label="Six by six star puzzle. Tab through squares, Enter or Space to cycle, arrow keys to move."></div>
+<div class="toolbar"><button class="btn" id="undo" type="button">↶ Undo</button><button class="btn" id="hint" type="button">💡 Hint</button><button class="btn" id="check" type="button">✓ Check</button><button class="btn" id="reset" type="button">↻ Reset</button></div>
+<div id="status" role="status" aria-live="polite">Tap a square to place a star, tap again to mark it empty.</div>
+</section>
+<aside class="panel">
+<h2>Mission briefing</h2>
+<div class="rules"><strong>One star per sector</strong><ul><li>Place exactly one star in each row.</li><li>Place exactly one star in each column.</li><li>Place exactly one star in each coloured region.</li><li>Stars must not touch, even at a corner.</li></ul></div>
+<div class="legend" aria-label="Region colours"><span>★ Star</span><span>× Empty note</span><span>Red outline = conflict</span></div>
+<p class="help">Click or tap to cycle blank → ★ → × → blank. Right-click for a note. Keyboard: arrows move, S places a star, X marks empty, Delete clears, Enter/Space cycles, Ctrl+Z undoes. Each of the eight boards has one verified solution.</p>
+<h2>Mission records</h2><div class="records" id="record">No completed missions yet.</div>
+<p class="help">Daily challenge rotates by UTC date. Your fastest hint-free result is saved only in this browser. No account, tracking or network requests.</p>
+</aside>
+</div>
+<footer><span>Star Sector 98 · offline-ready client-side puzzle</span><a href="../../">← Playground</a></footer>
+</main>
+<script>
+(function(){
+'use strict';
+const P=[
+{r:"000011000011000112332222334522344555",s:[4,8,17,18,27,31]},
+{r:"011122031112033111003314033354333554",s:[4,8,12,23,25,33]},
+{r:"011122001222011222331144331145331155",s:[2,6,15,23,25,34]},
+{r:"000011002011032211333211343315443555",s:[2,10,13,21,29,30]},
+{r:"000001000001222001322201334444555444",s:[3,11,14,18,28,31]},
+{r:"000112030012034012334444535544555544",s:[3,6,17,19,28,32]},
+{r:"000000100002133342155442115222555222",s:[3,11,13,22,24,32]},
+{r:"011222011222001222022223004453444553",s:[1,9,12,23,26,34]}
+];
+const $=id=>document.getElementById(id),COLORS=['#e3f2ff','#ffe7e1','#e6f3db','#fff0c9','#eee4ff','#d7f3ed'];
+const day=Math.floor(Date.now()/86400000),today=((day%P.length)+P.length)%P.length;
+let index=today,marks=Array(36).fill(0),history=[],moves=0,hints=0,solved=false,started=Date.now(),active=0;
+function seconds(){return Math.max(0,Math.floor((Date.now()-started)/1000))}
+function fmt(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+function save(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){}}
+function load(key){try{return JSON.parse(localStorage.getItem(key))}catch(e){return null}}
+function region(i){return Number(P[index].r[i])}
+function stars(){return marks.map((v,i)=>v===1?i:-1).filter(i=>i>=0)}
+function tally(){const row=Array(6).fill(0),col=Array(6).fill(0),reg=Array(6).fill(0);for(const i of stars()){row[Math.floor(i/6)]++;col[i%6]++;reg[region(i)]++}return{row,col,reg}}
+function conflicts(){const t=tally(),bad=new Set(),s=stars();for(const i of s){const r=Math.floor(i/6),c=i%6;if(t.row[r]>1||t.col[c]>1||t.reg[region(i)]>1||s.some(j=>j!==i&&Math.abs(Math.floor(j/6)-r)<=1&&Math.abs(j%6-c)<=1))bad.add(i)}return bad}
+function valid(){const t=tally();return stars().length===6&&[...t.row,...t.col,...t.reg].every(x=>x===1)&&conflicts().size===0}
+function message(s){$('status').textContent=s}
+function record(){const v=load('star-sector-98-best-'+index);$('record').textContent=v?'Map '+(index+1)+' · fastest clean mission: '+fmt(v)+' (no hints)':'Map '+(index+1)+' · no clean record yet.'}
+function render(focus){
+const t=tally(),bad=conflicts(),board=$('board');board.replaceChildren();
+for(let i=0;i<36;i++){const r=Math.floor(i/6),c=i%6,reg=region(i),b=document.createElement('button');b.type='button';b.className='cell'+(marks[i]===1?' star':marks[i]===2?' note':'')+(bad.has(i)?' bad':'');
+b.style.backgroundColor=COLORS[reg];b.style.borderTopWidth=r===0||region(i-6)!==reg?'3px':'1px';b.style.borderLeftWidth=c===0||region(i-1)!==reg?'3px':'1px';b.style.borderRightWidth=c===5||region(i+1)!==reg?'3px':'1px';b.style.borderBottomWidth=r===5||region(i+6)!==reg?'3px':'1px';b.style.borderColor='#334b61';
+b.textContent=marks[i]===1?'★':marks[i]===2?'×':'';b.setAttribute('aria-label','Row '+(r+1)+', column '+(c+1)+', region '+(reg+1)+': '+(marks[i]===1?'star':marks[i]===2?'empty note':'blank')+(bad.has(i)?', conflict':''));
+b.dataset.i=i;b.addEventListener('click',()=>change(i,(marks[i]+1)%3));b.addEventListener('contextmenu',e=>{e.preventDefault();change(i,marks[i]===2?0:2)});b.addEventListener('keydown',e=>key(e,i));board.appendChild(b)}
+$('count').textContent=stars().length+' / 6 stars';$('moves').textContent=moves+' moves';$('hints').textContent=hints+' hints';$('clock').textContent=fmt(seconds());$('undo').disabled=!history.length||solved;
+if(focus&&board.children[active])board.children[active].focus({preventScroll:true});
+}
+function finish(){if(solved||!valid())return;solved=true;const elapsed=seconds();if(!hints){const key='star-sector-98-best-'+index,old=load(key);if(typeof old!=='number'||elapsed<old)save(key,elapsed)}message('★ Sector cleared in '+fmt(elapsed)+' with '+moves+' moves'+(hints?' and '+hints+' hint(s).':' — clean run!'));record();render(false)}
+function change(i,value){if(solved)return;if(marks[i]===value)return;history.push(marks.slice());if(history.length>150)history.shift();marks[i]=value;active=i;moves++;render(true);if(valid())finish();else message(conflicts().size?'Some stars conflict. Check red outlines.':'Keep going: one star per row, column and region.')}
+function key(e,i){let next=i;if(e.key==='ArrowRight')next=i%6===5?i:i+1;else if(e.key==='ArrowLeft')next=i%6===0?i:i-1;else if(e.key==='ArrowDown')next=i>=30?i:i+6;else if(e.key==='ArrowUp')next=i<6?i:i-6;else if(e.key==='s'||e.key==='S'){e.preventDefault();change(i,1);return}else if(e.key==='x'||e.key==='X'){e.preventDefault();change(i,2);return}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();change(i,0);return}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return}else return;e.preventDefault();active=next;$('board').children[next].focus()}
+function reset(){marks=Array(36).fill(0);history=[];moves=0;hints=0;solved=false;started=Date.now();active=0;render(false);record();message('Place six stars. Every row, column and coloured region needs exactly one.')}
+function undo(){if(!history.length||solved)return;marks=history.pop();moves++;render(false);message('Previous placement restored.')}
+function hint(){if(solved)return;const answer=P[index].s;let i=stars().find(v=>!answer.includes(v));if(i===undefined)i=answer.find(v=>marks[v]!==1);if(i===undefined){message('All stars are in place. Press Check.');return}history.push(marks.slice());marks[i]=answer.includes(i)?1:2;hints++;moves++;active=i;render(true);if(valid())finish();else message('Hint: '+(answer.includes(i)?'place a star':'cross out this square')+' at row '+(Math.floor(i/6)+1)+', column '+(i%6+1)+'.')}
+function select(i){index=i;$('level').value=String(i);reset()}
+P.forEach((p,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent='Map '+(i+1)+(i===today?' · today':'');$('level').appendChild(o)});
+$('level').addEventListener('change',e=>select(Number(e.target.value)));
+$('daily').addEventListener('click',()=>select(today));$('undo').addEventListener('click',undo);$('hint').addEventListener('click',hint);$('check').addEventListener('click',()=>{if(valid())finish();else message('Not solved yet: check row, column, region counts and touching stars.')});$('reset').addEventListener('click',reset);
+setInterval(()=>{if(!solved&&!document.hidden)$('clock').textContent=fmt(seconds())},1000);
+select(today);
+})();
+</script></body></html>
