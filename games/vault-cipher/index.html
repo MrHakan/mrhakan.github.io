@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Vault Cipher 98: a daily four-digit codebreaking game with exact and misplaced clues, keyboard controls, practice rounds and local records.">
+<title>Vault Cipher 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/vault-cipher/">
+<meta property="og:title" content="Vault Cipher 98">
+<meta property="og:description" content="Crack a secret four-digit vault code in eight guesses. One fresh challenge each day.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:14px;color:#203347;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1020px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005555}
+.titlebar{background:linear-gradient(90deg,#000080,#167fb5);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.titlebar h1{font-size:18px;margin:0}
+.close,.btn{border:2px solid;border-color:#fff #555 #555 #fff;background:#c0c0c0;color:#203347;padding:9px 12px;min-height:40px;font:700 12px Tahoma,Arial,sans-serif}.close{padding:5px 10px;min-height:0;text-decoration:none}.btn{cursor:pointer}.btn.primary{background:#d6ebfa}.btn:disabled{opacity:.55;cursor:not-allowed}
+.menu{padding:10px 12px;font-size:12px}.menu span{text-decoration:underline}
+.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(250px,.85fr);gap:12px;padding:0 12px 12px}.panel{min-width:0;background:#ededed;border:2px inset #ddd;padding:13px}.panel h2{font-size:15px;margin:0 0 10px}
+.toolbar,.badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:9px 0}.badge{border:2px inset #ddd;background:white;padding:8px 10px;font:12px Consolas,monospace}
+.guesses{display:grid;gap:6px;max-width:510px;margin:12px auto}.guess{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(110px,1.45fr);gap:6px;align-items:center}
+.tile{min-height:49px;display:grid;place-items:center;background:#fff;border:2px inset #ddd;font:700 clamp(19px,4vw,26px) Consolas,monospace}.guess.current .tile{border:2px solid #155c91;background:#e5f5ff}.guess.past .tile{background:#dce5ed}.guess.win .tile{background:#d6f2d5}.feedback{min-height:49px;background:#fff;border:2px inset #ddd;display:flex;align-items:center;justify-content:center;gap:6px;font:12px Consolas,monospace;padding:4px}
+.peg{width:14px;height:14px;border-radius:50%;border:1px solid #5b6770;display:inline-block}.peg.exact{background:#148451}.peg.misplaced{background:#e5a333}.peg.none{background:#d6dce2}
+.pad{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:14px auto;max-width:510px}.pad .btn{font-size:19px;min-height:50px;padding:5px}
+#status,.rules,.record{background:#fff;border:2px inset #ddd;padding:11px;line-height:1.6}#status{min-height:54px}.rules ul{margin:6px 0;padding-left:20px}.record{margin-top:12px}.help{font-size:12px;line-height:1.65;color:#40576a}
+footer{border-top:1px solid #999;padding:10px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px}
+:focus-visible{outline:3px solid #e69d00;outline-offset:2px}
+@media(max-width:780px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:9px}}
+@media(max-width:430px){.titlebar h1{font-size:16px}.guess{grid-template-columns:repeat(4,minmax(0,1fr)) minmax(80px,1.35fr);gap:3px}.tile,.feedback{min-height:41px}.peg{width:11px;height:11px}.pad{gap:4px}.pad .btn{min-height:44px}.toolbar .btn{flex:1}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style></head>
+<body><main class="window">
+<header class="titlebar"><h1>🔐 Vault Cipher 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<nav class="menu" aria-label="Window menu"><span>File</span>　<span>Daily vault</span>　<span>Practice</span>　<span>Help</span></nav>
+<div class="layout">
+<section class="panel" aria-labelledby="gameTitle">
+<h2 id="gameTitle">The combination lock</h2>
+<div class="toolbar"><button type="button" class="btn primary" id="daily">📅 Daily vault</button><button type="button" class="btn" id="practice">🎲 Practice vault</button><button type="button" class="btn" id="restart">↻ Restart</button></div>
+<div class="badges"><span class="badge" id="mode">Daily</span><span class="badge" id="attempts">0 / 8 guesses</span><span class="badge" id="clue">4 unique digits · 1–6</span></div>
+<div id="guesses" class="guesses" role="group" aria-label="Code guesses and clues"></div>
+<div class="pad" id="pad" aria-label="Digit keypad"></div>
+<div class="toolbar"><button type="button" class="btn" id="erase">⌫ Delete</button><button type="button" class="btn primary" id="submit">✓ Submit guess</button><button type="button" class="btn" id="hint">💡 Reveal a position</button><button type="button" class="btn" id="share">↗ Share result</button></div>
+<div id="status" role="status" aria-live="polite">Enter four different digits from 1 to 6.</div>
+</section>
+<aside class="panel"><h2>Vault manual</h2>
+<div class="rules"><strong>Break the four-digit code in eight guesses.</strong><ul>
+<li>Each digit is between 1 and 6; none repeats.</li>
+<li><strong>Green</strong> pegs: right digit, right position.</li>
+<li><strong>Gold</strong> pegs: right digit, wrong position.</li>
+<li>Pegs show counts, not which digits matched.</li>
+<li>Daily vault is identical for everyone on the same UTC date.</li>
+</ul></div>
+<p class="help">Use the keypad or keyboard 1–6. Backspace removes the last digit; Enter submits. The optional hint reveals one exact position and marks the round assisted. Daily and practice rounds never contact a server.</p>
+<h2>Local mission log</h2><div class="record" id="record">No completed vaults yet.</div>
+<p class="help">The daily code resets at midnight UTC. Records are saved only in your browser. Practice codes use browser cryptographic randomness.</p>
+</aside></div>
+<footer><span>Vault Cipher 98 · offline codebreaking</span><a href="../../">← Playground</a></footer>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),MAX=8,KEY='vault-cipher-98-records';
+const today=new Date().toISOString().slice(0,10);
+let daily=true,secret=[],entry=[],history=[],ended=false,assisted=false,reveal=-1;
+function seeded(date){let x=2166136261;for(const c of date){x^=c.charCodeAt(0);x=Math.imul(x,16777619)}const pool=[1,2,3,4,5,6];for(let i=5;i>0;i--){x^=x<<13;x^=x>>>17;x^=x<<5;const j=(x>>>0)%(i+1);[pool[i],pool[j]]=[pool[j],pool[i]]}return pool.slice(0,4)}
+function randomCode(){const pool=[1,2,3,4,5,6];for(let i=5;i>0;i--){const a=new Uint32Array(1);const limit=Math.floor(4294967296/(i+1))*(i+1);do{crypto.getRandomValues(a)}while(a[0]>=limit);const j=a[0]%(i+1);[pool[i],pool[j]]=[pool[j],pool[i]]}return pool.slice(0,4)}
+function score(code,answer){let exact=0,shared=0;for(let i=0;i<4;i++){if(code[i]===answer[i])exact++;if(answer.includes(code[i]))shared++}return{exact,misplaced:shared-exact}}
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY));return v&&typeof v==='object'?v:{}}catch{return{}}}
+function save(v){try{localStorage.setItem(KEY,JSON.stringify(v))}catch{}}
+function record(){const r=load(),d=r[today];$('record').textContent='Clean daily wins: '+(r.wins||0)+' · best: '+(r.best||'—')+' guesses · today: '+(d?d.result:'not finished')+'.'}
+function message(s){$('status').textContent=s}
+function render(){const board=$('guesses');board.replaceChildren();for(let n=0;n<MAX;n++){const row=document.createElement('div');row.className='guess '+(n<history.length?'past':n===history.length&&!ended?'current':'')+(history[n]&&history[n].exact===4?' win':'');const code=n<history.length?history[n].code:n===history.length&&!ended?entry:[];for(let j=0;j<4;j++){const tile=document.createElement('span');tile.className='tile';tile.textContent=code[j]===undefined?'·':String(code[j]);row.appendChild(tile)}const fb=document.createElement('div');fb.className='feedback';if(n<history.length){const h=history[n];fb.setAttribute('aria-label',h.exact+' exact and '+h.misplaced+' misplaced');for(let i=0;i<4;i++){const p=document.createElement('span');p.className='peg '+(i<h.exact?'exact':i<h.exact+h.misplaced?'misplaced':'none');p.setAttribute('aria-hidden','true');fb.appendChild(p)}}else{fb.textContent=n===history.length&&!ended?'next →':''}row.appendChild(fb);board.appendChild(row)}
+$('mode').textContent=daily?'Daily · '+today:'Practice';$('attempts').textContent=history.length+' / 8 guesses';$('clue').textContent=reveal<0?'4 unique digits · 1–6':'Hint: position '+(reveal+1)+' = '+secret[reveal];
+$('submit').disabled=ended||entry.length!==4;$('erase').disabled=ended||!entry.length;$('hint').disabled=ended||assisted;$('share').disabled=!ended;
+for(const b of $('pad').children)b.disabled=ended||entry.length===4||entry.includes(Number(b.dataset.digit))}
+function start(isDaily){daily=isDaily;secret=isDaily?seeded(today):randomCode();entry=[];history=[];ended=false;assisted=false;reveal=-1;render();record();message((daily?'Daily':'Practice')+' vault ready. Enter four distinct digits.')}
+function add(n){if(ended||entry.length===4||entry.includes(n))return;entry.push(n);render();if(entry.length===4)message('Combination ready. Press Enter or Submit guess.')}
+function erase(){if(ended)return;entry.pop();render()}
+function finish(win){ended=true;const r=load();if(daily){if(!r[today]){r[today]={result:win?(assisted?'assisted win':'won in '+history.length):'locked',guesses:history.length};if(win&&!assisted){r.wins=(r.wins||0)+1;r.best=Math.min(r.best||99,history.length)}}save(r)}render();record();message(win?'🔓 Vault opened in '+history.length+' guesses'+(assisted?' (assisted).':'!'):'🔒 Vault sealed. Code: '+secret.join('')+'. Try again tomorrow or practice.')}
+function submit(){if(ended)return;if(entry.length!==4){message('Enter exactly four distinct digits first.');return}const result=score(entry,secret);history.push({code:entry.slice(),...result});entry=[];if(result.exact===4)finish(true);else if(history.length===MAX)finish(false);else{render();message(result.exact+' exact · '+result.misplaced+' misplaced. '+(MAX-history.length)+' attempts remain.')}}
+function hint(){if(ended||assisted)return;reveal=secret.findIndex((v,i)=>!history.some(h=>h.code[i]===v));if(reveal<0)reveal=0;assisted=true;render();message('Hint: position '+(reveal+1)+' is '+secret[reveal]+'. Assisted rounds do not count as clean wins.')}
+function share(){if(!ended)return;const marks=history.map(h=>'🟩'.repeat(h.exact)+'🟨'.repeat(h.misplaced)+'⬜'.repeat(4-h.exact-h.misplaced));const text='Vault Cipher 98 '+(daily?today:'Practice')+' · '+(history.at(-1).exact===4?history.length+'/8':'X/8')+(assisted?' (hint)':'')+'\n'+marks.join('\n')+'\nhttps://mrhakan.github.io/games/vault-cipher/';if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>message('Result copied to clipboard.')).catch(()=>message('Clipboard unavailable; use the browser share menu.'))}else message('Clipboard unavailable in this browser.')}
+for(let i=1;i<=6;i++){const b=document.createElement('button');b.type='button';b.className='btn';b.dataset.digit=String(i);b.textContent=String(i);b.setAttribute('aria-label','Enter digit '+i);b.addEventListener('click',()=>add(i));$('pad').appendChild(b)}
+$('daily').addEventListener('click',()=>start(true));$('practice').addEventListener('click',()=>start(false));$('restart').addEventListener('click',()=>start(daily));$('erase').addEventListener('click',erase);$('submit').addEventListener('click',submit);$('hint').addEventListener('click',hint);$('share').addEventListener('click',share);
+document.addEventListener('keydown',e=>{if(e.altKey||e.ctrlKey||e.metaKey||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(/^[1-6]$/.test(e.key)){e.preventDefault();add(Number(e.key))}else if(e.key==='Backspace'){e.preventDefault();erase()}else if(e.key==='Enter'&&document.activeElement===document.body){e.preventDefault();submit()}});
+start(true);
+})();
+</script></body></html>
