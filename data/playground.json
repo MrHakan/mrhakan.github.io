@@ -1,5 +1,42 @@
 [
   {
+    "name": "Vault Cipher 98",
+    "type": "game",
+    "date": "2026-10-31",
+    "url": "/games/vault-cipher/",
+    "description": "Daily four-digit Mastermind-style codebreaker with exact/misplaced clues, eight attempts, keyboard/touch controls, optional hint and local clean-win records.",
+    "icon": "🔐",
+    "tags": [
+      "mastermind",
+      "deduction",
+      "daily",
+      "codebreaker",
+      "logic",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Chartsmith 98",
+    "type": "app",
+    "date": "2026-10-31",
+    "url": "/apps/chartsmith/",
+    "description": "Private CSV/TSV chart workbench with column, line and dot plots, local file import, data preview, accessible SVG and download/copy export.",
+    "icon": "📊",
+    "tags": [
+      "charts",
+      "csv",
+      "tsv",
+      "svg",
+      "data",
+      "visualization",
+      "developer",
+      "privacy",
+      "offline"
+    ]
+  },
+  {
     "name": "Star Sector 98",
     "type": "game",
     "date": "2026-10-30",
