@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Chartsmith 98: private CSV-to-chart workbench with bar, line and dot plots, live previews and SVG export.">
+<title>Chartsmith 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/chartsmith/">
+<meta property="og:title" content="Chartsmith 98">
+<meta property="og:description" content="Turn pasted CSV or TSV into accessible, exportable charts without uploading data.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:14px;font:13px Tahoma,Verdana,Arial,sans-serif;color:#203447}
+.window{max-width:1160px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005454}
+.titlebar{background:linear-gradient(90deg,#000080,#177fb4);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.titlebar h1{margin:0;font-size:18px}
+.close,.btn,select,input[type="text"]{border:2px solid;border-color:#fff #555 #555 #fff;background:#c0c0c0;color:#1d3245;padding:9px 10px;min-height:39px;font:700 12px Tahoma,Arial,sans-serif}.close{text-decoration:none;padding:5px 10px;min-height:0}.btn{cursor:pointer}.btn.primary{background:#d9edfb}.btn:disabled{opacity:.5;cursor:not-allowed}
+.menu{padding:10px 12px;font-size:12px}.menu span{text-decoration:underline}
+.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.85fr);gap:12px;padding:0 12px 12px}.panel{min-width:0;background:#ededed;border:2px inset #ddd;padding:12px}.panel h2{font-size:15px;margin:0 0 10px}
+.toolbar,.fields{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0}.field{display:flex;flex-direction:column;gap:4px;min-width:125px;flex:1}.field label{font-size:12px;font-weight:700}.field select,.field input{background:#fff;width:100%;min-width:0}
+textarea{display:block;width:100%;height:180px;resize:vertical;background:#fff;color:#203447;border:2px inset #ddd;padding:10px;font:12px/1.55 Consolas,monospace}
+.chart-frame{background:#fff;border:2px inset #ddd;padding:8px;overflow:hidden}.chart-frame svg{display:block;width:100%;height:auto;min-height:230px;max-height:450px}
+#status,.help-box{background:#fff;border:2px inset #ddd;padding:10px;line-height:1.6}#status{min-height:48px}.help{font-size:12px;line-height:1.65;color:#405669}
+table{border-collapse:collapse;width:100%;font:12px Consolas,monospace}th,td{border:1px solid #aab6c0;padding:6px 7px;text-align:left;overflow-wrap:anywhere}th{background:#dbe8f3}.table-wrap{overflow-x:auto;max-width:100%;background:#fff;border:2px inset #ddd}
+.file{display:inline-block;position:relative;overflow:hidden}.file input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+footer{border-top:1px solid #999;padding:10px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px}
+:focus-visible{outline:3px solid #e6a000;outline-offset:2px}.file:focus-within{outline:3px solid #e6a000}
+@media(max-width:820px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:9px}}
+@media(max-width:440px){.titlebar h1{font-size:16px}.toolbar .btn{flex:1}.field{min-width:120px}textarea{height:150px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style></head>
+<body><main class="window">
+<header class="titlebar"><h1>📊 Chartsmith 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<nav class="menu" aria-label="Window menu"><span>File</span>　<span>Data</span>　<span>Chart</span>　<span>Export</span></nav>
+<div class="layout">
+<section class="panel" aria-labelledby="chartTitle">
+<h2 id="chartTitle">Chart preview</h2>
+<div class="fields">
+<div class="field"><label for="kind">Chart type</label><select id="kind"><option value="bar">Column chart</option><option value="line">Line chart</option><option value="dot">Dot chart</option></select></div>
+<div class="field"><label for="xcol">Category / X column</label><select id="xcol"></select></div>
+<div class="field"><label for="ycol">Numeric / Y column</label><select id="ycol"></select></div>
+<div class="field"><label for="palette">Palette</label><select id="palette"><option value="ocean">Ocean blue</option><option value="sunset">Amber sunset</option><option value="mint">Terminal mint</option><option value="plum">Pixel plum</option></select></div>
+</div>
+<div class="field"><label for="chartname">Chart title</label><input type="text" id="chartname" value="Monthly visitors" maxlength="80"></div>
+<div class="chart-frame"><svg id="chart" viewBox="0 0 760 420" role="img" aria-label="Chart preview" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div class="toolbar"><button type="button" class="btn primary" id="export">⬇ Download SVG</button><button type="button" class="btn" id="copy">⧉ Copy SVG</button><button type="button" class="btn" id="sample">↻ Sample data</button></div>
+<div id="status" role="status" aria-live="polite">Paste CSV or TSV, choose columns, and export an SVG chart.</div>
+<h2>Data preview</h2><div class="table-wrap" id="preview" aria-label="Parsed data table"></div>
+</section>
+<aside class="panel"><h2>Data workbench</h2>
+<p class="help">Paste comma-separated or tab-separated data, or load a local CSV/TXT file. Quoted cells and embedded commas are supported. Nothing leaves your browser.</p>
+<label for="csv"><strong>CSV / TSV input</strong></label><textarea id="csv" spellcheck="false" aria-label="Paste CSV or TSV data"></textarea>
+<div class="toolbar"><button type="button" class="btn primary" id="parse">✓ Update chart</button><label class="btn file">📂 Open file<input id="file" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" aria-label="Open local CSV or TSV file"></label></div>
+<div class="help-box"><strong>Quick guide</strong><p>First row = column names. Choose a text column for the horizontal axis and a numeric column for values. Empty or invalid numeric rows are skipped, not interpreted as zero.</p><p>Up to 80 plotted rows and 12 columns. Exported SVG includes a title and description for screen readers. Use the data table below the chart to inspect exact values.</p></div>
+<p class="help">The editor is entirely client-side: no account, network request, tracking, API key, or third-party script.</p>
+</aside></div>
+<footer><span>Chartsmith 98 · private SVG data visualizer</span><a href="../../">← Playground</a></footer>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+const COLORS={ocean:['#156ea4','#dceef7'],sunset:['#b76413','#fff0d5'],mint:['#0e8064','#d9f7ed'],plum:['#7453a7','#f0e8fb']};
+const SAMPLE='Month,Visitors,Signups\nJan,120,21\nFeb,180,31\nMar,156,26\nApr,260,47\nMay,295,51\nJun,275,49\nJul,348,65\nAug,390,77\nSep,410,81\nOct,445,93\nNov,520,104\nDec,590,127';
+let headers=[],rows=[];
+function message(s){$('status').textContent=s}
+function parseDelimited(raw){const text=raw.replace(/^\uFEFF/,'');const first=text.split(/\r?\n/,1)[0]||'';const delimiter=(first.match(/\t/g)||[]).length>(first.match(/,/g)||[]).length?'\t':',';const out=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){cell+='"';i++}else if(c==='"')quoted=false;else cell+=c}else if(c==='"'){if(cell.trim()==='')quoted=true;else cell+=c}else if(c===delimiter){row.push(cell.trim());cell=''}else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell.trim());if(row.some(v=>v!==''))out.push(row);row=[];cell=''}else cell+=c}if(quoted)throw Error('Unclosed quoted cell.');row.push(cell.trim());if(row.some(v=>v!==''))out.push(row);if(out.length<2)throw Error('Add a header and at least one data row.');if(out[0].length<2||out[0].length>12)throw Error('Use 2 to 12 columns.');const width=out[0].length;return{headers:out[0].map((s,i)=>s||'Column '+(i+1)),rows:out.slice(1,501).map(r=>Array.from({length:width},(_,i)=>r[i]||''))}}
+function el(tag,attrs={},text){const n=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=String(text);return n}
+function add(parent,tag,attrs,text){const n=el(tag,attrs,text);parent.appendChild(n);return n}
+function nice(n){if(!Number.isFinite(n))return '—';return Math.abs(n)>=1000?n.toLocaleString('en-US',{maximumFractionDigits:1}):String(Number(n.toFixed(2)))}
+function numeric(s){const v=String(s).replace(/\s/g,'');return v!==''&&/^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(v)?Number(v):NaN}
+function preview(){const wrap=$('preview');wrap.replaceChildren();const table=document.createElement('table'),thead=document.createElement('thead'),tr=document.createElement('tr');for(const h of headers){const th=document.createElement('th');th.scope='col';th.textContent=h;tr.appendChild(th)}thead.appendChild(tr);table.appendChild(thead);const body=document.createElement('tbody');for(const r of rows.slice(0,8)){const line=document.createElement('tr');for(const cell of r){const td=document.createElement('td');td.textContent=cell;line.appendChild(td)}body.appendChild(line)}table.appendChild(body);wrap.appendChild(table)}
+function axes(){const previousX=$('xcol').value,previousY=$('ycol').value;for(const id of ['xcol','ycol']){$(id).replaceChildren();headers.forEach((h,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=h;$(id).appendChild(o)})}const guess= headers.findIndex((_,i)=>i>0&&rows.some(r=>Number.isFinite(numeric(r[i]))));$('xcol').value=previousX&&Number(previousX)<headers.length?previousX:'0';$('ycol').value=previousY&&Number(previousY)<headers.length?previousY:String(guess>=0?guess:1)}
+function render(){const svg=$('chart');svg.replaceChildren();if(!headers.length)return;const xi=Number($('xcol').value),yi=Number($('ycol').value);const data=rows.map(r=>({x:r[xi]||'(blank)',y:numeric(r[yi])})).filter(d=>Number.isFinite(d.y)).slice(0,80);if(!data.length){message('No valid numeric values in the selected Y column.');return}
+const color=COLORS[$('palette').value]||COLORS.ocean,primary=color[0],tint=color[1],title=$('chartname').value.trim()||'Untitled chart',kind=$('kind').value;
+const W=760,H=420,left=78,right=22,top=66,bottom=78,pw=W-left-right,ph=H-top-bottom;
+const values=data.map(d=>d.y),min=Math.min(0,...values),max=Math.max(0,...values),span=max-min||1,pad=span*.08,lo=min-pad,hi=max+pad,range=hi-lo;
+const yy=v=>top+(hi-v)/range*ph,xx=i=>left+(i+.5)*pw/data.length;
+add(svg,'title',{},title);add(svg,'desc',{},kind+' chart showing '+data.length+' rows of '+headers[yi]+' by '+headers[xi]+'. Exact values are also in the source data table.');
+add(svg,'rect',{x:0,y:0,width:W,height:H,fill:'#ffffff'});add(svg,'text',{x:left,y:34,fill:'#203447','font-size':20,'font-family':'Tahoma,Arial,sans-serif','font-weight':'bold'},title.slice(0,62));
+for(let i=0;i<=5;i++){const v=lo+(hi-lo)*i/5,y=yy(v);add(svg,'line',{x1:left,y1:y,x2:W-right,y2:y,stroke:'#e0e6eb','stroke-width':1});add(svg,'text',{x:left-10,y:y+4,'text-anchor':'end','font-size':12,'font-family':'Consolas,monospace',fill:'#4b5c6a'},nice(v))}
+add(svg,'line',{x1:left,y1:yy(0),x2:W-right,y2:yy(0),stroke:'#526c7d','stroke-width':1.5});
+const every=Math.max(1,Math.ceil(data.length/9));data.forEach((d,i)=>{if(i%every!==0&&i!==data.length-1)return;add(svg,'text',{x:xx(i),y:H-bottom+20,'text-anchor':'middle','font-size':11,'font-family':'Tahoma,Arial,sans-serif',fill:'#344e61'},String(d.x).slice(0,10))});
+add(svg,'text',{x:W/2,y:H-16,'text-anchor':'middle','font-size':13,'font-family':'Tahoma,Arial,sans-serif',fill:'#344e61'},headers[xi].slice(0,40));
+if(kind==='bar'){const barWidth=Math.max(2,Math.min(48,pw/data.length*.72));for(let i=0;i<data.length;i++){const d=data[i],zero=yy(0),v=yy(d.y),rect=add(svg,'rect',{x:xx(i)-barWidth/2,y:Math.min(v,zero),width:barWidth,height:Math.max(1,Math.abs(v-zero)),fill:primary,rx:2});add(rect,'title',{},d.x+': '+nice(d.y))}}
+else{if(kind==='line'){const points=data.map((d,i)=>xx(i)+','+yy(d.y)).join(' ');add(svg,'polyline',{points,fill:'none',stroke:primary,'stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round'})}for(let i=0;i<data.length;i++){const d=data[i],circle=add(svg,'circle',{cx:xx(i),cy:yy(d.y),r:kind==='dot'?5.5:4,fill:primary,stroke:'#fff','stroke-width':1.5});add(circle,'title',{},d.x+': '+nice(d.y))}}
+add(svg,'rect',{x:W-200,y:18,width:12,height:12,fill:primary});add(svg,'text',{x:W-182,y:29,'font-size':12,'font-family':'Tahoma,Arial,sans-serif',fill:'#344e61'},headers[yi].slice(0,20));
+svg.setAttribute('aria-label',title+': '+kind+' chart with '+data.length+' values');message('Rendered '+data.length+' valid data points. '+(rows.length-data.length>0?'Some rows were skipped or limited to 80. ':'')+'Export a scalable SVG when ready.')}
+function update(){try{const result=parseDelimited($('csv').value);headers=result.headers;rows=result.rows;axes();preview();render()}catch(e){message('Data error: '+e.message)}}
+function exportText(){const copy=$('chart').cloneNode(true);copy.setAttribute('xmlns',NS);return '<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(copy)}
+function download(){if(!$('chart').querySelector('title')){message('Create a valid chart before exporting.');return}const blob=new Blob([exportText()],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='chartsmith-'+($('chartname').value.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,35)||'chart')+'.svg';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);message('SVG chart downloaded.')}
+function copy(){if(!$('chart').querySelector('title')){message('Create a chart first.');return}if(!navigator.clipboard||!navigator.clipboard.writeText){message('Clipboard unavailable. Use Download SVG.');return}navigator.clipboard.writeText(exportText()).then(()=>message('SVG source copied.')).catch(()=>message('Clipboard denied. Use Download SVG.'))}
+$('parse').addEventListener('click',update);$('sample').addEventListener('click',()=>{$('csv').value=SAMPLE;$('chartname').value='Monthly visitors';$('xcol').value='';$('ycol').value='';update()});
+for(const id of ['kind','xcol','ycol','palette'])$(id).addEventListener('change',render);
+$('chartname').addEventListener('input',render);$('export').addEventListener('click',download);$('copy').addEventListener('click',copy);
+$('file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>102400){message('File exceeds the 100 KB local import limit.');e.target.value='';return}try{$('csv').value=await file.text();update()}catch{message('Could not read this file.')}e.target.value=''});
+$('csv').value=SAMPLE;update();
+})();
+</script></body></html>
