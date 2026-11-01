@@ -418,34 +418,10 @@
 
           <div id="section-guestbook" class="hidden relative z-10 mx-auto max-w-2xl">
             <h2 class="text-3xl font-bold text-black mb-4 font-header border-b-2 border-black pb-2">guestbook.exe</h2>
-            <p class="text-black font-pixel text-xs mb-3 bg-[#ffffe1] border border-gray-500 p-2">
-              ⓘ this guestbook is a github gist and signing it is a comment on it — hit
-              "sign it!", your entry gets copied, the gist opens, you paste it in the comment
-              box. no fork, no pull request, nothing gets committed anywhere.
-            </p>
-            <form id="guestbook-form" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
-              <div class="mb-2">
-                <label class="text-black font-header text-sm block mb-1">your name:</label>
-                <input id="gb-name" type="text" class="w-full p-1 border border-gray-400 text-black font-pixel text-sm"
-                  required />
-              </div>
-              <div class="mb-2">
-                <label class="text-black font-header text-sm block mb-1">your website:</label>
-                <input id="gb-website" type="text"
-                  class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" placeholder="http://" />
-              </div>
-              <div class="mb-3">
-                <label class="text-black font-header text-sm block mb-1">your message:</label>
-                <textarea id="gb-message" rows="3"
-                  class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" required></textarea>
-              </div>
-              <button type="submit"
-                class="bg-retro-gray bevel-out px-4 py-1 text-black font-header font-bold active:translate-y-[1px]">sign
-                it!</button>
-            </form>
-            <div id="guestbook-entries" class="space-y-4 max-h-[300px] overflow-y-auto">
-              <div class="text-center text-gray-500 font-pixel">no entries yet - be the first!</div>
-            </div>
+            <!-- The standard Giscus client owns one container per document.
+                 Keep this board in its own document, separate from Shoutbox. -->
+            <iframe id="guestbook-frame" src="guestbook.html?embedded=1" title="Guestbook"
+              class="w-full" style="width:100%;height:400px;border:0" loading="lazy"></iframe>
             <div class="mt-6">
               <button onclick="showSection('home')"
                 class="bg-retro-gray bevel-out px-4 py-2 text-black font-header font-bold">

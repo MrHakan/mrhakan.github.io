@@ -1,3 +1,4 @@
+import { mockGiscus } from './mock-giscus.mjs';
 // ===================================================================
 // browser-arcade.mjs — the thirty new things, played rather than opened
 //
@@ -39,6 +40,7 @@ await ctx.route('**/*', route => {
     }
     return route.abort();
 });
+await mockGiscus(ctx);
 await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 
 const errors = [];

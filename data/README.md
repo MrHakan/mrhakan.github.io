@@ -107,6 +107,29 @@ giscus takes a theme by url instead, and `css/giscus-win98.css` is that
 theme: the same bevels, greys and title bars as the window it sits in.
 it is passed automatically.
 
+### isolation, connection failures and local tests
+
+The desktop embeds `guestbook.html?embedded=1` for Guestbook. The standard
+Giscus client owns one container per document, so this keeps Guestbook and
+Shoutbox independent while using the same Announcements category and their
+distinct `Guestbook` / `Shoutbox` terms. The existing threads are Discussions
+[#36](https://github.com/MrHakan/mrhakan.github.io/discussions/36) and
+[#35](https://github.com/MrHakan/mrhakan.github.io/discussions/35), respectively.
+
+A blocked client, service error or visible frame that does not respond within
+15 seconds restores that board's legacy Gist form and offers a GitHub link.
+An empty discussion is allowed: Giscus creates it on the first comment.
+Messages are accepted only from the board's own frame on `https://giscus.app`.
+
+Browser CI uses `mock-giscus.mjs` to replace the external client and widget,
+including the client script's CORS headers. Local application files stay real;
+no CORS errors are suppressed. This avoids having a production Giscus frame
+fetch a custom theme from a localhost server without CORS headers. The focused
+`browser-giscus.mjs` suite checks both documents and includes an actual rejected
+cross-origin request to prove the error collector still catches CORS failures.
+Production verification must separately use the real Giscus widget and confirm
+that GitHub Pages serves `css/giscus-win98.css` with cross-origin access.
+
 ### what this costs
 
 the comment box is an iframe from giscus.app, so the page depends on a
