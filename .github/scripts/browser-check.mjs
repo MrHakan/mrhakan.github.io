@@ -26,6 +26,14 @@ const section = n => console.log('\n== ' + n + ' ==');
 // PW_CHROMIUM lets a machine that already has a chromium skip the download
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
+// The smoke suite runs against localhost. Once Giscus is enabled the real
+// client would fetch our custom CSS cross-origin from localhost, where the
+// simple test server intentionally has no CORS headers. Stub only the external
+// widget script here; Giscus data attributes are tested separately below.
+await ctx.route('https://giscus.app/client.js', r => r.fulfill({
+    status: 200, contentType: 'application/javascript',
+    body: '/* external Giscus widget stubbed in localhost smoke tests */'
+}));
 // the welcome popup fires 1.4s after every boot and, being a retro dialog,
 // evicts whatever dialog is already on screen — including one a test just
 // opened. mark the session as welcomed before any page script runs.
@@ -786,9 +794,9 @@ try {
     }
     section('the guestbook, both ways round');
     {
-        // giscus is off until two ids are in data/site.json. Serve a patched
-        // config to see the configured half without committing one, and never
-        // let either page actually reach giscus.app.
+        // Giscus is enabled in production. Exercise the real configuration,
+        // a deliberately disabled fallback, and a synthetic configured case
+        // without contacting the external Giscus service.
         const board = async (label, giscus) => {
             // the service worker caches data/site.json and its fetches are not
             // page requests, so a route on this page would never see them —
@@ -801,10 +809,10 @@ try {
             const page = await gctx.newPage();
             let reached = null;
             await page.route('**://giscus.app/**', r => { reached = r.request().url(); r.abort(); });
-            if (giscus) {
+            if (giscus !== undefined) {
                 await page.route('**/data/site.json', async r => {
                     const body = await (await r.fetch()).json();
-                    body.giscus = giscus;
+                    body.giscus = giscus || {};
                     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
                 });
             }
@@ -834,7 +842,14 @@ try {
             return out;
         };
 
-        const off = await board('gist', null);
+        const configured = await board('configured');
+        expect(configured.mount === true && configured.form === false &&
+            configured.attrs && configured.attrs['data-category-id'] === 'DIC_kwDOFNnvlM4DEF5L' &&
+            configured.attrs['data-term'] === 'Guestbook',
+            'production guestbook mounts Giscus with the verified category and term',
+            JSON.stringify(configured));
+
+        const off = await board('gist', {});
         expect(off.form === true && off.mount === false, 'with no giscus config the gist board is what you get',
             JSON.stringify(off));
         expect(off.reached === null, 'and nothing is asked of giscus.app');
