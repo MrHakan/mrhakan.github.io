@@ -1,3 +1,4 @@
+import { mockGiscus } from './mock-giscus.mjs';
 // ===================================================================
 // browser-check.mjs — open the actual site in a real browser and play
 //
@@ -26,15 +27,7 @@ const section = n => console.log('\n== ' + n + ' ==');
 // PW_CHROMIUM lets a machine that already has a chromium skip the download
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
-// The smoke suite runs against localhost. Once Giscus is enabled the real
-// client would fetch our custom CSS cross-origin from localhost, where the
-// simple test server intentionally has no CORS headers. Stub only the external
-// widget script here; Giscus data attributes are tested separately below.
-await ctx.route('https://giscus.app/client.js', r => r.fulfill({
-    status: 200, contentType: 'application/javascript',
-    headers: { 'Access-Control-Allow-Origin': '*' },
-    body: '/* external Giscus widget stubbed in localhost smoke tests */'
-}));
+await mockGiscus(ctx);
 // the welcome popup fires 1.4s after every boot and, being a retro dialog,
 // evicts whatever dialog is already on screen — including one a test just
 // opened. mark the session as welcomed before any page script runs.
@@ -171,7 +164,18 @@ try {
     // bad intentions), and then the form is filled in and "sign it!"
     // pressed to see what ends up on the clipboard.
     // ---------------------------------------------------------------
-    const gb = await boot('guestbook');
+    // The desktop now embeds this same document so its Giscus client cannot
+    // replace Shoutbox. Exercise legacy signing in that document, with Giscus
+    // deliberately unconfigured before any loader or service worker can run.
+    const legacyCtx = await browser.newContext({ serviceWorkers: 'block' });
+    await legacyCtx.route('**/data/site.json', async route => {
+        const data = await (await route.fetch()).json();
+        data.giscus = {};
+        await route.fulfill({ json: data });
+    });
+    const gb = await legacyCtx.newPage();
+    gb.on('pageerror', e => errors.push('legacy guestbook: ' + e.message));
+    await gb.goto(BASE.replace(/[^/]*$/, 'guestbook.html'), { waitUntil: 'load' });
     const board = await gb.evaluate(async () => {
         const GIST = 'a7fa4c89c27fc3adedf1ff96b0514472';
         const comments = [
@@ -207,9 +211,9 @@ try {
         };
         // the tray status widget already read the real site.json; drop
         // both caches so the stub above is what the boards see
-        siteData = null;
+        if (typeof siteData !== 'undefined') siteData = null;
         boardsCache = null;
-        showSection('guestbook');
+        siteCache = null;
         await loadGuestbook();
         const wall = document.getElementById('guestbook-entries');
         return {
@@ -264,6 +268,7 @@ try {
     expect(opened.url === 'https://gist.github.com/MrHakan/a7fa4c89c27fc3adedf1ff96b0514472#comments',
         'then opens the gist at the comment box', opened.url);
     await gb.close();
+    await legacyCtx.close();
 
     // guestbook.html is the standalone page — index.js without the rest of
     // the desktop's scripts. it is easy to break from index.js and nothing
@@ -808,8 +813,8 @@ try {
             });
             await gctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
             const page = await gctx.newPage();
-            let reached = null;
-            await page.route('**://giscus.app/**', r => { reached = r.request().url(); r.abort(); });
+            const giscusRequests = await mockGiscus(gctx);
+
             if (giscus !== undefined) {
                 await page.route('**/data/site.json', async r => {
                     const body = await (await r.fetch()).json();
@@ -819,8 +824,7 @@ try {
             }
             await page.goto(BASE.replace(/index\.html$/, 'guestbook.html'), { waitUntil: 'load' });
             await page.waitForTimeout(2200);
-            // giscus.app is blocked, so the mount has no iframe and no height:
-            // ask whether it is displayed, not whether it is painted
+            // Visibility must not depend on a utility class from a CDN.
             const shown = sel => page.evaluate(q => {
                 const el = document.querySelector(q);
                 return el ? getComputedStyle(el).display !== 'none' : null;
@@ -828,7 +832,7 @@ try {
             const out = {
                 form: await shown('#guestbook-form'),
                 mount: await shown('#giscus-mount'),
-                reached: reached,
+                reached: giscusRequests[0] || null,
                 attrs: await page.evaluate(() => {
                     const s2 = document.querySelector('#giscus-mount script');
                     if (!s2) return null;
@@ -878,6 +882,7 @@ try {
         // A real device profile, not a narrow desktop window: coarse pointer,
         // a device pixel ratio, and the touch events that come with it.
         const phone = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' });
+        await mockGiscus(phone);
         await phone.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
         const p = await phone.newPage();
         const perrs = [];

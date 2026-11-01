@@ -28,6 +28,15 @@ let currentTrackIndex = 0;
 let isPlaying = false;
 let audioContext, analyser, dataArray, mediaSource = null;
 
+// The inline Guestbook has its own document to isolate Giscus from Shoutbox.
+// Resize only from that same-origin document, keeping long threads scrollable.
+window.addEventListener('message', event => {
+    const frame = document.getElementById('guestbook-frame');
+    if (!frame || event.origin !== location.origin || event.source !== frame.contentWindow) return;
+    const height = event.data && event.data.guestbookHeight;
+    if (Number.isFinite(height) && height > 0) frame.style.height = Math.min(1000, Math.max(240, height)) + 'px';
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     const audio = document.getElementById('audio-player');
     initVisitorCounter();
@@ -1609,14 +1618,15 @@ async function giscusConfig(kind) {
     return GUESTBOOK.giscusConfig(await giscusSite(), kind || 'guestbook');
 }
 
-// mount a board's thread into a container. Each board has its own category
-// and its own discussion, so the guestbook and the shoutbox never end up
-// sharing one thread.
+// Each document hosts one Giscus client. The inline guestbook is a separate
+// document so the standard client's singleton container cannot replace Shoutbox.
 async function mountGiscus(kind, mountId) {
     const mount = document.getElementById(mountId || 'giscus-mount');
     if (!mount) return false;
+    if (mount.dataset.failed) return false;
     if (mount.dataset.mounted) return true;
     const cfg = await giscusConfig(kind);
+    if (mount.dataset.mounted) return !mount.dataset.failed;
     if (!cfg.ready) return false;
     const s = document.createElement('script');
     s.src = 'https://giscus.app/client.js';
@@ -1634,15 +1644,74 @@ async function mountGiscus(kind, mountId) {
     s.setAttribute('data-term', cfg.term);
     s.setAttribute('data-strict', '0');
     s.setAttribute('data-reactions-enabled', '1');
-    s.setAttribute('data-emit-metadata', '0');
+    s.setAttribute('data-emit-metadata', '1');
     s.setAttribute('data-input-position', 'top');
     // the frame is on another origin, so style.css cannot reach into it —
     // giscus takes a theme by url and this one is served from this repo
     s.setAttribute('data-theme', new URL('css/giscus-win98.css', location.href).href);
     s.setAttribute('data-lang', 'en');
     s.setAttribute('data-loading', 'lazy');
-    mount.appendChild(s);
+    // A script tag alone is not a loaded board. The iframe reports resize /
+    // metadata messages once it is usable; trust only this board's own frame.
+    // Start the watchdog when visible because Giscus lazy-loads its iframe.
+    let timer, observer;
+    const finish = () => {
+        clearTimeout(timer);
+        if (observer) observer.disconnect();
+    };
+    const fail = () => {
+        if (mount.dataset.failed) return;
+        finish();
+        window.removeEventListener('message', onMessage);
+        mount.dataset.failed = '1';
+        mount.dataset.state = 'failed';
+        const notice = document.createElement('p');
+        notice.setAttribute('role', 'status');
+        notice.style.cssText = 'background:#ffffe1;color:#000;border:1px solid #808080;padding:8px;font:12px monospace';
+        notice.textContent = 'Comments could not connect. ';
+        const link = document.createElement('a');
+        link.href = 'https://github.com/' + cfg.repo + '/discussions?discussions_q=' + encodeURIComponent('"' + cfg.term + '" in:title');
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.style.cssText = 'color:#000080;text-decoration:underline';
+        link.textContent = 'Open ' + cfg.term + ' on GitHub';
+        notice.append(link, document.createTextNode(' or use the legacy board below.'));
+        mount.replaceChildren(notice);
+        const legacy = kind === 'shouts' ? 'shouts' : 'gist';
+        document.querySelectorAll('[data-board="' + legacy + '"]').forEach(el => {
+            el.classList.remove('hidden');
+            el.style.display = '';
+        });
+        if (kind !== 'shouts') document.querySelectorAll('p[data-board="giscus"]').forEach(el => {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        });
+        if (kind === 'shouts') fetchShoutbox();
+        else loadGuestbook();
+    };
+    const onMessage = event => {
+        const frame = mount.querySelector('iframe');
+        if (event.origin !== 'https://giscus.app' || !frame || event.source !== frame.contentWindow) return;
+        const message = event.data && event.data.giscus;
+        if (!message) return;
+        // No discussion yet is normal: Giscus creates it on the first comment.
+        if (message.error && !String(message.error).includes('Discussion not found')) {
+            fail();
+        } else if (message.resizeHeight || message.discussion || message.error) {
+            finish();
+            mount.dataset.state = 'ready';
+        }
+    };
+    s.onerror = fail;
+    window.addEventListener('message', onMessage);
     mount.dataset.mounted = '1';
+    mount.dataset.state = 'loading';
+    mount.appendChild(s);
+    const start = () => { if (!timer && mount.dataset.state === 'loading') timer = setTimeout(fail, 15000); };
+    if (typeof IntersectionObserver === 'function') {
+        observer = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) start(); });
+        observer.observe(mount);
+    } else start();
     return true;
 }
 

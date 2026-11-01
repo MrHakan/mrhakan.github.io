@@ -1,3 +1,4 @@
+import { mockGiscus } from './mock-giscus.mjs';
 // ===================================================================
 // browser-echoes.mjs — play "echoes of the tide" in a real browser
 //
@@ -24,6 +25,7 @@ const section = n => console.log('\n== ' + n + ' ==');
 
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 } });
+await mockGiscus(ctx);
 // the welcome popup evicts whatever dialog is on screen 1.4s after boot
 await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 const errors = [];

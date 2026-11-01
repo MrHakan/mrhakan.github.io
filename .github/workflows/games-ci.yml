@@ -106,7 +106,10 @@ jobs:
             - name: Smoke test every daily Playground page
               run: |
                   python3 -m http.server 8095 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
                   sleep 2
+                  kill -0 "$site_pid"
                   SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-playground.mjs
 
             - name: Boot the site, open the game, draw a sigil, run two lobbies
@@ -116,8 +119,13 @@ jobs:
                   NOSTR_TEST_RELAY: ws://127.0.0.1:8790
               run: |
                   python3 -m http.server 8099 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
                   node server/nostr-test-relay.mjs &
+                  relay_pid=$!
+                  trap 'kill "$site_pid" "$relay_pid" 2>/dev/null || true' EXIT
                   sleep 2
+                  kill -0 "$site_pid"
                   node .github/scripts/browser-check.mjs
 
             # the reading layer, driven the way a person drives it: type a
@@ -128,7 +136,10 @@ jobs:
             - name: Deep links, the address bar, favorites and quoting
               run: |
                   python3 -m http.server 8097 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
                   sleep 2
+                  kill -0 "$site_pid"
                   SITE_URL=http://localhost:8097 node .github/scripts/browser-web.mjs
 
             # thirty new windows is thirty chances to ship a game that
@@ -138,7 +149,10 @@ jobs:
             - name: Play the arcade and the toys
               run: |
                   python3 -m http.server 8096 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
                   sleep 2
+                  kill -0 "$site_pid"
                   SITE_URL=http://localhost:8096 node .github/scripts/browser-arcade.mjs
 
             # half the visitors are on a phone, and the things that break
@@ -149,7 +163,10 @@ jobs:
             - name: Open it all on a phone
               run: |
                   python3 -m http.server 8097 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
                   sleep 2
+                  kill -0 "$site_pid"
                   SITE_URL=http://localhost:8097/index.html node .github/scripts/browser-mobile.mjs
 
             # and the RPG, which is all DOM and two canvases: roll a
@@ -157,8 +174,20 @@ jobs:
             - name: Play echoes of the tide
               run: |
                   python3 -m http.server 8098 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
                   sleep 2
+                  kill -0 "$site_pid"
                   SITE_URL=http://localhost:8098/index.html node .github/scripts/browser-echoes.mjs
+
+            - name: Giscus isolation, responsive boards and failure recovery
+              run: |
+                  python3 -m http.server 8102 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
+                  sleep 2
+                  kill -0 "$site_pid"
+                  SITE_URL=http://localhost:8102 node .github/scripts/browser-giscus.mjs
 
             - name: Keep the screenshots
               if: always()
@@ -167,4 +196,5 @@ jobs:
                   name: screenshots
                   path: .ci-shots/
                   if-no-files-found: ignore
+                  include-hidden-files: true
                   retention-days: 7

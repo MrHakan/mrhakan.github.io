@@ -1,3 +1,4 @@
+import { mockGiscus } from './mock-giscus.mjs';
 // ===================================================================
 // browser-mobile.mjs — open the site on a phone and hold it to the
 // things a phone needs that a desktop never notices
@@ -44,6 +45,7 @@ const section = n => console.log('\n== ' + n + ' ==');
 
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' });
+await mockGiscus(ctx);
 // the BIOS screen and the welcome popup both sit over the desktop, and
 // neither of them is what is being measured here
 await ctx.addInitScript(() => {

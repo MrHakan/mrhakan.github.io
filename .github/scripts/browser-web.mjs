@@ -1,3 +1,4 @@
+import { mockGiscus } from './mock-giscus.mjs';
 // ===================================================================
 // browser-web.mjs — the reading layer, in a real browser
 //
@@ -89,6 +90,7 @@ await ctx.route('**/*', route => {
     }
     return route.abort();
 });
+await mockGiscus(ctx);
 
 const errors = [];
 
@@ -547,6 +549,7 @@ section('on a phone');
         }
         return route.abort();
     });
+    await mockGiscus(phone);
     await phone.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
     const p = await phone.newPage();
     p.on('pageerror', e => errors.push('phone: ' + e.message));
