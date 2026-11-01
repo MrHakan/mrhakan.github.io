@@ -1,15 +1,14 @@
 # guestbook & shoutbox
 
-both boards are **a public gist's comment thread**. signing the guestbook
-is leaving a comment on a gist — no fork, no branch, no pull request, no
-issue, and nothing gets committed to this repo. the site reads the
-comments off the public gist api and puts them on the wall, so an entry
-shows up as soon as it is posted, without waiting for a pages deploy.
+both boards now use **Giscus + GitHub Discussions** under the
+`Announcements` category, with distinct `Guestbook` and `Shoutbox` discussion
+terms. Visitors sign in with GitHub to leave comments directly on the site.
+The public Gist comment boards remain configured as a legacy fallback.
 
 the trick is the one from the personal-readme crowd:
 <https://gist.github.com/traumverloren/a7fa4c89c27fc3adedf1ff96b0514472>
 
-## how signing works
+## legacy gist signing (fallback only)
 
 1. the visitor fills in the form on the site and hits **sign it!**
 2. the site writes the comment for them and copies it:
@@ -41,27 +40,26 @@ but a visitor signs in with github and comments in one click. the thread
 is a [github discussion](https://docs.github.com/discussions) on this
 repo rather than a gist.
 
-**each board is separate.** the guestbook and the shoutbox get their own
-discussion category and their own thread, and each one falls back to its
-gist until *both* of its fields are filled in — so you can switch one
-over and leave the other alone.
+**each board is separate.** the guestbook and the shoutbox have distinct
+discussion titles in the same Announcements category. Giscus is enabled for
+both; a board falls back to its Gist only when Giscus is not configured.
 
 ```json
 "giscus": {
     "repo": "MrHakan/mrhakan.github.io",
     "repoId": "MDEwOlJlcG9zaXRvcnkzNDk4MjY5NjQ=",
     "category": "Announcements",
-    "categoryId": "",
+    "categoryId": "DIC_kwDOFNnvlM4DEF5L",
     "guestbook": { "term": "Guestbook" },
     "shouts":    { "term": "Shoutbox" }
 }
 ```
 
 both boards live in one category and are told apart by the discussion
-**title**, which is each board's `term`. everything above is already
-correct except `categoryId` — one value, and both boards switch over at
-once. a board can still override `category` / `categoryId` if you ever
-want them in separate categories.
+**title**, which is each board's `term`. the category ID was verified at
+<https://giscus.app> on 2026-11-01 after the account suspension ended.
+a board can still override `category` / `categoryId` if the categories are
+split in the future.
 
 ### getting them
 
