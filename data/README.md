@@ -1,5 +1,13 @@
 # guestbook & shoutbox
 
+**Giscus is temporarily disabled** with `giscus.enabled: false` in
+`data/site.json`. Both submit buttons go directly to the original Gist preview
+and copy/open flow, without a method chooser or a Giscus request. Discussion
+IDs and the optional composer remain available for later re-enabling with
+`enabled: true`. The compact Shoutbox layout is unchanged.
+
+The optional two-method flow, when re-enabled:
+
 Both boards show their original **Gist wall and forms** by default, including
 the compact Shoutbox. Submitting a draft offers **Giscus ile devam et** and
 **Eski usul**. Cancelling or switching methods preserves the draft.

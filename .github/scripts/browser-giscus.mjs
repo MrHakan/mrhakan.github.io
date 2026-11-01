@@ -8,13 +8,16 @@ import { mockGiscus } from './mock-giscus.mjs';
 
 const BASE = process.env.SITE_URL || 'http://localhost:8099';
 const origin = new URL(BASE).origin;
+const productionGiscus = JSON.parse(fs.readFileSync('data/site.json', 'utf8')).giscus;
 const tailwind = await (await fetch('https://cdn.tailwindcss.com?plugins=forms,container-queries')).text();
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 fs.mkdirSync('.ci-shots', { recursive: true });
 let checks = 0;
 const check = (condition, message) => { assert.ok(condition, message); checks++; console.log('ok ' + message); };
 
-async function setup(options = {}, mode = 'ready', config) {
+// Keep testing the dormant composer with an explicit enabled fixture while
+// separately verifying the actual disabled production configuration below.
+async function setup(options = {}, mode = 'ready', config = { ...productionGiscus, enabled: true }) {
     const context = await browser.newContext({ ...options, serviceWorkers: 'block' });
     await context.addInitScript(() => {
         sessionStorage.setItem('welcomed', '1');
@@ -89,6 +92,25 @@ async function giscusComposer(scope, kind) {
 }
 
 try {
+    {
+        check(productionGiscus.enabled === false, 'Giscus is explicitly disabled in production');
+        const { context, page, requests, errors } = await setup({}, 'ready', productionGiscus);
+        await page.goto(BASE + '/index.html');
+        await page.evaluate(() => showSection('guestbook'));
+        const guest = page.frameLocator('#guestbook-frame');
+        for (const [scope, kind] of [[page, 'shouts'], [guest, 'guestbook']]) {
+            await fillBoard(scope, kind);
+            await page.getByRole('button', { name: 'copy + open the gist', exact: true }).waitFor();
+            check(await page.getByRole('button', { name: 'Giscus ile devam et', exact: true }).count() === 0,
+                kind + ': submit goes straight to the original Gist flow without a chooser');
+            check((await page.locator('.retro-dialog-pre').textContent()).includes(draftMessage), kind + ': original flow retains the draft');
+            await page.getByRole('button', { name: 'nevermind', exact: true }).click();
+        }
+        await page.goto(BASE + '/guestbook.html?composer=giscus&board=shouts');
+        await page.locator('#giscus-mount').filter({ hasText: 'not configured' }).waitFor();
+        check(requests.length === 0 && errors.length === 0, 'disabled Giscus makes no widget requests, including direct composer links');
+        await closeContext(context);
+    }
     for (const [name, options] of [['desktop', { viewport: { width: 1280, height: 900 } }], ['mobile', devices['Pixel 7']]]) {
         const { context, page, requests, errors } = await setup(options);
         await page.goto(BASE + '/index.html');

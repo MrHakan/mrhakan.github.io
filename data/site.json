@@ -538,12 +538,13 @@
         "note": "each board is a public gist, and its comment thread is the board. paste the gist id (the hex blob in its url) here — see data/README.md."
     },
     "giscus": {
+        "enabled": false,
         "repo": "MrHakan/mrhakan.github.io",
         "repoId": "MDEwOlJlcG9zaXRvcnkzNDk4MjY5NjQ=",
         "category": "Announcements",
         "categoryId": "DIC_kwDOFNnvlM4DEF5L",
         "guestbook": { "term": "Guestbook" },
         "shouts": { "term": "Shoutbox" },
-        "note": "Original Gist walls and forms are the default. Submitting a draft offers Giscus or old-school Gist posting. Optional Giscus composers use Announcements with distinct Guestbook and Shoutbox terms."
+        "note": "Giscus is temporarily disabled. Both boards use the original Gist posting flow directly; IDs are retained for optional re-enabling later."
     }
 }

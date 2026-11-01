@@ -854,10 +854,9 @@ try {
         };
 
         const configured = await board('configured');
-        expect(configured.mount === true && configured.form === false &&
-            configured.attrs && configured.attrs['data-category-id'] === 'DIC_kwDOFNnvlM4DEF5L' &&
-            configured.attrs['data-term'] === 'Guestbook',
-            'production guestbook mounts Giscus with the verified category and term',
+        expect(configured.mount === false && configured.form === true &&
+            configured.reached === null && configured.attrs === null,
+            'production disables Giscus and keeps the original form even at the composer URL',
             JSON.stringify(configured));
 
         const off = await board('gist', {});

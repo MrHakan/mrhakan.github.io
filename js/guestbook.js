@@ -178,7 +178,7 @@
             term: String(per.term || (board === 'shouts' ? 'shoutbox' : 'guestbook'))
                 .replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80)
         };
-        cfg.ready = !!(cfg.repo && cfg.repoId && cfg.categoryId);
+        cfg.ready = g.enabled !== false && !!(cfg.repo && cfg.repoId && cfg.categoryId);
         return cfg;
     }
 
