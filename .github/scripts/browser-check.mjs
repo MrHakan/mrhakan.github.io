@@ -32,6 +32,7 @@ const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } })
 // widget script here; Giscus data attributes are tested separately below.
 await ctx.route('https://giscus.app/client.js', r => r.fulfill({
     status: 200, contentType: 'application/javascript',
+    headers: { 'Access-Control-Allow-Origin': '*' },
     body: '/* external Giscus widget stubbed in localhost smoke tests */'
 }));
 // the welcome popup fires 1.4s after every boot and, being a retro dialog,
