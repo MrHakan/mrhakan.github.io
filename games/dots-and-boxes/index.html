@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Dots & Boxes 98: claim squares against a crafty local computer or a friend in this retro browser strategy game.">
+<title>Dots & Boxes 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/dots-and-boxes/">
+<meta property="og:title" content="Dots & Boxes 98"><meta property="og:description" content="Draw lines, close squares, and outsmart the computer. No login, no downloads.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:14px;font:13px Tahoma,Verdana,Arial,sans-serif;color:#24354a}
+.window{max-width:1080px;margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005252}
+.titlebar{background:linear-gradient(90deg,#000080,#1878af);color:white;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.titlebar h1{margin:0;font-size:19px}
+.close,.btn,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#203447;border:2px solid;border-color:#fff #555 #555 #fff;min-height:39px;padding:8px 11px}.close{min-height:0;padding:5px 10px;text-decoration:none}.btn{cursor:pointer}.btn.primary{background:#d7eafb}.btn:disabled{opacity:.5;cursor:not-allowed}
+.menu{padding:9px 12px}.menu span{text-decoration:underline}.layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(245px,.85fr);gap:12px;padding:0 12px 12px}.panel{background:#eee;border:2px inset #ddd;padding:13px;min-width:0}.panel h2{font-size:15px;margin:0 0 12px}
+.controls,.scoreboard,.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}.field{display:flex;align-items:center;gap:6px;font-weight:bold}.field select{background:white;min-width:90px}
+.score{background:white;border:2px inset #ddd;padding:9px 11px;font:700 13px Consolas,monospace;flex:1;min-width:100px}.score strong{font-size:20px}.score.human strong{color:#145b9a}.score.other strong{color:#aa4d16}
+.board-wrap{background:#a5b4c6;border:3px inset #ddd;padding:12px;display:grid;place-items:center}.board{width:min(100%,560px);aspect-ratio:1;display:grid;touch-action:manipulation;user-select:none}.dot{align-self:center;justify-self:center;width:clamp(5px,1.2vw,10px);height:clamp(5px,1.2vw,10px);border-radius:50%;background:#213650;box-shadow:1px 1px #fff;pointer-events:none}
+.edge{border:0;background:transparent;position:relative;cursor:pointer;padding:0;min-width:0;min-height:0;touch-action:manipulation}.edge:before{content:"";position:absolute;background:#dbe3ec;box-shadow:0 0 0 1px #8998a7}.edge.h:before{height:5px;left:0;right:0;top:50%;transform:translateY(-50%)}.edge.v:before{width:5px;top:0;bottom:0;left:50%;transform:translateX(-50%)}
+.edge:not(:disabled):hover:before,.edge:focus-visible:before{background:#ffe080}.edge.drawn{cursor:default}.edge.drawn:before{background:#156aab;box-shadow:0 0 0 1px #0a416d}.edge.drawn.ai:before{background:#b45e20;box-shadow:0 0 0 1px #713808}
+.box-cell{display:grid;place-items:center;min-width:0;min-height:0;font:700 clamp(10px,2.7vw,21px) Consolas,monospace;color:#fff}.box-cell.p1{background:#156aab}.box-cell.p2{background:#b45e20}.box-cell:not(.p1):not(.p2){background:#e9eff5}
+#status,.manual{background:#fff;border:2px inset #ddd;padding:11px;line-height:1.65}#status{min-height:50px}.manual ul{padding-left:19px;margin:7px 0}.help{font-size:12px;line-height:1.65;color:#455a6b}.stat{font:12px Consolas,monospace;background:#fff;border:2px inset #ddd;padding:9px}
+footer{border-top:1px solid #999;padding:10px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px}
+:focus-visible{outline:3px solid #e39d00;outline-offset:2px}
+@media(max-width:800px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:9px}.board-wrap{padding:7px}}
+@media(max-width:430px){.titlebar h1{font-size:16px}.score{min-width:0;padding:6px}.score strong{font-size:17px}.field{flex:1}.field select{min-width:0;max-width:115px}.board-wrap{padding:4px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style></head>
+<body><main class="window">
+<header class="titlebar"><h1>🟦 Dots &amp; Boxes 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<nav class="menu" aria-label="Window menu"><span>Game</span>　<span>Players</span>　<span>Strategy</span>　<span>Help</span></nav>
+<div class="layout"><section class="panel" aria-labelledby="board-title">
+<h2 id="board-title">The grid</h2>
+<div class="controls"><label class="field" for="size">Board <select id="size"><option value="3">3 × 3</option><option value="4" selected>4 × 4</option><option value="5">5 × 5</option></select></label>
+<label class="field" for="mode">Opponent <select id="mode"><option value="ai">Computer</option><option value="friend">Two players</option></select></label>
+<button type="button" class="btn primary" id="new">↻ New game</button></div>
+<div class="scoreboard"><div class="score human">🔵 <span id="p1label">You</span> <strong id="score1">0</strong></div><div class="score other">🟠 <span id="p2label">Computer</span> <strong id="score2">0</strong></div></div>
+<div class="board-wrap"><div class="board" id="board" role="group" aria-label="Dots and Boxes board. Tab to an undrawn edge and press Enter or Space."></div></div>
+<div class="actions" style="margin-top:12px"><button type="button" class="btn" id="undo">↶ Undo turn</button><span class="stat" id="progress">0 / 40 lines</span></div>
+<div id="status" role="status" aria-live="polite">Your turn. Draw a line between two dots.</div>
+</section><aside class="panel"><h2>Field manual</h2><div class="manual"><strong>Claim more boxes than your opponent.</strong><ul>
+<li>Tap an empty line between two neighboring dots.</li><li>The fourth side of a square claims it for you.</li><li>Close one or two boxes and you draw again.</li><li>A line that closes nothing passes the turn.</li><li>Highest score wins when all lines are drawn.</li></ul></div>
+<p class="help">Play against a local, risk-aware computer or pass the device to a friend. All line targets are keyboard-focusable buttons; use Tab and Enter/Space. Undo rewinds your last turn against the computer or one move in two-player mode.</p>
+<h2>Local scorecard</h2><div class="stat" id="record">Loading…</div>
+<p class="help">3 × 3 is quick, 4 × 4 is a tactical duel, and 5 × 5 invites long chains. No network requests, ads, accounts, or analytics.</p>
+</aside></div><footer><span>Dots &amp; Boxes 98 · pencil-and-paper strategy, reimagined</span><a href="../../">← Playground</a></footer>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),KEY='dots-boxes-98-record';
+let n=4,mode='ai',turn=1,edges={},owners={},history=[],busy=false,finished=false,timer=null,version=0;
+function edgeId(kind,r,c){return kind+':'+r+':'+c}
+function boxEdges(r,c){return [edgeId('h',r,c),edgeId('h',r+1,c),edgeId('v',r,c),edgeId('v',r,c+1)]}
+function touching(id){const a=id.split(':'),r=+a[1],c=+a[2];if(a[0]==='h')return [[r-1,c],[r,c]].filter(x=>x[0]>=0&&x[0]<n);return [[r,c-1],[r,c]].filter(x=>x[1]>=0&&x[1]<n)}
+function countSides(r,c){return boxEdges(r,c).filter(id=>edges[id]).length}
+function allEdges(){const out=[];for(let r=0;r<=n;r++)for(let c=0;c<n;c++)out.push(edgeId('h',r,c));for(let r=0;r<n;r++)for(let c=0;c<=n;c++)out.push(edgeId('v',r,c));return out}
+function score(p){return Object.values(owners).filter(v=>v===p).length}
+function snapshot(){return{edges:{...edges},owners:{...owners},turn}}
+function restore(s){edges={...s.edges};owners={...s.owners};turn=s.turn;finished=false;busy=false}
+function say(s){$('status').textContent=s}
+function loadRecord(){try{const v=JSON.parse(localStorage.getItem(KEY)||'{}');return{wins:Number(v.wins)||0,losses:Number(v.losses)||0,draws:Number(v.draws)||0}}catch{return{wins:0,losses:0,draws:0}}}
+function showRecord(){const r=loadRecord();$('record').textContent='Versus computer · '+r.wins+' wins / '+r.losses+' losses / '+r.draws+' draws (this browser)'}
+function saveRecord(){if(mode!=='ai')return;const r=loadRecord(),a=score(1),b=score(2);r[a>b?'wins':a<b?'losses':'draws']++;try{localStorage.setItem(KEY,JSON.stringify(r))}catch{}showRecord()}
+function render(){const board=$('board');board.replaceChildren();board.style.gridTemplateColumns='repeat('+(2*n+1)+',minmax(0,1fr))';board.style.gridTemplateRows='repeat('+(2*n+1)+',minmax(0,1fr))';
+for(let row=0;row<=2*n;row++)for(let col=0;col<=2*n;col++){
+let el;if(row%2===0&&col%2===0){el=document.createElement('span');el.className='dot';el.setAttribute('aria-hidden','true')}
+else if(row%2===1&&col%2===1){const own=owners[(row-1)/2+':'+(col-1)/2];el=document.createElement('span');el.className='box-cell'+(own?' p'+own:'');el.textContent=own?(own===1?'P':'C'):'';el.setAttribute('aria-label',own?'Box owned by player '+own:'Unclaimed box')}
+else{const kind=row%2===0?'h':'v',r=kind==='h'?row/2:(row-1)/2,c=kind==='h'?(col-1)/2:col/2,id=edgeId(kind,r,c),who=edges[id];
+el=document.createElement('button');el.type='button';el.className='edge '+kind+(who?' drawn'+(who===2?' ai':''):'');el.disabled=!!who||finished||busy||(mode==='ai'&&turn===2);el.setAttribute('aria-label',(kind==='h'?'Horizontal':'Vertical')+' line at row '+(r+1)+', column '+(c+1)+(who?', drawn by player '+who:', available'));el.addEventListener('click',()=>humanMove(id))}
+board.appendChild(el)}
+$('score1').textContent=score(1);$('score2').textContent=score(2);$('p1label').textContent=mode==='ai'?'You':'Player 1';$('p2label').textContent=mode==='ai'?'Computer':'Player 2';$('progress').textContent=Object.keys(edges).length+' / '+(2*n*(n+1))+' lines';$('undo').disabled=!history.length||finished}
+function apply(id,p){if(edges[id]||finished)return 0;edges[id]=p;let made=0;for(const [r,c] of touching(id)){if(countSides(r,c)===4&&!owners[r+':'+c]){owners[r+':'+c]=p;made++}}if(!made)turn=p===1?2:1;return made}
+function endCheck(){if(Object.keys(edges).length!==2*n*(n+1))return false;finished=true;const a=score(1),b=score(2);say((a===b?'Draw!':a>b?(mode==='ai'?'You win!':'Player 1 wins!'):(mode==='ai'?'Computer wins!':'Player 2 wins!'))+' Final score '+a+'–'+b+'.');saveRecord();render();return true}
+function humanMove(id){if(busy||finished||edges[id]||(mode==='ai'&&turn!==1))return;history.push(snapshot());const p=turn,made=apply(id,p);render();if(endCheck())return;say(made?'Player '+p+' claimed '+made+' box'+(made===1?'':'es')+' and plays again.':(mode==='ai'?'Computer is thinking…':'Player '+turn+' to move.'));if(mode==='ai'&&turn===2)queueAI()}
+function aiChoice(){const candidates=allEdges().filter(id=>!edges[id]);const ranked=candidates.map(id=>{let captures=0,risk=0;for(const [r,c] of touching(id)){const sides=countSides(r,c);if(sides===3)captures++;else if(sides===2)risk++}return{id,captures,risk,tie:Math.random()}});ranked.sort((a,b)=>b.captures-a.captures||a.risk-b.risk||a.tie-b.tie);return ranked[0]?.id}
+function queueAI(){busy=true;render();const token=version;timer=setTimeout(function step(){if(token!==version||finished||turn!==2)return;const id=aiChoice();if(!id){busy=false;return}const made=apply(id,2);if(endCheck()){busy=false;return}if(turn===2){timer=setTimeout(step,130)}else{busy=false;render();say('Computer '+(made?'closed a box. ':'')+'Your turn.');}},240)}
+function undo(){if(!history.length||finished)return;version++;clearTimeout(timer);restore(history.pop());render();say('Turn rewound. '+(turn===1?'Your turn.':'Player 2 to move.'))}
+function reset(){version++;clearTimeout(timer);n=Number($('size').value);mode=$('mode').value;turn=1;edges={};owners={};history=[];busy=false;finished=false;render();showRecord();say(mode==='ai'?'Your turn. Connect two dots.':'Player 1 starts. Connect two dots.')}
+$('new').addEventListener('click',reset);$('size').addEventListener('change',reset);$('mode').addEventListener('change',reset);$('undo').addEventListener('click',undo);reset();
+})();
+</script></body></html>

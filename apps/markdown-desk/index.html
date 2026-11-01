@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Markdown Desk 98: private live Markdown notes with safe preview, outline, local drafts and downloadable Markdown or HTML.">
+<title>Markdown Desk 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/markdown-desk/">
+<meta property="og:title" content="Markdown Desk 98"><meta property="og:description" content="Write and preview Markdown without uploads, trackers or a backend.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:14px;font:13px Tahoma,Verdana,Arial,sans-serif;color:#24364a}
+.window{max-width:1300px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005252}
+.titlebar{background:linear-gradient(90deg,#000080,#167eae);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.titlebar h1{margin:0;font-size:19px}
+.close,.btn{border:2px solid;border-color:#fff #555 #555 #fff;background:#c0c0c0;color:#203447;min-height:39px;padding:8px 12px;font:700 12px Tahoma,Arial,sans-serif}.close{min-height:0;padding:5px 10px;text-decoration:none}.btn{cursor:pointer}.btn.primary{background:#d9edfc}.btn:disabled{opacity:.5;cursor:not-allowed}
+.menu{padding:9px 12px}.menu span{text-decoration:underline}.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:0 12px 12px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(190px,.36fr);gap:10px;padding:0 12px 12px}.panel{background:#eee;border:2px inset #ddd;padding:11px;min-width:0}.panel h2{font-size:15px;margin:0 0 9px;display:flex;justify-content:space-between;gap:5px;align-items:center}
+textarea{width:100%;height:550px;min-height:250px;resize:vertical;background:#fff;color:#203447;border:2px inset #ddd;padding:13px;font:13px/1.65 Consolas,Monaco,monospace;tab-size:2}
+.preview{height:550px;min-height:250px;overflow:auto;background:white;border:2px inset #ddd;padding:15px;font:14px/1.65 system-ui,Arial,sans-serif;overflow-wrap:anywhere}
+.preview h1,.preview h2,.preview h3{line-height:1.3;color:#193955}.preview h1{font-size:25px}.preview h2{font-size:20px}.preview h3{font-size:17px}.preview p{margin:9px 0}.preview pre{background:#17283d;color:#f3f7ff;padding:12px;border-radius:3px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.preview code{font:12px Consolas,monospace;background:#edf2f7;padding:2px 3px}.preview pre code{color:inherit;background:none;padding:0}.preview blockquote{margin:12px 0;padding:3px 13px;border-left:4px solid #1776ad;background:#eef5fb}.preview table{width:100%;border-collapse:collapse;display:block;overflow:auto}.preview td,.preview th{border:1px solid #9eacb9;padding:6px}.preview th{background:#dceaf6}.preview a{color:#145b9a}.preview hr{border:0;border-top:2px solid #9eacb9}
+.outline{max-height:370px;overflow:auto;display:grid;gap:5px}.outline a{color:#124e87;text-decoration:none;padding:6px;background:#fff;border:1px solid #bbc6d0;overflow-wrap:anywhere}.outline a:hover{text-decoration:underline}.outline .level-2{padding-left:14px}.outline .level-3{padding-left:22px}.outline .level-4,.outline .level-5,.outline .level-6{padding-left:30px}
+#status,.info{background:white;border:2px inset #ddd;padding:10px;line-height:1.65}#status{min-height:43px}.info{font-size:12px}.info p{margin:6px 0}.stats{font:12px Consolas,monospace;background:#fff;border:2px inset #ddd;padding:7px 9px}
+.file{position:relative;overflow:hidden;display:inline-flex;align-items:center}.file input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}.file:focus-within{outline:3px solid #e39d00}
+footer{border-top:1px solid #999;padding:10px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11px}
+:focus-visible{outline:3px solid #e39d00;outline-offset:2px}
+@media(max-width:1020px){.layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.side{grid-column:1/-1}.outline{max-height:180px;display:flex;flex-wrap:wrap}.outline a{padding:5px 9px!important}}
+@media(max-width:650px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.side{grid-column:auto}.panel{padding:8px}textarea,.preview{height:340px;min-height:200px}.toolbar{padding:0 8px 8px}.toolbar .btn{flex:1}.titlebar h1{font-size:16px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style></head><body><main class="window">
+<header class="titlebar"><h1>📝 Markdown Desk 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<nav class="menu" aria-label="Window menu"><span>File</span>　<span>Edit</span>　<span>Preview</span>　<span>Export</span></nav>
+<div class="toolbar"><button type="button" class="btn primary" id="sample">✦ Sample</button><label class="btn file">📂 Open .md<input type="file" id="file" accept=".md,.markdown,.txt,text/markdown,text/plain" aria-label="Open a local Markdown file"></label>
+<button type="button" class="btn" id="bold">𝐁 Bold</button><button type="button" class="btn" id="italic">𝑰 Italic</button><button type="button" class="btn" id="copy">⧉ Copy Markdown</button><button type="button" class="btn" id="download">⬇ Save .md</button><button type="button" class="btn" id="html">⬇ Save HTML</button><button type="button" class="btn" id="clear">✕ Clear</button></div>
+<div class="layout">
+<section class="panel"><h2><label for="source">Source editor</label><span class="stats" id="stats">0 words</span></h2><textarea id="source" spellcheck="false" aria-label="Markdown source editor" placeholder="# Your next idea…"></textarea></section>
+<section class="panel"><h2 id="preview-title">Live preview <span class="stats">safe HTML</span></h2><article id="preview" class="preview" aria-labelledby="preview-title"></article></section>
+<aside class="panel side"><h2>Document outline</h2><nav class="outline" id="outline" aria-label="Markdown headings"><span>No headings yet.</span></nav>
+<h2 style="margin-top:18px">Notebook guide</h2><div class="info"><p><strong>Supported:</strong> headings, paragraphs, emphasis, inline code, fenced code, quotes, lists, checkboxes, horizontal rules, basic tables and HTTPS links.</p>
+<p><strong>Privacy:</strong> text stays in this browser. Your draft autosaves locally; exported files are created on your device.</p><p><strong>Security:</strong> raw HTML is shown as text, not executed. Only HTTP(S) links are clickable. This is a lightweight Markdown subset, not a full CommonMark implementation.</p><p><strong>Shortcuts:</strong> Ctrl/Cmd+B for bold, Ctrl/Cmd+I for italic, Ctrl/Cmd+S to save Markdown.</p></div></aside>
+</div><div style="padding:0 12px 12px"><div id="status" role="status" aria-live="polite">Ready. Drafts autosave locally as you type.</div></div>
+<footer><span>Markdown Desk 98 · private, offline-first writing</span><a href="../../">← Playground</a></footer>
+</main><script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),KEY='markdown-desk-98-draft',tick=String.fromCharCode(96);
+const SAMPLE='# Welcome to Markdown Desk 98\n\nA **private** place to write, with *live* preview.\n\n## Quick checklist\n\n- [x] Write an idea\n- [ ] Polish the draft\n- [ ] Save the file\n\n> Small notes become big projects.\n\n### Handy links\n\nRead the [CommonMark guide](https://spec.commonmark.org/0.31.2/) or use inline code like '+tick+'const x = 42'+tick+'.\n\n| Feature | Status |\n| --- | --- |\n| Offline | Yes |\n| No trackers | Yes |\n\n~~~js\nconsole.log("Hello, 1998!");\n~~~\n';
+let saveTimer=null,currentHtml='',headings=[];
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function safeUrl(raw){try{const u=new URL(raw);return u.protocol==='https:'||u.protocol==='http:'?u.href:null}catch{return null}}
+function styleText(s){return esc(s).replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>').replace(/~~([^~\n]+)~~/g,'<del>$1</del>').replace(/\*([^*\n]+)\*/g,'<em>$1</em>').replace(/_([^_\n]+)_/g,'<em>$1</em>')}
+function rich(s){return String(s).split(tick).map((part,i)=>{if(i%2)return '<code>'+esc(part)+'</code>';let out='',last=0;const re=/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;for(const m of part.matchAll(re)){out+=styleText(part.slice(last,m.index));const url=safeUrl(m[2]);out+=url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+styleText(m[1])+'</a>':styleText(m[0]);last=m.index+m[0].length}return out+styleText(part.slice(last))}).join('')}
+function listMatch(s){return /^ {0,3}([-+*]|\d+[.)])\s+(.+)$/.exec(s)}
+function tableCells(s){return s.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(x=>x.trim())}
+function separator(s){return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(s)}
+function blockStart(s){return /^ {0,3}(#{1,6})\s/.test(s)||/^ {0,3}>\s?/.test(s)||/^ {0,3}(?:---+|\*\*\*+|___+)\s*$/.test(s)||!!listMatch(s)||s.trimStart().startsWith(tick.repeat(3))||/^ {0,3}~{3,}/.test(s)}
+function renderMarkdown(raw){const lines=raw.replace(/\r\n?/g,'\n').split('\n'),out=[],toc=[];let i=0;
+while(i<lines.length){const line=lines[i];if(!line.trim()){i++;continue}
+const stripped=line.trimStart(),fence=stripped.startsWith(tick.repeat(3))?tick:stripped.startsWith('~~~')?'~':null;
+if(fence){const width=(stripped.match(new RegExp('^'+(fence==='~'?'~':tick)+'+'))||[''])[0].length;const code=[];i++;while(i<lines.length&&!lines[i].trim().startsWith(fence.repeat(width))){code.push(lines[i++])}if(i<lines.length)i++;out.push('<pre><code>'+esc(code.join('\n'))+'</code></pre>');continue}
+const head=/^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+if(head){const level=head[1].length,id='heading-'+toc.length,label=head[2];toc.push({id,level,label});out.push('<h'+level+' id="'+id+'">'+rich(label)+'</h'+level+'>');i++;continue}
+if(/^ {0,3}(?:---+|\*\*\*+|___+)\s*$/.test(line)){out.push('<hr>');i++;continue}
+if(line.includes('|')&&i+1<lines.length&&separator(lines[i+1])){const headers=tableCells(line).slice(0,16),width=headers.length;let body='<table><thead><tr>'+headers.map(x=>'<th scope="col">'+rich(x)+'</th>').join('')+'</tr></thead><tbody>';i+=2;let count=0;while(i<lines.length&&lines[i].includes('|')&&lines[i].trim()&&count++<100){const cells=tableCells(lines[i++]);body+='<tr>'+headers.map((_,j)=>'<td>'+rich(cells[j]||'')+'</td>').join('')+'</tr>'}out.push(body+'</tbody></table>');continue}
+if(/^ {0,3}>\s?/.test(line)){const quote=[];while(i<lines.length&&/^ {0,3}>\s?/.test(lines[i]))quote.push(lines[i++].replace(/^ {0,3}>\s?/,''));out.push('<blockquote><p>'+rich(quote.join(' '))+'</p></blockquote>');continue}
+const first=listMatch(line);if(first){const ordered=/^\d/.test(first[1]),items=[];while(i<lines.length){const m=listMatch(lines[i]);if(!m||/^\d/.test(m[1])!==ordered)break;const task=/^\[([ xX])\]\s+/.exec(m[2]);items.push('<li>'+(task?'<span aria-label="'+(task[1]===' '?'Not done':'Done')+'">'+(task[1]===' '?'☐ ':'☑ ')+'</span>':'')+rich(task?m[2].slice(task[0].length):m[2])+'</li>');i++}out.push('<'+(ordered?'ol':'ul')+'>'+items.join('')+'</'+(ordered?'ol':'ul')+'>');continue}
+const para=[line.trim()];i++;while(i<lines.length&&lines[i].trim()&&!blockStart(lines[i])&&!(i+1<lines.length&&lines[i].includes('|')&&separator(lines[i+1]))){para.push(lines[i++].trim())}out.push('<p>'+rich(para.join(' '))+'</p>');
+}return{html:out.join('\n'),toc}}
+function status(s){$('status').textContent=s}
+function refresh(){const value=$('source').value;const parsed=renderMarkdown(value);currentHtml=parsed.html;headings=parsed.toc;$('preview').innerHTML=currentHtml;const nav=$('outline');nav.replaceChildren();if(!headings.length)nav.textContent='No headings yet.';for(const h of headings){const a=document.createElement('a');a.href='#'+h.id;a.className='level-'+h.level;a.textContent=h.label;a.addEventListener('click',e=>{e.preventDefault();const target=$('preview').querySelector('#'+h.id);if(target)target.scrollIntoView({behavior:'auto',block:'nearest'})});nav.appendChild(a)}
+const words=(value.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)||[]).length;$('stats').textContent=words+' words · '+value.length+' chars · '+Math.max(1,Math.ceil(words/220))+' min';clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(KEY,value);status('Draft saved locally · '+new Date().toLocaleTimeString())}catch{status('Draft is in memory; local storage unavailable. Save a file to keep it.')}},450)}
+function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function wrap(mark){const t=$('source'),start=t.selectionStart,end=t.selectionEnd,selected=t.value.slice(start,end)||'text';t.setRangeText(mark+selected+mark,start,end,'select');t.focus();refresh()}
+function saveMd(){download('notes.md',$('source').value,'text/markdown;charset=utf-8');status('Markdown file downloaded.')}
+function saveHtml(){const css='body{max-width:850px;margin:35px auto;padding:0 20px;font:16px/1.65 system-ui,sans-serif;color:#263548}pre{padding:14px;background:#182a3e;color:white;overflow:auto}blockquote{border-left:4px solid teal;padding-left:14px}table{border-collapse:collapse}td,th{border:1px solid #aaa;padding:7px}';const doc='<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Markdown Desk export</title><style>'+css+'</style><body>'+currentHtml+'</body></html>';download('notes.html',doc,'text/html;charset=utf-8');status('Sanitized HTML file downloaded.')}
+$('source').addEventListener('input',refresh);$('bold').addEventListener('click',()=>wrap('**'));$('italic').addEventListener('click',()=>wrap('*'));$('download').addEventListener('click',saveMd);$('html').addEventListener('click',saveHtml);
+$('sample').addEventListener('click',()=>{if($('source').value.trim()&&!confirm('Replace your current draft with the sample?'))return;$('source').value=SAMPLE;refresh();status('Sample loaded.')});
+$('clear').addEventListener('click',()=>{if(!$('source').value.trim()||confirm('Clear the current draft?')){$('source').value='';refresh();status('Editor cleared.')}});$('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('source').value);status('Markdown copied.')}catch{status('Clipboard blocked. Select the source and copy manually.')}})
+$('file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(f.size>512000){status('File too large. Maximum 500 KB.');return}if($('source').value.trim()&&!confirm('Replace your current draft with this file?'))return;try{$('source').value=await f.text();refresh();status('Opened '+f.name+' locally.')}catch{status('Could not read this file.')}});
+document.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;const key=e.key.toLowerCase();if(key==='s'){e.preventDefault();saveMd()}else if((key==='b'||key==='i')&&document.activeElement===$('source')){e.preventDefault();wrap(key==='b'?'**':'*')}});
+try{const stored=localStorage.getItem(KEY);$('source').value=stored===null?SAMPLE:stored}catch{$('source').value=SAMPLE}refresh();
+})();
+</script></body></html>

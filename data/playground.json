@@ -1,5 +1,41 @@
 [
   {
+    "name": "Dots & Boxes 98",
+    "type": "game",
+    "date": "2026-11-01",
+    "url": "/games/dots-and-boxes/",
+    "description": "Retro two-player line-and-square strategy with a risk-aware offline computer opponent, three board sizes, undo, keyboard/touch controls and local records.",
+    "icon": "🟦",
+    "tags": [
+      "dots-and-boxes",
+      "strategy",
+      "board-game",
+      "two-player",
+      "computer",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Markdown Desk 98",
+    "type": "app",
+    "date": "2026-11-01",
+    "url": "/apps/markdown-desk/",
+    "description": "Private Markdown writing desk with safe live preview, document outline, local autosave, file import and Markdown/HTML export.",
+    "icon": "📝",
+    "tags": [
+      "markdown",
+      "writing",
+      "editor",
+      "preview",
+      "notes",
+      "html",
+      "privacy",
+      "offline"
+    ]
+  },
+  {
     "name": "Vault Cipher 98",
     "type": "game",
     "date": "2026-10-31",
