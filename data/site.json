@@ -544,6 +544,6 @@
         "categoryId": "DIC_kwDOFNnvlM4DEF5L",
         "guestbook": { "term": "Guestbook" },
         "shouts": { "term": "Shoutbox" },
-        "note": "Giscus is enabled for guestbook and shoutbox. Both use the Announcements category with distinct discussion terms; Gist configurations are retained as a legacy fallback."
+        "note": "Original Gist walls and forms are the default. Submitting a draft offers Giscus or old-school Gist posting. Optional Giscus composers use Announcements with distinct Guestbook and Shoutbox terms."
     }
 }

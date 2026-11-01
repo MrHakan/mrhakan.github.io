@@ -113,7 +113,7 @@ exits non-zero if anything drifted.
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 | `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem aims before it builds, and the music is never handed to a sleeping audio graph |
-| `browser-giscus.mjs` | independent Guestbook and Shoutbox on desktop and mobile, configuration and theme URLs, legacy fallback, blocked scripts, service errors and stalled frames; proves CORS and application errors are still detected |
+| `browser-giscus.mjs` | original boards by default, both posting methods and preserved drafts on desktop and mobile, isolated discussion terms and theme URLs, blocked scripts, service errors and stalled frames; proves CORS and application errors are still detected |
 
 ## Things that will bite you
 

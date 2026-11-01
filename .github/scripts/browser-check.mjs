@@ -171,11 +171,17 @@ try {
     await legacyCtx.route('**/data/site.json', async route => {
         const data = await (await route.fetch()).json();
         data.giscus = {};
+        data.boards = { owner: 'MrHakan', guestbook: 'a7fa4c89c27fc3adedf1ff96b0514472', shouts: 'a7fa4c89c27fc3adedf1ff96b0514472' };
         await route.fulfill({ json: data });
     });
+    await legacyCtx.route('**://api.github.com/gists/**', route => route.fulfill({ json: [] }));
+    await legacyCtx.route('**://api.github.com/repos/**', route => route.fulfill({ json: [] }));
     const gb = await legacyCtx.newPage();
     gb.on('pageerror', e => errors.push('legacy guestbook: ' + e.message));
     await gb.goto(BASE.replace(/[^/]*$/, 'guestbook.html'), { waitUntil: 'load' });
+    // The original wall now loads immediately. Finish that first read before
+    // swapping in the hostile-comment fixture below, so its cache cannot race it.
+    await gb.waitForFunction(() => !document.getElementById('guestbook-entries').textContent.includes('loading entries...'));
     const board = await gb.evaluate(async () => {
         const GIST = 'a7fa4c89c27fc3adedf1ff96b0514472';
         const comments = [
@@ -822,7 +828,7 @@ try {
                     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
                 });
             }
-            await page.goto(BASE.replace(/index\.html$/, 'guestbook.html'), { waitUntil: 'load' });
+            await page.goto(BASE.replace(/index\.html$/, 'guestbook.html?composer=giscus'), { waitUntil: 'load' });
             await page.waitForTimeout(2200);
             // Visibility must not depend on a utility class from a CDN.
             const shown = sel => page.evaluate(q => {

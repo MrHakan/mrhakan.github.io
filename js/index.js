@@ -33,6 +33,14 @@ let audioContext, analyser, dataArray, mediaSource = null;
 window.addEventListener('message', event => {
     const frame = document.getElementById('guestbook-frame');
     if (!frame || event.origin !== location.origin || event.source !== frame.contentWindow) return;
+    const draft = event.data && event.data.guestbookSign;
+    if (draft && typeof draft.name === 'string' && typeof draft.message === 'string' && draft.name.trim() && draft.message.trim()) {
+        chooseBoardSigning('guestbook', {
+            name: draft.name, message: draft.message,
+            website: typeof draft.website === 'string' ? draft.website : ''
+        });
+        return;
+    }
     const height = event.data && event.data.guestbookHeight;
     if (Number.isFinite(height) && height > 0) frame.style.height = Math.min(1000, Math.max(240, height)) + 'px';
 });
@@ -1601,9 +1609,8 @@ async function boardConfig() {
 
 // giscus, if it has been set up: a visitor comments on a GitHub
 // Discussion in one click instead of copying an entry, opening a gist and
-// pasting it. Same "no backend" idea, four fewer steps. Until the two ids
-// are in data/site.json the gist board is what runs, so nothing here can
-// leave the page with an empty box where the guestbook was.
+// pasting it. It is an optional posting method; the original Gist wall
+// stays visible by default, and an incomplete config keeps that flow working.
 let siteCache = null;
 async function giscusSite() {
     if (siteCache) return siteCache;
@@ -1616,6 +1623,64 @@ async function giscusSite() {
 }
 async function giscusConfig(kind) {
     return GUESTBOOK.giscusConfig(await giscusSite(), kind || 'guestbook');
+}
+
+// The old board stays the default. Giscus only runs in its own document after
+// the visitor chooses it; drafts never travel in a URL or get posted for them.
+// Keep Giscus's reserved OAuth session query parameter untouched.
+function giscusOnlyMode() {
+    return new URLSearchParams(location.search).get('composer') === 'giscus';
+}
+
+async function chooseBoardSigning(kind, entry) {
+    // Show the chooser over the desktop rather than clipping it inside the
+    // embedded Guestbook's scroll area. Only our known same-origin host uses it.
+    if (kind === 'guestbook' && window.parent !== window && window.frameElement && window.frameElement.id === 'guestbook-frame') {
+        window.parent.postMessage({ guestbookSign: entry }, location.origin);
+        return;
+    }
+    const cfg = await giscusConfig(kind);
+    if (!cfg.ready) return signViaGist(kind, entry);
+    showRetroDialog({
+        title: kind === 'shouts' ? 'shoutbox.exe - gönderme yöntemi' : 'guestbook.exe - gönderme yöntemi',
+        lines: [
+            'Giscus: GitHub hesabınla giriş yap, kopyalanan mesajını yapıştırıp paylaş.',
+            'Eski usul: mesajı kopyala ve burada gösterilen Gist panosunda yorum olarak paylaş.',
+            'İki yöntemin mesajları kendi panosunda görünür. Seçim yapmak mesajını otomatik göndermez.'
+        ],
+        preview: GUESTBOOK.composeSignature(kind, entry),
+        okLabel: 'Giscus ile devam et',
+        onOk: () => openGiscusComposer(kind, entry),
+        secondaryLabel: 'Eski usul',
+        onSecondary: () => signViaGist(kind, entry),
+        cancelLabel: 'vazgeç'
+    });
+}
+
+function openGiscusComposer(kind, entry) {
+    const draft = GUESTBOOK.composeSignature(kind, entry);
+    copyText(draft);
+    const content = document.createElement('div');
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'mesaj taslağın (elle kopyalamak için aç)';
+    const preview = document.createElement('pre');
+    preview.className = 'retro-dialog-pre bevel-in';
+    preview.textContent = draft;
+    details.append(summary, preview);
+    const frame = document.createElement('iframe');
+    frame.title = kind === 'shouts' ? 'Giscus Shoutbox' : 'Giscus Guestbook';
+    frame.src = 'guestbook.html?embedded=1&composer=giscus&board=' + (kind === 'shouts' ? 'shouts' : 'guestbook');
+    frame.style.cssText = 'display:block;width:100%;height:52vh;min-height:260px;border:0;margin-top:8px';
+    content.append(details, frame);
+    showRetroDialog({
+        title: kind === 'shouts' ? 'giscus - shoutbox' : 'giscus - guestbook',
+        lines: ['Taslağın kopyalandı. GitHub ile giriş yap, mesajını yapıştır ve paylaş. Taslağın aşağıda da duruyor.'],
+        content: content,
+        okLabel: 'yöntem seçimine dön',
+        onOk: () => chooseBoardSigning(kind, entry),
+        cancelLabel: 'kapat'
+    });
 }
 
 // Each document hosts one Giscus client. The inline guestbook is a separate
@@ -1675,8 +1740,11 @@ async function mountGiscus(kind, mountId) {
         link.rel = 'noopener';
         link.style.cssText = 'color:#000080;text-decoration:underline';
         link.textContent = 'Open ' + cfg.term + ' on GitHub';
-        notice.append(link, document.createTextNode(' or use the legacy board below.'));
+        notice.append(link, document.createTextNode(giscusOnlyMode()
+            ? '. Close this window and choose old school to use the original board.'
+            : ' or use the legacy board below.'));
         mount.replaceChildren(notice);
+        if (giscusOnlyMode()) return;
         const legacy = kind === 'shouts' ? 'shouts' : 'gist';
         document.querySelectorAll('[data-board="' + legacy + '"]').forEach(el => {
             el.classList.remove('hidden');
@@ -1847,13 +1915,18 @@ function topWindowZ() {
     return top;
 }
 
-function showRetroDialog({ title, lines, preview, okLabel, cancelLabel, onOk }) {
+function showRetroDialog({ title, lines, preview, content, okLabel, cancelLabel, onOk, secondaryLabel, onSecondary }) {
     document.querySelectorAll('.retro-dialog-overlay').forEach(d => d.remove());
     const overlay = document.createElement('div');
     overlay.className = 'retro-dialog-overlay';
     overlay.style.zIndex = String(Math.max(topWindowZ() + 1, 9000));
     const dialog = document.createElement('div');
     dialog.className = 'retro-dialog bevel-out';
+    if (content || secondaryLabel) {
+        dialog.style.maxHeight = 'calc(100dvh - 32px)';
+        dialog.style.overflowY = 'auto';
+    }
+    if (content) dialog.style.maxWidth = 'min(640px, calc(100vw - 32px))';
     const titleBar = document.createElement('div');
     titleBar.className = 'retro-dialog-title';
     titleBar.textContent = title;
@@ -1877,13 +1950,22 @@ function showRetroDialog({ title, lines, preview, okLabel, cancelLabel, onOk }) 
         pre.textContent = preview;
         body.appendChild(pre);
     }
+    if (content) body.appendChild(content);
     const buttons = document.createElement('div');
     buttons.className = 'retro-dialog-buttons';
+    if (secondaryLabel) buttons.style.flexWrap = 'wrap';
     const ok = document.createElement('button');
     ok.className = 'bevel-out retro-dialog-btn';
     ok.textContent = okLabel || 'ok';
     ok.onclick = () => { overlay.remove(); if (onOk) onOk(); };
     buttons.appendChild(ok);
+    if (secondaryLabel) {
+        const secondary = document.createElement('button');
+        secondary.className = 'bevel-out retro-dialog-btn';
+        secondary.textContent = secondaryLabel;
+        secondary.onclick = () => { overlay.remove(); if (onSecondary) onSecondary(); };
+        buttons.appendChild(secondary);
+    }
     if (cancelLabel) {
         const cancel = document.createElement('button');
         cancel.className = 'bevel-out retro-dialog-btn';
@@ -1903,12 +1985,7 @@ function showRetroDialog({ title, lines, preview, okLabel, cancelLabel, onOk }) 
 async function fetchShoutbox() {
     const container = document.getElementById('shoutbox-messages');
     if (!container) return;
-    // the shoutbox can be a discussion thread too, on its own category
-    if (await mountGiscus('shouts', 'shout-giscus-mount')) {
-        showGiscusBoard('shouts');
-        container.innerHTML = '';
-        return;
-    }
+    // Keep the compact, original wall and inputs. Posting offers both methods.
     container.innerHTML = '<div class="text-center text-gray-500">loading shouts...</div>';
     try {
         const messages = await fetchBoard('shouts');
@@ -1952,7 +2029,7 @@ function postShout() {
         showToast('shoutbox.exe', 'please fill in name and message!');
         return;
     }
-    signViaGist('shouts', { name: name, message: message });
+    chooseBoardSigning('shouts', { name: name, message: message });
 }
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -1981,12 +2058,23 @@ function safeUrl(url) {
 async function loadGuestbook() {
     const container = document.getElementById('guestbook-entries');
     if (!container) return;
-    // if giscus is set up, it is the guestbook: one click, no copy-paste
-    if (await mountGiscus('guestbook', 'giscus-mount')) {
+    const params = new URLSearchParams(location.search);
+    const kind = params.get('board') === 'shouts' ? 'shouts' : 'guestbook';
+    // Only the explicitly opened composer replaces the form with a widget.
+    if (giscusOnlyMode() && await mountGiscus(kind, 'giscus-mount')) {
         // .hidden is a tailwind utility off a cdn, and which board shows is
         // not something to leave to whether that cdn answered
         showGiscusBoard('guestbook');
         container.innerHTML = '';
+        return;
+    }
+    if (giscusOnlyMode() && kind === 'shouts') {
+        container.textContent = 'Giscus is unavailable. Close this window and choose old school for Shoutbox.';
+        document.querySelectorAll('[data-board="gist"]').forEach(el => { el.style.display = 'none'; });
+        const mount = document.getElementById('giscus-mount');
+        mount.style.display = '';
+        mount.classList.remove('hidden');
+        mount.textContent = 'Giscus is not configured. Close this window and choose old school for Shoutbox.';
         return;
     }
     container.innerHTML = '<div class="text-center text-gray-500 font-pixel">loading entries...</div>';
@@ -2024,7 +2112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!name || !message) return;
             playSound('ding');
             if (typeof unlockAchievement === 'function') unlockAchievement('signer');
-            signViaGist('guestbook', { name: name, message: message, website: website });
+            chooseBoardSigning('guestbook', { name: name, message: message, website: website });
         });
     }
 });

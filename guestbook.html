@@ -19,12 +19,17 @@
         if (new URLSearchParams(location.search).get('embedded') === '1') {
             document.documentElement.classList.add('guestbook-embedded');
         }
+        if (new URLSearchParams(location.search).get('composer') === 'giscus') {
+            document.documentElement.classList.add('giscus-composer');
+        }
     </script>
     <style>
         .guestbook-embedded body { background: transparent; padding: 0; min-height: 0; }
         .guestbook-embedded .crt-overlay, .guestbook-embedded .star-overlay,
         .guestbook-embedded .guestbook-chrome { display: none; }
         .guestbook-embedded body > div:last-of-type > div { border: 0; padding: 0; box-shadow: none; }
+        .giscus-composer p[data-board="giscus"] { display: none !important; }
+        .guestbook-embedded.giscus-composer #guestbook-content { padding: 0; border: 0; box-shadow: none; background: transparent; }
     </style>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="css/style.css" rel="stylesheet" />
@@ -47,7 +52,7 @@
                 </div>
             </div>
 
-            <div class="bg-white p-4 bevel-in">
+            <div id="guestbook-content" class="bg-white p-4 bevel-in">
                 <h1 class="guestbook-chrome text-2xl font-bold text-black font-header mb-4 border-b-2 border-black pb-2">
                     sign my guestbook!
                 </h1>
@@ -61,9 +66,9 @@
                 <div id="giscus-mount" data-board="giscus" class="hidden mb-6" style="display:none"></div>
 
                 <p data-board="gist" class="text-black font-pixel text-xs mb-3 bg-[#ffffe1] border border-gray-500 p-2">
-                    ⓘ this guestbook is a github gist and signing it is a comment on it — hit
-                    "sign it!", your entry gets copied, the gist opens, you paste it in the
-                    comment box. no fork, no pull request, nothing gets committed anywhere.
+                    ⓘ fill in your message and hit "sign it!" to choose Giscus or old school.
+                    old school copies your entry and opens this wall's github gist; Giscus
+                    opens its own discussion. no fork, no pull request, nothing gets committed.
                 </p>
 
                 <form id="guestbook-form" data-board="gist" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
@@ -105,9 +110,9 @@
 
     <script>
         // entries + signing are handled by guestbook.js + index.js (loaded above).
-        // if giscus is configured in data/site.json the board is a github
-        // discussion and signing is one click; otherwise it falls back to the
-        // gist's comment thread and the copy-paste flow — see data/README.md.
+        // The original Gist wall is the default. Only an explicitly opened
+        // ?composer=giscus composer mounts a Discussion; both methods are offered
+        // when a visitor submits the original form — see data/README.md.
         document.addEventListener('DOMContentLoaded', () => loadGuestbook());
         if (window.parent !== window && document.documentElement.classList.contains('guestbook-embedded')) {
             new ResizeObserver(() => {

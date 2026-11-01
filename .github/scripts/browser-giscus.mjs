@@ -19,6 +19,10 @@ async function setup(options = {}, mode = 'ready', config) {
     await context.addInitScript(() => {
         sessionStorage.setItem('welcomed', '1');
         sessionStorage.setItem('booted', '1');
+        window.__openedUrls = [];
+        window.open = url => { window.__openedUrls.push(String(url)); return null; };
+        Object.defineProperty(navigator, 'clipboard', { configurable: true,
+            value: { writeText: value => { window.__copied = value; return Promise.resolve(); } } });
     });
     // Decorative images and public APIs have no bearing on board wiring.
     // Keep application files real, and give unrelated services deterministic
@@ -47,98 +51,149 @@ async function setup(options = {}, mode = 'ready', config) {
     return { context, requests, errors, page: await context.newPage() };
 }
 
+const draftMessage = 'hello <img src=x onerror="window.__draftExecuted=1">';
+const gistIds = { shouts: '73cb5a6e7e8325e0858427b255a95a87', guestbook: '498b5a262bbba0289a344d0d75cc1683' };
+async function fillBoard(scope, kind) {
+    await scope.locator(kind === 'shouts' ? '#shout-name' : '#gb-name').fill('test visitor');
+    await scope.locator(kind === 'shouts' ? '#shout-message' : '#gb-message').fill(draftMessage);
+    if (kind === 'guestbook') await scope.locator('#gb-website').fill('example.com');
+    await scope.locator(kind === 'shouts' ? 'button[onclick="postShout()"]' : '#guestbook-form button[type="submit"]').click();
+}
+const closeContext = async context => {
+    await context.unrouteAll({ behavior: 'wait' });
+    await context.close();
+};
+async function oldSchool(scope, kind) {
+    await scope.getByRole('button', { name: 'Eski usul', exact: true }).click();
+    check((await scope.locator('.retro-dialog-pre').textContent()).includes(draftMessage), kind + ': old-school preview retains the draft');
+    await scope.getByRole('button', { name: 'copy + open the gist', exact: true }).click();
+    const state = await scope.locator('body').evaluate(() => ({ copied: window.__copied, opened: window.__openedUrls, executed: !!window.__draftExecuted }));
+    check(state.copied.includes(draftMessage) && state.opened.at(-1) === 'https://gist.github.com/MrHakan/' + gistIds[kind] + '#comments', kind + ': old school copies the message and opens its own Gist');
+    check(!state.executed, kind + ': draft markup never executes');
+}
+async function giscusComposer(scope, kind) {
+    await scope.getByRole('button', { name: 'Giscus ile devam et', exact: true }).click();
+    const title = kind === 'shouts' ? 'Giscus Shoutbox' : 'Giscus Guestbook';
+    const composer = scope.frameLocator('iframe[title="' + title + '"]');
+    await composer.locator('#giscus-mount[data-state="ready"]').waitFor();
+    const url = new URL(await composer.locator('#giscus-mount iframe').getAttribute('src'));
+    check(url.searchParams.get('term') === (kind === 'shouts' ? 'Shoutbox' : 'Guestbook'), kind + ': Giscus reaches its distinct discussion term');
+    check(url.searchParams.get('repo') === 'MrHakan/mrhakan.github.io' && url.searchParams.get('categoryId') === 'DIC_kwDOFNnvlM4DEF5L', kind + ': verified repo and category reach the widget');
+    check(url.searchParams.get('mapping') === 'specific' && url.searchParams.get('theme') === origin + '/css/giscus-win98.css', kind + ': mapping and Win98 theme survive the optional composer');
+    const copied = await scope.locator('body').evaluate(() => window.__copied);
+    check(copied.includes(draftMessage), kind + ': the Giscus choice copies the draft for pasting');
+    const src = await scope.locator('iframe[title="' + title + '"]').getAttribute('src');
+    check(!new URL(src, BASE).searchParams.has('giscus') && !src.includes('test visitor') && !src.includes('onerror') && !src.includes('hello'), kind + ': draft content is never put in a URL');
+    check(!await composer.locator('#guestbook-form').isVisible(), kind + ': the composer does not expose the wrong legacy form');
+    return composer;
+}
+
 try {
     for (const [name, options] of [['desktop', { viewport: { width: 1280, height: 900 } }], ['mobile', devices['Pixel 7']]]) {
         const { context, page, requests, errors } = await setup(options);
         await page.goto(BASE + '/index.html');
-        await page.waitForSelector('#shout-giscus-mount[data-state="ready"]');
+        await page.locator('#shout-name').waitFor();
         await page.evaluate(() => showSection('guestbook'));
-        const embedded = page.frameLocator('iframe[title="Guestbook"]');
-        await embedded.locator('#giscus-mount[data-state="ready"]').waitFor();
-        const shout = new URL(await page.locator('#shout-giscus-mount iframe').getAttribute('src'));
-        const guest = new URL(await embedded.locator('#giscus-mount iframe').getAttribute('src'));
-        check(shout.searchParams.get('term') === 'Shoutbox' && guest.searchParams.get('term') === 'Guestbook', name + ': both boards keep their distinct terms');
-        for (const url of [shout, guest]) {
-            check(url.searchParams.get('repo') === 'MrHakan/mrhakan.github.io' && url.searchParams.get('categoryId') === 'DIC_kwDOFNnvlM4DEF5L', name + ': verified repository and category reach the widget');
-            check(url.searchParams.get('mapping') === 'specific' && url.searchParams.get('theme') === origin + '/css/giscus-win98.css', name + ': specific mapping and Win98 theme are preserved');
-        }
-        check(await page.locator('#shout-giscus-mount iframe').count() === 1 && await embedded.locator('#giscus-mount iframe').count() === 1, name + ': mounting Guestbook never replaces Shoutbox');
-        check(!await page.locator('#shout-name').isVisible() && !await embedded.locator('#guestbook-form').isVisible(), name + ': legacy forms hide only when configured');
+        const embedded = page.frameLocator('#guestbook-frame');
+        await embedded.locator('#guestbook-form').waitFor();
+        check(requests.length === 0, name + ': both original boards load without contacting Giscus');
+        await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {
+            origin: location.origin, source: window, data: { guestbookSign: { name: 'forged', message: 'not a visitor submission' } }
+        })));
+        check(await page.locator('.retro-dialog-overlay').count() === 0, name + ': only the actual Guestbook frame can request its chooser');
+        check(await page.locator('#shoutbox-messages').isVisible() && await page.locator('#shout-name').isVisible(), name + ': original compact Shoutbox wall and inputs stay visible');
+        check(await page.locator('#shout-giscus-mount').count() === 0, name + ': no large widget replaces Shoutbox');
+        await page.screenshot({ path: '.ci-shots/boards-legacy-' + name + '.png', fullPage: true });
+
+        await fillBoard(page, 'shouts');
+        check(await page.getByRole('button', { name: 'Giscus ile devam et', exact: true }).isVisible() && await page.getByRole('button', { name: 'Eski usul', exact: true }).isVisible(), name + ': submitting offers both posting methods');
+        await page.getByRole('button', { name: 'vazgeç', exact: true }).click();
+        check(await page.locator('#shout-message').inputValue() === draftMessage && requests.length === 0, name + ': cancelling keeps the draft and loads no widget');
+        await fillBoard(page, 'shouts');
+        await giscusComposer(page, 'shouts');
+        check(await page.locator('#shout-message').inputValue() === draftMessage, name + ': opening Giscus preserves the original Shoutbox draft');
+        await page.getByRole('button', { name: 'yöntem seçimine dön', exact: true }).click();
+        await oldSchool(page, 'shouts');
+
+        await fillBoard(embedded, 'guestbook');
+        await giscusComposer(page, 'guestbook');
+        check(await page.locator('#shout-name').isVisible(), name + ': Guestbook composer never replaces Shoutbox');
         for (const frame of page.frames().filter(frame => new URL(frame.url()).origin === origin)) {
-            check(await frame.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2), name + ': no horizontal overflow in either document');
+            check(await frame.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2), name + ': board and method dialogs fit the screen');
         }
-        check(requests.filter(url => url.includes('/client.js')).length === 2, name + ': both clients use the external fixture');
+        check(requests.filter(url => url.includes('/client.js')).length === 2, name + ': widgets load only for the two explicit choices');
         const css = await context.request.get(BASE + '/css/giscus-win98.css');
-        check(css.ok() && (await css.text()).includes('--w98-face'), name + ': actual custom CSS is served');
-        await page.screenshot({ path: '.ci-shots/giscus-' + name + '.png', fullPage: true });
+        check(css.ok() && (await css.text()).includes('--w98-face'), name + ': real custom stylesheet remains served');
+        await page.screenshot({ path: '.ci-shots/boards-giscus-' + name + '.png', fullPage: true });
+        await page.getByRole('button', { name: 'yöntem seçimine dön', exact: true }).click();
+        await oldSchool(page, 'guestbook');
         check(errors.length === 0, name + ': no browser exceptions or console errors: ' + errors.join('\n'));
 
-        // Prove the collector still reports both application failures and CORS
-        // errors. These intentional sentinels are asserted, never filtered out.
+        // Keep a real rejected cross-origin request and an application throw:
+        // changing the default board must never mask the original CI failure.
         await context.route('https://giscus.app/cors-probe', route => route.fulfill({ body: 'wrong CORS origin', headers: { 'Access-Control-Allow-Origin': 'https://untrusted.invalid' } }));
         await page.evaluate(async () => {
             await fetch('https://giscus.app/cors-probe').catch(() => {});
             setTimeout(() => { throw new Error('application regression sentinel'); }, 0);
         });
-        await page.waitForFunction(() => true);
         await new Promise(resolve => setTimeout(resolve, 100));
-        check(errors.some(error => error.includes('CORS policy')) && errors.some(error => error.includes('application regression sentinel')), name + ': error collector detects real CORS and application failures');
-        await context.unrouteAll({ behavior: 'wait' });
-        await context.close();
+        check(errors.some(error => error.includes('CORS policy')) && errors.some(error => error.includes('application regression sentinel')), name + ': collector still detects real CORS and application failures');
+        await closeContext(context);
     }
 
     for (const [name, config] of [['disabled', {}], ['partial', { repo: 'MrHakan/mrhakan.github.io', repoId: 'R_test', categoryId: '' }]]) {
         const { context, page, requests, errors } = await setup({}, 'ready', config);
         await page.goto(BASE + '/guestbook.html');
-        await page.waitForFunction(() => document.querySelector('#guestbook-entries').textContent !== 'loading entries...');
-        check(await page.locator('#guestbook-form').isVisible() && requests.length === 0, name + ': incomplete configuration keeps the legacy board');
-        await page.goto(BASE + '/index.html');
-        await page.evaluate(() => showSection('guestbook'));
-        await page.frameLocator('iframe[title="Guestbook"]').locator('#guestbook-form').waitFor();
-        check(await page.locator('#shout-name').isVisible() && requests.length === 0, name + ': the embedded Guestbook and Shoutbox both retain legacy signing');
-        check(errors.length === 0, name + ': fallback has no application errors');
-        await context.unrouteAll({ behavior: 'wait' });
-        await context.close();
+        await fillBoard(page, 'guestbook');
+        await page.getByRole('button', { name: 'copy + open the gist', exact: true }).waitFor();
+        check(await page.locator('#guestbook-form').isVisible() && requests.length === 0, name + ': unconfigured Giscus retains the working old-school flow');
+        await page.goto(BASE + '/guestbook.html?composer=giscus&board=shouts');
+        await page.locator('#giscus-mount').filter({ hasText: 'not configured' }).waitFor();
+        check(!await page.locator('#guestbook-form').isVisible() && requests.length === 0, name + ': a missing Shoutbox config never posts to Guestbook instead');
+        check(errors.length === 0, name + ': no application errors');
+        await closeContext(context);
     }
-
     {
         const { context, page, errors } = await setup({}, 'missing');
-        await page.goto(BASE + '/guestbook.html');
+        await page.goto(BASE + '/guestbook.html?composer=giscus');
         await page.waitForSelector('#giscus-mount[data-state="ready"]');
-        check(!await page.locator('#guestbook-form').isVisible(), 'an empty discussion keeps Giscus available for the first comment');
+        check(!await page.locator('#guestbook-form').isVisible(), 'empty discussions stay available for a first Giscus comment');
         await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', {
             origin: 'https://giscus.app', source: window, data: { giscus: { error: 'forged failure' } }
         })));
-        check(await page.locator('#giscus-mount').getAttribute('data-state') === 'ready', 'messages from another window cannot fail the board');
+        check(await page.locator('#giscus-mount').getAttribute('data-state') === 'ready', 'another window cannot fail the composer');
         check(errors.length === 0, 'empty-discussion handling has no browser errors');
-        await context.unrouteAll({ behavior: 'wait' });
-        await context.close();
+        await closeContext(context);
     }
     {
-        const { context, page } = await setup({}, 'silent');
+        const { context, page, errors } = await setup({}, 'silent');
         await page.clock.install();
-        await page.goto(BASE + '/guestbook.html');
+        await page.goto(BASE + '/guestbook.html?composer=giscus&board=shouts');
         await page.locator('#giscus-mount').scrollIntoViewIfNeeded();
         await page.waitForSelector('#giscus-mount iframe');
         await page.clock.runFor(16000);
         await page.waitForSelector('#giscus-mount[data-state="failed"]');
-        check(await page.locator('#guestbook-form').isVisible(), 'a visible iframe that never responds restores the legacy board');
-        await context.unrouteAll({ behavior: 'wait' });
-        await context.close();
+        check((await page.locator('#giscus-mount a').getAttribute('href')).includes('Shoutbox'), 'a stalled composer offers the correct GitHub discussion');
+        check(!await page.locator('#guestbook-form').isVisible() && errors.length === 0, 'a stalled Shoutbox never exposes a Guestbook posting form');
+        await closeContext(context);
     }
-
     for (const mode of ['blocked', 'error']) {
         const { context, page, errors } = await setup({}, mode);
         await page.goto(BASE + '/index.html');
-        await page.waitForSelector('#shout-giscus-mount[data-state="failed"]');
         await page.evaluate(() => showSection('guestbook'));
-        const guest = page.frameLocator('iframe[title="Guestbook"]');
-        await guest.locator('#giscus-mount[data-state="failed"]').waitFor();
-        check(await page.locator('#shout-name').isVisible() && await guest.locator('#guestbook-form').isVisible(), mode + ': each failed board restores its legacy form');
-        check((await page.locator('#shout-giscus-mount a').getAttribute('href')).includes('Shoutbox') && (await guest.locator('#giscus-mount a').getAttribute('href')).includes('Guestbook'), mode + ': GitHub fallback links remain distinct');
-        check(!errors.some(error => error.startsWith('pageerror:') || error.includes('CORS')), mode + ': failure recovery introduces no exception or CORS error');
-        await context.unrouteAll({ behavior: 'wait' });
-        await context.close();
+        const embedded = page.frameLocator('#guestbook-frame');
+        for (const [scope, kind] of [[page, 'shouts'], [embedded, 'guestbook']]) {
+            await fillBoard(scope, kind);
+            await page.getByRole('button', { name: 'Giscus ile devam et', exact: true }).click();
+            const title = kind === 'shouts' ? 'Giscus Shoutbox' : 'Giscus Guestbook';
+            const composer = page.frameLocator('iframe[title="' + title + '"]');
+            await composer.locator('#giscus-mount[data-state="failed"]').waitFor();
+            check((await composer.locator('#giscus-mount a').getAttribute('href')).includes(kind === 'shouts' ? 'Shoutbox' : 'Guestbook'), mode + ': ' + kind + ' fallback uses its own thread');
+            await page.getByRole('button', { name: 'yöntem seçimine dön', exact: true }).click();
+            await oldSchool(page, kind);
+        }
+        check(!errors.some(error => error.startsWith('pageerror:') || error.includes('CORS')), mode + ': recovery introduces no application exception or CORS error');
+        await closeContext(context);
     }
     console.log(`All ${checks} Giscus browser checks passed`);
 } finally {

@@ -1,16 +1,21 @@
 # guestbook & shoutbox
 
-both boards now use **Giscus + GitHub Discussions** under the
-`Announcements` category, with distinct `Guestbook` and `Shoutbox` discussion
-terms. Visitors sign in with GitHub to leave comments directly on the site.
-The public Gist comment boards remain configured as a legacy fallback.
+Both boards show their original **Gist wall and forms** by default, including
+the compact Shoutbox. Submitting a draft offers **Giscus ile devam et** and
+**Eski usul**. Cancelling or switching methods preserves the draft.
+
+Giscus opens in an isolated retro composer and uses GitHub Discussions under
+`Announcements`, with distinct `Guestbook` and `Shoutbox` terms. The old-school
+method keeps the copy-and-open-Gist flow. These are separate comment boards:
+Gist comments appear on the original wall; Discussion comments appear inside
+Giscus. The method chooser explains this before the visitor continues.
 
 the trick is the one from the personal-readme crowd:
 <https://gist.github.com/traumverloren/a7fa4c89c27fc3adedf1ff96b0514472>
 
-## legacy gist signing (fallback only)
+## old-school gist signing (default)
 
-1. the visitor fills in the form on the site and hits **sign it!**
+1. the visitor fills in the form, hits **sign it!** or **shout it!**, then chooses **Eski usul**
 2. the site writes the comment for them and copies it:
 
     ```
@@ -36,13 +41,14 @@ https links, and everything is escaped where it is rendered.
 
 the copy-paste flow above loses most visitors at step three. **giscus**
 keeps the same idea — no backend, no database, github holds the words —
-but a visitor signs in with github and comments in one click. the thread
+but a visitor signs in with github and comments in its embedded composer. the thread
 is a [github discussion](https://docs.github.com/discussions) on this
 repo rather than a gist.
 
 **each board is separate.** the guestbook and the shoutbox have distinct
-discussion titles in the same Announcements category. Giscus is enabled for
-both; a board falls back to its Gist only when Giscus is not configured.
+discussion titles in the same Announcements category. Giscus is configured for
+both and is loaded only after the visitor chooses it. With incomplete config,
+the original Gist flow remains available.
 
 ```json
 "giscus": {
@@ -109,15 +115,18 @@ it is passed automatically.
 
 ### isolation, connection failures and local tests
 
-The desktop embeds `guestbook.html?embedded=1` for Guestbook. The standard
-Giscus client owns one container per document, so this keeps Guestbook and
-Shoutbox independent while using the same Announcements category and their
+The desktop embeds `guestbook.html?embedded=1` for the original Guestbook.
+Choosing Giscus opens `guestbook.html?embedded=1&composer=giscus&board=guestbook`
+or `board=shouts` inside a retro dialog. Drafts are copied and shown locally,
+never put in URLs or automatically submitted. The standard Giscus client owns
+one container per document, so the composer keeps both threads independent while using the same Announcements category and their
 distinct `Guestbook` / `Shoutbox` terms. The existing threads are Discussions
 [#36](https://github.com/MrHakan/mrhakan.github.io/discussions/36) and
 [#35](https://github.com/MrHakan/mrhakan.github.io/discussions/35), respectively.
 
 A blocked client, service error or visible frame that does not respond within
-15 seconds restores that board's legacy Gist form and offers a GitHub link.
+15 seconds shows the correct GitHub link. The visitor can return to the method
+chooser and use the original Gist flow with their draft intact.
 An empty discussion is allowed: Giscus creates it on the first comment.
 Messages are accepted only from the board's own frame on `https://giscus.app`.
 
