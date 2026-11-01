@@ -544,6 +544,6 @@
         "categoryId": "DIC_kwDOFNnvlM4DEF5L",
         "guestbook": { "term": "Guestbook" },
         "shouts": { "term": "Shoutbox" },
-        "note": "one click instead of copy-paste-into-a-gist. both boards live in the Announcements category and are told apart by the discussion TITLE, which is each board's \u0022term\u0022. everything here is already correct except categoryId \u2014 get that one value from https://giscus.app (pick Announcements; it prints data-category-id) and both boards switch over at once. until it is there, both fall back to their gists. see data/README.md."
+        "note": "Giscus is enabled for guestbook and shoutbox. Both use the Announcements category with distinct discussion terms; Gist configurations are retained as a legacy fallback."
     }
 }
