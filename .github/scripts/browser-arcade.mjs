@@ -64,6 +64,40 @@ await p.evaluate(() => {
 });
 await p.waitForTimeout(900);
 
+// Cold loaders used to clear the URL when their temporary window closed.
+// Exercise every such surprise choice deterministically, before any warm load
+// can mask the handoff. The ordinary random surprise check remains below.
+section('surprise keeps the link while a cold app loads');
+for (const [slug, ready, entry] of [
+    ['jokerz', '.bj-body', 'startBalatro'],
+    ['trollproblem', '.tg-body', 'startTrollProblem'],
+    ['becomeuser', '.bu-body', 'startBecomeUser'],
+    ['echoes', '#et-seed', 'startEchoes'],
+    ['wizardz', '.wz-body', 'startWizardz'],
+    ['thememaker', '.tm-window', 'openThemeMaker']
+]) {
+    is(await p.evaluate(name => !window[name], entry), slug + ': starts with a cold loader');
+    await p.evaluate(s => {
+        const choices = WEB.slugs().filter(name => !['home', 'shutdown', 'run', 'reset', 'find', 'favorites', 'discord', 'netplay'].includes(name));
+        const random = Math.random;
+        let choose = true;
+        // Control only the route selection; game initialization keeps its RNG.
+        Math.random = () => {
+            if (choose) { choose = false; return (choices.indexOf(s) + 0.5) / choices.length; }
+            return random();
+        };
+        try { appActions().surprise(); } finally { Math.random = random; }
+    }, slug);
+    await p.waitForSelector(ready, { timeout: 20000 });
+    const state = await p.evaluate(selector => {
+        const win = document.querySelector(selector).closest('.app-window');
+        return { route: WEB.resolve(new URLSearchParams(location.search).get('app')), window: win && win._route };
+    }, ready);
+    is(state.route === slug && state.window === slug, slug + ': replacement keeps the selected route and window link', JSON.stringify(state));
+    await p.evaluate(selector => closeAppWindow(document.querySelector(selector).closest('.app-window').id), ready);
+    is(await p.evaluate(() => !new URLSearchParams(location.search).has('app')), slug + ': closing the real window returns to the desktop');
+}
+
 // ===================================================================
 section('every one of them opens');
 // ===================================================================

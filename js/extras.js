@@ -391,13 +391,19 @@ function balLoadScripts() {
     return balLoading;
 }
 
+function replaceLazyWindow(win, launch) {
+    if (!win.isConnected || !win.id) return;
+    if (window.WEB && typeof WEB.replaceWindow === 'function') return WEB.replaceWindow(win, launch);
+    closeAppWindow(win.id);
+    return launch();
+}
+
 function openBalatro() {
     if (window.startBalatro) { startBalatro(); return; }
     const { body, win } = createAppWindow('jokerz 98', { icon: 'casino', width: 320 });
     body.innerHTML = '<div class="bj-loading">shuffling deck...</div>';
     balLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        startBalatro();
+        replaceLazyWindow(win, () => startBalatro());
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">could not load the game files bradar</div>';
     });
@@ -427,8 +433,7 @@ function openTrollProblem() {
     const { body, win } = createAppWindow('sir, we have a troll problem', { icon: 'castle', width: 320 });
     body.innerHTML = '<div class="bj-loading">sharpening swords...</div>';
     tgLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        startTrollProblem();
+        replaceLazyWindow(win, () => startTrollProblem());
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">could not load the game files bradar</div>';
     });
@@ -457,8 +462,7 @@ function openBecomeUser() {
     const { body, win } = createAppWindow('become user', { icon: 'movie', width: 320 });
     body.innerHTML = '<div class="bj-loading">booting 1999...</div>';
     buLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        startBecomeUser();
+        replaceLazyWindow(win, () => startBecomeUser());
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">could not load the story files bradar</div>';
     });
@@ -489,8 +493,7 @@ function openNetplay(opts) {
     const { body, win } = createAppWindow('multiplayer lobby', { icon: 'group', width: 320 });
     body.innerHTML = '<div class="bj-loading">dialling up...</div>';
     npLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        Netplay.openLobby(opts || {});
+        replaceLazyWindow(win, () => Netplay.openLobby(opts || {}));
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">could not load the netplay files bradar</div>';
     });
@@ -527,8 +530,7 @@ function openEchoes() {
     const { body, win } = createAppWindow('echoes of the tide', { icon: 'explore', width: 320 });
     body.innerHTML = '<div class="bj-loading">charting the tide...</div>';
     etLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        startEchoes();
+        replaceLazyWindow(win, () => startEchoes());
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">the tide took the charts bradar</div>';
     });
@@ -539,8 +541,7 @@ function openWizardz(mode) {
     const { body, win } = createAppWindow('wizardz 98', { icon: 'auto_fix_high', width: 320 });
     body.innerHTML = '<div class="bj-loading">sharpening quills...</div>';
     wzLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        startWizardz(mode);
+        replaceLazyWindow(win, () => startWizardz(mode));
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">could not load the spellbook bradar</div>';
     });
@@ -571,8 +572,7 @@ function launchThemeMaker() {
     const { body, win } = createAppWindow('theme maker', { icon: 'palette', width: 320 });
     body.innerHTML = '<div class="bj-loading">mixing paint...</div>';
     tmLoadScripts().then(() => {
-        closeAppWindow(win.id);
-        openThemeMaker();
+        replaceLazyWindow(win, () => openThemeMaker());
     }).catch(() => {
         body.innerHTML = '<div class="bj-loading">could not load the theme maker bradar</div>';
     });

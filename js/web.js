@@ -113,6 +113,24 @@ const WEB = (function () {
         return true;
     }
 
+    // A lazy app replaces its loading window after open() has returned.
+    // Closing that placeholder is a handoff, not navigation back to home.
+    function replaceWindow(win, launch) {
+        if (!win || !win.isConnected || !win.id) return;
+        const route = win._route;
+        const previous = routed, had = pending;
+        if (routed === win) routed = null;
+        window.closeAppWindow(win.id);
+        pending = route || had;
+        try { return launch(); }
+        finally {
+            pending = had;
+            // An older load finishing must not steal a newer route's window.
+            const current = resolve(new URLSearchParams(location.search).get('app'));
+            if (previous !== win || current !== route) routed = previous === win ? null : previous;
+        }
+    }
+
     // ?app=colophon#what-it-is-built-with — open it, then find the heading
     function openFromUrl(opts) {
         const slug = new URLSearchParams(location.search).get('app');
@@ -1274,7 +1292,7 @@ const WEB = (function () {
     });
 
     return {
-        open, openFromUrl, urlFor, isRoute, resolve, slugs, enhance, prose, markLinks,
+        open, openFromUrl, replaceWindow, urlFor, isRoute, resolve, slugs, enhance, prose, markLinks,
         paintAddress, parseTyped, favourites, toggleFavourite, isFavourite,
         toggleFavouritesMenu, renderFavourites, routeLabel, nearestHeading,
         history: history_, clearHistory, toggleHistoryMenu, togglePanel, hidePanel,
