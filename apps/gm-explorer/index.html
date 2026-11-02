@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Explore ship initial stability with interactive GM, free-surface correction, heel angle, a hull diagram and a small-angle righting-arm chart.">
+<title>GM Explorer 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/apps/gm-explorer/">
+<meta property="og:title" content="GM Explorer 98"><meta property="og:description" content="An interactive educational ship initial-stability sandbox: GM, free surface, heel and righting moment, all in your browser.">
+<style>
+*{box-sizing:border-box}html{background:#008080;min-height:100%}body{margin:0;padding:15px;color:#203449;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1110px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005050;padding:4px}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(90deg,#000080,#187fb0);color:#fff;padding:10px 12px}
+h1{font-size:19px;margin:0}.close{padding:5px 9px;text-decoration:none;background:#c0c0c0;color:#243448;border:2px solid;border-color:#fff #555 #555 #fff;font-weight:bold}
+.menu{padding:9px 12px}.menu span{text-decoration:underline}.layout{display:grid;grid-template-columns:minmax(260px,.9fr) minmax(0,1.5fr);gap:12px;padding:0 12px 12px}
+.panel{background:#ededed;border:2px inset #ddd;padding:13px;min-width:0}.panel h2{font-size:15px;margin:0 0 12px}
+.control{display:block;margin:0 0 16px}.control-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}.control-head strong{font:700 14px Consolas,monospace}
+input[type=range]{width:100%;accent-color:#145d9d;cursor:pointer;min-height:28px}.range-ends{display:flex;justify-content:space-between;color:#566879;font:11px Consolas,monospace}
+.btn{font:700 12px Tahoma,Arial,sans-serif;min-height:40px;padding:9px 11px;background:#c0c0c0;color:#203449;border:2px solid;border-color:#fff #555 #555 #fff;cursor:pointer}
+.btn.primary{background:#d9eefa}.actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.metric{background:#fff;border:2px inset #ddd;padding:9px;min-width:0}.metric span{font-size:11px;display:block;color:#455d70}.metric strong{display:block;font:700 clamp(13px,1.8vw,19px) Consolas,monospace;margin-top:6px;overflow-wrap:anywhere}
+.viz{display:grid;grid-template-columns:1fr 1fr;gap:10px}.frame{background:#fff;border:2px inset #ddd;padding:7px;min-width:0}.frame h3{font-size:12px;margin:2px 0 6px}
+svg{display:block;width:100%;height:auto}.info{font-size:12px;line-height:1.65;color:#3b5164}.warning{background:#fff1c6;border:2px solid #ac7520;padding:10px;font-size:12px;line-height:1.6;margin:12px 0}
+#status{background:#fff;border:2px inset #ddd;padding:10px;min-height:42px;line-height:1.5}
+footer{border-top:1px solid #999;padding:9px 12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:11px}
+:focus-visible{outline:3px solid #e99d00;outline-offset:2px}
+@media(max-width:810px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}}
+@media(max-width:530px){h1{font-size:16px}.metrics{grid-template-columns:1fr 1fr}.viz{grid-template-columns:1fr}.metric strong{font-size:16px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class="window"><header class="titlebar"><h1>⚓ GM Explorer 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>Stability</span>　<span>Small angles</span>　<span>Free surface</span>　<span>Field notes</span></div>
+<main class="layout"><section class="panel"><h2>Loading condition · learning model</h2>
+<label class="control" for="gm"><span class="control-head"><span>Uncorrected GM (m)</span><strong id="gmValue">1.20 m</strong></span><input id="gm" type="range" min="-0.5" max="4" step="0.05" value="1.2"><span class="range-ends"><span>−0.50 m</span><span>4.00 m</span></span></label>
+<label class="control" for="fsc"><span class="control-head"><span>Free-surface correction (m)</span><strong id="fscValue">0.20 m</strong></span><input id="fsc" type="range" min="0" max="1.5" step="0.05" value="0.2"><span class="range-ends"><span>0 m</span><span>1.50 m</span></span></label>
+<label class="control" for="angle"><span class="control-head"><span>Heel angle (degrees)</span><strong id="angleValue">6°</strong></span><input id="angle" type="range" min="0" max="10" step="0.5" value="6"><span class="range-ends"><span>0°</span><span>10°</span></span></label>
+<label class="control" for="disp"><span class="control-head"><span>Displacement (tonnes)</span><strong id="dispValue">30000 t</strong></span><input id="disp" type="range" min="1000" max="200000" step="1000" value="30000"><span class="range-ends"><span>1,000 t</span><span>200,000 t</span></span></label>
+<div class="actions"><button type="button" class="btn" id="tender">Tender vessel</button><button type="button" class="btn" id="stiff">Stiff vessel</button><button type="button" class="btn primary" id="reset">↻ Reset</button></div>
+<div class="warning"><strong>Educational illustration only.</strong> Not a shipboard stability calculator or loading instrument. Do not use these values for voyage, cargo, ballast, or safety decisions. Real GZ curves require approved hydrostatic/cross-curve data and full corrections.</div>
+<p class="info">Small-angle model (0–10°): corrected GM = GM − free-surface correction; approximate GZ = corrected GM × sin(heel). Righting moment in tonne-metres = displacement (t) × GZ (m). Negative values indicate a destabilizing tendency in this simplified model.</p>
+</section><section class="panel"><h2>Live stability display</h2>
+<div class="metrics"><div class="metric"><span>Corrected GM</span><strong id="corrected">1.00 m</strong></div><div class="metric"><span>Approx. GZ</span><strong id="gz">0.105 m</strong></div><div class="metric"><span>Moment (t·m)</span><strong id="moment">3136</strong></div></div>
+<div class="viz"><div class="frame"><h3>Heel illustration</h3><svg id="ship" viewBox="0 0 340 245" role="img" aria-label="Schematic ship hull rotating relative to a horizontal waterline">
+<defs><linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a8e0ef"/><stop offset="1" stop-color="#508fb9"/></linearGradient></defs>
+<rect x="0" y="134" width="340" height="111" fill="url(#sea)"/><path d="M0 134H340" stroke="#1c7ca7" stroke-width="3"/>
+<g id="hull" transform="rotate(6 170 130)"><path d="M62 112H278L259 163Q170 189 81 163Z" fill="#364b65" stroke="#1b2b40" stroke-width="3"/><path d="M115 108V78H227V108" fill="#e7eef3" stroke="#1b2b40" stroke-width="3"/><path d="M147 78V59H204V78" fill="#f8f9f2" stroke="#1b2b40" stroke-width="3"/><path d="M73 118H268" stroke="#f6c34c" stroke-width="4"/><circle cx="170" cy="132" r="5" fill="#ffcc43"/></g>
+<text x="12" y="22" font-size="12" font-family="Tahoma" fill="#30465d">Schematic only · not to scale</text><text x="10" y="229" font-size="11" font-family="Tahoma" fill="#fff">Waterline (horizontal)</text></svg></div>
+<div class="frame"><h3>Approx. righting arm, 0–10°</h3><svg id="chart" viewBox="0 0 340 245" role="img" aria-label="Plot of approximate righting arm GZ versus heel angle from zero to ten degrees">
+<path d="M45 16V201H324" stroke="#4d6375" stroke-width="2" fill="none"/><path d="M45 108H324" stroke="#c1c9d1" stroke-dasharray="4 4" fill="none"/><text x="8" y="19" font-size="11" fill="#364b5d">GZ (m)</text><text x="280" y="222" font-size="11" fill="#364b5d">Heel °</text><text x="39" y="219" font-size="11">0</text><text x="309" y="219" font-size="11">10</text>
+<path id="curve" fill="none" stroke="#1266ad" stroke-width="4" stroke-linecap="round"/><circle id="dot" r="6" fill="#e58b21" stroke="#fff" stroke-width="2"/><text id="upper" x="7" y="38" font-size="10" fill="#456075"></text><text id="lower" x="7" y="197" font-size="10" fill="#456075"></text>
+</svg></div></div>
+<div class="actions"><button type="button" class="btn" id="export">⬇ Export chart SVG</button><button type="button" class="btn" id="copy">📋 Copy values</button></div>
+<p id="status" role="status" aria-live="polite">Adjust a slider to explore the initial stability approximation.</p>
+<h2>Reading the numbers</h2><p class="info">Positive corrected GM produces a positive small-angle righting arm. A free-surface correction reduces the effective GM, potentially changing its sign. At 0° the approximate arm and moment are zero even when GM is positive. The plot is limited to 10° on purpose: extrapolating this formula to large heel angles is unsafe.</p>
+</section></main><footer><span>GM Explorer 98 · Offline educational model</span><a href="../../">← Playground</a></footer></div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),fmt=(n,d=2)=>n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+function number(id){return Number($(id).value)}
+function update(){
+const gm=number('gm'),fsc=number('fsc'),a=number('angle'),disp=number('disp'),corrected=gm-fsc;
+const arm=corrected*Math.sin(a*Math.PI/180),moment=disp*arm;
+$('gmValue').textContent=fmt(gm)+' m';$('fscValue').textContent=fmt(fsc)+' m';$('angleValue').textContent=fmt(a,1)+'°';$('dispValue').textContent=fmt(disp,0)+' t';
+$('corrected').textContent=fmt(corrected)+' m';$('gz').textContent=fmt(arm,3)+' m';$('moment').textContent=fmt(moment,1);
+$('hull').setAttribute('transform','rotate('+a+' 170 130)');
+const max=Math.max(.12,Math.abs(corrected)*Math.sin(10*Math.PI/180)*1.1);
+const y=v=>108-(v/max)*85,x=deg=>45+deg/10*279;
+const pts=[];for(let deg=0;deg<=10.0001;deg+=.25)pts.push((pts.length?'L':'M')+x(deg).toFixed(2)+' '+y(corrected*Math.sin(deg*Math.PI/180)).toFixed(2));
+$('curve').setAttribute('d',pts.join(' '));$('dot').setAttribute('cx',x(a));$('dot').setAttribute('cy',y(arm));
+$('upper').textContent='+'+fmt(max,2);$('lower').textContent='−'+fmt(max,2);
+$('chart').setAttribute('aria-label','Small-angle righting arm from zero to ten degrees; corrected GM '+fmt(corrected)+' metres; selected heel '+fmt(a,1)+' degrees; GZ '+fmt(arm,3)+' metres.');
+$('ship').setAttribute('aria-label','Schematic ship hull heeled '+fmt(a,1)+' degrees to starboard above a horizontal waterline.');
+$('status').textContent=corrected>0?'Positive corrected GM: initial righting tendency in this model.':corrected<0?'Negative corrected GM: destabilizing tendency in this model.':'Zero corrected GM: neutral initial tendency in this model.';
+}
+function preset(g,f,a,d){$('gm').value=g;$('fsc').value=f;$('angle').value=a;$('disp').value=d;update()}
+for(const id of ['gm','fsc','angle','disp'])$(id).addEventListener('input',update);
+$('tender').addEventListener('click',()=>preset(.55,.3,7,20000));
+$('stiff').addEventListener('click',()=>preset(2.8,.15,5,60000));
+$('reset').addEventListener('click',()=>preset(1.2,.2,6,30000));
+$('export').addEventListener('click',()=>{
+const svg=$('chart').cloneNode(true);svg.setAttribute('xmlns','http://www.w3.org/2000/svg');svg.setAttribute('width','680');svg.setAttribute('height','490');svg.setAttribute('style','background:#fff;font-family:Tahoma,Arial,sans-serif');
+const blob=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+a.href=url;a.download='gm-explorer-chart.svg';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);$('status').textContent='Chart exported as SVG (educational model).';
+});
+$('copy').addEventListener('click',async()=>{
+const gm=number('gm')-number('fsc'),angle=number('angle'),arm=gm*Math.sin(angle*Math.PI/180);
+const value='GM Explorer 98 (educational only)\nUncorrected GM: '+fmt(number('gm'))+' m\nFree surface: '+fmt(number('fsc'))+' m\nCorrected GM: '+fmt(gm)+' m\nHeel: '+fmt(angle,1)+'°\nApprox. GZ: '+fmt(arm,3)+' m\nDisplacement: '+fmt(number('disp'),0)+' t\nMoment: '+fmt(number('disp')*arm,1)+' t·m\nNOT FOR SHIPBOARD USE';
+try{await navigator.clipboard.writeText(value);$('status').textContent='Values copied to clipboard.'}catch{$('status').textContent='Clipboard unavailable; use a secure browser context.'}
+});
+update();
+})();
+</script></body></html>

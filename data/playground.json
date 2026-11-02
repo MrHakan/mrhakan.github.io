@@ -1,5 +1,43 @@
 [
   {
+    "name": "Nim Terminal 98",
+    "type": "game",
+    "date": "2026-11-02",
+    "url": "/games/nim-terminal/",
+    "description": "Retro take-away strategy against a local XOR-aware computer, with seeded daily boards, casual/expert modes, hints, undo and local win records.",
+    "icon": "🪙",
+    "tags": [
+      "nim",
+      "strategy",
+      "board-game",
+      "daily",
+      "computer",
+      "math",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "GM Explorer 98",
+    "type": "app",
+    "date": "2026-11-02",
+    "url": "/apps/gm-explorer/",
+    "description": "Educational small-angle ship stability sandbox for corrected GM, free-surface effect, heel, righting arm and moment with live SVG diagrams.",
+    "icon": "⚓",
+    "tags": [
+      "maritime",
+      "stability",
+      "gm",
+      "gz",
+      "education",
+      "physics",
+      "svg",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Dots & Boxes 98",
     "type": "game",
     "date": "2026-11-01",

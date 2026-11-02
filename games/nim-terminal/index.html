@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Play Nim 98, a retro take-away strategy game with daily puzzles, a smart offline rival, hints, undo and local records.">
+<title>Nim Terminal 98 · Playground</title>
+<link rel="canonical" href="https://mrhakan.github.io/games/nim-terminal/">
+<meta property="og:title" content="Nim Terminal 98"><meta property="og:description" content="Outthink a local computer in a classic take-away strategy game. Daily boards, smart hints, and no accounts.">
+<style>
+*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:15px;color:#243348;font:13px Tahoma,Verdana,Arial,sans-serif}
+.window{max-width:1050px;margin:auto;padding:4px;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:8px 8px #005555}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(90deg,#000080,#187fb0);color:white;padding:9px 12px}
+h1{font-size:19px;margin:0}.close{color:#162a3c;text-decoration:none;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;padding:5px 9px;font-weight:bold}
+.menu{padding:10px 12px;font-size:12px}.menu span{text-decoration:underline}.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(240px,.85fr);gap:12px;padding:0 12px 12px}
+.panel{background:#ededed;border:2px inset #ddd;padding:13px;min-width:0}.panel h2{font-size:15px;margin:0 0 10px}
+.toolbar,.badges,.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.btn,select{font:700 12px Tahoma,Arial,sans-serif;background:#c0c0c0;color:#243348;border:2px solid;border-color:#fff #555 #555 #fff;padding:9px 11px;min-height:40px}
+.btn{cursor:pointer}.btn.primary{background:#d8ecfb}.btn:disabled{opacity:.5;cursor:default}select{background:white;max-width:100%}
+.badge{background:#fff;border:2px inset #ddd;padding:8px 10px;font:12px Consolas,monospace}
+.piles{display:grid;gap:10px;background:#b4c4d0;border:3px inset #ddd;padding:12px;min-height:290px}
+.pile{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:center;gap:8px;background:#f7f8ef;border:2px inset #ddd;padding:10px}
+.pile-label{font-weight:bold}.pile-label small{display:block;font:11px Consolas,monospace;color:#526477;margin-top:4px}
+.tokens{display:flex;flex-wrap:wrap;gap:5px}.token{width:clamp(28px,5vw,39px);height:42px;border:2px solid;border-color:#fff #555 #555 #fff;background:linear-gradient(#ffe69b,#d8a23b);border-radius:4px;cursor:pointer;font-size:18px;box-shadow:inset 0 0 0 2px #f5d079}
+.token:hover:not(:disabled){background:#ffeb90}.token:disabled{cursor:default;opacity:.6}.token:focus-visible{outline:3px solid #0059ff;outline-offset:2px}
+#status{min-height:55px;padding:11px;background:#fff;border:2px inset #ddd;line-height:1.6}
+.help,.manual{font-size:12px;line-height:1.7}.manual{background:white;border:2px inset #ddd;padding:10px}.manual ol{margin:6px 0;padding-left:20px}.help{color:#455a6a}
+.record{background:#fff;border:2px inset #ddd;padding:10px;line-height:1.6}
+footer{padding:9px 12px;border-top:1px solid #999;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px}
+:focus-visible{outline:3px solid #eea000;outline-offset:2px}
+@media(max-width:760px){body{padding:7px}.layout{grid-template-columns:1fr;padding:0 8px 8px}.panel{padding:10px}.piles{padding:7px}}
+@media(max-width:410px){h1{font-size:16px}.pile{grid-template-columns:64px minmax(0,1fr);padding:7px}.tokens{gap:3px}.token{width:28px;height:36px}.badge{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class="window"><header class="titlebar"><h1>🪙 Nim Terminal 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Close</a></header>
+<div class="menu"><span>Game</span>　<span>Daily challenge</span>　<span>Strategy</span>　<span>Help</span></div>
+<main class="layout"><section class="panel"><h2>Take-away arena</h2>
+<div class="toolbar"><label for="level">Opponent</label><select id="level"><option value="casual">Casual</option><option value="expert">Expert</option></select>
+<button type="button" class="btn primary" id="daily">📅 Daily</button><button type="button" class="btn" id="new">↻ Practice board</button></div>
+<div class="badges"><span class="badge" id="mode">Daily</span><span class="badge" id="turn">Your turn</span><span class="badge" id="moves">Turns: 0</span></div>
+<div id="piles" class="piles" role="group" aria-label="Nim token piles"></div>
+<div class="actions"><button type="button" class="btn" id="hint">💡 Suggest move</button><button type="button" class="btn" id="undo">↶ Undo round</button><button type="button" class="btn" id="restart">⟲ Restart</button></div>
+<p id="status" role="status" aria-live="polite">Choose how many tokens to remove.</p>
+</section><aside class="panel"><h2>Field manual</h2><div class="manual"><strong>Take the final token to win.</strong><ol><li>Players alternate turns.</li><li>Choose one pile and remove one or more tokens from that pile.</li><li>You cannot take from two piles in the same turn.</li><li>The player who takes the very last token wins.</li></ol></div>
+<p class="help">Each coin button removes that coin and all coins to its right. For example, the third coin in a five-coin pile takes three coins. All boards are winnable when you find the right move.</p>
+<h2>Local scorecard</h2><div class="record" id="record">Loading…</div>
+<p class="help">A hint uses the classic Nim XOR strategy. Casual sometimes makes mistakes; Expert plays optimally whenever a winning move exists. Buttons work with touch, Tab, Enter and Space. Shortcut keys: H hint, U undo, R restart, N new practice.</p>
+<p class="help">No login, analytics, external scripts or network requests. Records are stored only on this device.</p>
+</aside></main><footer><span>Nim Terminal 98 · The last coin wins</span><a href="../../">← Playground</a></footer></div>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),STORE='nim-terminal-98-v1';
+let piles=[],start=[],history=[],turns=0,waiting=false,done=false,mode='daily',version=0,timer=null,seed=0;
+function hash(s){let h=2166136261;for(const c of s){h=Math.imul(h^c.charCodeAt(0),16777619)}return h>>>0}
+function rng(n){let x=n>>>0;return function(){x+=0x6D2B79F5;let t=x;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}}
+function makeBoard(s){const random=rng(s);let a;do{a=Array.from({length:3+(random()<.3?1:0)},()=>2+Math.floor(random()*8))}while(a.reduce((v,n)=>v^n,0)===0||a.reduce((v,n)=>v+n,0)<12);return a}
+function xor(a){return a.reduce((v,n)=>v^n,0)}
+function optimal(a){const x=xor(a);if(!x)return null;for(let i=0;i<a.length;i++){const target=a[i]^x;if(target<a[i])return{i,count:a[i]-target}}return null}
+function options(a){const out=[];a.forEach((n,i)=>{for(let count=1;count<=n;count++)out.push({i,count})});return out}
+function say(s){$('status').textContent=s}
+function loadRecord(){try{const r=JSON.parse(localStorage.getItem(STORE)||'{}');return{wins:Math.max(0,Number(r.wins)||0),games:Math.max(0,Number(r.games)||0),daily:r.daily&&typeof r.daily==='object'?r.daily:{}}}catch{return{wins:0,games:0,daily:{}}}}
+function saveRecord(){try{localStorage.setItem(STORE,JSON.stringify(records))}catch{}}
+let records=loadRecord();
+function record(){const completed=Object.keys(records.daily).length;$('record').textContent=records.wins+' wins in '+records.games+' completed games · '+completed+' daily wins recorded.'}
+function draw(){
+$('piles').replaceChildren();
+piles.forEach((count,i)=>{
+const row=document.createElement('div');row.className='pile';
+const label=document.createElement('div');label.className='pile-label';label.textContent='Pile '+String.fromCharCode(65+i);
+const small=document.createElement('small');small.textContent=count+' left';label.append(small);row.append(label);
+const tokens=document.createElement('div');tokens.className='tokens';
+if(!count){const empty=document.createElement('span');empty.textContent='— empty —';tokens.append(empty)}
+for(let k=1;k<=count;k++){const b=document.createElement('button');b.type='button';b.className='token';b.textContent='●';b.title='Take '+k+' from pile '+String.fromCharCode(65+i);b.setAttribute('aria-label',b.title);b.disabled=waiting||done;b.addEventListener('click',()=>human(i,k));tokens.append(b)}
+row.append(tokens);$('piles').append(row);
+});
+$('mode').textContent=mode==='daily'?'Daily challenge':'Practice';
+$('turn').textContent=done?'Game over':waiting?'Computer thinking':'Your turn';
+$('moves').textContent='Turns: '+turns;
+$('undo').disabled=waiting||!history.length;
+$('hint').disabled=waiting||done;
+}
+function begin(which,customSeed){
+version++;if(timer){clearTimeout(timer);timer=null}
+mode=which;seed=customSeed;start=makeBoard(seed);piles=start.slice();history=[];turns=0;waiting=false;done=false;draw();say('Your move. Take one or more tokens from a single pile.');record();
+}
+function win(who){done=true;waiting=false;records.games++;if(who==='You'){records.wins++;if(mode==='daily'){const day=new Date().toISOString().slice(0,10);records.daily[day]=true}say('🏆 You took the final token! Well played.')}else say('💻 Computer took the final token. Try another strategy!');saveRecord();record();draw()}
+function human(i,count){if(waiting||done||count<1||count>piles[i])return;history.push({piles:piles.slice(),turns});piles[i]-=count;turns++;if(piles.every(n=>n===0)){win('You');return}waiting=true;draw();say('You took '+count+' from pile '+String.fromCharCode(65+i)+'. Computer is thinking…');const v=version;timer=setTimeout(()=>{timer=null;if(v===version)computer()},360)}
+function computer(){if(!waiting||done)return;const opts=options(piles);const best=optimal(piles);const rand=rng((seed^Math.imul(turns+1,2654435761))>>>0);const smart=$('level').value==='expert'||rand()<.55;const pick=smart&&best?best:opts[Math.floor(rand()*opts.length)];piles[pick.i]-=pick.count;waiting=false;if(piles.every(n=>n===0)){win('Computer');return}draw();say('Computer took '+pick.count+' from pile '+String.fromCharCode(65+pick.i)+'. Your turn.')}
+$('hint').addEventListener('click',()=>{if(waiting||done)return;const best=optimal(piles)||options(piles)[0];say('💡 Try taking '+best.count+' from pile '+String.fromCharCode(65+best.i)+'. '+(xor(piles)===0?'No forced win exists against perfect play.':'This leaves the computer a zero-XOR position.'))});
+$('undo').addEventListener('click',()=>{if(waiting||!history.length)return;const last=history.pop();piles=last.piles;turns=last.turns;done=false;draw();say('Round undone. Try a different move.')});
+$('restart').addEventListener('click',()=>begin(mode,seed));
+$('new').addEventListener('click',()=>begin('practice',(Math.floor(Math.random()*4294967295)>>>0)));
+$('daily').addEventListener('click',()=>begin('daily',hash(new Date().toISOString().slice(0,10)+'|nim-terminal-98')));
+document.addEventListener('keydown',e=>{if(e.altKey||e.ctrlKey||e.metaKey||/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName||''))return;const k=e.key.toLowerCase();if(k==='h')$('hint').click();else if(k==='u')$('undo').click();else if(k==='r')$('restart').click();else if(k==='n')$('new').click()});
+begin('daily',hash(new Date().toISOString().slice(0,10)+'|nim-terminal-98'));
+})();
+</script></body></html>
