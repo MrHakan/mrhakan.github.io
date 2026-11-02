@@ -41,7 +41,7 @@ footer{padding:9px 12px;border-top:1px solid #999;display:flex;justify-content:s
 <div class="actions"><button type="button" class="btn" id="hint">💡 Suggest move</button><button type="button" class="btn" id="undo">↶ Undo round</button><button type="button" class="btn" id="restart">⟲ Restart</button></div>
 <p id="status" role="status" aria-live="polite">Choose how many tokens to remove.</p>
 </section><aside class="panel"><h2>Field manual</h2><div class="manual"><strong>Take the final token to win.</strong><ol><li>Players alternate turns.</li><li>Choose one pile and remove one or more tokens from that pile.</li><li>You cannot take from two piles in the same turn.</li><li>The player who takes the very last token wins.</li></ol></div>
-<p class="help">Each coin button removes that coin and all coins to its right. For example, the third coin in a five-coin pile takes three coins. All boards are winnable when you find the right move.</p>
+<p class="help">Each coin button takes that many tokens from its pile, counting from the left. For example, the third coin takes three tokens. All boards are winnable when you find the right move.</p>
 <h2>Local scorecard</h2><div class="record" id="record">Loading…</div>
 <p class="help">A hint uses the classic Nim XOR strategy. Casual sometimes makes mistakes; Expert plays optimally whenever a winning move exists. Buttons work with touch, Tab, Enter and Space. Shortcut keys: H hint, U undo, R restart, N new practice.</p>
 <p class="help">No login, analytics, external scripts or network requests. Records are stored only on this device.</p>
@@ -76,7 +76,7 @@ row.append(tokens);$('piles').append(row);
 $('mode').textContent=mode==='daily'?'Daily challenge':'Practice';
 $('turn').textContent=done?'Game over':waiting?'Computer thinking':'Your turn';
 $('moves').textContent='Turns: '+turns;
-$('undo').disabled=waiting||!history.length;
+$('undo').disabled=waiting||done||!history.length;
 $('hint').disabled=waiting||done;
 }
 function begin(which,customSeed){
