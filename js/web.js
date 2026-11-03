@@ -148,7 +148,16 @@ const WEB = (function () {
 
     // ?app=colophon#what-it-is-built-with — open it, then find the heading
     function openFromUrl(opts) {
-        const slug = new URLSearchParams(location.search).get('app');
+        const query = new URLSearchParams(location.search);
+        // ?lobby=ABCDE — somebody sent an invite. The multiplayer code stays on
+        // the server until something asks for it, and this is what asks.
+        const invite = (query.get('lobby') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+        if (invite.length >= 4 && typeof openNetplay === 'function') {
+            clearUrl();
+            openNetplay({ joinCode: invite, autoJoin: true });
+            return true;
+        }
+        const slug = query.get('app');
         if (!slug) return false;
         const hash = (location.hash || '').replace(/^#/, '');
         const done = open(slug, { push: false });

@@ -63,6 +63,11 @@ jobs:
             - name: Check Wizardz combat, input and offline behavior
               run: node .github/scripts/check-wizardz.mjs && node .github/scripts/check-offline.mjs
 
+            # a lobby on a static site stands on other people's servers. This
+            # holds the transports to what happens when those misbehave
+            - name: Check the ways online
+              run: node .github/scripts/check-netplay.mjs
+
             - name: Smoke test the netplay relay
               run: node server/relay-smoke.mjs
 
@@ -133,6 +138,15 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   node .github/scripts/browser-check.mjs
+
+            # two strangers into a duel with nothing picked: an invite link,
+            # whatever the network allows, and a direct link dying mid-duel.
+            # It brings its own stand-ins for peerjs and the relays
+            - name: Invite links, and what happens with no direct route
+              run: |
+                  python3 -m http.server 8092 &
+                  sleep 2
+                  SITE_URL=http://localhost:8092 node .github/scripts/browser-netplay.mjs
 
             # the reading layer, driven the way a person drives it: type a
             # name in the address bar, press back, star a page and reload.

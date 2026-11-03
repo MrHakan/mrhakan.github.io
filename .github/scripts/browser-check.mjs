@@ -40,7 +40,9 @@ async function boot(tag, url) {
     p.on('console', m => {
         const t = m.text();
         // the cdn bits (google fonts, the badges) are not part of this test
-        if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource/.test(t)) errors.push(tag + ' console: ' + t);
+        // github's api says no to a rate limited runner without a cors header, and the
+        // browser logs that as an error. The boards cope, and a release should not wait on it.
+        if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource|api\.github\.com.*CORS policy/.test(t)) errors.push(tag + ' console: ' + t);
     });
     await p.goto(url || BASE, { waitUntil: 'domcontentloaded' });
     await p.keyboard.press('Enter');          // the boot screen wants a keypress

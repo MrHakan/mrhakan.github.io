@@ -1,23 +1,20 @@
 # netplay relay
 
 Multiplayer on this site does **not** need a server. The lobby's default
-mode is peer to peer: two browsers open a WebRTC data channel and talk
-straight to each other, with the public PeerJS broker doing nothing but
-introducing them. That is why an invite code works from a plain GitHub
-Pages site with nothing running anywhere.
-
-There is a second way online that needs nothing from you either: the
-lobby's **public relays** mode posts the duel through public nostr relays
-on port 443, encrypted with the invite code. No p2p, no signup, nothing
-deployed — see `games/README.md`. `nostr-test-relay.mjs` in this folder
-is a tiny stand-in for those relays so the browser tests do not depend on
-strangers' servers.
+mode tries a direct connection first: two browsers open a WebRTC data channel
+and talk straight to each other, with the public PeerJS broker doing nothing
+but introducing them. When their routers will not allow that, it falls back to
+posting the duel through public nostr relays on port 443, encrypted with the
+invite code, with no signup and nothing deployed — see `games/README.md`. That
+is why an invite code works from a plain GitHub Pages site with nothing running
+anywhere. `nostr-test-relay.mjs` in this folder is a tiny stand-in for those
+relays so the browser tests do not depend on strangers' servers.
 
 This folder is mostly the *third* option, for when neither of those is
 good enough:
 
-- corporate / campus networks that block the STUN traffic WebRTC needs
-- the public broker having a bad day
+- the public relays having a bad day, or a network that blocks them too
+- wanting lower latency than a public relay for players with no direct route
 - you would simply rather run your own thing
 
 `relay.js` is a small WebSocket relay with **no dependencies** — plain
