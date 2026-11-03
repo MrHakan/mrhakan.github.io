@@ -1,5 +1,41 @@
 [
   {
+    "name": "Color Echo 98",
+    "type": "game",
+    "date": "2026-11-03",
+    "url": "/games/color-echo/",
+    "description": "Retro Simon-style memory challenge with seeded daily sequences, practice mode, keyboard/touch controls, optional tones and local records.",
+    "icon": "🔴",
+    "tags": [
+      "memory",
+      "simon",
+      "sequence",
+      "daily",
+      "arcade",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Pattern Loom 98",
+    "type": "app",
+    "date": "2026-11-03",
+    "url": "/apps/pattern-loom/",
+    "description": "Private seamless SVG pattern maker with five vector motifs, tile spacing, scale, rotation, colors, random presets and local export.",
+    "icon": "🧵",
+    "tags": [
+      "svg",
+      "pattern",
+      "design",
+      "vector",
+      "seamless",
+      "developer",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Nim Terminal 98",
     "type": "game",
     "date": "2026-11-02",
