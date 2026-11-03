@@ -56,7 +56,9 @@ const page = await ctx.newPage();
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', m => {
     const t = m.text();
-    if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource/.test(t)) errors.push('console: ' + t);
+    // github's api says no to a rate limited runner without a cors header, and the
+    // browser logs that as an error. The boards cope, and a release should not wait on it.
+    if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource|api\.github\.com.*CORS policy/.test(t)) errors.push('console: ' + t);
 });
 
 const measure = () => page.evaluate(() => {
