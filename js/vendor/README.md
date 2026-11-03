@@ -9,4 +9,5 @@ Package: https://www.npmjs.com/package/motion/v/14.1.0
 
 The concert uses `animate()` sequences, `stagger()` and spring transitions for
 finite title/set reveals. Audio, scene drawing and animation lifetime remain
-controlled by `music-stage.js`. This local copy is precached for offline use.
+controlled by `music-stage.js`. This local copy loads the first time concert mode
+opens, and the service worker keeps it for offline use.

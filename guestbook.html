@@ -14,7 +14,7 @@
     <meta property="og:image" content="https://mrhakan.github.io/src/emoj/dusung.png" />
     <meta property="og:image:alt" content="A cursed emoji from mrhakan’s retro corner of the web" />
     <meta name="twitter:card" content="summary" />
-    <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="src/emoj/favicon-48.png" />
     <script>
         if (new URLSearchParams(location.search).get('embedded') === '1') {
             document.documentElement.classList.add('guestbook-embedded');
@@ -31,8 +31,8 @@
         .giscus-composer p[data-board="giscus"] { display: none !important; }
         .guestbook-embedded.giscus-composer #guestbook-content { padding: 0; border: 0; box-shadow: none; background: transparent; }
     </style>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="css/style.css" rel="stylesheet" />
+    <link href="css/tailwind.css" rel="stylesheet" />
     <script src="js/fx.js" defer></script>
     <script src="js/guestbook.js" defer></script>
     <script src="js/index.js" defer></script>
@@ -71,7 +71,10 @@
                     no fork, no pull request, nothing gets committed.
                 </p>
 
-                <form id="guestbook-form" data-board="gist" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
+                <!-- this paints before the scripts that wire it have run. Without the
+                     onsubmit, signing in that gap reloads the page and takes whatever
+                     was typed with it. js/index.js picks an early one up when it lands. -->
+                <form id="guestbook-form" data-board="gist" onsubmit="event.preventDefault(); this.dataset.early = '1'" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
                     <div class="mb-2">
                         <label class="text-black font-header text-sm block mb-1">your name:</label>
                         <input id="gb-name" type="text"

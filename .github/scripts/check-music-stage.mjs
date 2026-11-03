@@ -8,8 +8,9 @@ const scenesSource = fs.readFileSync('js/music-scenes.js', 'utf8');
 const tracks = JSON.parse(fs.readFileSync('src/music/music.json', 'utf8'));
 let checks = 0;
 function test(name, run) { run(); checks++; console.log('  ok    ' + name); }
+async function testAsync(name, run) { await run(); checks++; console.log('  ok    ' + name); }
 
-function setup(noCanvas = false, withMotion = false) {
+function setup(noCanvas = false, withMotion = false, lazyLoads = null) {
     const frames = new Map(), events = {}, mediaEvents = {}, variables = new Map();
     const drawingCommands = [], reveals = new Set();
     let sequence = 0, observer, draws = 0, enabled = true, slowDevice = false;
@@ -61,17 +62,22 @@ function setup(noCanvas = false, withMotion = false) {
     };
     const FX = { on: () => enabled, slow: () => slowDevice };
     const win = { FX, innerWidth: 1280, innerHeight: 720, devicePixelRatio: 2, addEventListener: (name, fn) => events[name] = fn };
-    if (withMotion) win.Motion = {
+    const motion = {
         stagger: () => 0,
         animate() { const control = { cancel() { reveals.delete(control); } }; reveals.add(control); return control; }
     };
+    if (withMotion) win.Motion = motion;
+    if (lazyLoads) win.LAZY = { load(src) {
+        lazyLoads.push(src);
+        return Promise.resolve().then(() => { if (src.includes('motion')) win.Motion = motion; if (src.includes('scenes')) vm.runInContext(scenesSource, context); });
+    } };
     const context = vm.createContext({
         window: win, document: doc, FX,
         requestAnimationFrame: fn => { frames.set(++sequence, fn); return sequence; },
         cancelAnimationFrame: id => frames.delete(id),
         MutationObserver: class { constructor(fn) { observer = fn; } observe() {} }
     });
-    vm.runInContext(scenesSource, context);
+    if (!lazyLoads) vm.runInContext(scenesSource, context);
     vm.runInContext(source, context);
     const hud = body.children[0], container = element();
     return {
@@ -154,6 +160,18 @@ test('Motion reveals are cleaned up on fast track changes, pause, exit and reduc
     env.mount(tracks[1]); assert.equal(env.reveals.size, 0);
     env.motion(true); env.mount(tracks[3]); assert.equal(env.reveals.size, 2);
     env.stage.toggleConcert(false); assert.equal(env.reveals.size, 0);
+});
+await testAsync('the artwork follows the first paint and Motion waits for concert mode', async () => {
+    const loads = [];
+    const env = setup(false, false, loads); env.mount(tracks[15]); env.play();
+    assert.deepEqual(loads, ['js/music-scenes.js']);
+    const before = env.draws;
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    assert.ok(env.draws > before, 'the scene draws itself in when it arrives');
+    env.stage.toggleConcert(true);
+    assert.ok(loads.includes('js/vendor/motion.js'));
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    assert.equal(env.reveals.size, 2, 'and the entrance plays once it does');
 });
 test('every song has a usable stage palette, including the older dark themes', () => {
     const env = setup();

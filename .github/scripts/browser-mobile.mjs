@@ -15,7 +15,7 @@ import { mockGiscus } from './mock-giscus.mjs';
 //    suddenly too small to hit. The cause was nothing to do with any
 //    game: the news ticker is animated 396px off the right of the
 //    screen for half of every loop, and the class that clips it comes
-//    off a cdn.
+//    from a second stylesheet.
 // 2. A window that cannot be moved. A finger drag emits pointer events
 //    and nothing else — no browser synthesises mousemove for one — so a
 //    titlebar wired to mousedown/mousemove is simply immovable.

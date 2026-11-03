@@ -218,7 +218,7 @@ section('wired into the desktop');
 // ===================================================================
 {
     const html = read('index.html');
-    expect(/<script src="js\/defrag\.js"/.test(html), 'index.html loads defrag.js');
+    expect(/'js\/defrag\.js': \['openDefrag'\]/.test(read('js/lazy.js')), 'js/lazy.js loads defrag.js when it is opened');
     expect(/startMenuAction\('defrag'\)/.test(html), 'and it is in the start menu');
     const idx = read('js/index.js');
     expect(/defrag: openDefrag/.test(idx) && /'defrag': openDefrag/.test(idx),

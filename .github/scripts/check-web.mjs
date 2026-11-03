@@ -354,9 +354,9 @@ expect(dead.length === 0, 'and every action points at a function that exists', d
 
 expect(read('sw.js').includes("'/js/arcade.js'") && read('sw.js').includes("'/js/toys.js'"),
     'the service worker precaches both files');
-expect(page.indexOf('js/arcade.js') < page.indexOf('js/web.js') &&
-    page.indexOf('js/toys.js') < page.indexOf('js/web.js'),
-    'and they load before the reading layer, which patches what they declare');
+expect(/'js\/arcade\.js': \[/.test(read('js/lazy.js')) && /'js\/toys\.js': \[/.test(read('js/lazy.js')) &&
+    page.indexOf('js/lazy.js') < page.indexOf('js/web.js'),
+    'and their stand-ins are in place before the reading layer, which patches what they declare');
 
 // find: is the other way in, and it is easy to forget
 const notFound = NEW_ACTIONS.filter(a => {
@@ -468,7 +468,8 @@ if (feed) {
 try {
     const { buildFeed } = await import('../../.github/scripts/build-feed-json.mjs');
     const fresh = JSON.stringify(buildFeed(read('feed.xml')), null, 2) + '\n';
-    expect(fresh === read('feed.json'),
+    // a windows checkout has crlf in it; the file in the repo does not
+    expect(fresh === read('feed.json').replace(/\r\n/g, '\n'),
         'feed.json is up to date with feed.xml',
         'run: node .github/scripts/build-feed-json.mjs');
 } catch (e) {

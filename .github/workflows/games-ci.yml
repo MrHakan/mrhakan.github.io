@@ -48,6 +48,12 @@ jobs:
             - name: Validate the daily Playground catalog
               run: node .github/scripts/check-playground.mjs
 
+            # nothing about a slow page fails on its own: no remote scripts, a
+            # stylesheet with every class in it, windows that load when opened,
+            # and a size budget for the first visit
+            - name: Check what the first visit costs
+              run: node .github/scripts/check-startup.mjs
+
             - name: Check spells, sigils and desktop wiring
               run: node .github/scripts/check-games.mjs
 

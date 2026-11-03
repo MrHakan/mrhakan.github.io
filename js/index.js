@@ -1,28 +1,3 @@
-if (typeof tailwind === 'undefined') window.tailwind = {};
-tailwind.config = {
-    darkMode: "class",
-    theme: {
-        extend: {
-            colors: {
-                "primary": "#0df259",
-                "background-light": "#f5f8f6",
-                "background-dark": "#102216",
-                "retro-gray": "#c0c0c0",
-                "retro-blue": "#000080",
-                "winamp-base": "#29293d",
-            },
-            fontFamily: {
-                "header": ["Comic Sans MS", "Comic Sans", "cursive"],
-                "body": ["Times New Roman", "Times", "serif"],
-                "pixel": ["Courier New", "monospace"],
-            },
-            borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
-            backgroundImage: {
-                'stars': 'radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 3px), radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px), radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 3px)',
-            }
-        },
-    },
-}
 let tracks = [];
 let currentTrackIndex = 0;
 let isPlaying = false;
@@ -48,10 +23,8 @@ window.addEventListener('message', event => {
 document.addEventListener('DOMContentLoaded', () => {
     const audio = document.getElementById('audio-player');
     initVisitorCounter();
-    fetchShoutbox();
-    fetchGitHubRepos();
-    fetchManualProjects();
-    fetchPlaygroundCatalog();
+    // two calls to the github api per visit, for a box a phone has to scroll to
+    whenOnScreen(document.getElementById('shoutbox-window'), fetchShoutbox);
 
 
     fetch('src/music/music.json')
@@ -71,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         audio.addEventListener('ended', nextTrack);
         audio.addEventListener('play', () => {
             initAudioVisualizer();
+            startVisualizer();
             // loadTrack already built the stage. Resuming should continue its
             // light positions instead of destroying and recreating the scene.
             if (!window.MusicStage) applyTheme(tracks[currentTrackIndex]);
@@ -87,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSoundUI();
     initCounterEgg();
     initStartFlyouts();
-    fetchGitHubUser();
+    whenIdle(fetchGitHubUser);
     // the screensaver lives in extras.js, and not every page loads it —
     // guestbook.html is index.js on its own. without this the boot block
     // threw there and everything after it was quietly skipped.
@@ -100,6 +74,22 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('PDA mode detected - drag disabled');
     }
 });
+
+function whenIdle(fn) {
+    if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 1500 });
+    else setTimeout(fn, 300);
+}
+
+function whenOnScreen(el, fn) {
+    if (!el) return;
+    if (!window.IntersectionObserver) { fn(); return; }
+    const io = new IntersectionObserver(entries => {
+        if (!entries.some(e => e.isIntersecting)) return;
+        io.disconnect();
+        fn();
+    });
+    io.observe(el);
+}
 
 function initBootScreen() {
     const boot = document.getElementById('boot-screen');
@@ -167,9 +157,14 @@ function initTaskbarClock() {
         const ampm = h >= 12 ? 'PM' : 'AM';
         h = h % 12 || 12;
         el.textContent = `${h}:${d.getMinutes().toString().padStart(2, '0')} ${ampm}`;
+        // it shows minutes, so it wakes up when one changes
+        clearTimeout(timer);
+        timer = setTimeout(tick, 60000 - Date.now() % 60000);
     };
+    let timer;
     tick();
-    setInterval(tick, 1000);
+    // timers do not run while a laptop is asleep
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 }
 
 function initSeekAndVolume() {
@@ -550,6 +545,7 @@ function showToast(title, message) {
 
 function applyTheme(track) {
     if (!track) return;
+    eqColor = null;
 
     const root = document.documentElement;
     const body = document.body;
@@ -756,7 +752,7 @@ function initAudioVisualizer() {
     mediaSource.connect(analyser);
     analyser.connect(audioContext.destination);
     dataArray = new Uint8Array(analyser.frequencyBinCount);
-    updateVisualizer();
+    startVisualizer();
 }
 
 // A suspended context can only be woken from inside a real user gesture, so
@@ -977,7 +973,9 @@ function createSparkle(e) {
     // is about. the sparkles tickbox in display properties is separate
     // and still wins on its own.
     if (!FX.on()) return;
-    const sparkle = document.createElement('div');
+    // not a div: the embedded guestbook styles `body > div:last-of-type`, and a
+    // sparkle in body would take that over for the second it is alive
+    const sparkle = document.createElement('i');
     sparkle.classList.add('sparkle');
     sparkle.style.left = `${e.pageX}px`;
     sparkle.style.top = `${e.pageY}px`;
@@ -1121,26 +1119,42 @@ function loadTrack(index) {
 }
 
 let cachedEqBars = null;
+let eqColor = null;
+let visualizerFrame = 0;
+
+function startVisualizer() {
+    if (analyser && !visualizerFrame) visualizerFrame = requestAnimationFrame(updateVisualizer);
+}
 
 function updateVisualizer() {
+    visualizerFrame = 0;
     if (!analyser) return;
+    if (!cachedEqBars) cachedEqBars = document.querySelectorAll('.eq-bar');
+
+    // The graph stays built once it exists, but a stopped track has nothing to
+    // draw. Starting again is the audio element's 'play' event.
+    if (document.getElementById('audio-player').paused) {
+        cachedEqBars.forEach(bar => { bar.style.height = '10%'; });
+        return;
+    }
     analyser.getByteFrequencyData(dataArray);
 
-    if (!cachedEqBars) cachedEqBars = document.querySelectorAll('.eq-bar');
-    const primaryColor = (getComputedStyle(document.documentElement).getPropertyValue('--stage-accent') || '#0df259').trim();
-
+    // reading this forces a style recalculation, so once per track, not per frame
+    if (!eqColor) {
+        eqColor = (getComputedStyle(document.documentElement).getPropertyValue('--stage-accent') || '#0df259').trim();
+        cachedEqBars.forEach(bar => { bar.style.backgroundColor = eqColor; });
+    }
+    const moving = !window.FX || FX.on();
     cachedEqBars.forEach((bar, i) => {
         const value = dataArray[Math.floor(i * dataArray.length / cachedEqBars.length)] || 0;
-        const height = !window.FX || FX.on() ? Math.max(10, (value / 255) * 100) : 10;
-        bar.style.height = `${height}%`;
-        bar.style.backgroundColor = primaryColor;
+        bar.style.height = `${moving ? Math.max(10, (value / 255) * 100) : 10}%`;
     });
 
     // Keep beat lighting inside the stage. Filtering the whole body made text
     // flash and turned fixed windows into descendants of a filter container.
     if (window.MusicStage) MusicStage.audioFrame(dataArray);
 
-    requestAnimationFrame(updateVisualizer);
+    visualizerFrame = requestAnimationFrame(updateVisualizer);
 }
 function updateProgressBar() {
     const audio = document.getElementById('audio-player');
@@ -1166,6 +1180,9 @@ const win98Sounds = {
 let soundEnabled = localStorage.getItem('sound-enabled') !== 'false';
 function playSound(type) {
     if (!soundEnabled) return;
+    // Until the visitor touches the page the browser refuses to play anything,
+    // but only after downloading it. The welcome popup alone was two mp3s a visit.
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
     const audio = new Audio(win98Sounds[type] || win98Sounds.ding);
     audio.volume = 0.3;
     audio.play().catch(() => { });
@@ -1182,7 +1199,18 @@ function updateSoundUI() {
     const tray = document.getElementById('tray-sound');
     if (tray) tray.textContent = soundEnabled ? 'volume_up' : 'volume_off';
 }
+// Sections that start hidden fetch their data and build their grids the first
+// time they open. The repo cards and the playground catalog were most of the
+// nodes on the page, for two tabs a visit might never click.
+const sectionLoaders = {
+    github: () => { fetchManualProjects(); fetchGitHubRepos(); },
+    playground: () => fetchPlaygroundCatalog()
+};
 function showSection(sectionId) {
+    if (sectionLoaders[sectionId]) {
+        sectionLoaders[sectionId]();
+        delete sectionLoaders[sectionId];
+    }
     if (sectionId === 'home') {
         playSound('click');
     } else {
@@ -1375,8 +1403,7 @@ function openIEWindow(url, title) {
         <span class="ie-window-title">${escapeHtml(title)} - microsoft internet explorer</span>`;
     const btns = document.createElement('div');
     // the tailwind classes are the nice version; app-window-btns is the
-    // floor under them, because without it a slow cdn leaves the four
-    // titlebar buttons stacked down the side of the window
+    // floor under them, for a tailwind.css that has not arrived yet
     btns.className = 'app-window-btns flex gap-[2px] ml-auto flex-shrink-0';
     const minBtn = document.createElement('button');
     minBtn.className = 'ie-titlebar-btn bevel-out';
@@ -1475,7 +1502,8 @@ async function fetchGitHubUser() {
             user = await res.json();
         }
         if (!user || !user.login) return;
-        document.getElementById('gh-avatar').src = user.avatar_url;
+        // shown at 48px, and github resizes for free
+        document.getElementById('gh-avatar').src = user.avatar_url + (user.avatar_url.includes('?') ? '&' : '?') + 's=96';
         document.getElementById('gh-repos').textContent = user.public_repos;
         document.getElementById('gh-followers').textContent = user.followers;
         document.getElementById('gh-since').textContent = user.created_at ? new Date(user.created_at).getFullYear() : '?';
@@ -2062,8 +2090,8 @@ async function loadGuestbook() {
     const kind = params.get('board') === 'shouts' ? 'shouts' : 'guestbook';
     // Only the explicitly opened composer replaces the form with a widget.
     if (giscusOnlyMode() && await mountGiscus(kind, 'giscus-mount')) {
-        // .hidden is a tailwind utility off a cdn, and which board shows is
-        // not something to leave to whether that cdn answered
+        // .hidden is a tailwind utility, and which board shows is not
+        // something to leave to whether that file has arrived
         showGiscusBoard('guestbook');
         container.innerHTML = '';
         return;
@@ -2114,6 +2142,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof unlockAchievement === 'function') unlockAchievement('signer');
             chooseBoardSigning('guestbook', { name: name, message: message, website: website });
         });
+        // signed while this script was still on its way: see the form's onsubmit
+        if (gbForm.dataset.early) gbForm.requestSubmit();
     }
 });
 

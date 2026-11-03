@@ -7,7 +7,9 @@
    check has a test that fails if any icon on the site is missing from it.
    Rebuild with the icon list from that test:
      curl "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=<comma,separated,list>&display=block"
-   then download the woff2 it points at and bump the ?v= below. */
+   then download the woff2 it points at and bump the ?v= below, and in the
+   preload in index.html and the list in sw.js. check-startup.mjs holds the
+   three together, since a preload that misses downloads the file twice. */
 @font-face {
     font-family: 'Material Symbols Outlined';
     font-style: normal;
@@ -160,6 +162,8 @@ body {
         transform: scale(0) rotate(180deg);
     }
 }
+
+.lazy-loading, .lazy-loading * { cursor: progress !important; }
 
 .sparkle {
     position: absolute;
@@ -8584,8 +8588,8 @@ body.disco-floor::after {
 /* an image with no size on it renders at its intrinsic width, and one
    oversized image is enough to push a phone's layout viewport wider than
    the screen — which is what put app windows off the side of the display.
-   the sizing normally comes from tailwind, off a cdn; this is the floor
-   under it for when that cdn is slow, blocked, or having a bad day. */
+   the sizing normally comes from tailwind.css; this is the floor under it
+   for when that file is slow or blocked. */
 img,
 video,
 canvas {
@@ -10603,7 +10607,7 @@ html.fs-locked body {
 }
 
 /* minimise / maximise / fullscreen / close sit in a row because of tailwind
-   classes fetched from a cdn. while that fetch is in flight they stack
+   classes in a second stylesheet. while that file is in flight they stack
    vertically instead and the titlebar grows to four buttons tall, which is
    most of a phone screen. this is the same row, owed to nobody. */
 .app-window-btns {
@@ -10616,7 +10620,7 @@ html.fs-locked body {
 /* The news ticker is animated from translateX(100%) to translateX(-100%),
    so for half of every fifteen-second loop it hangs 396px off the right of
    the screen. Its rail clips it — that is what `overflow-hidden` in the
-   markup is for — but that class comes from tailwind, fetched at runtime,
+   markup is for — but that class comes from tailwind.css, a second file,
    and until it lands nothing is clipping anything. One element sticking out
    past the right edge is enough: the browser widens the layout viewport to
    cover it and shrinks the whole page to fit, so a 395px window renders at
