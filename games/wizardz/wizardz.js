@@ -1472,6 +1472,11 @@
         offs.push(s.on('player-leave', vanished));
         offs.push(s.on('net:down', vanished));
         offs.push(s.on('closed', vanished));
+        // unless they come back: the link can drop out and pick up again, and
+        // a duel can carry on from where it froze
+        const back = () => { if (s.alive && g.netDown) { g.netDown = 0; g.paused = false; } };
+        offs.push(s.on('net:up', back));
+        offs.push(s.on('player-join', p => { if (g.wiz.some(w => w.id === p.id)) back(); }));
         g._netOffs = offs;
     }
     const nameOf = id => (D.byId(id) || {}).name || id;

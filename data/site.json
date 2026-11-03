@@ -529,7 +529,8 @@
     "multiplayer": {
         "relay": "",
         "nostrRelays": [],
-        "note": "relay: optional websocket relay you host, see server/relay.js. nostrRelays: override the public relays the no-p2p mode posts through. both empty means the built-in defaults."
+        "iceServers": [],
+        "note": "relay: optional websocket relay you host, see server/relay.js. nostrRelays: override the public relays used when no direct connection is possible. iceServers: extra STUN or TURN servers for direct connections, in RTCPeerConnection's format (the free TURN servers are gone, so this is where a paid one goes). all empty means the built-in defaults."
     },
     "boards": {
         "owner": "MrHakan",

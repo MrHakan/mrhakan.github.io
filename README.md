@@ -105,6 +105,7 @@ exits non-zero if anything drifted.
 | `check-games.mjs` | every script parses, the fifty spells and their sigils, desktop wiring, my documents' backup envelope, the GitHub snapshot |
 | `check-guestbook.mjs` | composing and reading an entry, and the giscus config |
 | `check-motion.mjs` | reduced motion means no motion, the charts, the stylesheet's own links |
+| `check-netplay.mjs` | the ways online against fake relays and a fake broker that misbehave the way real ones do: refusing, throttling, dropping, reordering, no route, a direct link dying mid-duel |
 | `check-defrag.mjs` | the defragmenter's plan never loses a cluster |
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
@@ -112,6 +113,7 @@ exits non-zero if anything drifted.
 | `browser-arcade.mjs` | the thirty new windows played rather than opened: eight games of tic-tac-toe it expects to lose, tiles merged in 2048, the pet's clock wound back nine hours |
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
+| `browser-netplay.mjs` | two strangers into a duel with nothing picked: an invite link through the boot screen, direct when there is a route, the relays when there is not, a blocked cdn, a wrong code, and a direct link dying mid-duel. Runs on no outside server |
 | `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem aims before it builds, and the music is never handed to a sleeping audio graph |
 | `browser-giscus.mjs` | original boards by default, both posting methods and preserved drafts on desktop and mobile, isolated discussion terms and theme URLs, blocked scripts, service errors and stalled frames; proves CORS and application errors are still detected |
 
@@ -135,6 +137,13 @@ exits non-zero if anything drifted.
   how a phone creates one — and the track plays with the clock ticking,
   the progress bar filling and no sound at all. The graph is only ever
   built once the context is genuinely running.
+
+- **Multiplayer tested from one machine proves nothing about the network.**
+  Two browsers on the same computer never need TURN or a relay, so a dead
+  server looks exactly like a working one. That hid the free TURN servers
+  vanishing and a relay list that was down to one working relay. The relays
+  are other people's servers and they change: `npm run relays` checks them at
+  game rate, for long enough to get past the limits a quick check never sees.
 
 - **`sw.js` stays at the root.** A service worker's scope is its own
   directory; moving it into `js/` would silently stop it controlling the

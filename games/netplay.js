@@ -7,14 +7,18 @@
 // other. The only thing a "server" is needed for is introducing them,
 // and that is what the invite code does.
 //
-// Four transports, same interface, picked in the lobby:
+// Five ways through, same interface, picked in the lobby:
 //
+//   auto   the default, and the only one most people should ever need.
+//          the host listens on peer and bus at once, and a guest tries
+//          peer first and drops to bus by itself. see AutoTransport.
 //   peer   webrtc through the public peerjs broker. real internet play,
-//          no server of mine involved. lowest latency, and the default.
+//          no server of mine involved. the fastest way there is, when the
+//          two routers in question allow it.
 //   bus    the same duel posted through public nostr relays on port 443,
 //          encrypted with the invite code. no p2p at all, which is the
-//          point: it gets through the networks that block webrtc. still
-//          nothing to sign up for and nothing to deploy.
+//          point: it gets through everything webrtc cannot. still nothing
+//          to sign up for and nothing to deploy.
 //   relay  a websocket relay you host yourself (server/relay.js). for
 //          when you would rather own the thing.
 //   local  broadcastchannel between two tabs of the same browser. costs
@@ -32,7 +36,18 @@
 
     NP.VERSION = 1;                 // protocol version, bumped on breaking changes
     const PEER_PREFIX = 'mrh98-';   // namespaces our codes on the shared public broker
-    const PEERJS_CDN = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    // in order: if one cdn is down or blocked, the other one gets a go
+    const PEERJS_CDNS = [
+        'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',
+        'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'
+    ];
+    // Only STUN, which tells a browser its public address and is all that two
+    // agreeable routers need. There is no free TURN left to put here: the
+    // servers built into peerjs are gone from dns and Open Relay now resolves
+    // to a reserved test address. That is what the public relays further down
+    // are for. A TURN server you pay for goes in data/site.json, under
+    // multiplayer.iceServers.
+    const ICE_DEFAULTS = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
     // no 0/O/1/I/L — invite codes get read out loud over discord voice
     const CODE_CHARS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 
@@ -118,9 +133,12 @@
                 if (j && j.multiplayer && Array.isArray(j.multiplayer.nostrRelays) && j.multiplayer.nostrRelays.length) {
                     NP._siteNostr = j.multiplayer.nostrRelays;
                 }
+                if (j && j.multiplayer && Array.isArray(j.multiplayer.iceServers)) NP._siteIce = j.multiplayer.iceServers;
             }).catch(() => { });
         }
     } catch (e) { /* no network, no config, no problem */ }
+
+    NP.iceServers = function () { return ICE_DEFAULTS.concat(NP._siteIce || []); };
 
     // ===============================================================
     // script loading — games and the peerjs client arrive on demand
@@ -210,8 +228,9 @@
     }
 
     // ---------- peer: webrtc through the public peerjs broker ----------
-    function PeerTransport(code, isHost) {
+    function PeerTransport(code, isHost, opts) {
         const t = { kind: 'peer', id: null, h: {}, code };
+        const answerMs = (opts && opts.answerMs) || 15000;
         let peer = null;
         const conns = new Map();     // peerId -> DataConnection (host side)
         let hostConn = null;         // guest side
@@ -223,12 +242,12 @@
         }
 
         t.open = function () {
-            return loadScript(PEERJS_CDN).catch(() => {
-                throw new Error('could not reach the peerjs cdn — try the "same browser" mode');
+            return loadScript(PEERJS_CDNS[0]).catch(() => loadScript(PEERJS_CDNS[1])).catch(() => {
+                throw new Error('could not reach the peerjs cdn — try the public relays');
             }).then(() => new Promise((resolve, reject) => {
                 if (!window.Peer) return reject(new Error('peerjs did not load'));
                 t.h.status && t.h.status(isHost ? 'opening the lobby...' : 'looking for the lobby...');
-                peer = new Peer(isHost ? PEER_PREFIX + code : undefined, { debug: 0 });
+                peer = new Peer(isHost ? PEER_PREFIX + code : undefined, { debug: 0, config: { iceServers: NP.iceServers() } });
                 let settled = false;
                 const fail = (msg) => { if (!settled) { settled = true; reject(new Error(msg)); } };
 
@@ -255,7 +274,9 @@
                         if (!settled) { settled = true; resolve(); }
                         t.h.peer && t.h.peer(conn.peer);
                     });
-                    setTimeout(() => fail('the host never answered — check the code'), 15000);
+                    // ice has given up, so there is no point waiting out the clock
+                    conn.on('iceStateChanged', state => { if (state === 'failed') fail('no direct route to the host'); });
+                    setTimeout(() => fail('the host never answered — check the code'), answerMs);
                 });
                 if (isHost) {
                     peer.on('connection', (conn) => {
@@ -310,12 +331,13 @@
     // ===============================================================
     // Four, because one of them will always be rate limiting, down, or
     // asking for an account this week. Every message goes to all of them
-    // and arrives once — duplicates are dropped by event id.
+    // and arrives once — duplicates are dropped by event id. This list rots:
+    // `npm run relays` measures who will still carry a duel at game rate.
     const NOSTR_DEFAULTS = [
-        'wss://nos.lol',
+        'wss://relay.primal.net',
         'wss://relay.snort.social',
-        'wss://nostr.mom',
-        'wss://relay.damus.io'
+        'wss://relay.sigit.io',
+        'wss://relay.angor.io'
     ];
     const NOSTR_KEY = 'mrhakan98-netplay-relays';
     NP.nostrRelays = function () {
@@ -333,9 +355,11 @@
     };
     const NOSTR_KIND = 21998;      // 20000-29999 is ephemeral: relays pass it on and forget it
     const BATCH_MS = 90;           // messages are pooled into one signed event
+    const REFUSED_MS = 60000;      // how long a relay asking for less gets left alone
+    const GAP_MS = 250;            // how long later batches wait for one running late
 
     // ---------- BIP-340 schnorr over secp256k1 ----------
-    // one signature per batched event, about five milliseconds each
+    // one signature per batched event, about a millisecond each
     const bip340 = (function () {
         const P = 2n ** 256n - 2n ** 32n - 977n;
         const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -371,11 +395,6 @@
             const X = mod(r * r - j - 2n * v);
             return [X, mod(r * (v - X) - 2n * s1 * j), mod((mod((z1 + z2) * (z1 + z2)) - z1z1 - z2z2) * h)];
         }
-        function mul(k, p) {
-            let r = [0n, 1n, 0n], acc = p;
-            while (k > 0n) { if (k & 1n) r = add(r, acc); acc = dbl(acc); k >>= 1n; }
-            return r;
-        }
         function affine(p) {
             const [x, y, z] = p;
             if (z === 0n) return [0n, 0n];
@@ -383,6 +402,35 @@
             return [mod(x * zi2), mod(y * zi2 * zi)];
         }
         const G = [Gx, Gy, 1n];
+        // Signing runs on the game's thread, several times a second on the relay
+        // road, and nearly all of its cost is multiplying G. So that gets a table,
+        // one row per four bits of the scalar, built the first time it is needed.
+        let table = null;
+        function mulG(k) {
+            if (!table) {
+                table = [];
+                let base = G;
+                for (let w = 0; w < 64; w++) {
+                    const row = [null];
+                    let p = base;
+                    for (let i = 1; i < 16; i++) { row[i] = p; p = add(p, base); }
+                    table.push(row);
+                    base = p;
+                }
+            }
+            let r = [0n, 1n, 0n];
+            for (let w = 0; k > 0n; w++, k >>= 4n) {
+                const digit = Number(k & 15n);
+                if (digit) r = add(r, table[w][digit]);
+            }
+            return r;
+        }
+        // and the key's own point never changes between signatures
+        let lastKey = null;
+        function pointOf(d) {
+            if (!lastKey || lastKey.d !== d) lastKey = { d, point: affine(mulG(d)) };
+            return lastKey.point;
+        }
         const toHex = b => Array.from(b).map(v => v.toString(16).padStart(2, '0')).join('');
         const fromHex = h => new Uint8Array(h.match(/.{2}/g).map(v => parseInt(v, 16)));
         const bytesToBig = b => BigInt('0x' + (toHex(b) || '0'));
@@ -406,22 +454,21 @@
                 return sk;
             },
             async pubkey(sk) {
-                const [x] = affine(mul(mod(bytesToBig(sk), N), G));
-                return bigTo32(x);
+                return bigTo32(pointOf(mod(bytesToBig(sk), N))[0]);
             },
             // auxRand is a parameter only so the test suite can replay the
             // official BIP-340 vectors; real signing always uses fresh
             // randomness
             async sign(msg32, sk32, auxRand) {
                 const d0 = mod(bytesToBig(sk32), N);
-                const [px, py] = affine(mul(d0, G));
+                const [px, py] = pointOf(d0);
                 const d = (py % 2n === 0n) ? d0 : N - d0;
                 let aux = auxRand;
                 if (!aux) { aux = new Uint8Array(32); crypto.getRandomValues(aux); }
                 const t = bigTo32(d ^ bytesToBig(await tagged('BIP0340/aux', aux)));
                 const rand = await tagged('BIP0340/nonce', t, bigTo32(px), msg32);
                 const k0 = mod(bytesToBig(rand), N);
-                const [rx, ry] = affine(mul(k0, G));
+                const [rx, ry] = affine(mulG(k0));
                 const k = (ry % 2n === 0n) ? k0 : N - k0;
                 const e = mod(bytesToBig(await tagged('BIP0340/challenge', bigTo32(rx), bigTo32(px), msg32)), N);
                 return cat(bigTo32(rx), bigTo32(mod(k + e * d, N)));
@@ -456,24 +503,46 @@
 
     function NostrTransport(code, isHost) {
         const t = { kind: 'bus', id: null, h: {}, code };
-        const sockets = [];
-        const seen = new Set();          // event ids already handled
+        const links = new Map();         // relay url -> { ws, quietUntil, tries }
         const known = new Set();         // peers we have told the session about
+        const streams = new Map();       // peer -> how far through their batches we are
+        let seen = new Set(), seenBefore = new Set();   // event ids already handled
         let room = null, sk = null, queue = [], flushTimer = null, closed = false;
+        let sent = 0, everUp = false, lost = false;
 
         function publish(text) {
-            sockets.forEach(ws => { if (ws.readyState === 1) { try { ws.send(text); } catch (e) { } } });
+            const now = Date.now();
+            links.forEach(link => {
+                if (link.ws.readyState !== 1 || link.quietUntil > now) return;
+                try { link.ws.send(text); } catch (e) { }
+            });
+        }
+        // A relay says what it thinks of every event. Carrying on at ten a second
+        // after it has said no is what gets an address banned, and relay.damus.io
+        // has done exactly that: "too many rate-limit violations". So a relay
+        // asking for less gets a minute's peace and one that will never take these
+        // events gets left alone. Either way it can still be read from.
+        function refused(link, why) {
+            if (/^duplicate/i.test(why)) return;
+            const slowDown = /rate.?limit|slow down/i.test(why) && !/^banned/i.test(why);
+            link.quietUntil = slowDown ? Date.now() + REFUSED_MS : Infinity;
+            const now = Date.now();
+            if (![...links.values()].some(l => l.quietUntil <= now)) {
+                t.h.error && t.h.error('every public relay is refusing this connection');
+            }
         }
         async function flush() {
             flushTimer = null;
-            if (closed || !queue.length) return;
-            const batch = queue;
+            if (closed || !room || !t.id) { queue = []; return; }
+            if (!queue.length) return;
+            // the number goes first where an older copy of the site skips over it
+            const batch = [{ n: ++sent }].concat(queue);
             queue = [];
             try {
                 const content = await seal(room.key, batch);
                 const created = Math.floor(Date.now() / 1000);
                 const tags = [['d', room.tag]];
-                const pub = bip340.toHex(await bip340.pubkey(sk));
+                const pub = t.id;
                 const ser = JSON.stringify([0, pub, created, NOSTR_KIND, tags, content]);
                 const id = await bip340.sha256(new TextEncoder().encode(ser));
                 const sig = await bip340.sign(id, sk);
@@ -488,15 +557,50 @@
             }
         }
         function enqueue(to, msg) {
+            if (closed) return;
             queue.push({ to: to || '*', msg });
             // one signature per batch instead of one per message, which
             // also keeps the relays from calling it flooding
             if (!flushTimer) flushTimer = setTimeout(flush, BATCH_MS);
         }
+        function deliver(pub, batch) {
+            if (closed) return;
+            batch.forEach(item => {
+                if (!item || (item.to !== '*' && item.to !== t.id)) return;
+                t.h.data && t.h.data(pub, item.msg);
+            });
+        }
+        // Whichever relay is quickest delivers each batch, so they can land out
+        // of order, and "key down" arriving after "key up" leaves a wizard walking
+        // into a wall. Later batches wait a moment for one that is running late.
+        function inOrder(pub, n, batch) {
+            let s = streams.get(pub);
+            if (!s) { s = { next: n, held: new Map(), timer: 0 }; streams.set(pub, s); }
+            // already given up on, but late beats never: a cast is still a cast
+            if (n < s.next) { deliver(pub, batch); return; }
+            s.held.set(n, batch);
+            drain(pub, s);
+        }
+        function drain(pub, s) {
+            clearTimeout(s.timer);
+            while (s.held.has(s.next)) {
+                const batch = s.held.get(s.next);
+                s.held.delete(s.next++);
+                deliver(pub, batch);
+            }
+            if (s.held.size) {
+                s.timer = setTimeout(() => {
+                    s.next = Math.min(...s.held.keys());
+                    drain(pub, s);
+                }, GAP_MS);
+            }
+        }
         async function onEvent(ev) {
-            if (!ev || ev.kind !== NOSTR_KIND || seen.has(ev.id)) return;
+            if (!ev || ev.kind !== NOSTR_KIND || seen.has(ev.id) || seenBefore.has(ev.id)) return;
             seen.add(ev.id);
-            if (seen.size > 400) seen.clear();
+            // two generations, so forgetting old ids cannot let a slow relay's
+            // copy of a recent one back in
+            if (seen.size > 400) { seenBefore = seen; seen = new Set(); }
             if (ev.pubkey === t.id) return;
             let batch = null;
             try { batch = await unseal(room.key, ev.content); } catch (e) { return; }  // someone else's room
@@ -505,10 +609,40 @@
                 known.add(ev.pubkey);
                 t.h.peer && t.h.peer(ev.pubkey);
             }
-            batch.forEach(item => {
-                if (!item || (item.to !== '*' && item.to !== t.id)) return;
-                t.h.data && t.h.data(ev.pubkey, item.msg);
-            });
+            if (batch[0] && typeof batch[0].n === 'number') inOrder(ev.pubkey, batch[0].n, batch.slice(1));
+            else deliver(ev.pubkey, batch);
+        }
+        function connect(url, opened) {
+            let ws;
+            try { ws = new WebSocket(url); } catch (e) { return; }
+            const link = links.get(url) || { quietUntil: 0, tries: 0 };
+            link.ws = ws;
+            links.set(url, link);
+            ws.onopen = () => {
+                link.tries = 0;
+                everUp = true;
+                ws.send(JSON.stringify(['REQ', 'np', { kinds: [NOSTR_KIND], '#d': [room.tag], since: Math.floor(Date.now() / 1000) - 20 }]));
+                if (lost) { lost = false; t.h.status && t.h.status('back on the public relays'); }
+                opened();
+            };
+            ws.onmessage = (e) => {
+                let m = null;
+                try { m = JSON.parse(e.data); } catch (err) { return; }
+                if (m[0] === 'EVENT') onEvent(m[2]);
+                else if (m[0] === 'OK' && m[2] === false) refused(link, String(m[3] || ''));
+            };
+            ws.onerror = () => { };
+            ws.onclose = () => {
+                if (closed) return;
+                // relays restart and phones sleep, so none of this is final. One
+                // dropping is nothing and all of them at once is worth a mention.
+                if (everUp && !lost && ![...links.values()].some(l => l.ws.readyState === 1)) {
+                    lost = true;
+                    t.h.error && t.h.error('lost every public relay, trying to get back');
+                }
+                link.tries = Math.min(link.tries + 1, 5);
+                setTimeout(() => { if (!closed) connect(url, opened); }, 1000 * Math.pow(2, link.tries));
+            };
         }
 
         t.open = function () {
@@ -522,33 +656,13 @@
                 }).then(pub => {
                     t.id = bip340.toHex(pub);
                     t.hostId = null;                 // a bus has no host to address
-                    const relays = NP.nostrRelays();
-                    let opened = 0, failed = 0, settled = false;
-                    relays.forEach(url => {
-                        let ws;
-                        try { ws = new WebSocket(url); } catch (e) { failed++; return; }
-                        sockets.push(ws);
-                        ws.onopen = () => {
-                            opened++;
-                            ws.send(JSON.stringify(['REQ', 'np', { kinds: [NOSTR_KIND], '#d': [room.tag], since: Math.floor(Date.now() / 1000) - 20 }]));
-                            if (!settled) {
-                                settled = true;
-                                t.h.status && t.h.status('on the public relays');
-                                resolve();
-                            }
-                        };
-                        ws.onmessage = (e) => {
-                            let m = null;
-                            try { m = JSON.parse(e.data); } catch (err) { return; }
-                            if (m[0] === 'EVENT') onEvent(m[2]);
-                        };
-                        ws.onerror = () => { };
-                        ws.onclose = () => {
-                            failed++;
-                            // one relay dropping is fine, all of them is not
-                            if (failed >= relays.length && !closed) t.h.error && t.h.error('lost every public relay');
-                        };
-                    });
+                    let settled = false;
+                    NP.nostrRelays().forEach(url => connect(url, () => {
+                        if (settled) return;
+                        settled = true;
+                        t.h.status && t.h.status('on the public relays');
+                        resolve();
+                    }));
                     setTimeout(() => {
                         if (!settled) {
                             settled = true;
@@ -560,9 +674,162 @@
         };
         t.send = function (to, msg) { enqueue(to, msg); };
         t.close = function () {
+            if (closed) return;
+            const finish = () => {
+                closed = true;
+                clearTimeout(flushTimer);
+                streams.forEach(s => clearTimeout(s.timer));
+                links.forEach(link => { try { link.ws.close(); } catch (e) { } });
+            };
+            // one last batch, because it is usually the goodbye
+            if (queue.length && room) flush().then(finish, finish);
+            else finish();
+        };
+        return t;
+    }
+
+    // ---------- auto: whichever way through works ----------
+    //
+    // A direct connection is the best thing to have, and nothing guarantees
+    // one. Two browsers behind strict or carrier-grade NATs cannot find a way
+    // to each other, and the free TURN servers that used to carry those pairs
+    // are gone, so whether p2p connects comes down to both players' routers.
+    // Making people pick a mode was no answer: they had to pick the same one,
+    // and the only sign of getting it wrong was "nobody is hosting that code".
+    //
+    // So the host is on both at once and a guest tries direct, then the relays.
+    // Nobody has to know which it was except the game, which reads .kind and
+    // eases off over a relay. A direct link that dies mid-duel moves to the
+    // relays the same way, inside the six seconds before Session calls anybody
+    // gone. Every game in the catalog is two players, so this never has to
+    // forward between a guest on each road.
+    const DIRECT_MS = 7000;        // how long a guest gives webrtc to find a route
+    const ANSWER_MS = 6000;        // and how long the relays then get to turn up a host
+
+    function AutoTransport(code, isHost) {
+        const t = { id: randId(), h: {}, code, hostId: null };
+        const direct = PeerTransport(code, isHost, { answerMs: DIRECT_MS });
+        let relays = NostrTransport(code, isHost);
+        let link = null;           // guest: whichever one is carrying the game
+        let closed = false, goodbye = false, heard = false, onHeard = null;
+        const viaDirect = new Set(), viaRelays = new Set();   // host: who came in which way
+
+        Object.defineProperty(t, 'kind', {
+            get: () => (isHost
+                ? (viaRelays.size ? 'bus' : viaDirect.size ? 'peer' : 'auto')
+                : (link ? link.kind : 'auto'))
+        });
+        const say = msg => { t.h.status && t.h.status(msg); };
+
+        function openHost() {
+            direct.h = {
+                peer: pid => { viaDirect.add(pid); t.h.peer && t.h.peer('p:' + pid); say('connected directly'); },
+                data: (pid, msg) => { t.h.data && t.h.data('p:' + pid, msg); },
+                // Not a goodbye: those arrive as np:bye, and Session notices real
+                // silence by itself. This may be a guest on its way back by relay.
+                leave: pid => { viaDirect.delete(pid); }
+            };
+            relays.h = {
+                peer: pid => { viaRelays.add(pid); t.h.peer && t.h.peer('b:' + pid); say('connected through the public relays'); },
+                data: (pid, msg) => { t.h.data && t.h.data('b:' + pid, msg); },
+                error: msg => { if (!viaDirect.size) t.h.error && t.h.error(msg); }
+            };
+            return new Promise((resolve, reject) => {
+                const why = [];
+                const down = e => { why.push(e.message); if (why.length === 2) reject(new Error(why.join(', and '))); };
+                say('opening the lobby...');
+                direct.open().then(resolve, down);
+                relays.open().then(resolve, down);
+            });
+        }
+
+        function listenForHost() {
+            relays.h = {
+                peer: pid => {
+                    heard = true;
+                    if (onHeard) onHeard();
+                    if (link === relays) t.h.peer && t.h.peer(pid);
+                },
+                data: (pid, msg) => { if (link === relays) t.h.data && t.h.data(pid, msg); },
+                error: msg => { if (link === relays) t.h.error && t.h.error(msg); }
+            };
+        }
+        // the relays have no way of saying that nobody is there, so ask out loud
+        function knock() {
+            return new Promise((resolve, reject) => {
+                if (heard) return resolve();
+                const env = { v: NP.VERSION, t: 'np:knock', d: null, f: t.id, to: '*' };
+                relays.send('*', env);
+                const again = setInterval(() => relays.send('*', env), 1500);
+                const giveUp = setTimeout(() => {
+                    clearInterval(again);
+                    reject(new Error('nobody answered that code — check it, and ask them to keep the lobby open'));
+                }, ANSWER_MS);
+                onHeard = () => { clearInterval(again); clearTimeout(giveUp); resolve(); };
+            });
+        }
+        function openGuest() {
+            direct.h = {
+                data: (pid, msg) => {
+                    if (msg && msg.t === 'np:bye') goodbye = true;
+                    if (link === direct) t.h.data && t.h.data(pid, msg);
+                },
+                leave: () => fallBack()
+            };
+            listenForHost();
+            const listening = relays.open().then(() => true, () => false);
+            say('trying a direct connection...');
+            return direct.open().then(() => {
+                link = direct;
+                relays.close();
+                say('connected directly');
+            }, () => {
+                direct.close();
+                say('no direct route, trying the public relays...');
+                return listening.then(up => {
+                    if (!up) throw new Error('could not reach the host directly or through the public relays');
+                    return knock();
+                }).then(() => {
+                    link = relays;
+                    say('connected through the public relays');
+                });
+            });
+        }
+        // the direct link died with the game still on
+        function fallBack() {
+            if (closed || goodbye || link !== direct) return;
+            link = null;
+            say('lost the direct link, moving to the public relays...');
+            relays = NostrTransport(code, false);
+            listenForHost();
+            relays.open().then(() => {
+                link = relays;
+                // a new hello down the new road tells the host where to send things
+                t.h.peer && t.h.peer('relays');
+            }, () => { t.h.error && t.h.error('the direct link died and the public relays will not answer'); });
+        }
+
+        t.open = () => (isHost ? openHost() : openGuest());
+        t.send = function (to, msg) {
+            if (!isHost) {
+                if (link === direct) direct.send(direct.hostId, msg);
+                else if (link === relays) relays.send('*', msg);
+                return;
+            }
+            if (to && to !== '*') {
+                if (to.slice(0, 2) === 'b:') relays.send(to.slice(2), msg);
+                else direct.send(to.replace(/^p:/, ''), msg);
+                return;
+            }
+            if (viaDirect.size) direct.send('*', msg);
+            // stay audible on the relays for anyone still looking, until a guest
+            // has come in directly and there is nobody left to hear it
+            if (viaRelays.size || !viaDirect.size) relays.send('*', msg);
+        };
+        t.close = function () {
             closed = true;
-            if (flushTimer) clearTimeout(flushTimer);
-            sockets.forEach(ws => { try { ws.close(); } catch (e) { } });
+            try { direct.close(); } catch (e) { }
+            try { relays.close(); } catch (e) { }
         };
         return t;
     }
@@ -609,10 +876,13 @@
     }
 
     NP.TRANSPORTS = {
-        peer: { make: PeerTransport, label: 'internet (p2p)', note: 'webrtc straight between the two of you. lowest latency, and the first thing a school or office network blocks.' },
-        bus: { make: NostrTransport, label: 'public relays (no p2p)', note: 'posts the duel through public nostr relays on port 443. slower than p2p, but it gets through networks that block it. no server, no signup, encrypted with your invite code.' },
+        auto: { make: AutoTransport, label: 'internet (automatic)', note: 'tries a direct connection first, and goes through the public relays if your routers will not allow one. nothing to set up, and your friend does not have to pick the same thing.' },
+        bus: { make: NostrTransport, label: 'public relays only', chip: 'through the public relays', note: 'posts the duel through public nostr relays on port 443. slower than a direct connection, but it gets through anything. no server, no signup, encrypted with your invite code.' },
         relay: { make: RelayTransport, label: 'my relay server', note: 'a websocket relay you host yourself. see server/relay.js.' },
-        local: { make: LocalTransport, label: 'same browser', note: 'two tabs on this machine. no network at all — good for testing.' }
+        local: { make: LocalTransport, label: 'same browser', note: 'two tabs on this machine. no network at all — good for testing.' },
+        // what auto tries first and what the lobby says when it worked. On its
+        // own it can only fail in ways auto recovers from, so it is not on offer.
+        peer: { make: PeerTransport, label: 'direct connection', hidden: true, note: 'webrtc straight between the two of you.' }
     };
 
     // ===============================================================
@@ -706,6 +976,8 @@
         if (!env || typeof env !== 'object') return;
         // anything at all counts as a sign of life
         this.lastRx = Date.now();
+        // a relay hiccup or a link changing roads does not have to end the duel
+        if (this._downSent) { this._downSent = false; this.emit('net:up'); }
         const seen = this.players.find(p => p.id === env.f);
         if (seen) seen.seen = this.lastRx;
         if (env.v !== NP.VERSION) {
@@ -792,6 +1064,7 @@
         const mine = this.id;
         this.players = list.map(p => Object.assign({}, p, { me: p.id === mine }));
         this.me = this.players.find(p => p.me) || this.me;
+        if (this.players.some(p => p.me)) this.seated = true;
         this.emit('roster', this.players);
     };
     Session.prototype._onStart = function (d) {
@@ -951,11 +1224,20 @@
     // ===============================================================
     // CONNECT
     // ===============================================================
-    NP.host = function (mode, gameId, code) {
+    // the lobby is told what is happening while it happens, since a guest can
+    // spend seven seconds finding out that there is no direct route
+    function opening(t, onStatus) {
+        t.h = { status: onStatus };
+        return t.open().catch(err => {
+            try { t.close(); } catch (e) { }
+            throw err;
+        });
+    }
+    NP.host = function (mode, gameId, code, onStatus) {
         code = code || makeCode(5);
-        const spec = NP.TRANSPORTS[mode] || NP.TRANSPORTS.peer;
+        const spec = NP.TRANSPORTS[mode] || NP.TRANSPORTS.auto;
         const t = spec.make(code, true);
-        return t.open().then(() => {
+        return opening(t, onStatus).then(() => {
             const s = new Session(t, true, code);
             s.id = t.id || s.id;
             s.me.id = s.id;
@@ -966,18 +1248,23 @@
             return s;
         });
     };
-    NP.join = function (mode, code) {
+    NP.join = function (mode, code, onStatus) {
         code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
         if (code.length < 4) return Promise.reject(new Error('that code looks wrong'));
-        const spec = NP.TRANSPORTS[mode] || NP.TRANSPORTS.peer;
+        const spec = NP.TRANSPORTS[mode] || NP.TRANSPORTS.auto;
         const t = spec.make(code, false);
-        return t.open().then(() => {
+        return opening(t, onStatus).then(() => {
             const s = new Session(t, false, code);
             s.id = t.id || s.id;
             s.me.id = s.id;
             s.startPings();          // the guest side only watches for silence
             NP.current = s;
             setTimeout(() => s.announceProfile(), 30);
+            // a hello can fall between two relays, so keep knocking until seated
+            const knock = setInterval(() => {
+                if (!s.alive || s.seated) clearInterval(knock);
+                else s.announceProfile();
+            }, 1500);
             return s;
         });
     };
@@ -998,8 +1285,10 @@
         NP.lobbyWin = { close: () => close(), win, body };
 
         let session = NP.current && NP.current.alive && NP.current.state === 'lobby' ? NP.current : null;
-        let mode = (localStorage.getItem('mrhakan98-netplay-mode') || 'peer');
-        if (!NP.TRANSPORTS[mode]) mode = 'peer';
+        let mode = localStorage.getItem('mrhakan98-netplay-mode') || 'auto';
+        // an invite is for the internet whatever this browser was last used for,
+        // and auto can reach a host on any of the internet modes
+        if (!NP.TRANSPORTS[mode] || NP.TRANSPORTS[mode].hidden || opts.joinCode) mode = 'auto';
         let gameId = opts.gameId || (session && session.gameId) || NP.CATALOG[0].id;
         let busy = false;
         const unsubs = [];
@@ -1011,6 +1300,15 @@
             if (session && session.alive && session.state === 'lobby') session.leave();
         };
 
+        const say = msg => {
+            const st = body.querySelector('#np-status');
+            if (st) st.textContent = msg;
+        };
+        function paintLink() {
+            const chip = body.querySelector('#np-link');
+            const spec = session && session.transport && NP.TRANSPORTS[session.transport.kind];
+            if (chip && spec) chip.textContent = spec.chip || spec.label;
+        }
         function setBusy(v, msg) {
             busy = v;
             const s = body.querySelector('#np-status');
@@ -1040,7 +1338,7 @@
                 <div class="np-row">
                     <label class="np-label">how</label>
                     <select id="np-mode" class="np-input">
-                        ${Object.keys(NP.TRANSPORTS).map(k => `<option value="${k}" ${k === mode ? 'selected' : ''}>${esc(NP.TRANSPORTS[k].label)}</option>`).join('')}
+                        ${Object.keys(NP.TRANSPORTS).filter(k => !NP.TRANSPORTS[k].hidden).map(k => `<option value="${k}" ${k === mode ? 'selected' : ''}>${esc(NP.TRANSPORTS[k].label)}</option>`).join('')}
                     </select>
                 </div>
                 <div class="np-note" id="np-modenote">${esc(NP.TRANSPORTS[mode].note)}</div>
@@ -1090,7 +1388,7 @@
             body.querySelector('#np-host').onclick = () => {
                 if (busy) return;
                 setBusy(true, 'opening a lobby...');
-                NP.host(mode, gameId).then(s => {
+                NP.host(mode, gameId, undefined, say).then(s => {
                     session = s;
                     bind(s);
                     setBusy(false);
@@ -1102,7 +1400,7 @@
                 if (busy) return;
                 const code = body.querySelector('#np-code').value;
                 setBusy(true, 'knocking...');
-                NP.join(mode, code).then(s => {
+                NP.join(mode, code, say).then(s => {
                     session = s;
                     bind(s);
                     setBusy(false);
@@ -1124,7 +1422,7 @@
                 <div class="np-head">
                     <span class="material-symbols-outlined">group</span>
                     <b>${esc(game.name)}</b>
-                    <span class="np-chip">${esc(NP.TRANSPORTS[s.transport ? s.transport.kind : 'peer'].label)}</span>
+                    <span class="np-chip" id="np-link"></span>
                 </div>
                 <div class="np-codebox">
                     <div>
@@ -1173,6 +1471,7 @@
             const send = () => { if (chatin.value.trim()) { s.chat(chatin.value); chatin.value = ''; } };
             body.querySelector('#np-send').onclick = send;
             chatin.addEventListener('keydown', e => { if (e.key === 'Enter') { e.stopPropagation(); send(); } });
+            paintLink();
             drawPlayers();
             drawChat();
         }
@@ -1244,7 +1543,7 @@
         }
 
         function bind(s) {
-            unsubs.push(s.on('roster', () => { drawPlayers(); }));
+            unsubs.push(s.on('roster', () => { drawPlayers(); paintLink(); }));
             unsubs.push(s.on('chat', c => { chatLog.push(c); drawChat(); if (!c.mine) beep('click'); }));
             unsubs.push(s.on('player-join', p => {
                 const st = body.querySelector('#np-status');
@@ -1256,7 +1555,7 @@
                 drawPlayers();
             }));
             unsubs.push(s.on('game-pick', () => renderLobby()));
-            unsubs.push(s.on('net:status', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = m; }));
+            unsubs.push(s.on('net:status', m => { say(m); paintLink(); }));
             unsubs.push(s.on('net:error', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = 'trouble: ' + m; }));
             unsubs.push(s.on('net:down', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = m; }));
             unsubs.push(s.on('start', () => { setBusy(false); }));
@@ -1269,23 +1568,6 @@
             setTimeout(() => { const b = body.querySelector('#np-join'); if (b) b.click(); }, 400);
         }
     };
-
-    // ===============================================================
-    // invite links: /?lobby=ABCDE opens the lobby with the code filled
-    // ===============================================================
-    function checkInviteLink() {
-        let code = '';
-        try {
-            const q = new URLSearchParams(location.search);
-            code = (q.get('lobby') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
-        } catch (e) { }
-        if (code.length < 4) return;
-        // wait for the desktop to finish booting before throwing a window at it
-        const go = () => NP.openLobby({ joinCode: code, autoJoin: true });
-        if (document.readyState === 'complete') setTimeout(go, 1200);
-        else window.addEventListener('load', () => setTimeout(go, 1200));
-    }
-    checkInviteLink();
 
     // desktop entry points
     window.openLobby = function (opts) { NP.openLobby(opts || {}); };

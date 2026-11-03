@@ -191,20 +191,39 @@ one is in use:
 
 | mode    | what it is                                    | needs                 |
 | ------- | --------------------------------------------- | --------------------- |
-| `peer`  | WebRTC data channel via the PeerJS broker     | nothing (the default) |
+| `auto`  | `peer` if there is a route, otherwise `bus`   | nothing (the default) |
+| `peer`  | WebRTC data channel via the PeerJS broker     | nothing (`auto` only) |
 | `bus`   | posted through public nostr relays, no p2p    | nothing               |
 | `relay` | WebSocket relay you host                      | `server/relay.js`     |
 | `local` | BroadcastChannel between two tabs             | nothing, offline      |
 
-`bus` exists because WebRTC is the first thing a school or office network
-blocks. It posts every message to four public nostr relays on port 443 —
-no signup, no account, nothing deployed — and reads the room back off
-them. The room is a hash of the invite code and the payload is AES-GCM
-encrypted with a key derived from the same code, so the relays carry
+`auto` exists because a static site cannot promise a direct connection.
+Two browsers can only reach each other if their routers allow it, and
+behind strict or carrier-grade NATs they do not. That used to be what TURN
+servers were for, but the free ones are gone: the servers built into PeerJS
+no longer exist in DNS, and Open Relay resolves to a reserved test address.
+So the host listens on both roads at once, and a guest tries direct for
+seven seconds, then the relays. Nobody picks anything, and the two players
+cannot pick differently. A direct link that dies mid-duel moves to the
+relays by itself, inside the six seconds before anyone is called gone.
+
+`bus` is the other road. It posts every message to four public nostr relays
+on port 443 — no signup, no account, nothing deployed — and reads the room
+back off them. The room is a hash of the invite code and the payload is
+AES-GCM encrypted with a key derived from the same code, so the relays carry
 opaque blobs. Relays only take signed events, so `netplay.js` carries a
-small BIP-340 schnorr signer (about 7ms a signature, checked against the
+small BIP-340 schnorr signer (about 2ms a signature, checked against the
 official test vectors in CI); messages are batched every 90ms so that is
 one signature per batch rather than per message.
+
+Relays are other people's servers and they change their minds. A relay that
+says to slow down gets a minute's peace and one that refuses outright gets
+left alone, because carrying on regardless is how an address gets banned.
+The list rots too: `npm run relays` runs each one at game rate for long
+enough to get past the limits and says who is still delivering. Trust that
+over a quick check, because several accept everything and then quietly stop
+delivering after a few hundred events. A duel over relays costs the host about
+3MB a minute and the guest about 2MB, measured on the four in the list.
 
 It is slower than `peer` — a relay hop is roughly 150ms each way instead
 of a direct connection — so a game should ease off when it sees it:
@@ -214,9 +233,21 @@ const slow = session.transport.kind === 'bus';
 const snapshotHz = slow ? 8 : 15;
 ```
 
+Read it each time rather than once: under `auto` it can change mid-match, and
+it says `auto` until somebody has actually connected.
+
 Override the relay list with `Netplay.setNostrRelays([...])`, or in
 `data/site.json` under `multiplayer.nostrRelays`. `server/nostr-test-relay.mjs`
-is a stand-in for tests.
+is a stand-in for tests. If you ever pay for a TURN server, it goes in
+`multiplayer.iceServers`, in the format `RTCPeerConnection` takes, and more
+pairs of players will get a direct connection.
+
+Testing any of this from one machine proves less than it looks like. Two
+browsers on the same computer never need a relay of any kind, so a dead TURN
+server or a relay that stops delivering after 300 events looks exactly like
+a working one. `browser-netplay.mjs` fakes the broker with hole punching as a
+setting, and `check-netplay.mjs` fakes the relays misbehaving in the ways real
+ones have been measured doing.
 
 `local` is how you test a multiplayer game at 3am with nobody awake to
 play against: open the site twice, host in one tab, join in the other.
@@ -226,5 +257,8 @@ play against: open the site twice, host in one tab, join in the other.
 `.github/scripts/check-games.mjs` loads these files without a browser
 and checks the content, the sigil recogniser and the desktop wiring;
 `.github/scripts/browser-check.mjs` opens the real site in chromium,
-draws a sigil with the mouse and runs a two-tab lobby. Both run in CI on
-every push, and the Pages deploy waits for them.
+draws a sigil with the mouse and runs a two-tab lobby;
+`.github/scripts/check-netplay.mjs` and `browser-netplay.mjs` hold the ways
+online to what happens when the network misbehaves. They all run in CI on
+every push, and the Pages deploy waits for them. `npm run relays` is the one
+that talks to the real relays, so it is not part of that.
