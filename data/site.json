@@ -79,7 +79,7 @@
         "lines": [
             "hand-written html, css and vanilla javascript",
             "zero frameworks — no react, no build step, no npm install",
-            "tailwind via cdn for utility classes only",
+            "tailwind for utility classes only, compiled once into a 7kb stylesheet instead of in your browser on every visit",
             "typed.js self-hosted for the terminal tagline",
             "material symbols icon font, subsetted to only the 48 glyphs used (6.7kb)",
             "animation is the web animations api behind a 4kb wrapper — motion.dev's api, not motion.dev's 139kb",

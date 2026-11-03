@@ -25,13 +25,15 @@
     'use strict';
 
     const MOTION_KEY = 'motion-off';
+    // the same query object answers live, and this gets asked on every sparkle
+    const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
     // the OS asked, or the visitor asked in display properties
     function reduced() {
         try {
             if (localStorage.getItem(MOTION_KEY) === '1') return true;
         } catch (e) { /* private mode */ }
-        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        return !!(motionQuery && motionQuery.matches);
     }
     const on = () => !reduced();
 
@@ -337,8 +339,5 @@
         }
     }
     // the os setting can change while the page is open
-    if (window.matchMedia) {
-        const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-        if (mq.addEventListener) mq.addEventListener('change', publish);
-    }
+    if (motionQuery && motionQuery.addEventListener) motionQuery.addEventListener('change', publish);
 })();

@@ -39,7 +39,7 @@ async function boot(tag, url) {
     p.on('pageerror', e => errors.push(tag + ': ' + e.message));
     p.on('console', m => {
         const t = m.text();
-        // the cdn bits (tailwind, google fonts) are not part of this test
+        // the cdn bits (google fonts, the badges) are not part of this test
         if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource/.test(t)) errors.push(tag + ' console: ' + t);
     });
     await p.goto(url || BASE, { waitUntil: 'domcontentloaded' });
@@ -791,8 +791,10 @@ try {
         await offline.goto(BASE, { waitUntil: 'load' });
         await offline.keyboard.press('Enter');
         await offline.waitForTimeout(2200);
+        await offline.evaluate(() => showSection('github'));
+        await offline.waitForSelector('#github-repos > div.bg-white', { timeout: 15000 }).catch(() => { });
 
-        const cards = await offline.locator('#github-repos > div').count();
+        const cards = await offline.locator('#github-repos > div.bg-white').count();
         expect(cards > 0, 'the repo grid fills in with the api unreachable', cards + ' cards');
         expect(await offline.locator('#github-repos .text-red-500').count() === 0,
             'and does not show the rate-limit error');

@@ -60,33 +60,12 @@ await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE
 await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
 
 // This run opens about twenty pages, and every one of them would otherwise
-// wait on the visitor counter, the github api, google fonts and a 400kb
-// tailwind — so everything off this server is refused.
-//
-// Except tailwind, which is fetched once and then served from memory to
-// every page. It lays the site out, and a suite that clicks things cannot
-// afford to be looking at a layout the site never actually has: the address
-// bar's position relative to a floating window is exactly the sort of thing
-// that only shows up when the real stylesheet is there. One request instead
-// of twenty, and the run is still over in a couple of minutes.
-const TAILWIND = 'https://cdn.tailwindcss.com';
-let tailwind = null;
-try {
-    const res = await fetch(TAILWIND + '?plugins=forms,container-queries', { redirect: 'follow' });
-    if (res.ok) tailwind = await res.text();
-} catch (e) { }
-console.log(tailwind
-    ? '  ..    tailwind cached once (' + Math.round(tailwind.length / 1024) + 'kb), served to every page'
-    : '  ..    tailwind could not be fetched — the layout will be unstyled, and any\n' +
-    '        failure below that is about where something sits is that, not the site');
-
+// wait on the visitor counter, the github api and google fonts — so everything
+// off this server is refused. The stylesheets are this server's own.
 await ctx.route('**/*', route => {
     const u = route.request().url();
     if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u) || u.startsWith('data:') || u.startsWith('blob:')) {
         return route.continue();
-    }
-    if (tailwind && u.startsWith(TAILWIND)) {
-        return route.fulfill({ status: 200, contentType: 'text/javascript', body: tailwind });
     }
     return route.abort();
 });
@@ -158,6 +137,62 @@ section('a url opens a document');
     expect(await p.locator('.app-window').count() === 0,
         'a url naming nothing opens nothing');
     expect(!errors.some(e => /zzz-not-a-page/.test(e)), 'and does not throw on the way');
+    await p.close();
+}
+
+// ===================================================================
+section('a window that loads when it is opened');
+// ===================================================================
+{
+    const p = await open(BASE + '/');
+    expect(await p.evaluate(() => typeof window.openTetris === 'function' && !document.querySelector('script[src="js/arcade.js"]')),
+        'the arcade is not downloaded until somebody asks for it');
+    await p.evaluate(() => startMenuAction('tetris'));
+    await p.waitForSelector('.app-window', { timeout: 15000 }).catch(() => { });
+    expect((await titles(p)).some(t => /tetris/i.test(t)), 'the start menu opens it anyway', (await titles(p)).join(', '));
+    expect(/[?&]app=tetris/.test(p.url()), 'the address bar says so', p.url());
+    expect(await p.locator('.app-window .app-window-link, .app-window [title*="link" i]').count() > 0,
+        'and it has the permalink button, so the route survived the download');
+    await p.evaluate(() => closeAppWindow(document.querySelector('.app-window').id));
+    await p.waitForTimeout(250);
+    expect(!/[?&]app=/.test(p.url()), 'closing it gives the url back', p.url());
+    // a stand-in would still be fetching at this point, so no window yet
+    expect(await p.evaluate(() => { openHangman(); return document.querySelectorAll('.app-window').length > 0; }),
+        'and the rest of the file has replaced its stand-ins');
+    await p.close();
+}
+{
+    const p = await open(BASE + '/?app=tetris');
+    await p.waitForSelector('.app-window', { timeout: 15000 }).catch(() => { });
+    expect((await titles(p)).some(t => /tetris/i.test(t)), 'a deep link to one works too', (await titles(p)).join(', '));
+    await p.close();
+}
+{
+    const p = await open(BASE + '/');
+    const before = await p.locator('#github-repos article, #github-repos > div.bg-white').count();
+    expect(before === 0, 'the repo grid is not built until its section opens', before + ' cards');
+    await p.evaluate(() => showSection('github'));
+    await p.waitForSelector('#github-repos > div.bg-white', { timeout: 15000 }).catch(() => { });
+    expect(await p.locator('#github-repos > div.bg-white').count() > 0, 'and is there as soon as it does');
+    await p.evaluate(() => showSection('playground'));
+    await p.waitForSelector('#playground-grid article', { timeout: 15000 }).catch(() => { });
+    expect(await p.locator('#playground-grid article').count() > 0, 'same for the playground');
+    await p.close();
+}
+
+{
+    // the form paints before the scripts that wire it have run, and a native
+    // submit in that gap reloads the page and loses what was typed
+    const p = await ctx.newPage();
+    await p.route('**/js/index.js', async r => { await new Promise(x => setTimeout(x, 800)); r.continue(); });
+    await p.goto(BASE + '/guestbook.html', { waitUntil: 'commit' });
+    await p.locator('#gb-name').fill('test visitor');
+    await p.locator('#gb-message').fill('typed before the scripts arrived');
+    await p.locator('#guestbook-form button[type="submit"]').click({ noWaitAfter: true });
+    await p.waitForSelector('.retro-dialog-pre', { timeout: 15000 }).catch(() => { });
+    expect((await p.locator('.retro-dialog-pre').textContent().catch(() => '')).includes('typed before the scripts arrived'),
+        'a guestbook signed before its scripts arrive still gets signed, with what was typed');
+    expect(/\/guestbook\.html$/.test(p.url()), 'and the page did not reload underneath it', p.url());
     await p.close();
 }
 
@@ -544,9 +579,6 @@ section('on a phone');
     await phone.route('**/*', route => {
         const u = route.request().url();
         if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u)) return route.continue();
-        if (tailwind && u.startsWith(TAILWIND)) {
-            return route.fulfill({ status: 200, contentType: 'text/javascript', body: tailwind });
-        }
         return route.abort();
     });
     await mockGiscus(phone);

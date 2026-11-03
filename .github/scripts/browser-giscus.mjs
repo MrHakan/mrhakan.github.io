@@ -9,7 +9,6 @@ import { mockGiscus } from './mock-giscus.mjs';
 const BASE = process.env.SITE_URL || 'http://localhost:8099';
 const origin = new URL(BASE).origin;
 const productionGiscus = JSON.parse(fs.readFileSync('data/site.json', 'utf8')).giscus;
-const tailwind = await (await fetch('https://cdn.tailwindcss.com?plugins=forms,container-queries')).text();
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 fs.mkdirSync('.ci-shots', { recursive: true });
 let checks = 0;
@@ -34,7 +33,6 @@ async function setup(options = {}, mode = 'ready', config = { ...productionGiscu
         const request = route.request(), url = new URL(request.url());
         if (url.origin === origin || ['data:', 'blob:'].includes(url.protocol)) return route.continue();
         const headers = { 'Access-Control-Allow-Origin': '*' };
-        if (url.hostname === 'cdn.tailwindcss.com') return route.fulfill({ contentType: 'text/javascript', body: tailwind, headers });
         if (url.hostname === 'api.github.com') return route.fulfill({ contentType: 'application/json', body: url.pathname.endsWith('/MrHakan') ? '{}' : '[]', headers });
         if (request.resourceType() === 'image') return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>', headers });
         if (request.resourceType() === 'stylesheet') return route.fulfill({ contentType: 'text/css', body: '', headers });

@@ -131,6 +131,21 @@ const WEB = (function () {
         }
     }
 
+    // js/lazy.js takes the route being opened when a window is asked for, and
+    // hands it back here when the script arrives and open() is long finished.
+    function pendingRoute() { return pending; }
+    function withRoute(route, launch) {
+        const previous = routed, had = pending;
+        pending = route || had;
+        try { return launch(); }
+        finally {
+            pending = had;
+            // the address bar moved on while this was downloading
+            const current = resolve(new URLSearchParams(location.search).get('app'));
+            if (route && current !== route) routed = previous;
+        }
+    }
+
     // ?app=colophon#what-it-is-built-with — open it, then find the heading
     function openFromUrl(opts) {
         const slug = new URLSearchParams(location.search).get('app');
@@ -160,7 +175,7 @@ const WEB = (function () {
     // that is not everybody, so the word count is there to argue with.
     function readingTime(n) {
         const mins = Math.max(1, Math.round(n / 220));
-        return n.toLocaleString() + ' words · ~' + mins + ' min';
+        return n.toLocaleString('en') + ' words · ~' + mins + ' min';
     }
 
     // ---------- headings you can link to ----------
@@ -543,8 +558,26 @@ const WEB = (function () {
             };
         }
 
-        // anything opened by calling its function directly — the site map's
-        // links, find:, the run box — still knows which route it is
+        routeDirectCalls();
+        Object.keys(ARROW_ROUTES).forEach(name => {
+            if (typeof window[name] !== 'function' || window[name].__routed) return;
+            const orig = window[name], slug = ARROW_ROUTES[name];
+            const wrapped = function () {
+                const had = pending;
+                if (!had) pending = slug;
+                try { return orig.apply(this, arguments); }
+                finally { if (!had) pending = null; }
+            };
+            wrapped.__routed = true;
+            window[name] = wrapped;
+        });
+    }
+
+    // anything opened by calling its function directly — the site map's
+    // links, find:, the run box — still knows which route it is. A wrapper has
+    // no .name, so this only ever touches what has not been wrapped yet, which
+    // is how js/lazy.js gets a script's real functions in after it arrives.
+    function routeDirectCalls() {
         let actions = {};
         try { actions = appActions(); } catch (e) { }
         Object.keys(actions).forEach(slug => {
@@ -558,18 +591,6 @@ const WEB = (function () {
                 try { return orig.apply(this, arguments); }
                 finally { if (!had) pending = null; }
             };
-        });
-        Object.keys(ARROW_ROUTES).forEach(name => {
-            if (typeof window[name] !== 'function' || window[name].__routed) return;
-            const orig = window[name], slug = ARROW_ROUTES[name];
-            const wrapped = function () {
-                const had = pending;
-                if (!had) pending = slug;
-                try { return orig.apply(this, arguments); }
-                finally { if (!had) pending = null; }
-            };
-            wrapped.__routed = true;
-            window[name] = wrapped;
         });
     }
 
@@ -1292,7 +1313,8 @@ const WEB = (function () {
     });
 
     return {
-        open, openFromUrl, replaceWindow, urlFor, isRoute, resolve, slugs, enhance, prose, markLinks,
+        open, openFromUrl, replaceWindow, pendingRoute, withRoute, routeDirectCalls,
+        urlFor, isRoute, resolve, slugs, enhance, prose, markLinks,
         paintAddress, parseTyped, favourites, toggleFavourite, isFavourite,
         toggleFavouritesMenu, renderFavourites, routeLabel, nearestHeading,
         history: history_, clearHistory, toggleHistoryMenu, togglePanel, hidePanel,

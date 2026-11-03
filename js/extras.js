@@ -377,13 +377,7 @@ let balLoading = null;
 function balLoadScripts() {
     if (window.startBalatro) return Promise.resolve();
     if (balLoading) return balLoading;
-    const load = src => new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = res;
-        s.onerror = () => rej(new Error(src));
-        document.head.appendChild(s);
-    });
+    const load = LAZY.load;
     // data first: the engine reads BAL at definition time
     balLoading = load('games/jokerz/balatro-data.js')
         .then(() => load('games/jokerz/balatro-fx.js'))
@@ -417,13 +411,7 @@ let tgLoading = null;
 function tgLoadScripts() {
     if (window.startTrollProblem) return Promise.resolve();
     if (tgLoading) return tgLoading;
-    const load = src => new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = res;
-        s.onerror = () => rej(new Error(src));
-        document.head.appendChild(s);
-    });
+    const load = LAZY.load;
     tgLoading = load('games/troll-problem/troll-problem-data.js').then(() => load('games/troll-problem/troll-problem.js'));
     return tgLoading;
 }
@@ -446,13 +434,7 @@ let buLoading = null;
 function buLoadScripts() {
     if (window.startBecomeUser) return Promise.resolve();
     if (buLoading) return buLoading;
-    const load = src => new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = res;
-        s.onerror = () => rej(new Error(src));
-        document.head.appendChild(s);
-    });
+    const load = LAZY.load;
     buLoading = load('games/become-user/become-user-data.js').then(() => load('games/become-user/become-user.js'));
     return buLoading;
 }
@@ -477,13 +459,7 @@ let npLoading = null;
 function npLoadScripts() {
     if (window.Netplay) return Promise.resolve();
     if (npLoading) return npLoading;
-    npLoading = new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'games/netplay.js';
-        s.onload = res;
-        s.onerror = () => rej(new Error('games/netplay.js'));
-        document.head.appendChild(s);
-    });
+    npLoading = LAZY.load('games/netplay.js');
     return npLoading;
 }
 
@@ -509,13 +485,7 @@ let etLoading = null;
 function etLoadScripts() {
     if (window.startEchoes) return Promise.resolve();
     if (etLoading) return etLoading;
-    const load = src => new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = res;
-        s.onerror = () => rej(new Error(src));
-        document.head.appendChild(s);
-    });
+    const load = LAZY.load;
     // data first: the engine reads RZ at definition time
     etLoading = load('games/echoes/echoes-core.js')
         .then(() => load('games/echoes/echoes-sprites.js'))
@@ -556,13 +526,7 @@ let tmLoading = null;
 function tmLoadScripts() {
     if (window.openThemeMaker) return Promise.resolve();
     if (tmLoading) return tmLoading;
-    const load = src => new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = res;
-        s.onerror = () => rej(new Error(src));
-        document.head.appendChild(s);
-    });
+    const load = LAZY.load;
     tmLoading = load('js/theme-scan.js').then(() => load('js/theme-maker.js'));
     return tmLoading;
 }

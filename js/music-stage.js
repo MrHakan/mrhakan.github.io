@@ -215,6 +215,9 @@
         hud.dataset.scene = profile.mode;
         container.dataset.scene = profile.mode;
         resize(); sync(); reveal();
+        // the artwork is not worth holding up the desktop for, so it follows
+        // the first paint and draws itself in when it gets here
+        if (!window.MusicScenes && window.LAZY) window.LAZY.load('js/music-scenes.js', { low: true }).then(draw, () => { });
     }
     function toggleConcert(force) {
         const next = typeof force === 'boolean' ? force : !concert;
@@ -235,7 +238,11 @@
             exitButton.focus();
         } else if (previousFocus && previousFocus.isConnected) previousFocus.focus();
         resize(); sync();
-        if (concert) reveal(); else cancelReveal();
+        if (concert) {
+            reveal();
+            // Motion is the titles' entrance, and only concert mode has one
+            if (!window.Motion && window.LAZY) window.LAZY.load('js/vendor/motion.js').then(reveal, () => { });
+        } else cancelReveal();
     }
     function toggleSetlist(force) {
         const next = typeof force === 'boolean' ? force : !document.body.classList.contains('concert-setlist');
@@ -260,6 +267,10 @@
         status = hud.querySelector('.music-stage-status');
         exitButton = hud.querySelector('.music-stage-exit');
         exitButton.addEventListener('click', () => toggleConcert(false));
+        // on its way before the click, so the entrance is ready when the stage is
+        const warm = () => { if (window.LAZY) window.LAZY.load('js/vendor/motion.js').catch(() => { }); };
+        button.addEventListener('pointerenter', warm, { once: true });
+        button.addEventListener('focus', warm, { once: true });
         ['play', 'pause', 'ended', 'emptied'].forEach(event => audio.addEventListener(event, sync));
         document.addEventListener('visibilitychange', sync);
         window.addEventListener('resize', resize);

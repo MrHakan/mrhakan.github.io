@@ -21,23 +21,11 @@ const bad = (m, d) => { checks++; failures++; console.log('  FAIL  ' + m + (d ? 
 const is = (c, m, d) => c ? ok(m) : bad(m, d);
 const section = n => console.log('\n== ' + n + ' ==');
 
-// one fetch of tailwind, served to the page — the layout matters here,
-// because half of these checks are about clicking a real element
-const TAILWIND = 'https://cdn.tailwindcss.com';
-let tailwind = null;
-try {
-    const res = await fetch(TAILWIND + '?plugins=forms,container-queries', { redirect: 'follow' });
-    if (res.ok) tailwind = await res.text();
-} catch (e) { }
-
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 } });
 await ctx.route('**/*', route => {
     const u = route.request().url();
     if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u)) return route.continue();
-    if (tailwind && u.startsWith(TAILWIND)) {
-        return route.fulfill({ status: 200, contentType: 'text/javascript', body: tailwind });
-    }
     return route.abort();
 });
 await mockGiscus(ctx);
@@ -68,6 +56,9 @@ await p.waitForTimeout(900);
 // Exercise every such surprise choice deterministically, before any warm load
 // can mask the handoff. The ordinary random surprise check remains below.
 section('surprise keeps the link while a cold app loads');
+// surprise itself loads on demand now, and the Math.random swap below only
+// covers a synchronous call. The games are still cold, which is what this tests.
+await p.evaluate(() => LAZY.load('js/toys.js'));
 for (const [slug, ready, entry] of [
     ['jokerz', '.bj-body', 'startBalatro'],
     ['trollproblem', '.tg-body', 'startTrollProblem'],

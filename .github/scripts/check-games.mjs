@@ -566,10 +566,10 @@ expect(/\.wz-canvas/.test(css) && /\.np-code/.test(css), 'the stylesheet has the
 
 // every precached url has to actually be there, or the service worker
 // installs a cache full of holes
-const precache = (sw.match(/PRECACHE = \[([\s\S]*?)\]/) || [])[1] || '';
+const precache = [...sw.matchAll(/PRECACHE(?:_LATER)? = \[([\s\S]*?)\]/g)].map(m => m[1]).join('\n');
 const missingPre = precache.split('\n').map(l => (l.match(/'([^']+)'/) || [])[1])
     .filter(Boolean)
-    .map(u => decodeURIComponent(u))
+    .map(u => decodeURIComponent(u).split('?')[0])
     .filter(u => u !== '/' && !exists(u.replace(/^\//, '')));
 expect(!missingPre.length, 'every precached file exists', missingPre.join(', '));
 
@@ -728,7 +728,7 @@ section('my documents');
         expect(win.localStorage.getItem('ECHOES_OF_THE_TIDE_SAVE') === saved, 'and restoring brings it back byte for byte');
     }
 
-    expect(/<script src="js\/documents\.js"/.test(read('index.html')), 'index.html loads it');
+    expect(/'js\/documents\.js': \['openDocuments'\]/.test(read('js/lazy.js')), 'js/lazy.js loads it when it is opened');
     expect(/startMenuAction\('documents'\)/.test(read('index.html')), 'and it is in the start menu');
     expect(/documents: openDocuments/.test(indexJs) && /'documents': openDocuments/.test(indexJs),
         'the app table and the run box both know it');

@@ -20,7 +20,7 @@
   <link rel="canonical" href="https://mrhakan.github.io/" />
   <link rel="alternate" type="application/rss+xml" title="mrhakan's shithole" href="feed.xml" />
   <link rel="alternate" type="application/feed+json" title="mrhakan's shithole" href="feed.json" />
-  <link rel="icon" type="image/png" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="src/emoj/favicon-48.png" />
   <link rel="apple-touch-icon" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
   <link rel="manifest" href="site.webmanifest" />
   <link rel="author" href="humans.txt" />
@@ -28,17 +28,17 @@
   <link rel="me" href="https://github.com/MrHakan" />
   <link rel="me" href="https://www.youtube.com/@MrHakanYT" />
   <link rel="me" href="https://steamcommunity.com/id/prufski/" />
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="preload" href="src/fonts/material-symbols-subset.woff2?v=8" as="font" type="font/woff2" crossorigin />
   <link href="css/style.css" rel="stylesheet" />
+  <!-- tailwind.css is generated, and comes second on purpose: the same rule at
+       the same specificity has to keep losing to it, as it did off the cdn -->
+  <link href="css/tailwind.css" rel="stylesheet" />
+  <script src="js/lazy.js" defer></script>
   <script src="js/vendor/typed.umd.js" defer></script>
   <script src="js/touch.js" defer></script>
   <script src="js/fx.js" defer></script>
   <script src="js/charts.js" defer></script>
-  <script src="js/defrag.js" defer></script>
-  <script src="js/documents.js" defer></script>
   <script src="js/guestbook.js" defer></script>
-  <script src="js/vendor/motion.js" defer></script>
-  <script src="js/music-scenes.js" defer></script>
   <script src="js/music-stage.js" defer></script>
   <script src="js/index.js" defer></script>
   <script src="js/themes.js" defer></script>
@@ -46,8 +46,6 @@
   <script src="js/fun.js" defer></script>
   <script src="js/pages.js" defer></script>
   <script src="js/extras.js" defer></script>
-  <script src="js/arcade.js" defer></script>
-  <script src="js/toys.js" defer></script>
   <script src="js/web.js" defer></script>
   <script>
     // offline support: open the site once and it keeps working with the cable out
@@ -128,7 +126,7 @@
         <div class="flex flex-col items-center gap-4 p-2 bg-retro-gray">
           <div
             class="w-24 h-24 rounded-full bg-black relative overflow-hidden border-2 border-retro-gray shadow-inner flex items-center justify-center dither-effect">
-            <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" alt="avatar"
+            <img src="src/emoj/joe-cool-114.webp" alt="avatar" width="114" height="128" decoding="async"
               class="w-20 h-20 object-contain">
           </div>
           <nav class="flex flex-col gap-3 w-full" aria-label="main">
@@ -185,7 +183,7 @@
           <span class="text-white font-bold text-xs font-header">user.dat</span>
         </div>
         <div class="flex items-center gap-2 p-2">
-          <img id="gh-avatar" src="" alt="github avatar" class="w-12 h-12 border-2 border-black bg-white">
+          <img id="gh-avatar" alt="github avatar" width="48" height="48" decoding="async" class="w-12 h-12 border-2 border-black bg-white">
           <div class="font-pixel text-[10px] text-black leading-relaxed">
             <div>repos: <span id="gh-repos" class="font-bold">?</span></div>
             <div>followers: <span id="gh-followers" class="font-bold">?</span></div>
@@ -207,7 +205,7 @@
         <div id="draggable-header"
           class="draggable-header bg-gradient-to-r from-[#000080] to-[#1084d0] px-2 py-1 flex items-center justify-between mb-1 select-none">
           <div class="flex items-center gap-2">
-            <img alt="ie icon" class="w-4 h-4" src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+            <img alt="ie icon" width="16" height="16" class="w-4 h-4" src="src/emoj/joe-cool-114.webp" />
             <span class="text-white font-bold text-sm font-header tracking-wide" id="window-title">about me.html -
               microsoft
               internet explorer</span>
@@ -274,7 +272,6 @@
             <h1
               class="text-4xl md:text-5xl font-bold text-black mb-6 font-header tracking-tight drop-shadow-[2px_2px_0px_#0df259]">
               hello world!
-              <span class="inline-block animate-bounce"></span>
             </h1>
             <a class="u-url u-uid" href="https://mrhakan.github.io/" hidden>mrhakan.github.io</a>
             <span class="p-name" hidden>mrhakan</span>
@@ -287,7 +284,7 @@
                     class="absolute -top-4 -right-4 w-8 h-8 z-10">
                   <div class="w-40 h-40 bg-gray-200 overflow-hidden flex items-center justify-center"
                     data-alt="pixelated avatar of a person with spiky hair">
-                    <img alt="pixel avatar" class="w-36 h-36 object-contain u-photo" src="src/emoj/dusung.png" />
+                    <img alt="pixel avatar" width="288" height="311" decoding="async" class="w-36 h-36 object-contain u-photo" src="src/emoj/dusung-288.webp" />
                   </div>
                   <img src="src/emoj/trollcinaye.gif" alt="" class="absolute -bottom-3 -left-3 w-8 h-8 z-10">
                 </div>
@@ -301,7 +298,7 @@
                 </p>
                 <p class="text-black font-body text-lg leading-relaxed">
                   this site is my <span class="italic text-purple-600 font-bold">shithole</span>.
-                  <img src="src/emoj/Cursed Pack 1-emojigg-pack/3666-hot.png" alt="" class="inline w-5 h-5 mx-1">
+                  <img src="src/emoj/hot-40.webp" alt="" width="20" height="20" class="inline w-5 h-5 mx-1">
                   enjoy this or whatever bradar.
                 </p>
                 <p class="font-pixel text-sm min-h-[1.5rem] bg-black text-[#0df259] px-2 py-1 border border-gray-500">
@@ -546,12 +543,12 @@
 
 
       <div class="flex flex-wrap justify-center gap-1">
-        <img src="https://cyber.dabamos.de/88x31/notepad.gif" alt="made with notepad" class="h-[31px] w-[88px]">
-        <img src="https://cyber.dabamos.de/88x31/ie4.gif" alt="best viewed in ie" class="h-[31px] w-[88px]">
-        <img src="https://cyber.dabamos.de/88x31/winxp2.gif" alt="windows xp" class="h-[31px] w-[88px]">
-        <img src="https://cyber.dabamos.de/88x31/best800x600.gif" alt="best at 800x600" class="h-[31px] w-[88px]">
-        <img src="https://cyber.dabamos.de/88x31/anybrowser3.gif" alt="any browser" class="h-[31px] w-[88px]">
-        <img src="https://cyber.dabamos.de/88x31/geocities.gif" alt="geocities" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/notepad.gif" alt="made with notepad" width="88" height="31" loading="lazy" decoding="async" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/ie4.gif" alt="best viewed in ie" width="88" height="31" loading="lazy" decoding="async" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/winxp2.gif" alt="windows xp" width="88" height="31" loading="lazy" decoding="async" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/best800x600.gif" alt="best at 800x600" width="88" height="31" loading="lazy" decoding="async" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/anybrowser3.gif" alt="any browser" width="88" height="31" loading="lazy" decoding="async" class="h-[31px] w-[88px]">
+        <img src="https://cyber.dabamos.de/88x31/geocities.gif" alt="geocities" width="88" height="31" loading="lazy" decoding="async" class="h-[31px] w-[88px]">
       </div>
 
         <!-- the status bar. It says where a link goes before you click it,
@@ -820,7 +817,7 @@
     class="fixed bottom-0 left-0 w-full h-10 bg-retro-gray bevel-out flex items-center px-1 gap-1 z-[55] select-none">
     <button id="start-button" onclick="toggleStartMenu(event)"
       class="bevel-out bg-retro-gray h-8 px-2 flex items-center gap-1 font-header font-bold text-black text-sm active:translate-y-[1px]">
-      <img src="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" class="w-5 h-5" alt="">start
+      <img src="src/emoj/joe-cool-114.webp" width="20" height="20" class="w-5 h-5" alt="">start
     </button>
     <div class="w-0 h-7 border-l border-[#808080] border-r border-r-white mx-1"></div>
     <button title="home" onclick="showSection('home')" class="taskbar-btn">
