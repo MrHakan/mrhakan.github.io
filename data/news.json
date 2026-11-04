@@ -1,4 +1,5 @@
 [
+    { "date": "2026-11-05", "icon": "🧙", "title": "wizardz 98, in 3d", "text": "it is a third person shooter now, and it looks like 1996. draw a sigil to load your staff, then go and hit somebody. fifty new symbols, on a phone too.", "button": "play now", "app": "wizardz" },
     { "date": "2026-11-04", "icon": "⚔️", "title": "age of troll", "text": "a long lane war with the site's trolls. five ages, two walls, and a bot or a bradar online to throw them at.", "button": "play now", "app": "ageoftroll" },
     { "date": "2026-11-04", "icon": "🎨", "title": "flood tiles 98", "text": "flood the whole board from one corner, one colour at a time. a new board every day and 25 moves to do it in.", "button": "play now", "url": "/games/flood-tiles/" },
     { "date": "2026-11-04", "icon": "🖼️", "title": "aspect frame 98", "text": "try an image in every aspect ratio and fit, then copy the css. it all stays in your browser.", "button": "open it", "url": "/apps/aspect-frame/" },

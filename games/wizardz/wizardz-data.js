@@ -1,19 +1,22 @@
 // ===================================================================
-// WIZARDZ 98 — content: 50 spells, their sigils, and the dress-up box
+// WIZARDZ 98 — content: 50 spells, their sigils, the arena, the bots
 //
-// Every spell is cast by drawing its sigil. The sigils below are stored
-// as stroke templates in a 0..100 box (y grows downward, like the
-// canvas) and are matched with a point-cloud recogniser, so stroke
-// order and direction do not matter — only the shape does.
+// This is a third person shooter now, and a sigil is how you load your
+// staff. Everything with a number in it lives here, so the balance can
+// be tuned without reading the rules. check-wizardz.mjs plays a few
+// thousand bot matches against these numbers and fails if a spell turns
+// out to win everything or to win nothing.
 //
-// Two rules were followed when drawing these fifty:
-//   1. no two sigils may look alike to the recogniser. there is a test
-//      for that in .github/scripts/check-games.mjs and it runs in CI.
-//   2. a sigil has to be drawable in about a second, under pressure,
-//      by somebody with a trackpad.
+// The sigils are stroke templates in a 0..100 box. The recogniser ignores
+// stroke order, direction, size and angle, which is a promise that costs
+// something here: two symbols may not be rotations of each other. There is
+// no up arrow next to a right arrow. check-sigils.mjs draws each one badly a
+// few hundred times and holds the confusion matrix to its targets.
 //
-// The engine lives in wizardz.js. This file is pure data plus the
-// little geometry helpers used to write it.
+// Rules for a new symbol: three strokes or fewer unless it really earns it,
+// drawable with a thumb, and it has to look like what it does.
+//
+// Units are metres and seconds. Rules are in wizardz-sim.js.
 // ===================================================================
 (function () {
     'use strict';
@@ -29,8 +32,6 @@
         for (let i = 0; i <= n; i++) { const t = i / n; s.push(P(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t)); }
         return s;
     }
-    // polyline through [x,y] vertices, evenly filled so the recogniser
-    // sees the shape and not just the corners
     function PATH(v, per) {
         per = per || 9;
         const s = [];
@@ -53,7 +54,7 @@
         }
         return s;
     }
-    const CIRCLE = (cx, cy, r) => ARC(cx, cy, r, 0, 360, 40);
+    const CIRCLE = (cx, cy, r) => ARC(cx, cy, r, -90, 270, 40);
     function QUAD(x0, y0, cx, cy, x1, y1, steps) {
         steps = steps || 18;
         const s = [];
@@ -71,16 +72,15 @@
         }
         return CLOSED(v);
     }
-    function STAR(cx, cy, rOut, rIn, points, rot) {
+    // the star you draw without lifting: every second point of a pentagon
+    function PENTAGRAM(cx, cy, r, rot) {
         const v = [];
-        for (let i = 0; i < points * 2; i++) {
-            const a = ((rot || 0) + i * 180 / points) * Math.PI / 180;
-            const r = i % 2 ? rIn : rOut;
+        for (let i = 0; i < 5; i++) {
+            const a = ((rot || 0) + i * 144) * Math.PI / 180;
             v.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
         }
-        return CLOSED(v, 6);
+        return CLOSED(v, 8);
     }
-    // zigzag along a line, teeth alternating either side of it
     function ZIG(x1, y1, x2, y2, teeth, amp) {
         const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
         const px = -dy / len, py = dx / len;
@@ -93,7 +93,6 @@
         }
         return PATH(v, 7);
     }
-    // sine along a line — snakes and vines
     function WAVE(x1, y1, x2, y2, humps, amp, steps) {
         steps = steps || 48;
         const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
@@ -114,7 +113,6 @@
         }
         return s;
     }
-    // figure of eight, for the spells that mean "forever"
     function LEMNISCATE(cx, cy, a, steps) {
         steps = steps || 64;
         const s = [];
@@ -128,7 +126,7 @@
         const out = [];
         for (let i = 0; i < n; i++) {
             const a = ((rot || 0) + i * 360 / n) * Math.PI / 180;
-            out.push(LINE(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, 6));
+            out.push(LINE(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1, 8));
         }
         return out;
     }
@@ -137,438 +135,533 @@
     // elements — colour, and the flavour each one leans on
     // ---------------------------------------------------------------
     const EL = {
-        fire: { name: 'fire', color: '#ff6b2b', glow: '#ffb347', about: 'damage over time, no patience' },
-        ice: { name: 'ice', color: '#6fd6ff', glow: '#bff0ff', about: 'slows, freezes, ruins plans' },
-        storm: { name: 'storm', color: '#ffe14d', glow: '#fff5b0', about: 'fast, cheap, drains mana' },
-        arcane: { name: 'arcane', color: '#c08cff', glow: '#e6d2ff', about: 'mana, wards, tricks' },
-        nature: { name: 'nature', color: '#7ee06a', glow: '#c8f5bf', about: 'healing and holding you still' },
-        shadow: { name: 'shadow', color: '#a074d8', glow: '#d4bdf0', about: 'weakens, drains, hides' },
-        light: { name: 'light', color: '#ffe9a8', glow: '#fffbe8', about: 'shields, heals, punishes' },
-        earth: { name: 'earth', color: '#c8a06a', glow: '#e8d3b0', about: 'walls and heavy rocks' },
+        fire: { name: 'fire', color: '#ff6b2b', glow: '#ffb347', about: 'splash and burns. it keeps hurting after you stop looking' },
+        ice: { name: 'ice', color: '#6fd6ff', glow: '#bff0ff', about: 'slows you down and ruins your plans' },
+        storm: { name: 'storm', color: '#ffe14d', glow: '#fff5b0', about: 'fast, cheap, and it eats their ink' },
+        arcane: { name: 'arcane', color: '#c08cff', glow: '#e6d2ff', about: 'homing, wards and tricks' },
+        nature: { name: 'nature', color: '#7ee06a', glow: '#c8f5bf', about: 'holds you still and heals itself' },
+        shadow: { name: 'shadow', color: '#a074d8', glow: '#d4bdf0', about: 'weakens, drains and lies to you' },
+        light: { name: 'light', color: '#ffe9a8', glow: '#fffbe8', about: 'shields, heals and pillars from above' },
+        earth: { name: 'earth', color: '#c8a06a', glow: '#e8d3b0', about: 'moves the arena about. mind your feet' },
         blood: { name: 'blood', color: '#e4485f', glow: '#ff9aa8', about: 'pay in health, hit harder' },
-        void: { name: 'void', color: '#b04dff', glow: '#e0b3ff', about: 'expensive, unfair, slow' }
+        void: { name: 'void', color: '#b04dff', glow: '#e0b3ff', about: 'expensive, unfair and goes through walls' }
     };
 
     // ---------------------------------------------------------------
     // THE FIFTY
     //
-    // kind: bolt | beam | wall | ward | heal | buff | hex | zone |
-    //       summon | special
-    // cost is mana, hp is health paid up front, cd is seconds.
+    // kind says what the spell does when the ink dries:
+    //   shot    goes in the staff. fire it at the crosshair
+    //   beam    goes in the staff. hits instantly along the crosshair
+    //   strike  goes in the staff. falls from above where you point, late
+    //   wall    goes in the staff. stands where you point, across your aim
+    //   zone    goes in the staff. a patch of ground where you point
+    //   trap    goes in the staff. waits on the ground where you point
+    //   summon  goes in the staff. something that fights for you
+    //   nova    goes off at once, around you
+    //   self    goes off at once, on you
+    //   move    goes off at once, moves you
+    //
+    // cost is ink, hp is health paid up front, cd is seconds before you can
+    // inscribe it again, charges is how many shots a clean drawing loads.
     // ---------------------------------------------------------------
     const SPELLS = [
-        // ---------------- fire ----------------
+        // ---------------- fire: triangles, the shape of a flame ----------------
         {
-            id: 'fireball', name: 'fireball', el: 'fire', kind: 'bolt',
-            cost: 14, cd: 1.2, dmg: 14,
-            blurb: 'the one everybody learns first. burns for a while after.',
-            p: { speed: 340, r: 9, burn: { dps: 3, dur: 3 } },
-            glyph: [CLOSED([[50, 12], [86, 80], [14, 80]])]
+            id: 'fireball', name: 'fireball', el: 'fire', kind: 'shot',
+            cost: 15, cd: 3, dmg: 14, charges: 2,
+            blurb: 'the one everybody learns first. it splashes, so aim at their feet bradar.',
+            p: { speed: 30, r: 0.45, aoe: 2.6, splash: 0.55, burn: { dps: 3, dur: 2.5 } },
+            glyph: [CLOSED([[50, 8], [94, 86], [6, 86]])]
         },
         {
-            id: 'flamelance', name: 'flame lance', el: 'fire', kind: 'bolt',
-            cost: 18, cd: 2.4, dmg: 17,
-            blurb: 'a spear of fire. goes through walls and wizards alike.',
-            p: { speed: 620, r: 6, pierce: true, burn: { dps: 2, dur: 2 } },
-            glyph: [LINE(50, 95, 50, 15), PATH([[28, 38], [50, 12], [72, 38]])]
+            id: 'flamelance', name: 'flame lance', el: 'fire', kind: 'shot',
+            cost: 13, cd: 3.5, dmg: 27, charges: 1,
+            blurb: 'a very fast spear. goes through walls and through whoever is behind them.',
+            p: { speed: 70, r: 0.35, pierce: true, burn: { dps: 2, dur: 2 } },
+            glyph: [LINE(50, 98, 50, 6), PATH([[24, 36], [50, 6], [76, 36]])]
         },
         {
             id: 'inferno', name: 'inferno', el: 'fire', kind: 'zone',
-            cost: 30, cd: 9, dmg: 0,
-            blurb: 'sets their half of the arena on fire and leaves it there.',
-            p: { dps: 7, dur: 4.5, w: 150, burn: { dps: 2, dur: 2 } },
-            glyph: [ZIG(18, 92, 18, 14, 3, 16), ZIG(50, 95, 50, 8, 3, 16), ZIG(82, 92, 82, 14, 3, 16)]
+            cost: 28, cd: 11, dmg: 0, charges: 1,
+            blurb: 'sets a patch of floor on fire and leaves it there. good on an altar.',
+            p: { r: 4.5, dur: 5, dps: 8, range: 26, burn: { dps: 2, dur: 1.5 } },
+            glyph: [CLOSED([[50, 4], [96, 90], [4, 90]]), CLOSED([[50, 42], [70, 78], [30, 78]])]
         },
         {
-            id: 'emberward', name: 'ember ward', el: 'fire', kind: 'ward',
-            cost: 16, cd: 8, dmg: 0,
-            blurb: 'a hot shield. whatever breaks on it catches fire.',
-            p: { shield: 26, dur: 8, thorns: 4 },
-            glyph: [ARC(50, 66, 38, 180, 360)]
+            id: 'emberward', name: 'ember ward', el: 'fire', kind: 'self',
+            cost: 17, cd: 11, dmg: 0,
+            blurb: 'a hot shield. whoever breaks it gets burned for the privilege.',
+            p: { shield: 22, dur: 9, thorns: 7 },
+            glyph: [CLOSED([[50, 3], [93, 40], [93, 97], [7, 97], [7, 40]], 8), LINE(7, 40, 93, 40)]
         },
         {
-            id: 'meteor', name: 'meteor', el: 'fire', kind: 'bolt',
-            cost: 34, cd: 11, dmg: 30,
-            blurb: 'lobbed, slow, and enormous. duck.',
-            p: { speed: 300, r: 18, gravity: 420, aoe: 70, burn: { dps: 3, dur: 3 } },
-            glyph: [LINE(14, 10, 62, 58), CIRCLE(74, 72, 20)]
+            id: 'meteor', name: 'meteor', el: 'fire', kind: 'strike',
+            cost: 30, cd: 12, dmg: 38, charges: 1,
+            blurb: 'a rock out of the sky, a second and a half late. lead them or herd them.',
+            p: { delay: 1.5, r: 4.2, range: 42, burn: { dps: 3, dur: 3 } },
+            glyph: [CIRCLE(34, 66, 28), LINE(54, 46, 96, 4)]
         },
 
-        // ---------------- ice ----------------
+        // ---------------- ice: straight lines and crystals ----------------
         {
-            id: 'frostbolt', name: 'frostbolt', el: 'ice', kind: 'bolt',
-            cost: 12, cd: 1.1, dmg: 10,
-            blurb: 'cheap, cold, and it slows their mana to a crawl.',
-            p: { speed: 380, r: 8, chill: { dur: 3 } },
-            glyph: [CLOSED([[14, 20], [86, 20], [50, 88]])]
+            id: 'frostbolt', name: 'frostbolt', el: 'ice', kind: 'shot',
+            cost: 9, cd: 2.5, dmg: 13, charges: 3,
+            blurb: 'cheap, cold, and it takes the spring out of their step.',
+            p: { speed: 50, r: 0.35, status: { k: 'chill', dur: 3 } },
+            glyph: [LINE(50, 4, 50, 96), LINE(10, 27, 90, 73), LINE(10, 73, 90, 27)]
         },
         {
             id: 'icewall', name: 'ice wall', el: 'ice', kind: 'wall',
-            cost: 18, cd: 9, dmg: 0,
-            blurb: 'a slab of ice in front of you. it eats spells until it does not.',
-            p: { hp: 40, dur: 9, h: 120 },
-            glyph: [CLOSED([[6, 30], [94, 30], [94, 70], [6, 70]])]
+            cost: 13, cd: 9, dmg: 0, charges: 1,
+            blurb: 'a slab of ice where you point. instant cover, and your own shots go through.',
+            p: { w: 8, d: 0.8, h: 3.4, hp: 70, dur: 10, range: 22 },
+            glyph: [CLOSED([[3, 32], [97, 32], [97, 68], [3, 68]])]
         },
         {
             id: 'blizzard', name: 'blizzard', el: 'ice', kind: 'zone',
-            cost: 28, cd: 12, dmg: 0,
-            blurb: 'a storm parked on top of them. cold, constant, rude.',
-            p: { dps: 4, dur: 5.5, w: 180, chill: { dur: 1.2 } },
-            glyph: [LINE(50, 8, 50, 92), LINE(14, 29, 86, 71), LINE(14, 71, 86, 29)]
+            cost: 24, cd: 12, dmg: 0, charges: 1,
+            blurb: 'a parked storm. cold, slow and hard to see through. rude.',
+            p: { r: 7, dur: 5.5, dps: 3, range: 30, obscure: true, status: { k: 'chill', dur: 1 } },
+            glyph: [PATH([[44, 54], [62, 54], [62, 32], [24, 32], [24, 76], [86, 76], [86, 8], [4, 8]], 7)]
         },
         {
-            id: 'deepfreeze', name: 'deep freeze', el: 'ice', kind: 'hex',
-            cost: 26, cd: 14, dmg: 4,
-            blurb: 'locks their hands shut. no drawing for a moment.',
-            p: { status: 'freeze', dur: 1.6 },
-            glyph: [ARC(50, 46, 20, 180, 360), CLOSED([[22, 46], [78, 46], [78, 92], [22, 92]])]
+            id: 'deepfreeze', name: 'deep freeze', el: 'ice', kind: 'shot',
+            cost: 18, cd: 13, dmg: 6, charges: 1,
+            blurb: 'a slow crystal. if it lands they cannot move, shoot or draw for a moment.',
+            p: { speed: 24, r: 0.65, status: { k: 'freeze', dur: 1.7 } },
+            glyph: [CLOSED([[50, 2], [76, 50], [50, 98], [24, 50]])]
         },
         {
-            id: 'hailstorm', name: 'hailstorm', el: 'ice', kind: 'bolt',
-            cost: 20, cd: 4, dmg: 6,
-            blurb: 'three lumps of ice on an arc. hard to dodge all of them.',
-            p: { speed: 330, r: 7, gravity: 260, count: 3, spread: 26, chill: { dur: 1.5 } },
-            glyph: [LINE(2, 29, 50, 93), LINE(20, 16, 68, 80), LINE(38, 3, 86, 67)]
+            id: 'hailstorm', name: 'hailstorm', el: 'ice', kind: 'shot',
+            cost: 15, cd: 4, dmg: 8, charges: 2,
+            blurb: 'a shotgun of ice lumps. close up it is unkind, far away it is weather.',
+            p: { speed: 34, r: 0.28, count: 6, spread: 9, gravity: 4, status: { k: 'chill', dur: 1.2 } },
+            glyph: [LINE(6, 18, 94, 18), LINE(6, 50, 94, 50), LINE(6, 82, 94, 82)]
         },
 
-        // ---------------- storm ----------------
+        // ---------------- storm: zigzags ----------------
         {
-            id: 'spark', name: 'spark', el: 'storm', kind: 'bolt',
-            cost: 6, cd: 0.45, dmg: 6,
-            blurb: 'nearly free and nearly instant. the jab.',
-            p: { speed: 720, r: 5 },
-            glyph: [PATH([[66, 8], [34, 44], [56, 44], [28, 92]])]
+            id: 'spark', name: 'spark', el: 'storm', kind: 'shot',
+            cost: 6, cd: 1.2, dmg: 7, charges: 4,
+            blurb: 'nearly free and nearly instant. the jab, and the first thing you should learn.',
+            p: { speed: 62, r: 0.25, rof: 0.22 },
+            glyph: [PATH([[72, 4], [28, 44], [72, 56], [28, 96]])]
         },
         {
             id: 'chainlightning', name: 'chain lightning', el: 'storm', kind: 'beam',
-            cost: 16, cd: 3.5, dmg: 12,
-            blurb: 'hits instantly and rips mana out on the way through.',
-            p: { manaBurn: 9, shock: { dur: 2 } },
-            glyph: [ZIG(6, 50, 94, 50, 4, 26)]
+            cost: 15, cd: 6, dmg: 12, charges: 1,
+            blurb: 'hits instantly if you are roughly pointing at them, and rips ink out on the way.',
+            p: { range: 26, width: 1.6, inkBurn: 10, status: { k: 'shock', dur: 2.5 } },
+            glyph: [ZIG(4, 50, 96, 50, 4, 30)]
         },
         {
-            id: 'thunderclap', name: 'thunderclap', el: 'storm', kind: 'hex',
-            cost: 24, cd: 8, dmg: 14,
-            blurb: 'a bang right on top of them. stuns for half a second.',
-            p: { status: 'stun', dur: 0.7 },
-            glyph: [ZIG(50, 8, 50, 66, 3, 12), LINE(10, 84, 90, 84)]
+            id: 'thunderclap', name: 'thunderclap', el: 'storm', kind: 'nova',
+            cost: 17, cd: 9, dmg: 16,
+            blurb: 'a bang around you. shoves them off, stuns them, and buys you a second.',
+            p: { r: 7, knock: 11, status: { k: 'stun', dur: 0.8 } },
+            glyph: [ARC(4, 50, 22, -70, 70, 12), ARC(4, 50, 52, -60, 60), ARC(4, 50, 88, -38, 38)]
         },
         {
-            id: 'staticfield', name: 'static field', el: 'storm', kind: 'ward',
-            cost: 20, cd: 10, dmg: 0,
+            id: 'staticfield', name: 'static field', el: 'storm', kind: 'self',
+            cost: 15, cd: 12, dmg: 0,
             blurb: 'a crackling bubble that swats small projectiles out of the air.',
-            p: { shield: 18, dur: 6, zap: true },
-            glyph: [LINE(30, 8, 30, 92), LINE(70, 8, 70, 92), LINE(8, 32, 92, 32), LINE(8, 68, 92, 68)]
+            p: { shield: 16, dur: 7, zap: true },
+            glyph: [LINE(32, 4, 32, 96), LINE(68, 4, 68, 96), LINE(4, 32, 96, 32), LINE(4, 68, 96, 68)]
         },
         {
-            id: 'overload', name: 'overload', el: 'storm', kind: 'buff',
-            cost: 10, cd: 12, dmg: 0,
-            blurb: 'double mana regen for six seconds. it also cooks you slowly.',
-            p: { status: 'overload', dur: 6, selfDps: 1.2 },
-            glyph: [PATH([[8, 18], [30, 82], [50, 30], [70, 82], [92, 18]])]
-        },
-
-        // ---------------- arcane ----------------
-        {
-            id: 'magicmissile', name: 'magic missile', el: 'arcane', kind: 'bolt',
-            cost: 10, cd: 1.6, dmg: 9,
-            blurb: 'it follows them. no dodging, only blocking.',
-            p: { speed: 300, r: 7, homing: 2.6 },
-            glyph: [LINE(6, 50, 92, 50), PATH([[56, 16], [96, 50], [56, 84]])]
-        },
-        {
-            id: 'arcaneorb', name: 'arcane orb', el: 'arcane', kind: 'bolt',
-            cost: 22, cd: 5, dmg: 20,
-            blurb: 'a slow fat orb. easy to see coming, awful to be hit by.',
-            p: { speed: 155, r: 17, aoe: 40 },
-            glyph: [CIRCLE(50, 50, 40)]
-        },
-        {
-            id: 'manawell', name: 'mana well', el: 'arcane', kind: 'buff',
-            cost: 0, cd: 16, dmg: 0,
-            blurb: 'costs nothing and gives you 35 mana back over four seconds.',
-            p: { status: 'well', dur: 4, manaPerSec: 9 },
-            glyph: [[].concat(LINE(16, 10, 16, 58), ARC(50, 58, 34, 180, 0), LINE(84, 58, 84, 10))]
-        },
-        {
-            id: 'runeward', name: 'rune ward', el: 'arcane', kind: 'ward',
-            cost: 18, cd: 9, dmg: 0,
-            blurb: 'plain honest shielding. thirty points of "no".',
-            p: { shield: 30, dur: 10 },
-            glyph: [CLOSED([[8, 8], [92, 8], [92, 92], [8, 92]]), CLOSED([[34, 34], [66, 34], [66, 66], [34, 66]])]
-        },
-        {
-            id: 'blink', name: 'blink', el: 'arcane', kind: 'special',
-            cost: 12, cd: 6, dmg: 0,
-            blurb: 'you are briefly somewhere else. spells pass through where you were.',
-            p: { status: 'phase', dur: 0.75, jump: 90 },
-            glyph: [LINE(22, 10, 22, 90), LINE(78, 10, 78, 90), LINE(22, 50, 78, 50)]
+            id: 'overload', name: 'overload', el: 'storm', kind: 'self',
+            cost: 4, cd: 15, dmg: 0,
+            blurb: 'press the power button. triple ink for six seconds, and it cooks you slowly.',
+            p: { status: { k: 'overload', dur: 6, dps: 1.6 } },
+            glyph: [ARC(50, 54, 42, -38, 218), LINE(50, 0, 50, 58)]
         },
 
-        // ---------------- nature ----------------
+        // ---------------- arcane: circles and tricks ----------------
         {
-            id: 'vinewhip', name: 'vine whip', el: 'nature', kind: 'bolt',
-            cost: 14, cd: 3, dmg: 8,
-            blurb: 'grabs an ankle. they stop moving, you keep casting.',
-            p: { speed: 300, r: 8, status: 'root', statusDur: 1.4 },
-            glyph: [WAVE(50, 6, 50, 94, 2, 26)]
+            id: 'magicmissile', name: 'magic missile', el: 'arcane', kind: 'shot',
+            cost: 12, cd: 3.5, dmg: 7, charges: 3,
+            blurb: 'it follows them round corners. no aiming, not much damage, no excuses.',
+            p: { speed: 19, r: 0.32, homing: 3.2, life: 4 },
+            glyph: [PATH([[14, 8], [50, 50], [14, 92]]), PATH([[52, 8], [88, 50], [52, 92]])]
         },
         {
-            id: 'thornburst', name: 'thorn burst', el: 'nature', kind: 'buff',
-            cost: 16, cd: 10, dmg: 0,
-            blurb: 'for eight seconds everything that hits you regrets it.',
-            p: { status: 'thorns', dur: 8, thorns: 5 },
-            glyph: [STAR(50, 50, 44, 18, 5, -90)]
+            id: 'arcaneorb', name: 'arcane orb', el: 'arcane', kind: 'shot',
+            cost: 21, cd: 7, dmg: 30, charges: 1,
+            blurb: 'a slow fat orb. easy to see coming, awful to be near when it goes off.',
+            p: { speed: 15, r: 1, aoe: 4.6, splash: 0.65, life: 6 },
+            glyph: [CIRCLE(50, 50, 47)]
         },
         {
-            id: 'regrowth', name: 'regrowth', el: 'nature', kind: 'heal',
-            cost: 20, cd: 10, dmg: 0,
-            blurb: 'eighteen health, slowly, while you are busy with other things.',
-            p: { heal: 18, over: 4 },
-            glyph: [QUAD(28, 72, 26, 22, 78, 24), QUAD(28, 72, 76, 74, 78, 24), LINE(28, 72, 6, 94)]
+            id: 'manawell', name: 'mana well', el: 'arcane', kind: 'zone',
+            cost: 1, cd: 18, dmg: 0, charges: 1,
+            blurb: 'a puddle of free ink for whoever drew it. you do have to stand in it.',
+            p: { r: 3, dur: 8, inkPerSec: 16, range: 10, ownerOnly: true },
+            glyph: [PATH([[2, 12], [28, 86], [72, 86], [98, 12]], 10)]
         },
         {
-            id: 'entangle', name: 'entangle', el: 'nature', kind: 'hex',
-            cost: 18, cd: 9, dmg: 3,
-            blurb: 'roots them where they stand for two and a half seconds.',
-            p: { status: 'root', dur: 2.5 },
-            glyph: [SPIRAL(50, 50, 10, 46, 2)]
+            id: 'runeward', name: 'rune ward', el: 'arcane', kind: 'self',
+            cost: 19, cd: 14, dmg: 0,
+            blurb: 'plain honest shielding, in the shape of a window. it says no.',
+            p: { shield: 23, dur: 10 },
+            glyph: [CLOSED([[6, 6], [94, 6], [94, 94], [6, 94]]), LINE(50, 6, 50, 94), LINE(6, 50, 94, 50)]
         },
         {
-            id: 'pollenveil', name: 'pollen veil', el: 'nature', kind: 'hex',
+            id: 'blink', name: 'blink', el: 'arcane', kind: 'move',
+            cost: 9, cd: 6, dmg: 0,
+            blurb: 'the mouse pointer. you are suddenly over there, and spells go through you on the way.',
+            p: { dist: 13, phase: 0.45 },
+            glyph: [CLOSED([[18, 3], [18, 84], [40, 64], [56, 97], [72, 90], [56, 58], [84, 58]], 6)]
+        },
+
+        // ---------------- nature: curves that grow ----------------
+        {
+            id: 'vinewhip', name: 'vine whip', el: 'nature', kind: 'beam',
+            cost: 11, cd: 6, dmg: 12, charges: 1,
+            blurb: 'grabs an ankle and drags them to you. short reach, very rude.',
+            p: { range: 17, width: 1.1, pull: 10, status: { k: 'root', dur: 0.8 } },
+            glyph: [WAVE(4, 50, 96, 50, 1.5, 28)]
+        },
+        {
+            id: 'thornburst', name: 'thorn burst', el: 'nature', kind: 'trap',
+            cost: 11, cd: 7, dmg: 22, charges: 2,
+            blurb: 'plant a star of thorns. nearly invisible, and it holds whoever walks on it.',
+            p: { r: 1.8, aoe: 2.6, dur: 28, range: 24, status: { k: 'root', dur: 1.6 } },
+            glyph: [PENTAGRAM(50, 54, 50, -90)]
+        },
+        {
+            id: 'regrowth', name: 'regrowth', el: 'nature', kind: 'self',
             cost: 18, cd: 12, dmg: 0,
-            blurb: 'fills their side of the screen with spores. good luck seeing anything.',
-            p: { status: 'blind', dur: 5 },
-            glyph: [CIRCLE(30, 32, 16), CIRCLE(70, 38, 16), CIRCLE(48, 74, 16)]
+            blurb: 'twenty two health, slowly, while you get on with things. a leaf, with a stalk.',
+            p: { heal: 22, over: 6 },
+            glyph: [QUAD(14, 86, 8, 22, 88, 12), QUAD(14, 86, 78, 92, 88, 12), LINE(2, 98, 62, 38)]
+        },
+        {
+            id: 'entangle', name: 'entangle', el: 'nature', kind: 'shot',
+            cost: 13, cd: 9, dmg: 10, charges: 1,
+            blurb: 'a seed that roots them where they stand. then you take your time.',
+            p: { speed: 34, r: 0.7, status: { k: 'root', dur: 2.6 } },
+            glyph: [SPIRAL(50, 50, 4, 47, 2.25)]
+        },
+        {
+            id: 'pollenveil', name: 'pollen veil', el: 'nature', kind: 'zone',
+            cost: 8, cd: 11, dmg: 0, charges: 1,
+            blurb: 'a cloud of spores. you cannot see in, and whoever is inside cannot see at all.',
+            p: { r: 5.5, dur: 8, range: 28, obscure: true, status: { k: 'blind', dur: 1.5 } },
+            glyph: [CIRCLE(28, 28, 22), CIRCLE(76, 36, 22), CIRCLE(44, 78, 22)]
         },
 
-        // ---------------- shadow ----------------
+        // ---------------- shadow: moons and eyes ----------------
         {
-            id: 'shadowbolt', name: 'shadow bolt', el: 'shadow', kind: 'bolt',
-            cost: 13, cd: 1.3, dmg: 12,
-            blurb: 'hits, and takes the sting out of their next few spells.',
-            p: { speed: 400, r: 8, status: 'weak', statusDur: 3 },
-            glyph: [ARC(44, 50, 44, 45, 315), ARC(62, 50, 34, 50, 310)]
+            id: 'shadowbolt', name: 'shadow bolt', el: 'shadow', kind: 'shot',
+            cost: 10, cd: 3.5, dmg: 16, charges: 2,
+            blurb: 'hits, and takes the sting out of whatever they do next.',
+            p: { speed: 42, r: 0.4, status: { k: 'weak', dur: 4 } },
+            glyph: [ARC(46, 50, 46, 60, 300), ARC(66, 50, 32, 110, 250)]
         },
         {
-            id: 'curse', name: 'curse', el: 'shadow', kind: 'hex',
-            cost: 20, cd: 12, dmg: 0,
-            blurb: 'six seconds of everything they cast landing softer.',
-            p: { status: 'weak', dur: 6 },
-            glyph: [LINE(14, 14, 86, 86), LINE(86, 14, 14, 86)]
+            id: 'curse', name: 'curse', el: 'shadow', kind: 'shot',
+            cost: 11, cd: 8, dmg: 8, charges: 1,
+            blurb: 'marks them. they take a third more from everything and the fog stops hiding them.',
+            p: { speed: 24, r: 0.55, homing: 2.6, status: { k: 'mark', dur: 7 } },
+            glyph: [LINE(8, 8, 92, 92), LINE(92, 8, 8, 92)]
         },
         {
             id: 'drainlife', name: 'drain life', el: 'shadow', kind: 'beam',
-            cost: 18, cd: 6, dmg: 11,
+            cost: 15, cd: 6, dmg: 17, charges: 1,
             blurb: 'instant, and most of what it takes ends up in you.',
-            p: { lifesteal: 9 },
-            glyph: [PATH([[16, 12], [84, 12], [16, 88], [84, 88], [16, 12]])]
+            p: { range: 24, width: 0.9, lifesteal: 0.8 },
+            glyph: [PATH([[14, 8], [86, 8], [14, 92], [86, 92], [14, 8]])]
         },
         {
-            id: 'nightfall', name: 'nightfall', el: 'shadow', kind: 'special',
-            cost: 16, cd: 8, dmg: 0,
-            blurb: 'a decoy of yourself. it eats one spell and vanishes.',
-            p: { decoy: true, dur: 8 },
-            glyph: [PATH([[18, 16], [50, 44], [82, 16]]), PATH([[18, 52], [50, 80], [82, 52]])]
+            id: 'nightfall', name: 'nightfall', el: 'shadow', kind: 'summon',
+            cost: 13, cd: 11, dmg: 0, charges: 1,
+            blurb: 'a decoy of you walks off that way, and you go dark for a few seconds. it eats one spell.',
+            p: { type: 'decoy', dur: 8, hp: 1, range: 16, stealth: 3 },
+            glyph: [QUAD(2, 50, 50, -6, 98, 50), QUAD(2, 50, 50, 106, 98, 50), CIRCLE(50, 50, 11)]
         },
         {
-            id: 'banish', name: 'banish', el: 'shadow', kind: 'special',
-            cost: 22, cd: 14, dmg: 0,
-            blurb: 'wipes their walls, zones, decoys and buffs off the board.',
-            p: { dispelEnemy: true },
-            glyph: [PATH([[20, 18], [46, 50], [20, 82]]), PATH([[54, 18], [80, 50], [54, 82]])]
-        },
-
-        // ---------------- light ----------------
-        {
-            id: 'smite', name: 'smite', el: 'light', kind: 'bolt',
-            cost: 16, cd: 2.2, dmg: 15,
-            blurb: 'fast and clean. hits cursed and weakened wizards harder.',
-            p: { speed: 560, r: 8, punish: 1.5 },
-            glyph: [LINE(6, 14, 94, 14), LINE(50, 14, 50, 94)]
-        },
-        {
-            id: 'radiance', name: 'radiance', el: 'light', kind: 'special',
-            cost: 20, cd: 9, dmg: 10,
-            blurb: 'a burst around you that burns off your own curses.',
-            p: { selfDispel: true, aoe: 130 },
-            glyph: [CIRCLE(50, 50, 26)].concat(RAYS(50, 50, 34, 48, 4, 45))
-        },
-        {
-            id: 'blessing', name: 'blessing', el: 'light', kind: 'buff',
-            cost: 22, cd: 12, dmg: 0,
-            blurb: 'ten health now and a quarter more damage for six seconds.',
-            p: { status: 'focus', dur: 6, heal: 10 },
-            glyph: [PATH([[10, 78], [50, 22], [90, 78]])]
-        },
-        {
-            id: 'sanctuary', name: 'sanctuary', el: 'light', kind: 'ward',
-            cost: 26, cd: 14, dmg: 0,
-            blurb: 'the big shield. forty points, and it holds for a while.',
-            p: { shield: 40, dur: 7 },
-            glyph: [[].concat(LINE(14, 94, 14, 52), ARC(50, 52, 36, 180, 360), LINE(86, 52, 86, 94))]
-        },
-        {
-            id: 'judgment', name: 'judgment', el: 'light', kind: 'special',
-            cost: 28, cd: 10, dmg: 24,
-            blurb: 'a pillar of light where they are standing, a moment from now.',
-            p: { telegraph: 0.85, r: 34 },
-            glyph: [LINE(50, 6, 50, 88), PATH([[28, 62], [50, 92], [72, 62]])]
+            id: 'banish', name: 'banish', el: 'shadow', kind: 'shot',
+            cost: 9, cd: 11, dmg: 14, charges: 1,
+            blurb: 'wipes a ward and every buff off whoever it hits, and clears walls and traps it lands on.',
+            p: { speed: 40, r: 0.5, aoe: 3.5, splash: 0, dispel: true },
+            glyph: [CIRCLE(50, 50, 42), LINE(8, 92, 92, 8)]
         },
 
-        // ---------------- earth ----------------
+        // ---------------- light: things from above ----------------
         {
-            id: 'stonespike', name: 'stone spike', el: 'earth', kind: 'bolt',
-            cost: 14, cd: 2.5, dmg: 13,
-            blurb: 'comes up off the floor. useless against anyone hovering.',
-            p: { speed: 430, r: 9, lowOnly: true },
-            glyph: [PATH([[10, 86], [30, 20], [50, 64], [70, 20], [90, 86]])]
+            id: 'smite', name: 'smite', el: 'light', kind: 'strike',
+            cost: 13, cd: 4, dmg: 25, charges: 1,
+            blurb: 'a thin pillar of light, half a second after you ask. hits harder if they are hurting already.',
+            p: { delay: 0.55, r: 1.9, range: 40, punish: 1.5 },
+            glyph: [LINE(4, 12, 96, 12), LINE(50, 12, 50, 98)]
         },
         {
-            id: 'boulder', name: 'boulder', el: 'earth', kind: 'bolt',
-            cost: 24, cd: 6, dmg: 22,
-            blurb: 'slow, heavy, and it shoves them backwards.',
-            p: { speed: 200, r: 19, knock: 90 },
-            glyph: [CLOSED([[50, 10], [90, 50], [50, 90], [10, 50]])]
+            id: 'radiance', name: 'radiance', el: 'light', kind: 'nova',
+            cost: 15, cd: 10, dmg: 14,
+            blurb: 'a flash round you. burns off your own curses and blinds whoever was looking.',
+            p: { r: 6.5, selfDispel: true, status: { k: 'blind', dur: 1.8 } },
+            glyph: [CLOSED([[50, 2], [92, 74], [8, 74]]), CLOSED([[50, 98], [8, 26], [92, 26]])]
         },
         {
-            id: 'quake', name: 'quake', el: 'earth', kind: 'bolt',
-            cost: 20, cd: 7, dmg: 12,
-            blurb: 'a wave along the ground. get in the air or take it.',
-            p: { speed: 260, r: 22, ground: true, status: 'stun', statusDur: 0.4 },
-            glyph: [LINE(8, 26, 92, 26), LINE(8, 50, 92, 50), LINE(8, 74, 92, 74)]
+            id: 'blessing', name: 'blessing', el: 'light', kind: 'self',
+            cost: 19, cd: 12, dmg: 0,
+            blurb: 'ten health now, and a quarter more damage for seven seconds.',
+            p: { heal: 10, status: { k: 'focus', dur: 7 } },
+            glyph: [CIRCLE(50, 26, 22), LINE(50, 48, 50, 98), LINE(20, 68, 80, 68)]
         },
         {
-            id: 'stoneskin', name: 'stone skin', el: 'earth', kind: 'ward',
-            cost: 20, cd: 11, dmg: 0,
-            blurb: 'a smaller shield, but everything hurts a quarter less while it lasts.',
-            p: { shield: 22, dur: 8, status: 'stoneskin', statusDur: 8 },
-            glyph: [LINE(8, 30, 92, 30), LINE(8, 70, 92, 70), LINE(50, 8, 50, 30), LINE(28, 70, 28, 92), LINE(72, 70, 72, 92)]
+            id: 'sanctuary', name: 'sanctuary', el: 'light', kind: 'zone',
+            cost: 14, cd: 14, dmg: 0, charges: 1,
+            blurb: 'a dome. nothing of theirs gets through it, in either direction. they can still walk in.',
+            p: { r: 5, dur: 7.5, range: 16, blocks: true },
+            glyph: [CIRCLE(50, 50, 47), LINE(50, 3, 50, 97), LINE(3, 50, 97, 50)]
+        },
+        {
+            id: 'judgment', name: 'judgment', el: 'light', kind: 'beam',
+            cost: 21, cd: 10, dmg: 13, charges: 1,
+            blurb: 'a verdict. weak on the healthy, and worth nearly half their missing health on anyone who is not.',
+            p: { range: 34, width: 0.7, execute: 0.42 },
+            glyph: [QUAD(12, 6, 16, 58, 50, 58), QUAD(88, 6, 84, 58, 50, 58), LINE(50, 2, 50, 98)]
+        },
+
+        // ---------------- earth: squares, and the floor ----------------
+        {
+            id: 'stonespike', name: 'stone spike', el: 'earth', kind: 'shot',
+            cost: 13, cd: 4, dmg: 24, charges: 1,
+            blurb: 'runs along the floor and comes up under them. jump and it goes straight past.',
+            p: { speed: 28, r: 0.8, ground: true, life: 1.6, knockUp: 6 },
+            glyph: [CLOSED([[6, 92], [6, 18], [28, 58], [50, 8], [72, 58], [94, 18], [94, 92]], 6)]
+        },
+        {
+            id: 'boulder', name: 'boulder', el: 'earth', kind: 'shot',
+            cost: 18, cd: 7, dmg: 30, charges: 1,
+            blurb: 'heavy, rolls, bounces off walls, and shoves whatever it meets. walks round corners by accident.',
+            p: { speed: 15, r: 1.1, roll: true, bounce: 3, knock: 12, life: 5, gravity: 18 },
+            glyph: [CLOSED([[8, 8], [92, 8], [92, 92], [8, 92]])]
+        },
+        {
+            id: 'quake', name: 'quake', el: 'earth', kind: 'nova',
+            cost: 20, cd: 11, dmg: 15,
+            blurb: 'hits everything standing on the floor nearby, breaks their traps. jump and it misses.',
+            p: { r: 11, ground: true, breaks: true, status: { k: 'stun', dur: 0.5 } },
+            glyph: [PATH([[2, 70], [26, 70], [26, 30], [50, 30], [50, 70], [74, 70], [74, 30], [98, 30]], 6)]
+        },
+        {
+            id: 'stoneskin', name: 'stone skin', el: 'earth', kind: 'self',
+            cost: 14, cd: 13, dmg: 0,
+            blurb: 'everything hurts a third less for eight seconds. you do walk like a statue though.',
+            p: { status: { k: 'stoneskin', dur: 8 } },
+            glyph: [CLOSED([[4, 4], [96, 4], [96, 96], [4, 96]]), CLOSED([[32, 32], [68, 32], [68, 68], [32, 68]])]
         },
         {
             id: 'pillar', name: 'pillar', el: 'earth', kind: 'wall',
-            cost: 22, cd: 10, dmg: 0,
-            blurb: 'sixty points of rock between you and whatever is coming.',
-            p: { hp: 60, dur: 12, h: 150 },
-            glyph: [LINE(22, 8, 22, 88), LINE(22, 88, 90, 88)]
+            cost: 8, cd: 8, dmg: 0, charges: 1,
+            blurb: 'a column comes up out of the floor. cover if you point away, a lift if you point down.',
+            p: { w: 2.6, d: 2.6, h: 5, hp: 110, dur: 14, range: 24 },
+            glyph: [LINE(14, 6, 86, 6), LINE(14, 94, 86, 94), LINE(50, 6, 50, 94)]
         },
 
-        // ---------------- blood ----------------
+        // ---------------- blood: drops and hearts ----------------
         {
-            id: 'bloodlance', name: 'blood lance', el: 'blood', kind: 'bolt',
-            cost: 6, hp: 8, cd: 3, dmg: 21,
+            id: 'bloodlance', name: 'blood lance', el: 'blood', kind: 'shot',
+            cost: 2, hp: 6, cd: 3, dmg: 36, charges: 1,
             blurb: 'paid for in your own health. hits like it.',
-            p: { speed: 480, r: 8 },
-            glyph: [QUAD(50, 8, 18, 52, 50, 92), QUAD(50, 8, 82, 52, 50, 92)]
+            p: { speed: 64, r: 0.3 },
+            glyph: [[].concat(QUAD(50, 2, 4, 62, 26, 84), QUAD(26, 84, 50, 104, 74, 84).slice(1), QUAD(74, 84, 96, 62, 50, 2).slice(1))]
         },
         {
-            id: 'sacrifice', name: 'sacrifice', el: 'blood', kind: 'special',
-            cost: 0, hp: 15, cd: 14, dmg: 0,
-            blurb: 'fifteen health straight into forty mana. no take-backs.',
-            p: { mana: 40 },
-            glyph: [LINE(50, 50, 50, 92), LINE(50, 50, 16, 10), LINE(50, 50, 84, 10)]
+            id: 'sacrifice', name: 'sacrifice', el: 'blood', kind: 'self',
+            cost: 0, hp: 12, cd: 15, dmg: 0,
+            blurb: 'twelve health straight into seventy five ink. no take-backs.',
+            p: { ink: 75 },
+            glyph: RAYS(50, 54, 0, 50, 3, -90)
         },
         {
-            id: 'leech', name: 'leech', el: 'blood', kind: 'hex',
-            cost: 16, cd: 9, dmg: 0,
-            blurb: 'sticks to them for five seconds and feeds you what it takes.',
-            p: { status: 'leech', dur: 5, dps: 2.5, feed: true },
-            glyph: [ARC(56, 50, 40, 55, 305)]
+            id: 'leech', name: 'leech', el: 'blood', kind: 'shot',
+            cost: 12, cd: 9, dmg: 3, charges: 1,
+            blurb: 'sticks to them for six seconds and feeds you everything it takes.',
+            p: { speed: 28, r: 0.45, status: { k: 'leech', dur: 6, dps: 4, feed: true } },
+            glyph: [ARC(52, 50, 46, 50, 310)]
         },
         {
-            id: 'hemorrhage', name: 'hemorrhage', el: 'blood', kind: 'hex',
-            cost: 18, cd: 8, dmg: 0,
-            blurb: 'a bleed that gets worse the more they move about.',
-            p: { status: 'bleed', dur: 8, dps: 2.2, moveDps: 3 },
-            glyph: [LINE(24, 8, 24, 92), LINE(50, 8, 50, 92), LINE(76, 8, 76, 92)]
+            id: 'hemorrhage', name: 'hemorrhage', el: 'blood', kind: 'shot',
+            cost: 14, cd: 8, dmg: 5, charges: 1,
+            blurb: 'a bleed that gets worse the more they run. stand still and it nearly stops. good luck with that.',
+            p: { speed: 42, r: 0.35, status: { k: 'bleed', dur: 7, dps: 1, moveDps: 6.5 } },
+            glyph: [LINE(10, 32, 90, 32), LINE(10, 68, 90, 68)]
         },
         {
-            id: 'bloodpact', name: 'blood pact', el: 'blood', kind: 'buff',
-            cost: 0, hp: 10, cd: 20, dmg: 0,
-            blurb: 'eight seconds where spells cost health instead of mana, and hit harder.',
-            p: { status: 'pact', dur: 8 },
-            glyph: [QUAD(50, 40, 12, 2, 8, 40), QUAD(8, 40, 18, 70, 50, 94), QUAD(50, 40, 88, 2, 92, 40), QUAD(92, 40, 82, 70, 50, 94)]
+            id: 'bloodpact', name: 'blood pact', el: 'blood', kind: 'self',
+            cost: 0, hp: 5, cd: 16, dmg: 0,
+            blurb: 'eight seconds where spells cost health instead of ink, and hit a third harder.',
+            p: { status: { k: 'pact', dur: 8 } },
+            glyph: [[].concat(QUAD(50, 34, 26, -6, 6, 26), QUAD(6, 26, 4, 58, 50, 98).slice(1), QUAD(50, 98, 96, 58, 94, 26).slice(1), QUAD(94, 26, 74, -6, 50, 34).slice(1))]
         },
 
-        // ---------------- void ----------------
+        // ---------------- void: holes in things ----------------
         {
             id: 'voidlance', name: 'void lance', el: 'void', kind: 'beam',
-            cost: 20, cd: 5, dmg: 16,
-            blurb: 'a line through everything. walls do not count.',
-            p: { throughWalls: true },
-            glyph: [LINE(6, 50, 94, 50)]
+            cost: 17, cd: 7, dmg: 24, charges: 1,
+            blurb: 'a line through everything, half a second after you fire. walls do not count.',
+            p: { range: 44, width: 0.9, through: true, delay: 0.45 },
+            glyph: [LINE(2, 50, 98, 50, 24)]
         },
         {
             id: 'singularity', name: 'singularity', el: 'void', kind: 'zone',
-            cost: 30, cd: 14, dmg: 0,
-            blurb: 'a hole in the middle that swallows spells and chews on whoever is near.',
-            p: { dps: 5, dur: 5, w: 120, mid: true, eats: true },
-            glyph: [ARC(6, 50, 44, -60, 60), ARC(94, 50, 44, 120, 240)]
+            cost: 30, cd: 16, dmg: 0, charges: 1,
+            blurb: 'a hole that drags them in, chews on them and swallows spells.',
+            p: { r: 6.5, dur: 4, dps: 4, pull: 4.5, eats: true, range: 28 },
+            glyph: [CIRCLE(50, 50, 47), CIRCLE(50, 50, 20)]
         },
         {
-            id: 'rift', name: 'rift', el: 'void', kind: 'hex',
-            cost: 16, cd: 10, dmg: 0,
-            blurb: 'tears twenty five mana out of them and hands you half.',
-            p: { manaBurn: 25, manaGain: 12 },
-            glyph: [LINE(86, 10, 14, 90)]
+            id: 'rift', name: 'rift', el: 'void', kind: 'shot',
+            cost: 7, cd: 9, dmg: 10, charges: 1,
+            blurb: 'tears forty ink out of them and hands you over half. a very quick V.',
+            p: { speed: 56, r: 0.45, inkBurn: 40, inkGain: 24 },
+            glyph: [PATH([[88, 6], [14, 50], [88, 94]], 14)]
         },
         {
-            id: 'oblivion', name: 'oblivion', el: 'void', kind: 'bolt',
-            cost: 52, cd: 25, dmg: 40,
-            blurb: 'the big one. costs everything, travels slowly, ends arguments.',
-            p: { speed: 210, r: 24, aoe: 80, pierce: true },
-            glyph: [QUAD(8, 50, 50, 10, 92, 50), QUAD(8, 50, 50, 90, 92, 50), CIRCLE(50, 50, 16)]
+            id: 'oblivion', name: 'oblivion', el: 'void', kind: 'shot',
+            cost: 46, cd: 24, dmg: 46, charges: 1,
+            blurb: 'the big one. crawls along, ignores walls and floors, ends arguments. run.',
+            p: { speed: 8.5, r: 1.5, aoe: 5, splash: 0.7, ghost: true, homing: 0.4, life: 9 },
+            glyph: [LEMNISCATE(50, 50, 50)]
         },
         {
-            id: 'mirror', name: 'mirror', el: 'void', kind: 'buff',
-            cost: 22, cd: 12, dmg: 0,
-            blurb: 'the next spell that hits you goes back where it came from.',
-            p: { status: 'mirror', dur: 6 },
-            glyph: [PATH([[12, 16], [12, 84], [88, 16], [88, 84], [12, 16]])]
+            id: 'mirror', name: 'mirror', el: 'void', kind: 'self',
+            cost: 13, cd: 12, dmg: 0,
+            blurb: 'the next shot that hits you in the next six seconds goes back where it came from.',
+            p: { status: { k: 'mirror', dur: 6 } },
+            glyph: [[].concat(ARC(30, 50, 48, -90, 90), LINE(30, 98, 30, 2).slice(1))]
         }
     ];
 
     // ---------------------------------------------------------------
-    // statuses — what the icons in the health bar mean
+    // statuses — what the icons on the hud mean, and what they do
     // ---------------------------------------------------------------
     const STATUS = {
-        burn: { name: 'burning', icon: 'local_fire_department', color: '#ff6b2b', bad: true },
-        chill: { name: 'chilled', icon: 'ac_unit', color: '#6fd6ff', bad: true },
-        freeze: { name: 'frozen', icon: 'severe_cold', color: '#bff0ff', bad: true },
-        shock: { name: 'shocked', icon: 'bolt', color: '#ffe14d', bad: true },
-        stun: { name: 'stunned', icon: 'flare', color: '#fff', bad: true },
-        weak: { name: 'weakened', icon: 'trending_down', color: '#a074d8', bad: true },
-        root: { name: 'rooted', icon: 'grass', color: '#7ee06a', bad: true },
-        blind: { name: 'blinded', icon: 'visibility_off', color: '#7ee06a', bad: true },
-        bleed: { name: 'bleeding', icon: 'water_drop', color: '#e4485f', bad: true },
-        leech: { name: 'leeched', icon: 'bug_report', color: '#e4485f', bad: true },
-        focus: { name: 'focused', icon: 'star', color: '#ffe9a8' },
-        thorns: { name: 'thorns', icon: 'psychiatry', color: '#7ee06a' },
-        stoneskin: { name: 'stone skin', icon: 'shield', color: '#c8a06a' },
-        mirror: { name: 'mirrored', icon: 'flip', color: '#b04dff' },
-        phase: { name: 'phased', icon: 'blur_on', color: '#c08cff' },
-        overload: { name: 'overloaded', icon: 'battery_charging_full', color: '#ffe14d' },
-        well: { name: 'mana well', icon: 'water_full', color: '#c08cff' },
-        pact: { name: 'blood pact', icon: 'favorite', color: '#e4485f' }
+        burn: { name: 'burning', short: 'burn', color: '#ff6b2b', bad: true },
+        chill: { name: 'chilled', short: 'chill', color: '#6fd6ff', bad: true },
+        freeze: { name: 'frozen', short: 'ice', color: '#bff0ff', bad: true },
+        shock: { name: 'shocked', short: 'shock', color: '#ffe14d', bad: true },
+        stun: { name: 'stunned', short: 'stun', color: '#ffffff', bad: true },
+        weak: { name: 'weakened', short: 'weak', color: '#a074d8', bad: true },
+        root: { name: 'rooted', short: 'root', color: '#7ee06a', bad: true },
+        blind: { name: 'blinded', short: 'blind', color: '#7ee06a', bad: true },
+        bleed: { name: 'bleeding', short: 'bleed', color: '#e4485f', bad: true },
+        leech: { name: 'leeched', short: 'leech', color: '#e4485f', bad: true },
+        mark: { name: 'marked', short: 'mark', color: '#b04dff', bad: true },
+        focus: { name: 'focused', short: 'focus', color: '#ffe9a8' },
+        stoneskin: { name: 'stone skin', short: 'stone', color: '#c8a06a' },
+        mirror: { name: 'mirrored', short: 'mirror', color: '#b04dff' },
+        phase: { name: 'phased', short: 'phase', color: '#c08cff' },
+        overload: { name: 'overloaded', short: 'over', color: '#ffe14d' },
+        pact: { name: 'blood pact', short: 'pact', color: '#e4485f' },
+        regen: { name: 'regrowing', short: 'heal', color: '#7ee06a' },
+        stealth: { name: 'gone dark', short: 'dark', color: '#a074d8' },
+        turbo: { name: 'turbo', short: 'turbo', color: '#0df259' },
+        clock: { name: 'overclocked', short: 'clock', color: '#ff67d3' }
     };
 
     // ---------------------------------------------------------------
-    // arena + duel constants
+    // the arena and the match
     // ---------------------------------------------------------------
     const ARENA = {
-        W: 760, H: 400,
-        floor: 344, ceil: 60,
-        leftX: 96, rightX: 664,
-        maxHp: 100, maxMana: 100,
-        manaRegen: 7,            // per second
-        moveSpeed: 175,          // px per second, up and down only
-        rounds: 2,               // first to two rounds takes the duel
-        tickHz: 60,
-        snapshotHz: 15
+        size: 64,                // metres, square, centred on the origin
+        tickHz: 30,
+        snapshotHz: 20,          // straight across
+        relayHz: 5,              // over the public relays
+        maxHp: 100, maxInk: 100,
+        inkRegen: 4.5,           // per second
+        inkOnHit: 5,             // the staff zap pays for your drawing
+        startInk: 70,
+
+        walk: 7, aimWalk: 4.4, stanceWalk: 2.6,
+        jump: 7.4, gravity: 20, step: 0.55,
+        dash: { speed: 19, time: 0.2, cd: 2.6 },
+        radius: 0.45, height: 1.8,
+
+        // the ink stance: a sigil is a reload, and you stand out in the open for it
+        stance: { hurt: 1.2, slowR: 6.5, slowBy: 0.35 },
+
+        zap: { dmg: 5, rof: 0.34, speed: 52, r: 0.22, range: 44 },
+        rof: 0.5,                // between shots of whatever is in the chamber
+        qualityPower: [0.8, 1.2],// how much a scrappy and a clean sigil are worth
+        cleanCharge: 0.75,       // quality that loads a bonus charge
+
+        // how a match ends
+        knockouts: 3,
+        ritual: 42,              // seconds alone on the altar
+        ritualKo: 0.25,          // share of your progress a knockout takes
+        altar: { r: 6.4, h: 1.5, ramp: 12.5 },
+        respawn: 3, spawnSafe: 1.5,
+        countdown: 3,
+        fogAt: 150,              // seconds before the fog starts closing in
+        fogTime: 75,             // and how long it takes to reach the altar
+        fogDps: 7, fogMaxDps: 22,
+        fogStart: 62, fogEnd: 9, // the safe radius
+        hardCap: 300,
+
+        pickups: {
+            ink: { respawn: 16, ink: 35, label: 'ink pot' },
+            hp: { respawn: 22, hp: 30, label: 'flask' },
+            turbo: { respawn: 40, status: 'turbo', dur: 10, label: 'turbo button' },
+            clock: { respawn: 45, status: 'clock', dur: 10, label: 'overclock' }
+        },
+        maxOwned: { trap: 3, wall: 2, zone: 2, summon: 2 }
     };
 
+    // Every solid thing is a box standing on the floor, with nothing overhanging,
+    // so the whole arena is a height map and asking "is that a wall" costs one
+    // array lookup. Half of it is written here. makeLayout() turns it round by
+    // 180 degrees for the other half, so neither spawn is the good one.
+    //   [x, z, half width, half depth, height, look]
+    const HALF_ARENA = [
+        // the big four pillars round the altar
+        [15, 15, 1.4, 1.4, 6, 'pillar'],
+        [-15, 15, 1.4, 1.4, 6, 'pillar'],
+        // error dialogs the size of a bus. the good cover
+        [0, 22, 5, 0.6, 3.6, 'window'],
+        [24, 2, 0.6, 4.5, 3.6, 'window'],
+        // waist high: you can shoot over, and duck, and jump on
+        [9, 25, 3, 0.7, 1.25, 'low'],
+        [-9, 25, 3, 0.7, 1.25, 'low'],
+        [25, 13, 0.7, 2.6, 1.25, 'low'],
+        [-25, 9, 0.7, 3, 1.25, 'low'],
+        [17, 25, 1, 1, 2.1, 'crate'],
+        [-18, 22, 1.2, 1.2, 2.5, 'crate'],
+        [-22, 19.5, 1, 1, 1.4, 'crate'],
+        [20, -6, 1.1, 1.1, 2.4, 'crate'],
+        // broken columns out in the corners, for when somebody is coming
+        [27, 26, 1, 1, 3, 'pillar'],
+        [-27, 25, 1, 1, 2.2, 'pillar'],
+        [16, 6, 2.2, 0.6, 2, 'low']
+    ];
+    const SPAWNS = [[-26, 28.5], [26, -28.5]];
+    const PICKUPS = [
+        { kind: 'ink', x: 0, z: 27 }, { kind: 'ink', x: 27.5, z: 7 },
+        { kind: 'hp', x: -28, z: 3 },
+        { kind: 'turbo', x: 12, z: 20 }, { kind: 'clock', x: -9, z: 15 }
+    ];
+
+    function makeLayout() {
+        const boxes = [];
+        HALF_ARENA.forEach(b => {
+            boxes.push(b.slice());
+            boxes.push([-b[0], -b[1], b[2], b[3], b[4], b[5]]);
+        });
+        const pickups = [];
+        PICKUPS.forEach(p => {
+            pickups.push({ kind: p.kind, x: p.x, z: p.z });
+            pickups.push({ kind: p.kind, x: -p.x, z: -p.z });
+        });
+        return { boxes, pickups, spawns: SPAWNS.map(s => s.slice()) };
+    }
+
     // ---------------------------------------------------------------
-    // the dress-up box — every part is drawn in code, no image files
+    // the dress-up box — low poly now, but the same fourteen short strings,
+    // so a wizard from before the rebuild still walks in looking like itself
     // ---------------------------------------------------------------
     const AVATAR = {
         skin: ['#f0c9a0', '#d9a066', '#a86b3c', '#7a4a24', '#cfe5c0', '#b9b6d6'],
@@ -610,25 +703,24 @@
     // ---------------------------------------------------------------
     // THE BOTS
     //
-    // Six opponents for 1 v bot, and they are not the same machine with
-    // a different number bolted on. Each one has a spell taste, a way of
-    // fighting, and its own hands: react is the seconds it waits between
-    // casts (a person needs about a second and a half to draw anything,
-    // so this is the real difficulty knob), dodge is how often it gets
-    // out of the way, quality is how well it "draws" — which feeds the
-    // same power scaling your own sigils get.
+    // They play the same game through the same doors you do: the same stance,
+    // the same ink, the same chamber, a crosshair that has to get to you. What
+    // differs is their hands. draw is how long a sigil takes them, aim is how
+    // far off the crosshair sits and turn how fast it gets there, sight is how
+    // late they notice you moved, dodge is how often they get out of the way,
+    // quality is how tidy their drawing is.
     //
-    // The difficulty dropdown scales all three, so "old gary on hard" is
-    // still old gary: slow, patient, and behind a wall.
+    // The difficulty dropdown scales those, so "old gary on hard" is still
+    // old gary: slow, patient, and behind a wall.
     // ---------------------------------------------------------------
     const BOTS = [
         {
             id: 'bogwart', name: 'bogwart', title: 'first year',
             tier: 'easy',
-            blurb: 'has read one book and remembers about half of it. throws whatever he can spell.',
-            skill: { react: 3.0, dodge: 0.2, quality: 0.25 },
+            blurb: 'has read one book and remembers about half of it. shoots at where you were.',
+            skill: { react: 3.0, dodge: 0.15, quality: 0.3, aim: 7.5, turn: 2.2, sight: 0.55 },
             style: {
-                els: ['fire', 'nature'], aggression: 0.9, defence: 0.7, hexes: 0.4,
+                els: ['fire', 'nature'], aggression: 0.9, defence: 0.7, hexes: 0.4, range: 16,
                 pool: ['spark', 'fireball', 'frostbolt', 'magicmissile', 'runeward', 'regrowth', 'vinewhip', 'stonespike']
             },
             avatar: {
@@ -637,7 +729,7 @@
                 staff: 'gnarled', familiar: 'frog', aura: 'none', eyes: 'tired', title: 'first year'
             },
             lines: {
-                start: ['right. i have definitely revised for this.', 'my mum says i am very talented.'],
+                start: ['right. i have definitely revised for this bradar.', 'my mum says i am very talented.'],
                 win: ['i did that on purpose!', 'wait, that worked?'],
                 lose: ['that was not in the book.', 'best of nine?']
             }
@@ -646,10 +738,10 @@
             id: 'mildred', name: 'mildred', title: 'the unwise',
             tier: 'easy',
             blurb: 'builds a wall, hides behind it, and complains about the draught.',
-            skill: { react: 2.4, dodge: 0.4, quality: 0.45 },
+            skill: { react: 2.5, dodge: 0.3, quality: 0.45, aim: 6, turn: 2.6, sight: 0.45 },
             style: {
-                els: ['ice', 'arcane'], aggression: 0.95, defence: 1.4, hexes: 0.8,
-                pool: ['frostbolt', 'icewall', 'hailstorm', 'deepfreeze', 'runeward', 'manawell', 'arcaneorb', 'blink', 'regrowth']
+                els: ['ice', 'arcane'], aggression: 0.8, defence: 1.5, hexes: 0.8, range: 20,
+                pool: ['frostbolt', 'icewall', 'hailstorm', 'deepfreeze', 'runeward', 'manawell', 'arcaneorb', 'blink']
             },
             avatar: {
                 skin: '#d9a066', hat: 'wide', hatColor: '#2b8cff', hair: 'long', hairColor: '#e8e8e8',
@@ -666,9 +758,10 @@
             id: 'cinder', name: 'cinder', title: 'who is on fire',
             tier: 'normal',
             blurb: 'sets everything alight, including herself, and calls it a strategy.',
-            skill: { react: 1.9, dodge: 0.6, quality: 0.65 },
+            skill: { react: 1.9, dodge: 0.5, quality: 0.65, aim: 4.4, turn: 3.4, sight: 0.32 },
             style: {
-                els: ['fire', 'storm'], aggression: 1.5, defence: 0.5, hexes: 0.9
+                els: ['fire', 'storm'], aggression: 1.5, defence: 0.5, hexes: 0.9, range: 13,
+                pool: ['fireball', 'flamelance', 'inferno', 'meteor', 'spark', 'chainlightning', 'thunderclap', 'emberward']
             },
             avatar: {
                 skin: '#a86b3c', hat: 'horned', hatColor: '#ff6b2b', hair: 'mohawk', hairColor: '#ff6b2b',
@@ -676,7 +769,7 @@
                 staff: 'orb', familiar: 'imp', aura: 'flames', eyes: 'angry', title: 'who is on fire'
             },
             lines: {
-                start: ['stand still. it is quicker for both of us.', 'i am going to enjoy this bit.'],
+                start: ['stand still bradar. it is quicker for both of us.', 'i am going to enjoy this bit.'],
                 win: ['see? warmth.', 'ash. lovely.'],
                 lose: ['put me out. put me out!', 'fine. fine!']
             }
@@ -685,9 +778,10 @@
             id: 'gary', name: 'old gary', title: 'the caretaker',
             tier: 'normal',
             blurb: 'a wall, a ward, a heal, and one rock every eight seconds until you give up.',
-            skill: { react: 1.9, dodge: 0.55, quality: 0.6 },
+            skill: { react: 1.9, dodge: 0.45, quality: 0.6, aim: 4.2, turn: 3, sight: 0.34 },
             style: {
-                els: ['earth', 'light'], aggression: 0.9, defence: 1.6, hexes: 0.6
+                els: ['earth', 'light'], aggression: 0.9, defence: 1.6, hexes: 0.6, range: 19,
+                pool: ['boulder', 'stonespike', 'pillar', 'stoneskin', 'quake', 'smite', 'blessing', 'sanctuary']
             },
             avatar: {
                 skin: '#d9a066', hat: 'bald', hatColor: '#c8a06a', hair: 'none', hairColor: '#e8e8e8',
@@ -704,9 +798,10 @@
             id: 'nyx', name: 'nyx', title: 'the quiet',
             tier: 'hard',
             blurb: 'never in the same place twice, and everything she casts sticks to you.',
-            skill: { react: 1.5, dodge: 0.85, quality: 0.85 },
+            skill: { react: 1.3, dodge: 0.8, quality: 0.9, aim: 2.6, turn: 4.8, sight: 0.2 },
             style: {
-                els: ['shadow', 'blood'], aggression: 1.45, defence: 0.8, hexes: 1.4
+                els: ['shadow', 'blood'], aggression: 1.3, defence: 0.8, hexes: 1.4, range: 15,
+                pool: ['shadowbolt', 'curse', 'drainlife', 'nightfall', 'hemorrhage', 'runeward', 'bloodlance', 'blink']
             },
             avatar: {
                 skin: '#b9b6d6', hat: 'hood', hatColor: '#3a3a4a', hair: 'long', hairColor: '#b04dff',
@@ -722,10 +817,11 @@
         {
             id: 'collector', name: 'the tax collector', title: 'void auditor',
             tier: 'hard',
-            blurb: 'takes your mana first, your health second, and files the paperwork after.',
-            skill: { react: 1.25, dodge: 0.9, quality: 0.95 },
+            blurb: 'takes your ink first, your health second, and files the paperwork after.',
+            skill: { react: 1.4, dodge: 0.75, quality: 0.9, aim: 2.8, turn: 4.6, sight: 0.2 },
             style: {
-                els: ['void', 'arcane', 'storm'], aggression: 1.5, defence: 0.9, hexes: 1.2
+                els: ['void', 'arcane', 'storm'], aggression: 1.4, defence: 0.9, hexes: 1.2, range: 21,
+                pool: ['voidlance', 'rift', 'singularity', 'oblivion', 'mirror', 'arcaneorb', 'chainlightning', 'blink']
             },
             avatar: {
                 skin: '#7a4a24', hat: 'crown', hatColor: '#ffb400', hair: 'none', hairColor: '#3a3a4a',
@@ -733,7 +829,7 @@
                 staff: 'skull', familiar: 'none', aura: 'shadow', eyes: 'cyclops', title: 'void auditor'
             },
             lines: {
-                start: ['this will be quick, and it will be itemised.', 'your mana is due.'],
+                start: ['this will be quick, and it will be itemised.', 'your ink is due.'],
                 win: ['settled.', 'receipt attached.'],
                 lose: ['i shall be appealing this.', 'an accounting error.']
             }
@@ -742,21 +838,22 @@
 
     // how the difficulty dropdown bends whichever bot you picked
     const BOT_DIFFICULTY = {
-        easy: { react: 1.45, dodge: 0.6, quality: 0.7 },
-        normal: { react: 1, dodge: 1, quality: 1 },
-        hard: { react: 0.78, dodge: 1.18, quality: 1.18 }
+        easy: { react: 1.45, dodge: 0.6, quality: 0.7, aim: 1.5, turn: 0.75, sight: 1.4 },
+        normal: { react: 1, dodge: 1, quality: 1, aim: 1, turn: 1, sight: 1 },
+        hard: { react: 0.78, dodge: 1.18, quality: 1.18, aim: 0.72, turn: 1.25, sight: 0.75 }
     };
 
-    // starting loadout — the eight sigils shown on the quick reference
+    // what you walk in with: eight sigils that do not look anything alike
     const DEFAULT_LOADOUT = ['spark', 'fireball', 'frostbolt', 'magicmissile', 'runeward', 'regrowth', 'smite', 'icewall'];
+    const LOADOUT_SIZE = 8;
 
     window.WZ = {
         EL, SPELLS, STATUS, ARENA, AVATAR,
         BOTS, BOT_DIFFICULTY,
-        DEFAULT_LOADOUT,
-        randomAvatar,
+        DEFAULT_LOADOUT, LOADOUT_SIZE,
+        randomAvatar, makeLayout,
         byId: (id) => SPELLS.find(s => s.id === id) || null,
         botById: (id) => BOTS.find(b => b.id === id) || null,
-        helpers: { LINE, PATH, CLOSED, ARC, CIRCLE, QUAD, POLY, STAR, ZIG, WAVE, SPIRAL, LEMNISCATE, RAYS }
+        helpers: { LINE, PATH, CLOSED, ARC, CIRCLE, QUAD, POLY, PENTAGRAM, ZIG, WAVE, SPIRAL, LEMNISCATE, RAYS }
     };
 })();

@@ -1189,8 +1189,8 @@
             name: 'wizardz 98',
             icon: 'auto_fix_high',
             min: 2, max: 2,
-            blurb: 'draw sigils to sling 50 spells at another wizard',
-            scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz.js']
+            blurb: 'a low poly shooter: draw sigils to load your staff, then go and hit another wizard',
+            scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js']
         },
         {
             id: 'ageoftroll',

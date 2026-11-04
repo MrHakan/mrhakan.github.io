@@ -10796,13 +10796,60 @@ html {
     .aot-input { min-height: 40px; font-size: 16px; }
 }
 
-/* Wizardz: keep the arena proportional and controls usable with a thumb. */
-.wz-canvas {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 19 / 10;
+/* Wizardz in 3d. The canvas really is 240 lines tall, and css scales it up with no smoothing. */
+.wz-body.wz-playing { padding: 0; max-height: none; overflow: hidden; background: #000; }
+.app-window.fs-active .wz-body.wz-playing { padding: 0; }
+.wz-stage { flex: none; }
+.wz-stage { position: relative; overflow: hidden; background: #000; touch-action: none; user-select: none; -webkit-user-select: none; line-height: 0; }
+.wz-stage .wz-canvas { position: absolute; left: 0; top: 0; max-width: none; outline: none; image-rendering: crisp-edges; image-rendering: pixelated; cursor: crosshair; }
+.wz-hud { position: absolute; left: 0; top: 0; pointer-events: none; image-rendering: pixelated; }
+.wz-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; line-height: 1.4; pointer-events: none; }
+.wz-overlay > * { pointer-events: auto; }
+.wz-dialog {
+    width: min(300px, 90%); max-height: 96%; overflow-y: auto;
+    padding: 6px 10px 10px; background: #c0c0c0; color: #000;
+    border: 2px solid; border-color: #fff #404040 #404040 #fff;
+    font-family: Tahoma, "MS Sans Serif", sans-serif; font-size: 12px;
+    box-shadow: 2px 2px 0 #000;
 }
-.wz-arena-wrap { min-width: 0; }
+.wz-dialog-title { margin: -2px -6px 8px; padding: 2px 6px; background: #000080; color: #fff; font-weight: bold; font-size: 13px; }
+.wz-dialog p { margin: 0 0 8px; }
+.wz-dialog .wz-btn { display: block; margin-top: 4px; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.wz-dialog .wz-btn.wz-go { font-weight: bold; }
+.wz-end .wz-dialog-title { font-size: 16px; }
+.wz-clicktoplay {
+    position: absolute; left: 50%; top: 74%; transform: translateX(-50%);
+    padding: 6px 12px; background: #000080; color: #fff; border: 2px solid #fff;
+    font: bold 12px "Courier New", monospace; cursor: pointer; white-space: nowrap;
+}
+.wz-menubtn {
+    position: absolute; left: 4px; top: 4px; width: 22px; height: 22px; padding: 0; line-height: 18px;
+    background: #c0c0c0; color: #000; border: 2px solid; border-color: #fff #404040 #404040 #fff; font-size: 13px; cursor: pointer;
+}
+.wz-touch { position: absolute; inset: 0; pointer-events: none; line-height: 1.2; }
+.wz-t {
+    position: absolute; pointer-events: auto; touch-action: none;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(192,192,192,.55); color: #000; border: 2px solid; border-color: #fff #404040 #404040 #fff;
+    font: bold 12px "Courier New", monospace;
+}
+.wz-t.on { background: rgba(13,242,89,.8); }
+.wz-t-fire { right: 12px; bottom: 14px; width: 76px; height: 76px; background: rgba(228,72,95,.6); color: #fff; font-size: 15px; }
+.wz-t-ink { right: 96px; bottom: 10px; background: rgba(13,242,89,.5); }
+.wz-t-jump { right: 12px; bottom: 100px; }
+.wz-t-dash { right: 76px; bottom: 76px; }
+.wz-t-aim { right: 150px; bottom: 16px; width: 46px; height: 46px; }
+.wz-t-menu { left: 4px; top: 30px; width: 34px; height: 34px; border-radius: 0; background: #c0c0c0; }
+.wz-knob { position: absolute; width: 92px; height: 92px; margin: -46px 0 0 -46px; border: 2px solid rgba(255,255,255,.5); border-radius: 50%; pointer-events: none; }
+.wz-knob span { position: absolute; left: 26px; top: 26px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.55); }
+.wz-mini-strip { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 6px; }
+.wz-mini-strip canvas { background: #160a2b; border: 1px solid #4b2d7a; }
+.wz-help { line-height: 1.5; padding: 4px 6px; }
+.wz-help h3 { margin: 10px 0 4px; color: #ffe14d; font-size: 13px; font-weight: bold; }
+.wz-help p { margin: 0 0 6px; }
+.wz-keys { border-collapse: collapse; width: 100%; }
+.wz-keys td { padding: 2px 6px; border-bottom: 1px solid #2b1846; }
+.wz-keys td:first-child { color: #0df259; white-space: nowrap; width: 90px; }
 .wz-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -10823,13 +10870,12 @@ html {
 .wz-card-cost { display: block; color: #c8bcea; font-size: 12px; line-height: 1.5; }
 .wz-card.wz-cool { opacity: .7; }
 .wz-card:hover { background: #2b1846; border-color: #bb8aff; }
-.wz-card:focus-visible, .wz-btn:focus-visible, .wz-canvas:focus-visible, .wz-tab:focus-visible {
+.wz-card:focus-visible, .wz-btn:focus-visible, .wz-tab:focus-visible {
     outline: 2px solid #ffe14d;
     outline-offset: 2px;
 }
 .wz-status { min-height: 2.5em; font-size: 14px; line-height: 1.4; color: #e8e2ff; padding: 4px 2px; }
 .wz-foot .wz-btn { min-height: 44px; font-size: 14px; }
-#wz-up, #wz-down { touch-action: none; user-select: none; min-width: 70px; }
 .wz-btn:disabled { opacity: .5; cursor: default; }
 @media (max-width: 520px) {
     .wz-card { flex: 0 0 76px; }

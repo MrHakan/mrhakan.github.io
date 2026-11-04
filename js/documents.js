@@ -136,7 +136,7 @@
             id: 'wizardz',
             name: 'wizardz 98',
             icon: '🧙',
-            keys: ['mrhakan98-wizardz-avatar', 'mrhakan98-wizardz-loadout', 'mrhakan98-wizardz-difficulty'],
+            keys: ['mrhakan98-wizardz-avatar', 'mrhakan98-wizardz-loadout', 'mrhakan98-wizardz-difficulty', 'mrhakan98-wizardz-manual-cast', 'mrhakan98-wizardz-settings'],
             open: 'wizardz',
             summary() {
                 const av = json('mrhakan98-wizardz-avatar'), lo = json('mrhakan98-wizardz-loadout');

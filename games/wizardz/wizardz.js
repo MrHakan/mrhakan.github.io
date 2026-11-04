@@ -1,329 +1,49 @@
 // ===================================================================
-// WIZARDZ 98 — engine
+// WIZARDZ 98 — the game on the page
 //
-// A 1v1 duel where the only way to cast anything is to draw its sigil
-// on the arena with the mouse. Fifty sigils, fifty spells, one wizard
-// each, and whoever runs out of health first has to explain it in the
-// guestbook.
+// A third person shooter in a window. You walk round a walled arena with a staff,
+// and a sigil is how you load it: press E and the camera stops, you draw, and
+// whatever you drew goes in the chamber for the left mouse button. Self spells go
+// off at once. Between sigils the staff still fires a weak free shot that earns ink
+// back when it lands.
 //
-// Three moving parts:
-//   1. the recogniser — $P point-cloud matching plus a coarse ink grid,
-//      because $P alone thinks every round shape is every other one.
-//   2. the duel — a plain fixed-step simulation. the host runs it and
-//      ships snapshots; the guest sends the two things it knows (which
-//      way it is moving, and what it just drew).
-//   3. the wizard — every hat, beard and familiar is drawn in code, so
-//      an avatar is 14 short strings and travels with the lobby.
+//   wizardz-data.js    the numbers, the symbols, the bots
+//   wizardz-sigil.js   reads a drawing
+//   wizardz-sim.js     the rules, and the bots' brains. no page in it
+//   wizardz-gl.js      the renderer, pretending to be 1995
+//   this file          the window, the mouse, the wire, the hud
 //
-// Content lives in wizardz-data.js. Lobbies live in netplay.js.
+// Online the host owns the game. A guest sends what it is holding and what it just
+// did, numbered, and keeps resending until a snapshot says it landed, because relays
+// drop and reorder things. In between snapshots a guest runs the same step() from the
+// last one, and moves itself at once and corrects afterwards.
 // ===================================================================
 (function () {
     'use strict';
 
     const D = window.WZ;
-    if (!D) { console.warn('[wizardz] data file missing'); return; }
+    const R = window.WZ_SIGIL;
+    const S = window.WZ_SIM;
+    const GL = window.WZ_GL;
+    if (!D || !R || !S || !GL) { console.warn('[wizardz] a file is missing'); return; }
     const A = D.ARENA;
-    const SIM_DT = 1 / A.tickHz;
+    const DT = S.DT;
+    const { sin, cos, hypot, atan2, abs, min, max, floor, round, PI } = Math;
+    const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+    const REC_FLOOR = R.CAST_FLOOR;
 
     // ===============================================================
-    // 1. THE RECOGNISER
+    // who you are: same fourteen strings as before the rebuild, same keys
     // ===============================================================
-    const RES = 32;   // points every gesture is resampled to
-    const GRID = 10;  // ink grid is GRID x GRID
-
-    function flattenStrokes(strokes) {
-        const pts = [];
-        strokes.forEach((s, i) => s.forEach(p => pts.push({ x: p.x, y: p.y, id: i })));
-        return pts;
-    }
-    function pathLength(pts) {
-        let d = 0;
-        for (let i = 1; i < pts.length; i++) {
-            if (pts[i].id === pts[i - 1].id) d += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-        }
-        return d;
-    }
-    // walk the whole gesture and drop a point every 1/n of its length
-    function resample(pts, n) {
-        if (!pts.length) return [];
-        const length = pathLength(pts);
-        if (length < 1e-6) return Array.from({ length: n }, () => ({ ...pts[0] }));
-        const I = length / (n - 1);
-        let D_ = 0;
-        const out = [{ x: pts[0].x, y: pts[0].y, id: pts[0].id }];
-        const src = pts.slice();
-        for (let i = 1; i < src.length; i++) {
-            if (src[i].id !== src[i - 1].id) continue;
-            const d = Math.hypot(src[i].x - src[i - 1].x, src[i].y - src[i - 1].y);
-            if (D_ + d >= I) {
-                const t = Math.min(Math.max((I - D_) / (d || 1), 0), 1);
-                const q = {
-                    x: src[i - 1].x + t * (src[i].x - src[i - 1].x),
-                    y: src[i - 1].y + t * (src[i].y - src[i - 1].y),
-                    id: src[i].id
-                };
-                out.push(q);
-                src.splice(i, 0, q);
-                D_ = 0;
-            } else D_ += d;
-        }
-        while (out.length < n) out.push(Object.assign({}, out[out.length - 1]));
-        return out.slice(0, n);
-    }
-    // uniform scale on purpose — a wide rectangle must not become a square
-    function scaleToBox(pts) {
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-        const size = Math.max(maxX - minX, maxY - minY) || 1;
-        return pts.map(p => ({ x: (p.x - minX) / size, y: (p.y - minY) / size, id: p.id }));
-    }
-    function toCentroid(pts) {
-        let cx = 0, cy = 0;
-        pts.forEach(p => { cx += p.x; cy += p.y; });
-        cx /= pts.length; cy /= pts.length;
-        return pts.map(p => ({ x: p.x - cx, y: p.y - cy, id: p.id }));
-    }
-    function normalize(strokes) { return toCentroid(scaleToBox(resample(flattenStrokes(strokes), RES))); }
-
-    // where the ink sits, blurred, as a unit vector
-    function inkGrid(pts) {
-        const g = new Float64Array(GRID * GRID);
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-        const size = Math.max(maxX - minX, maxY - minY) || 1;
-        const ox = (size - (maxX - minX)) / 2, oy = (size - (maxY - minY)) / 2;
-        pts.forEach(p => {
-            const gx = ((p.x - minX + ox) / size) * (GRID - 1), gy = ((p.y - minY + oy) / size) * (GRID - 1);
-            const x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0;
-            const add = (x, y, w) => { if (x >= 0 && x < GRID && y >= 0 && y < GRID) g[y * GRID + x] += w; };
-            add(x0, y0, (1 - fx) * (1 - fy)); add(x0 + 1, y0, fx * (1 - fy));
-            add(x0, y0 + 1, (1 - fx) * fy); add(x0 + 1, y0 + 1, fx * fy);
-        });
-        const b = new Float64Array(GRID * GRID);
-        for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) {
-            let sum = 0, wsum = 0;
-            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-                const nx = x + dx, ny = y + dy;
-                if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) continue;
-                const w = dx || dy ? 0.5 : 1;
-                sum += g[ny * GRID + nx] * w; wsum += w;
-            }
-            b[y * GRID + x] = sum / wsum;
-        }
-        let norm = 0;
-        for (let i = 0; i < b.length; i++) norm += b[i] * b[i];
-        norm = Math.sqrt(norm) || 1;
-        for (let i = 0; i < b.length; i++) b[i] /= norm;
-        return b;
-    }
-    function cloudDistance(p1, p2, start) {
-        const n = p1.length;
-        const matched = new Array(n).fill(false);
-        let sum = 0, i = start;
-        do {
-            let best = Infinity, index = -1;
-            for (let j = 0; j < n; j++) {
-                if (matched[j]) continue;
-                const d = Math.hypot(p1[i].x - p2[j].x, p1[i].y - p2[j].y);
-                if (d < best) { best = d; index = j; }
-            }
-            matched[index] = true;
-            sum += (1 - ((i - start + n) % n) / n) * best;
-            i = (i + 1) % n;
-        } while (i !== start);
-        return sum;
-    }
-    function greedyMatch(p1, p2) {
-        const n = p1.length;
-        const step = Math.max(1, Math.floor(n / 8));
-        let min = Infinity;
-        for (let i = 0; i < n; i += step) min = Math.min(min, cloudDistance(p1, p2, i), cloudDistance(p2, p1, i));
-        return min;
-    }
-    const cloudScore = d => Math.max((2.0 - d) / 2.0, 0);
-    function inkLength(pts) {
-        let d = 0;
-        for (let i = 1; i < pts.length; i++) {
-            if (pts[i].id === pts[i - 1].id) d += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-        }
-        return d;
-    }
-    // how much the hand turned on its way round, in radians, added up
-    // without sign. a straight lance is 0, a triangle about 2π, a panic
-    // scribble thirty. segments shorter than a rounding error are skipped
-    // — resampling pads the tail with duplicate points, and atan2(0,0)
-    // would invent corners out of them.
-    // measured across every third point on purpose: a shaky hand turns
-    // left and right a dozen times a second and that is not a shape, so
-    // reading the corners at arm's length keeps a wobbly triangle a
-    // triangle while a doodle still reads as one long wander.
-    const TURN_STRIDE = 4;
-    function turning(pts) {
-        let total = 0, a1 = null, prev = null;
-        for (let i = 0; i < pts.length; i++) {
-            const last = i === pts.length - 1 || pts[i + 1].id !== pts[i].id;
-            if (prev && pts[i].id !== prev.id) { a1 = null; prev = null; }
-            if (!prev) { prev = pts[i]; continue; }
-            if (i % TURN_STRIDE && !last) continue;
-            const dx = pts[i].x - prev.x, dy = pts[i].y - prev.y;
-            if (Math.hypot(dx, dy) < 1e-6) continue;
-            const a2 = Math.atan2(dy, dx);
-            if (a1 !== null) {
-                let d = a2 - a1;
-                while (d > Math.PI) d -= 2 * Math.PI;
-                while (d < -Math.PI) d += 2 * Math.PI;
-                total += Math.abs(d);
-            }
-            a1 = a2;
-            prev = pts[i];
-        }
-        return total;
-    }
-    function featuresOf(strokes) {
-        const c = normalize(strokes);
-        return { cloud: c, grid: inkGrid(c), len: inkLength(c), turn: turning(c) };
-    }
-    // The point cloud and the ink grid both only care *where* the ink is,
-    // never how it got there — which is why a doodle that happens to
-    // wander across the right area used to score like a spell. These two
-    // ask the other question: did the hand use the same amount of line,
-    // and did it turn the same amount doing it? Both are comparisons
-    // against the template rather than absolutes, so a lance is still
-    // allowed to be perfectly straight and a spiral is still allowed to
-    // spin.
-    const LEN_SLACK = 0.22, LEN_COST = 0.5, LEN_CAP = 0.3;
-    const TURN_SLACK = 0.70, TURN_COST = 0.34, TURN_CAP = 0.28;
-    function shapeCost(a, b) {
-        const lenOff = Math.abs(Math.log((a.len || 0.001) / (b.len || 0.001)));
-        const overdrawn = Math.min(LEN_CAP, Math.max(0, lenOff - LEN_SLACK) * LEN_COST);
-        // log1p keeps a straight line (0) and a scribble (30) on a scale
-        // where the interesting difference is not swamped by the tail
-        const turnOff = Math.abs(Math.log1p(a.turn || 0) - Math.log1p(b.turn || 0));
-        const wandered = Math.min(TURN_CAP, Math.max(0, turnOff - TURN_SLACK) * TURN_COST);
-        return overdrawn + wandered;
-    }
-    function similarity(a, b) {
-        const p = cloudScore(greedyMatch(a.cloud, b.cloud));
-        const q = gridSim(a.grid, b.grid);
-        return 0.5 * p + 0.5 * q * q - shapeCost(a, b);
-    }
-
-    let TEMPLATES = null;
-    function templates() {
-        if (!TEMPLATES) TEMPLATES = D.SPELLS.map(s => ({ id: s.id, spell: s, f: featuresOf(s.glyph) }));
-        return TEMPLATES;
-    }
-
-    // ---------------------------------------------------------------
-    // making sense of a real hand
-    //
-    // Nobody draws upright. A triangle sketched at a twenty degree lean
-    // is still a triangle to a person, and used to be a coin flip to the
-    // recogniser, so the input is matched at a few small rotations and
-    // the best one wins. The tilt is capped on purpose: at ninety
-    // degrees an arrow up is an arrow right, and at a hundred and eighty
-    // fireball is frostbolt.
-    // ---------------------------------------------------------------
-    // ±30° in 6° steps. The old search was ±18° in 9° steps and simply
-    // ran out of room: a sigil drawn at a twenty-five degree lean fell off
-    // the end of it. Widening it costs nothing here because of how it is
-    // searched — see recognize().
-    const TILTS = [-30, -24, -18, -12, -6, 0, 6, 12, 18, 24, 30];
-    const SHORTLIST = 10;                 // templates that get the expensive match
-    const TILT_TRIES = 3;                 // leans per template that get it
-    const TILT_COST = 0.022;              // per 9°, so upright still wins ties
-
-    // a trackpad emits a shaky line and a touchscreen emits a shakier
-    // one; three-point smoothing costs nothing and removes both
-    function smoothStrokes(strokes) {
-        return strokes.map(st => {
-            if (st.length < 5) return st;
-            const out = new Array(st.length);
-            for (let i = 0; i < st.length; i++) {
-                const a = st[Math.max(0, i - 1)], b = st[i], c = st[Math.min(st.length - 1, i + 1)];
-                out[i] = { x: (a.x + b.x * 2 + c.x) / 4, y: (a.y + b.y * 2 + c.y) / 4 };
-            }
-            return out;
-        });
-    }
-    function rotateStrokes(strokes, deg) {
-        if (!deg) return strokes;
-        const a = deg * Math.PI / 180, cos = Math.cos(a), sin = Math.sin(a);
-        let cx = 0, cy = 0, n = 0;
-        strokes.forEach(s => s.forEach(p => { cx += p.x; cy += p.y; n++; }));
-        cx /= n || 1; cy /= n || 1;
-        return strokes.map(s => s.map(p => {
-            const x = p.x - cx, y = p.y - cy;
-            return { x: cx + x * cos - y * sin, y: cy + x * sin + y * cos };
-        }));
-    }
-    function gridSim(a, b) {
-        let q = 0;
-        for (let i = 0; i < a.length; i++) q += a[i] * b[i];
-        return Math.max(0, q);
-    }
-
-    // A sigil has to beat this to go off, and beat the runner up by the
-    // margin, or you get a fizzle and a note about what it looked like.
-    // Sixty percent is a deliberately generous door: a drawing only has
-    // to be recognisably the thing. What stops that from turning into a
-    // slot machine is that the score now costs you for wandering off the
-    // template's shape, so junk lands well below the door rather than
-    // just under the old one — and a weak drawing casts a weak spell,
-    // because power is measured from here up.
-    const CAST_FLOOR = 0.60;
-    const CAST_MARGIN = 0.05;
-    function recognize(strokes, pool) {
-        if (!Array.isArray(strokes)) return [];
-        strokes = strokes.filter(Array.isArray).map(st => st.filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y))).filter(st => st.length > 1);
-        const points = flattenStrokes(strokes);
-        if (points.length < 4 || pathLength(points) < 1) return [];
-        const clean = smoothStrokes(strokes);
-        const list = (pool || templates());
-        // the same gesture, leaning a few different ways
-        const variants = TILTS.map(deg => ({
-            f: featuresOf(rotateStrokes(clean, deg)),
-            penalty: Math.abs(deg) / 9 * TILT_COST
-        }));
-        // stage one: the ink grid is a hundred multiplications, so all
-        // fifty templates can be asked at every lean — and the answer
-        // says two things at once: which templates are worth a proper
-        // look, and which way each of them thinks your hand was leaning
-        const ranked = list.map(t => {
-            const leans = variants.map((v, i) => ({ i, g: gridSim(v.f.grid, t.f.grid) - v.penalty }))
-                .sort((a, b) => b.g - a.g);
-            return { t, g: leans[0].g, tilts: leans.slice(0, TILT_TRIES).map(l => l.i) };
-        }).sort((a, b) => b.g - a.g).slice(0, SHORTLIST);
-        // stage two: full point-cloud matching, on the few that could
-        // plausibly win, at the couple of leans that suit each of them.
-        // that is twenty-four expensive matches rather than sixty, which
-        // is what pays for the wider search above.
-        return ranked.map(({ t, tilts }) => {
-            let best = 0;
-            for (const i of tilts) best = Math.max(best, similarity(variants[i].f, t.f) - variants[i].penalty);
-            return { id: t.id, spell: t.spell, score: best };
-        }).sort((a, b) => b.score - a.score).slice(0, 4);
-    }
-    // how well you drew it, 0..1, feeds straight into spell power. the
-    // span is set so full power still means what it did before the door
-    // was lowered: a clean drawing scores around 0.85.
-    const qualityOf = score => Math.max(0, Math.min(1, (score - CAST_FLOOR) / 0.26));
-
-    // ===============================================================
-    // 2. THE WIZARD — everything drawn in code
-    // ===============================================================
-    // the plain wizard everything else is measured against. it has to be
-    // fixed rather than random: both machines draw both wizards, so a
-    // missing hat must come out the same colour on either screen.
     const BASE_AVATAR = {
         skin: D.AVATAR.skin[0], hat: 'pointy', hatColor: D.AVATAR.palette[0],
         hair: 'none', hairColor: D.AVATAR.palette[9], beard: 'long',
         robe: 'plain', robeColor: D.AVATAR.palette[0], trimColor: D.AVATAR.palette[4],
         staff: 'gnarled', familiar: 'none', aura: 'none', eyes: 'normal', title: 'apprentice'
     };
-    // an opponent who never opened the dressing room still needs a face,
-    // and it has to be the same face on both screens — so it comes from
-    // their player id rather than from Math.random.
+    // somebody who never opened the dressing room still needs a face, and it has to
+    // be the same face on both screens, so it comes from their id
     function seededAvatar(seed) {
         let h = 2166136261;
         const s = String(seed || 'wizard');
@@ -332,7 +52,7 @@
             h = Math.imul(h ^ (h >>> 15), 2246822507); h ^= h >>> 13;
             return ((h >>> 0) % 100003) / 100003;
         };
-        const pick = a => a[Math.floor(rnd() * a.length) % a.length];
+        const pick = a => a[floor(rnd() * a.length) % a.length];
         return {
             skin: pick(D.AVATAR.skin), hat: pick(D.AVATAR.hat), hatColor: pick(D.AVATAR.palette),
             hair: pick(D.AVATAR.hair), hairColor: pick(D.AVATAR.palette), beard: pick(D.AVATAR.beard),
@@ -341,335 +61,67 @@
             eyes: pick(D.AVATAR.eyes), title: pick(D.AVATAR.titles)
         };
     }
+    // anything out of an old save or off the wire goes through here first
     function normAvatar(av) {
-        const a = Object.assign({}, BASE_AVATAR, av || {});
-        // keep unknown values out of the renderer
-        const clamp = (v, list, def) => list.indexOf(v) >= 0 ? v : def;
-        a.hat = clamp(a.hat, D.AVATAR.hat, 'pointy');
-        a.hair = clamp(a.hair, D.AVATAR.hair, 'none');
-        a.beard = clamp(a.beard, D.AVATAR.beard, 'none');
-        a.robe = clamp(a.robe, D.AVATAR.robe, 'plain');
-        a.staff = clamp(a.staff, D.AVATAR.staff, 'gnarled');
-        a.familiar = clamp(a.familiar, D.AVATAR.familiar, 'none');
-        a.aura = clamp(a.aura, D.AVATAR.aura, 'none');
-        a.eyes = clamp(a.eyes, D.AVATAR.eyes, 'normal');
+        const a = Object.assign({}, BASE_AVATAR, av && typeof av === 'object' ? av : {});
+        const clampTo = (v, list, def) => list.indexOf(v) >= 0 ? v : def;
+        const colour = (v, def) => /^#[0-9a-f]{3,8}$/i.test(String(v)) ? v : def;
+        a.hat = clampTo(a.hat, D.AVATAR.hat, 'pointy');
+        a.hair = clampTo(a.hair, D.AVATAR.hair, 'none');
+        a.beard = clampTo(a.beard, D.AVATAR.beard, 'none');
+        a.robe = clampTo(a.robe, D.AVATAR.robe, 'plain');
+        a.staff = clampTo(a.staff, D.AVATAR.staff, 'gnarled');
+        a.familiar = clampTo(a.familiar, D.AVATAR.familiar, 'none');
+        a.aura = clampTo(a.aura, D.AVATAR.aura, 'none');
+        a.eyes = clampTo(a.eyes, D.AVATAR.eyes, 'normal');
+        ['skin', 'hatColor', 'hairColor', 'robeColor', 'trimColor'].forEach(k => { a[k] = colour(a[k], BASE_AVATAR[k]); });
         return a;
     }
-    const shade = (hex, amt) => {
-        const h = String(hex || '#888').replace('#', '');
-        const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
-        const cl = v => Math.max(0, Math.min(255, v));
-        const r = cl((n >> 16) + amt), g = cl(((n >> 8) & 255) + amt), b = cl((n & 255) + amt);
-        return `rgb(${r},${g},${b})`;
-    };
 
-    // draws a wizard whose feet are at (x, y), roughly 76 units tall at scale 1
-    function drawWizard(ctx, avatar, x, y, scale, opts) {
-        const a = normAvatar(avatar);
-        opts = opts || {};
-        const t = opts.time || 0;
-        const face = opts.face || 1;           // 1 = looking right
-        const bob = Math.sin(t * 2.2) * 1.6 * scale;
-        ctx.save();
-        ctx.translate(x, y + bob);
-        ctx.scale(scale * face, scale);
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-
-        if (a.aura !== 'none') drawAura(ctx, a.aura, t, opts.casting);
-        if (opts.shielded) {
-            ctx.save();
-            ctx.strokeStyle = 'rgba(160,220,255,' + (0.5 + Math.sin(t * 6) * 0.15) + ')';
-            ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.ellipse(0, -34, 34, 44, 0, 0, Math.PI * 2); ctx.stroke();
-            ctx.restore();
-        }
-
-        // ---- robe ----
-        const robe = a.robeColor, trim = a.trimColor;
-        ctx.fillStyle = robe;
-        ctx.beginPath();
-        ctx.moveTo(-9, -52); ctx.lineTo(9, -52);
-        if (a.robe === 'ragged') {
-            ctx.lineTo(20, 0); ctx.lineTo(14, -6); ctx.lineTo(8, 2); ctx.lineTo(0, -6);
-            ctx.lineTo(-8, 2); ctx.lineTo(-14, -6); ctx.lineTo(-20, 0);
-        } else {
-            ctx.lineTo(a.robe === 'layered' ? 22 : 18, 0); ctx.lineTo(a.robe === 'layered' ? -22 : -18, 0);
-        }
-        ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = shade(robe, -60); ctx.lineWidth = 1.5; ctx.stroke();
-
-        if (a.robe === 'trim' || a.robe === 'cloak') {
-            ctx.strokeStyle = trim; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(-16, -4); ctx.lineTo(16, -4); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, -50); ctx.lineTo(0, -8); ctx.stroke();
-        }
-        if (a.robe === 'patched') {
-            ctx.fillStyle = trim;
-            ctx.fillRect(-12, -34, 8, 8); ctx.fillRect(4, -20, 7, 7);
-        }
-        if (a.robe === 'layered') {
-            ctx.strokeStyle = shade(robe, 40); ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(-19, -14); ctx.lineTo(19, -14); ctx.stroke();
-        }
-        if (a.robe === 'cloak') {
-            ctx.fillStyle = shade(robe, -50);
-            ctx.beginPath();
-            ctx.moveTo(-10, -54); ctx.quadraticCurveTo(-26, -30, -20, -2);
-            ctx.lineTo(-12, -4); ctx.quadraticCurveTo(-16, -30, -6, -50);
-            ctx.closePath(); ctx.fill();
-        }
-
-        // ---- arms: the casting one swings up ----
-        ctx.strokeStyle = a.skin; ctx.lineWidth = 5;
-        const cast = Math.max(0, Math.min(1, opts.casting || 0));
-        ctx.beginPath(); ctx.moveTo(6, -44); ctx.lineTo(14 + cast * 6, -30 - cast * 22); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-6, -44); ctx.lineTo(-13, -26); ctx.stroke();
-
-        // ---- head ----
-        ctx.fillStyle = a.skin;
-        ctx.beginPath(); ctx.arc(0, -62, 12, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = shade(a.skin, -70); ctx.lineWidth = 1; ctx.stroke();
-
-        drawEyes(ctx, a);
-        drawHair(ctx, a);
-        drawBeard(ctx, a);
-        drawHat(ctx, a);
-        drawStaff(ctx, a, t, cast);
-        ctx.restore();
-        // the familiar keeps its own upright orientation, and floats wide
-        // enough not to sit on top of the staff's business end
-        if (a.familiar !== 'none') {
-            ctx.save();
-            ctx.translate(x + face * 46 * scale, y + bob - 80 * scale + Math.sin(t * 3) * 3 * scale);
-            ctx.scale(scale * face, scale);
-            drawFamiliar(ctx, a, t);
-            ctx.restore();
-        }
-    }
-    function drawEyes(ctx, a) {
-        ctx.fillStyle = '#101018';
-        if (a.eyes === 'cyclops') {
-            ctx.beginPath(); ctx.arc(2, -64, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(3, -65, 1.4, 0, Math.PI * 2); ctx.fill();
-            return;
-        }
-        if (a.eyes === 'glowing') {
-            ctx.fillStyle = '#8ef2ff';
-            ctx.shadowColor = '#8ef2ff'; ctx.shadowBlur = 8;
-        }
-        const ey = a.eyes === 'tired' ? -63 : -64;
-        ctx.fillRect(-6, ey, 3, a.eyes === 'tired' ? 1.5 : 3);
-        ctx.fillRect(3, ey, 3, a.eyes === 'tired' ? 1.5 : 3);
-        ctx.shadowBlur = 0;
-        if (a.eyes === 'angry') {
-            ctx.strokeStyle = '#101018'; ctx.lineWidth = 1.6;
-            ctx.beginPath(); ctx.moveTo(-8, -68); ctx.lineTo(-2, -66); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(8, -68); ctx.lineTo(2, -66); ctx.stroke();
-        }
-    }
-    function drawHair(ctx, a) {
-        if (a.hair === 'none') return;
-        ctx.fillStyle = a.hairColor;
-        if (a.hair === 'short') { ctx.beginPath(); ctx.arc(0, -66, 12, Math.PI, Math.PI * 2); ctx.fill(); }
-        if (a.hair === 'long') {
-            ctx.beginPath(); ctx.arc(0, -66, 12, Math.PI, Math.PI * 2); ctx.fill();
-            ctx.fillRect(-13, -66, 4, 22); ctx.fillRect(9, -66, 4, 22);
-        }
-        if (a.hair === 'mohawk') { ctx.fillRect(-2, -82, 5, 16); }
-    }
-    function drawBeard(ctx, a) {
-        if (a.beard === 'none') return;
-        ctx.fillStyle = a.hairColor || '#ddd';
-        switch (a.beard) {
-            case 'stubble':
-                ctx.globalAlpha = 0.45;
-                ctx.beginPath(); ctx.arc(0, -56, 10, 0, Math.PI); ctx.fill();
-                ctx.globalAlpha = 1; break;
-            case 'goatee':
-                ctx.beginPath(); ctx.moveTo(-4, -55); ctx.lineTo(4, -55); ctx.lineTo(0, -44); ctx.closePath(); ctx.fill(); break;
-            case 'long':
-                ctx.beginPath(); ctx.moveTo(-9, -58); ctx.lineTo(9, -58); ctx.lineTo(4, -30); ctx.lineTo(-4, -30); ctx.closePath(); ctx.fill(); break;
-            case 'braided':
-                ctx.beginPath(); ctx.moveTo(-9, -58); ctx.lineTo(9, -58); ctx.lineTo(3, -34); ctx.lineTo(-3, -34); ctx.closePath(); ctx.fill();
-                ctx.strokeStyle = shade(a.hairColor, -50); ctx.lineWidth = 1.4;
-                for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-7 + i, -50 + i * 6); ctx.lineTo(7 - i, -50 + i * 6); ctx.stroke(); }
-                break;
-            case 'huge':
-                ctx.beginPath(); ctx.moveTo(-13, -60); ctx.quadraticCurveTo(-16, -22, 0, -20);
-                ctx.quadraticCurveTo(16, -22, 13, -60); ctx.closePath(); ctx.fill(); break;
-        }
-    }
-    function drawHat(ctx, a) {
-        if (a.hat === 'bald') return;
-        ctx.fillStyle = a.hatColor;
-        ctx.strokeStyle = shade(a.hatColor, -70);
-        ctx.lineWidth = 1.4;
-        switch (a.hat) {
-            case 'pointy':
-                ctx.beginPath(); ctx.moveTo(-14, -70); ctx.lineTo(14, -70); ctx.lineTo(3, -102); ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.fillRect(-17, -73, 34, 5); break;
-            case 'wide':
-                ctx.beginPath(); ctx.ellipse(0, -71, 24, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(-11, -71); ctx.lineTo(11, -71); ctx.lineTo(8, -88); ctx.lineTo(-8, -88); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-            case 'hood':
-                ctx.beginPath(); ctx.moveTo(-15, -52); ctx.quadraticCurveTo(-18, -84, 0, -84);
-                ctx.quadraticCurveTo(18, -84, 15, -52); ctx.lineTo(11, -54);
-                ctx.quadraticCurveTo(13, -76, 0, -76); ctx.quadraticCurveTo(-13, -76, -11, -54);
-                ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-            case 'crown':
-                ctx.beginPath();
-                ctx.moveTo(-13, -70); ctx.lineTo(-13, -82); ctx.lineTo(-7, -76); ctx.lineTo(0, -84);
-                ctx.lineTo(7, -76); ctx.lineTo(13, -82); ctx.lineTo(13, -70);
-                ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-            case 'horned':
-                ctx.beginPath(); ctx.moveTo(-12, -70); ctx.lineTo(12, -70); ctx.lineTo(0, -84); ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(-11, -74); ctx.quadraticCurveTo(-22, -84, -16, -94); ctx.lineTo(-11, -84); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(11, -74); ctx.quadraticCurveTo(22, -84, 16, -94); ctx.lineTo(11, -84); ctx.closePath(); ctx.fill(); break;
-        }
-    }
-    function drawStaff(ctx, a, t, cast) {
-        if (a.staff === 'none') return;
-        const sway = Math.sin(t * 2) * 2 + cast * 10;
-        ctx.save();
-        ctx.translate(18, -30);
-        ctx.rotate((-6 - sway) * Math.PI / 180);
-        ctx.strokeStyle = '#7a4a24'; ctx.lineWidth = 3.5;
-        ctx.beginPath(); ctx.moveTo(0, 30); ctx.lineTo(0, -34); ctx.stroke();
-        const top = -34;
-        switch (a.staff) {
-            case 'gnarled':
-                ctx.strokeStyle = '#7a4a24'; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.moveTo(0, top); ctx.quadraticCurveTo(8, top - 6, 2, top - 12); ctx.stroke(); break;
-            case 'crystal':
-                ctx.fillStyle = a.hatColor;
-                ctx.beginPath(); ctx.moveTo(0, top - 14); ctx.lineTo(6, top - 4); ctx.lineTo(0, top + 4); ctx.lineTo(-6, top - 4);
-                ctx.closePath(); ctx.fill(); break;
-            case 'skull':
-                ctx.fillStyle = '#e8e6df';
-                ctx.beginPath(); ctx.arc(0, top - 5, 6, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#222'; ctx.fillRect(-3.5, top - 7, 2.5, 3); ctx.fillRect(1, top - 7, 2.5, 3); break;
-            case 'orb':
-                ctx.fillStyle = a.trimColor; ctx.globalAlpha = 0.9;
-                ctx.beginPath(); ctx.arc(0, top - 6, 7, 0, Math.PI * 2); ctx.fill();
-                ctx.globalAlpha = 1;
-                ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                ctx.beginPath(); ctx.arc(-2, top - 8, 2, 0, Math.PI * 2); ctx.fill(); break;
-            case 'broom':
-                ctx.strokeStyle = '#c8a06a'; ctx.lineWidth = 1.4;
-                for (let i = -4; i <= 4; i += 2) {
-                    ctx.beginPath(); ctx.moveTo(0, top + 2); ctx.lineTo(i, top - 12); ctx.stroke();
-                }
-                break;
-        }
-        ctx.restore();
-    }
-    function drawFamiliar(ctx, a, t) {
-        const c = a.trimColor;
-        ctx.fillStyle = '#2a2a34';
-        switch (a.familiar) {
-            case 'cat':
-                ctx.beginPath(); ctx.ellipse(0, 0, 9, 6, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(7, -4, 5, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(4, -8); ctx.lineTo(6, -13); ctx.lineTo(8, -8); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(9, -8); ctx.lineTo(11, -13); ctx.lineTo(12, -8); ctx.closePath(); ctx.fill();
-                ctx.strokeStyle = '#2a2a34'; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.moveTo(-8, -1); ctx.quadraticCurveTo(-16, -4, -13, -10); ctx.stroke();
-                ctx.fillStyle = '#ffe14d'; ctx.fillRect(7, -5, 2, 2); break;
-            case 'owl':
-                ctx.fillStyle = '#8a6f4a';
-                ctx.beginPath(); ctx.ellipse(0, 0, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.beginPath(); ctx.arc(-3, -4, 3, 0, Math.PI * 2); ctx.arc(3, -4, 3, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#101018';
-                ctx.beginPath(); ctx.arc(-3, -4, 1.4, 0, Math.PI * 2); ctx.arc(3, -4, 1.4, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#ffb400';
-                ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(2, 1); ctx.lineTo(-2, 1); ctx.closePath(); ctx.fill(); break;
-            case 'bat':
-                ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
-                const flap = Math.sin(t * 12) * 4;
-                ctx.beginPath(); ctx.moveTo(-4, 0); ctx.quadraticCurveTo(-14, -6 + flap, -18, 2); ctx.quadraticCurveTo(-12, 0, -4, 4); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(4, 0); ctx.quadraticCurveTo(14, -6 + flap, 18, 2); ctx.quadraticCurveTo(12, 0, 4, 4); ctx.fill(); break;
-            case 'frog':
-                ctx.fillStyle = '#4fae4a';
-                ctx.beginPath(); ctx.ellipse(0, 2, 9, 7, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.beginPath(); ctx.arc(-4, -4, 3.4, 0, Math.PI * 2); ctx.arc(4, -4, 3.4, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#101018';
-                ctx.beginPath(); ctx.arc(-4, -4, 1.5, 0, Math.PI * 2); ctx.arc(4, -4, 1.5, 0, Math.PI * 2); ctx.fill(); break;
-            case 'imp':
-                ctx.fillStyle = c;
-                ctx.beginPath(); ctx.ellipse(0, 0, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-9, -13); ctx.lineTo(-2, -8); ctx.closePath(); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(9, -13); ctx.lineTo(2, -8); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#101018'; ctx.fillRect(-4, -3, 2, 2); ctx.fillRect(2, -3, 2, 2); break;
-        }
-    }
-    function drawAura(ctx, kind, t, casting) {
-        const colors = { sparks: '#ffe14d', flames: '#ff6b2b', frost: '#6fd6ff', shadow: '#a074d8', holy: '#fffbe8' };
-        const c = colors[kind] || '#fff';
-        ctx.save();
-        ctx.globalAlpha = 0.55 + (casting || 0) * 0.35;
-        for (let i = 0; i < 7; i++) {
-            const a = t * 1.5 + i * (Math.PI * 2 / 7);
-            const r = 26 + Math.sin(t * 3 + i) * 5;
-            const x = Math.cos(a) * r, y = -34 + Math.sin(a) * r * 0.8;
-            ctx.fillStyle = c;
-            ctx.beginPath(); ctx.arc(x, y, kind === 'flames' ? 3.5 : 2.4, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
-    }
-
-    // used by the lobby to draw everybody's wizard on a small canvas
-    function paintAvatar(canvas, avatar, opts) {
-        if (!canvas || !canvas.getContext) return;
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width, h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
-        const scale = (h / 110) * ((opts && opts.scale) || 1);
-        drawWizard(ctx, avatar, w / 2, h - 6, scale, { time: performance.now() / 1000, face: 1 });
-    }
-
-    // ===============================================================
-    // 3. LOCAL PREFERENCES
-    // ===============================================================
     const LS = {
         avatar: 'mrhakan98-wizardz-avatar',
         loadout: 'mrhakan98-wizardz-loadout',
         diff: 'mrhakan98-wizardz-difficulty',
-        manual: 'mrhakan98-wizardz-manual-cast'
+        manual: 'mrhakan98-wizardz-manual-cast',
+        settings: 'mrhakan98-wizardz-settings'
     };
-    function myAvatar() {
-        const prof = window.Netplay ? Netplay.profile() : null;
-        if (prof && prof.avatar) return normAvatar(prof.avatar);
-        let a = null;
-        try { a = JSON.parse(localStorage.getItem(LS.avatar) || 'null'); } catch (e) { }
-        if (!a) a = D.randomAvatar();
-        // push it into the netplay profile too, so the lobby and the
-        // other player see the same wizard you do
-        saveAvatar(a);
-        return normAvatar(a);
-    }
-    function saveAvatar(a) {
-        try { localStorage.setItem(LS.avatar, JSON.stringify(a)); } catch (e) { }
-        if (window.Netplay) Netplay.setAvatar(a);
-    }
-    function myLoadout() {
-        let l = null;
-        try { l = JSON.parse(localStorage.getItem(LS.loadout) || 'null'); } catch (e) { }
-        if (!Array.isArray(l) || l.length !== 8 || l.some(id => !D.byId(id))) l = D.DEFAULT_LOADOUT.slice();
-        return l;
-    }
-    function saveLoadout(l) { try { localStorage.setItem(LS.loadout, JSON.stringify(l)); } catch (e) { } }
     function preference(key, fallback) {
         try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
     }
     function savePreference(key, value) { try { localStorage.setItem(key, value); } catch (e) { } }
-    const difficulty = () => preference(LS.diff, 'normal');
+    function readJson(key) {
+        try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; }
+    }
+    function myAvatar() {
+        const prof = window.Netplay ? Netplay.profile() : null;
+        if (prof && prof.avatar) return normAvatar(prof.avatar);
+        const a = readJson(LS.avatar) || D.randomAvatar();
+        saveAvatar(a);
+        return normAvatar(a);
+    }
+    function saveAvatar(a) {
+        savePreference(LS.avatar, JSON.stringify(a));
+        if (window.Netplay) Netplay.setAvatar(a);
+    }
+    function myLoadout() {
+        const l = readJson(LS.loadout);
+        if (!Array.isArray(l) || l.length !== D.LOADOUT_SIZE || l.some(id => !D.byId(id)) || new Set(l).size !== l.length) return D.DEFAULT_LOADOUT.slice();
+        return l;
+    }
+    function saveLoadout(l) { savePreference(LS.loadout, JSON.stringify(l)); }
+    const difficulty = () => { const d = preference(LS.diff, 'normal'); return D.BOT_DIFFICULTY[d] ? d : 'normal'; };
+    function settings() {
+        const s = readJson(LS.settings);
+        const out = { sens: 1, invert: false };
+        if (s && typeof s === 'object') {
+            if (typeof s.sens === 'number' && s.sens >= 0.2 && s.sens <= 3) out.sens = s.sens;
+            out.invert = !!s.invert;
+        }
+        return out;
+    }
 
     // ===============================================================
-    // 4. SOUND — synthesised, follows the site's mute button
+    // sound: synthesised, follows the site's mute button
     // ===============================================================
     let actx = null;
     function audio() {
@@ -689,11 +141,11 @@
             const t0 = ctx.currentTime + (o.delay || 0);
             const osc = ctx.createOscillator(), g = ctx.createGain();
             osc.type = o.type || 'square';
-            osc.frequency.setValueAtTime(Math.max(1, freq), t0);
-            if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.slideTo), t0 + dur);
+            osc.frequency.setValueAtTime(max(1, freq), t0);
+            if (o.slideTo) osc.frequency.exponentialRampToValueAtTime(max(1, o.slideTo), t0 + dur);
             const peak = o.gain !== undefined ? o.gain : 0.05;
             g.gain.setValueAtTime(0.0001, t0);
-            g.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(0.012, dur / 3));
+            g.gain.exponentialRampToValueAtTime(peak, t0 + min(0.012, dur / 3));
             g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
             osc.connect(g); g.connect(ctx.destination);
             osc.start(t0); osc.stop(t0 + dur + 0.02);
@@ -706,7 +158,7 @@
         o = o || {};
         try {
             const t0 = ctx.currentTime + (o.delay || 0);
-            const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+            const n = max(1, floor(ctx.sampleRate * dur));
             const buf = ctx.createBuffer(1, n, ctx.sampleRate);
             const d = buf.getChannelData(0);
             for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
@@ -720,1450 +172,1781 @@
     }
     const SFX = {
         cast: el => tone(el === 'ice' ? 900 : 520, 0.14, { type: 'triangle', slideTo: 1200, gain: 0.045 }),
+        zap: () => tone(1400, 0.07, { type: 'square', slideTo: 500, gain: 0.018 }),
+        fire: () => { tone(660, 0.1, { type: 'sawtooth', slideTo: 180, gain: 0.03 }); noise(0.06, { freq: 2000, gain: 0.025 }); },
         fizzle: () => tone(220, 0.16, { type: 'sawtooth', slideTo: 90, gain: 0.035 }),
-        hit: () => { noise(0.14, { freq: 1400, gain: 0.05 }); tone(180, 0.1, { type: 'square', slideTo: 70, gain: 0.04 }); },
+        hit: () => { noise(0.1, { freq: 1400, gain: 0.05 }); tone(180, 0.1, { type: 'square', slideTo: 70, gain: 0.04 }); },
+        hurt: () => { noise(0.14, { freq: 700, gain: 0.07 }); tone(120, 0.18, { type: 'sawtooth', slideTo: 60, gain: 0.05 }); },
+        boom: () => { noise(0.4, { freq: 500, gain: 0.1 }); tone(90, 0.3, { type: 'square', slideTo: 40, gain: 0.05 }); },
         ward: () => tone(700, 0.2, { type: 'sine', slideTo: 980, gain: 0.04 }),
-        heal: () => { tone(660, 0.12, { type: 'sine' }); tone(880, 0.14, { type: 'sine', delay: 0.1 }); },
-        die: () => { tone(300, 0.5, { type: 'sawtooth', slideTo: 60, gain: 0.06 }); noise(0.4, { freq: 500 }); },
+        pick: () => { tone(660, 0.08, { type: 'square', gain: 0.03 }); tone(990, 0.1, { type: 'square', delay: 0.07, gain: 0.03 }); },
+        ko: () => { tone(300, 0.5, { type: 'sawtooth', slideTo: 60, gain: 0.06 }); noise(0.4, { freq: 500 }); },
         win: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.16, { type: 'square', delay: i * 0.11, gain: 0.05 })),
         tick: () => tone(880, 0.06, { type: 'square', gain: 0.03 })
     };
 
     // ===============================================================
-    // 5. THE DUEL
+    // the match on this machine
     // ===============================================================
-    let G = null;          // active duel
+    let G = null;
     let raf = null, lastT = 0;
-    let root = null;       // window body
-    let cv = null, ctx = null;
+    let root = null, winRef = null;
+    const IS_TOUCH = () => {
+        try { return !!(window.matchMedia && matchMedia('(pointer: coarse)').matches); } catch (e) { return false; }
+    };
 
-    function newWizard(idx, player) {
-        return {
-            idx,
-            id: player.id,
-            name: player.name || 'wizard',
-            avatar: normAvatar(player.avatar || seededAvatar(player.id)),
-            home: idx === 0 ? A.leftX : A.rightX,
-            x: idx === 0 ? A.leftX : A.rightX,
-            y: (A.ceil + A.floor) / 2,
-            vy: 0,
-            hp: A.maxHp, mana: A.maxMana, ward: 0, wardT: 0,
-            st: {},                 // statuses -> {t, ...}
-            cd: {},                 // spell id -> seconds remaining
-            castT: 0,               // casting animation
-            hitT: 0,
-            face: idx === 0 ? 1 : -1,
-            bot: !!player.bot,
-            dead: false
-        };
-    }
-
-    function makeDuel(session, opts) {
-        const solo = !!(opts && opts.solo) || (session && session.solo);
-        const bot = solo ? (D.botById(opts && opts.botId) || randomBot()) : null;
-        const players = solo
-            ? [{ id: 'me', name: (window.Netplay ? Netplay.profile().name : 'you'), avatar: myAvatar() },
-            { id: 'bot', name: bot.name, avatar: bot.avatar, bot: true }]
-            : orderPlayers(session, opts);
-        const g = {
-            session, solo, bot,
-            isHost: solo ? true : !!session.isHost,
-            me: 0,
-            wiz: [newWizard(0, players[0]), newWizard(1, players[1])],
-            ents: [], fx: [], floats: [],
-            input: [{ up: 0, down: 0 }, { up: 0, down: 0 }],
-            round: 1, wins: [0, 0],
-            phase: 'countdown', phaseT: 3,
-            t: 0, over: null,
-            strokes: [], stroke: null, lastInk: 0,
-            hint: null, hintT: 0,
-            snapAcc: 0,
-            botAcc: 0, botPlan: 0,
-            netDown: 0,
-            paused: false,
-            simAcc: 0,
-            guide: null,
-            manualCast: preference(LS.manual, 'false') === 'true'
-        };
-        if (!solo) g.me = players[0].id === session.id ? 0 : 1;
-        return g;
-    }
-    const randomBot = () => D.BOTS[Math.floor(Math.random() * D.BOTS.length)];
-    // both sides must agree on who is on the left: the host is
     function orderPlayers(session, opts) {
         const list = (opts && opts.slots ? opts.slots.map(id => session.player(id)).filter(Boolean) : session.players.slice());
         const host = list.find(p => p.host) || list[0];
         const other = list.find(p => p !== host) || { id: 'ghost', name: 'nobody' };
         return [host, other];
     }
+    const randomBot = () => D.BOTS[floor(Math.random() * D.BOTS.length)];
 
-    // ---------------------------------------------------------------
-    // statuses and damage
-    // ---------------------------------------------------------------
-    const has = (w, k) => !!w.st[k] && w.st[k].t > 0;
-    function addStatus(w, key, dur, extra) {
-        const cur = w.st[key];
-        w.st[key] = Object.assign({ t: Math.max(dur, cur ? cur.t : 0) }, extra || {});
-    }
-    function clearBad(w) {
-        Object.keys(w.st).forEach(k => { if ((D.STATUS[k] || {}).bad) delete w.st[k]; });
-    }
-    function canCast(w) { return !has(w, 'freeze') && !has(w, 'stun'); }
-    function canMove(w) { return !has(w, 'root') && !has(w, 'stun'); }
-
-    function dealDamage(g, target, amount, src) {
-        src = src || {};
-        const w = g.wiz[target];
-        if (!w || w.dead || amount <= 0) return 0;
-        if (has(w, 'phase') && src.dodgeable !== false) return 0;
-        let dmg = amount;
-        const attacker = src.from !== undefined ? g.wiz[src.from] : null;
-        if (attacker) {
-            if (has(attacker, 'weak')) dmg *= 0.7;
-            if (has(attacker, 'focus')) dmg *= 1.25;
-            if (has(attacker, 'pact')) dmg *= 1.2;
-            if (src.punish && (has(w, 'weak') || has(w, 'bleed') || has(w, 'burn'))) dmg *= src.punish;
-        }
-        if (has(w, 'stoneskin')) dmg *= 0.75;
-        // wards eat damage first
-        if (w.ward > 0) {
-            const eaten = Math.min(w.ward, dmg);
-            w.ward -= eaten; dmg -= eaten;
-            if (w.ward <= 0) { w.ward = 0; w.wardT = 0; }
-        }
-        if (dmg > 0) {
-            w.hp = Math.max(0, w.hp - dmg);
-            w.hitT = 0.25;
-            combatFloat(g, target, -dmg);
-        }
-        // whatever hit them gets bitten back
-        if (attacker && src.contact !== false) {
-            const thorns = (has(w, 'thorns') && w.st.thorns.thorns) || (w.ward > 0 ? w.wardThorns || 0 : 0);
-            if (thorns) {
-                attacker.hp = Math.max(0, attacker.hp - thorns);
-                combatFloat(g, attacker.idx, -thorns);
-                if (attacker.hp <= 0 && !attacker.dead) { attacker.dead = true; SFX.die(); }
-            }
-        }
-        if (attacker && src.lifesteal) heal(g, attacker.idx, src.lifesteal);
-        if (w.hp <= 0 && !w.dead) { w.dead = true; SFX.die(); }
-        return dmg;
-    }
-    function heal(g, idx, amount) {
-        const w = g.wiz[idx];
-        if (!w || w.dead || w.hp <= 0 || amount <= 0) return;
-        const gained = Math.min(A.maxHp - w.hp, amount);
-        w.hp += gained;
-        if (gained > 0) combatFloat(g, idx, gained);
-    }
-    // Merge continuous damage/healing for 250ms instead of emitting 60 “-0”s a second.
-    function combatFloat(g, idx, amount) {
-        const key = idx + ':' + (amount < 0 ? 'hurt' : 'heal');
-        let f = g.floats.find(f => f.key === key && g.t - f.at < 0.25);
-        if (!f) {
-            const w = g.wiz[idx];
-            f = { key, at: g.t, value: 0, x: w.x, y: w.y - 70, t: 1.1, color: amount < 0 ? '#ff6b6b' : '#7ee06a' };
-            g.floats.push(f);
-        }
-        f.value += amount;
-        f.text = (f.value < 0 ? '-' : '+') + Math.max(1, Math.round(Math.abs(f.value)));
-    }
-    function float(g, x, y, text, color) {
-        g.floats.push({ x, y, text, color, t: 1.1 });
-    }
-
-    // ---------------------------------------------------------------
-    // casting
-    // ---------------------------------------------------------------
-    function spellReady(g, idx, spell) {
-        const w = g.wiz[idx];
-        if (!canCast(w)) return 'frozen';
-        if ((w.cd[spell.id] || 0) > 0) return 'cooling';
-        const usingHp = has(w, 'pact');
-        const manaCost = usingHp ? 0 : (spell.cost || 0);
-        const hpCost = (spell.hp || 0) + (usingHp ? (spell.cost || 0) * 0.6 : 0);
-        if (w.mana < manaCost) return 'mana';
-        if (w.hp <= hpCost) return 'health';
-        return null;
-    }
-
-    function castSpell(g, idx, spell, quality) {
-        const w = g.wiz[idx], foe = g.wiz[1 - idx];
-        if (g.paused || g.phase !== 'live' || w.dead || w.hp <= 0) return 'inactive';
-        const why = spellReady(g, idx, spell);
-        if (why) return why;
-        const usingHp = has(w, 'pact');
-        w.mana -= usingHp ? 0 : (spell.cost || 0);
-        w.hp -= (spell.hp || 0) + (usingHp ? (spell.cost || 0) * 0.6 : 0);
-        w.cd[spell.id] = spell.cd || 0;
-        w.castT = 0.35;
-        const power = 0.8 + quality * 0.4;                 // sloppy sigils hit softer
-        const dir = idx === 0 ? 1 : -1;
-        const p = spell.p || {};
-        const el = spell.el;
-        SFX.cast(el);
-        g.fx.push({ kind: 'castring', x: w.x, y: w.y - 40, t: 0.4, el });
-
-        switch (spell.kind) {
-            case 'bolt': {
-                const count = p.count || 1;
-                for (let i = 0; i < count; i++) {
-                    const spread = count > 1 ? (i - (count - 1) / 2) * (p.spread || 20) : 0;
-                    g.ents.push({
-                        kind: 'bolt', owner: idx, spell: spell.id, el,
-                        x: w.x + dir * 26, y: w.y - 40 + spread * 0.6,
-                        vx: dir * (p.speed || 300), vy: (p.gravity ? -180 : 0) + spread * 1.2,
-                        r: p.r || 8, dmg: (spell.dmg || 0) * power,
-                        gravity: p.gravity || 0, homing: p.homing || 0,
-                        pierce: !!p.pierce, aoe: p.aoe || 0,
-                        ground: !!p.ground, lowOnly: !!p.lowOnly,
-                        knock: p.knock || 0, punish: p.punish || 0,
-                        burn: p.burn, chill: p.chill, status: p.status, statusDur: p.statusDur,
-                        life: 6
-                    });
-                }
-                if (p.ground) g.ents[g.ents.length - 1].y = A.floor - 12;
-                break;
-            }
-            case 'beam': {
-                const blocked = p.throughWalls ? null : wallBetween(g, w, foe);
-                g.ents.push({ kind: 'beam', owner: idx, el, x1: w.x + dir * 24, y1: w.y - 40, x2: blocked ? blocked.x : foe.x, y2: blocked ? blocked.y : foe.y - 40, t: 0.22 });
-                if (blocked) { blocked.hp -= (spell.dmg || 0) * power; }
-                else {
-                    dealDamage(g, 1 - idx, (spell.dmg || 0) * power, { from: idx, lifesteal: p.lifesteal, dodgeable: false });
-                    if (p.manaBurn) { foe.mana = Math.max(0, foe.mana - p.manaBurn); float(g, foe.x, foe.y - 86, '-' + p.manaBurn + ' mana', '#c08cff'); }
-                    if (p.shock) addStatus(foe, 'shock', p.shock.dur);
-                }
-                SFX.hit();
-                break;
-            }
-            case 'wall': {
-                g.ents.push({
-                    kind: 'wall', owner: idx, el, x: w.x + dir * 92, y: A.floor - (p.h || 120) / 2 - 10,
-                    w: 16, h: p.h || 120, hp: (p.hp || 40) * power, maxHp: (p.hp || 40) * power, life: p.dur || 9
-                });
-                SFX.ward();
-                break;
-            }
-            case 'ward': {
-                w.ward = Math.max(w.ward, (p.shield || 20) * power);
-                w.wardT = p.dur || 8;
-                w.wardThorns = p.thorns || 0;
-                w.wardZap = !!p.zap;
-                if (p.status) addStatus(w, p.status, p.statusDur || p.dur || 8);
-                SFX.ward();
-                break;
-            }
-            case 'heal': {
-                if (p.over) addStatus(w, 'regen', p.over, { hps: (p.heal || 10) * power / p.over });
-                else heal(g, idx, (p.heal || 10) * power);
-                SFX.heal();
-                break;
-            }
-            case 'buff': {
-                if (p.status) addStatus(w, p.status, p.dur || 6, {
-                    dps: p.selfDps, manaPerSec: p.manaPerSec, thorns: p.thorns
-                });
-                if (p.heal) heal(g, idx, p.heal * power);
-                SFX.ward();
-                break;
-            }
-            case 'hex': {
-                g.ents.push({ kind: 'hexfx', el, x: w.x + dir * 24, y: w.y - 40, tx: foe.x, ty: foe.y - 40, t: 0.3 });
-                if (spell.dmg) dealDamage(g, 1 - idx, spell.dmg * power, { from: idx, dodgeable: false });
-                if (p.status) addStatus(foe, p.status, (p.dur || 3) * (0.8 + quality * 0.4), { dps: p.dps, moveDps: p.moveDps, feed: p.feed, from: idx });
-                if (p.manaBurn) {
-                    const taken = Math.min(foe.mana, p.manaBurn);
-                    foe.mana -= taken;
-                    if (p.manaGain) w.mana = Math.min(A.maxMana, w.mana + Math.min(taken, p.manaGain));
-                    float(g, foe.x, foe.y - 86, '-' + Math.round(taken) + ' mana', '#c08cff');
-                }
-                SFX.hit();
-                break;
-            }
-            case 'zone': {
-                const cx = p.mid ? (A.leftX + A.rightX) / 2 : foe.x;
-                g.ents.push({
-                    kind: 'zone', owner: idx, el, x: cx, y: (A.ceil + A.floor) / 2,
-                    w: p.w || 150, h: A.floor - A.ceil, dps: (p.dps || 4) * power, life: p.dur || 4,
-                    burn: p.burn, chill: p.chill, eats: !!p.eats
-                });
-                break;
-            }
-            case 'special': return special(g, idx, spell, power, quality);
-        }
-        return null;
-    }
-
-    function special(g, idx, spell, power) {
-        const w = g.wiz[idx], foe = g.wiz[1 - idx], p = spell.p || {};
-        switch (spell.id) {
-            case 'blink':
-                addStatus(w, 'phase', p.status ? p.dur || 0.75 : 0.75);
-                w.y += (w.y > (A.ceil + A.floor) / 2 ? -1 : 1) * (p.jump || 90);
-                w.y = Math.max(A.ceil, Math.min(A.floor - 10, w.y));
-                g.fx.push({ kind: 'castring', x: w.x, y: w.y - 40, t: 0.4, el: spell.el });
-                break;
-            case 'nightfall':
-                g.ents.push({ kind: 'decoy', owner: idx, el: spell.el, x: w.x, y: w.y, life: p.dur || 8, avatar: w.avatar });
-                break;
-            case 'banish':
-                g.ents = g.ents.filter(e => e.owner !== 1 - idx || e.kind === 'bolt');
-                Object.keys(foe.st).forEach(k => { if (!(D.STATUS[k] || {}).bad) delete foe.st[k]; });
-                foe.ward = 0; foe.wardT = 0;
-                float(g, foe.x, foe.y - 86, 'banished', '#a074d8');
-                break;
-            case 'radiance': {
-                clearBad(w);
-                const d = Math.abs(foe.x - w.x);
-                if (d < (p.aoe || 130)) dealDamage(g, 1 - idx, (spell.dmg || 0) * power, { from: idx });
-                g.fx.push({ kind: 'burst', x: w.x, y: w.y - 40, t: 0.5, el: spell.el, r: p.aoe || 130 });
-                break;
-            }
-            case 'judgment':
-                g.ents.push({
-                    kind: 'telegraph', owner: idx, el: spell.el, x: foe.x, y: foe.y,
-                    r: p.r || 34, t: p.telegraph || 0.85, dmg: (spell.dmg || 0) * power
-                });
-                break;
-            case 'sacrifice':
-                w.mana = Math.min(A.maxMana, w.mana + (p.mana || 40));
-                float(g, w.x, w.y - 86, '+' + (p.mana || 40) + ' mana', '#c08cff');
-                break;
-        }
-        return null;
-    }
-
-    function wallBetween(g, from, to) {
-        const lo = Math.min(from.x, to.x), hi = Math.max(from.x, to.x);
-        return g.ents.find(e => e.kind === 'wall' && e.x > lo && e.x < hi) || null;
-    }
-
-    // ---------------------------------------------------------------
-    // the simulation — host only
-    // ---------------------------------------------------------------
-    function step(g, dt) {
-        if (g.paused) return;
-        g.t += dt;
-
-        if (g.phase === 'countdown') {
-            g.phaseT -= dt;
-            const was = Math.ceil(g.phaseT + dt), now = Math.ceil(g.phaseT);
-            if (now !== was && now > 0) SFX.tick();
-            if (g.phaseT <= 0) { g.phase = 'live'; SFX.tick(); botSay(g, 'start'); }
-            return;
-        }
-        if (g.phase === 'roundover') {
-            g.phaseT -= dt;
-            if (g.phaseT <= 0) nextRound(g);
-            return;
-        }
-        if (g.phase !== 'live') return;
-
-        for (let i = 0; i < 2; i++) stepWizard(g, i, dt);
-        stepEntities(g, dt);
-
-        // round decided?
-        const dead = [g.wiz[0].dead, g.wiz[1].dead];
-        if (dead[0] || dead[1]) {
-            const winner = dead[0] && dead[1] ? -1 : (dead[0] ? 1 : 0);
-            endRound(g, winner);
-        }
-    }
-
-    function stepWizard(g, i, dt) {
-        const w = g.wiz[i], foe = g.wiz[1 - i], inp = g.input[i];
-        // ---- statuses ----
-        let manaMul = 1, moved = false;
-        Object.keys(w.st).forEach(k => {
-            const s = w.st[k];
-            s.t -= dt;
-            if (s.t <= 0) { delete w.st[k]; return; }
-            switch (k) {
-                case 'burn': dealDamage(g, i, (s.dps || 3) * dt, { contact: false, dodgeable: false }); break;
-                case 'bleed': dealDamage(g, i, (s.dps || 2) * dt, { contact: false, dodgeable: false }); break;
-                case 'leech': {
-                    const taken = (s.dps || 2) * dt;
-                    dealDamage(g, i, taken, { contact: false, dodgeable: false });
-                    if (s.feed && s.from !== undefined) heal(g, s.from, taken * 0.8);
-                    break;
-                }
-                case 'chill': manaMul *= 0.55; break;
-                case 'overload': manaMul *= 2; dealDamage(g, i, (s.dps || 1.2) * dt, { contact: false, dodgeable: false }); break;
-                case 'well': w.mana = Math.min(A.maxMana, w.mana + (s.manaPerSec || 8) * dt); break;
-                case 'regen': heal(g, i, (s.hps || 4) * dt); break;
-            }
+    function makeGame(session, opts) {
+        const solo = !!(opts && opts.solo) || !!(session && session.solo);
+        const bot = solo ? (D.botById(opts && opts.botId) || randomBot()) : null;
+        const players = solo
+            ? [{ id: 'me', name: (window.Netplay ? Netplay.profile().name : 'you'), avatar: myAvatar(), loadout: myLoadout() },
+            { id: 'bot', name: bot.name, avatar: bot.avatar, bot: true, loadout: (bot.style.pool || D.DEFAULT_LOADOUT).slice(0, D.LOADOUT_SIZE) }]
+            : orderPlayers(session, opts);
+        const seed = (opts && opts.seed) || floor(Math.random() * 1e9) + 1;
+        const s = S.newMatch({
+            seed,
+            players: players.map(p => ({
+                id: p.id, name: p.name || 'wizard', bot: !!p.bot, loadout: p.loadout,
+                avatar: normAvatar(p.avatar || seededAvatar(p.id))
+            }))
         });
-        w.mana = Math.min(A.maxMana, w.mana + A.manaRegen * manaMul * dt);
-        w.castT = Math.max(0, w.castT - dt);
-        w.hitT = Math.max(0, w.hitT - dt);
-        Object.keys(w.cd).forEach(k => { w.cd[k] = Math.max(0, w.cd[k] - dt); });
-        if (w.wardT > 0) { w.wardT -= dt; if (w.wardT <= 0) { w.ward = 0; w.wardThorns = 0; w.wardZap = false; } }
-
-        // ---- movement ----
-        if (canMove(w)) {
-            const dir = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
-            if (dir) {
-                w.y += dir * A.moveSpeed * dt;
-                moved = true;
-            }
-        }
-        w.y = Math.max(A.ceil, Math.min(A.floor - 8, w.y));
-        // knockback drifts back home
-        if (Math.abs(w.x - w.home) > 0.5) w.x += (w.home - w.x) * Math.min(1, dt * 1.6);
-        // bleeding gets worse if you keep dancing about
-        if (moved && has(w, 'bleed') && w.st.bleed.moveDps) {
-            dealDamage(g, i, w.st.bleed.moveDps * dt, { contact: false, dodgeable: false });
-        }
-        w.face = foe.x >= w.x ? 1 : -1;
-    }
-
-    function stepEntities(g, dt) {
-        const keep = [];
-        for (const e of g.ents) {
-            switch (e.kind) {
-                case 'bolt': {
-                    const foe = g.wiz[1 - e.owner];
-                    if (e.homing) {
-                        const tx = foe.x - e.x, ty = (foe.y - 40) - e.y;
-                        const len = Math.hypot(tx, ty) || 1;
-                        e.vx += (tx / len) * e.homing * 190 * dt;
-                        e.vy += (ty / len) * e.homing * 190 * dt;
-                    }
-                    if (e.gravity) e.vy += e.gravity * dt;
-                    e.x += e.vx * dt;
-                    e.y += e.vy * dt;
-                    e.life -= dt;
-                    if (e.ground) e.y = A.floor - 12;
-                    if (e.life <= 0 || e.x < -40 || e.x > A.W + 40 || e.y > A.floor + 30 || e.y < -40) {
-                        if (e.aoe && e.y >= A.floor - 20) boom(g, e);
-                        continue;
-                    }
-                    // walls, decoys, hungry zones
-                    const wall = g.ents.find(o => o.kind === 'wall' && o.owner !== e.owner &&
-                        Math.abs(o.x - e.x) < o.w / 2 + e.r && Math.abs(o.y - e.y) < o.h / 2 + e.r);
-                    // a piercing bolt keeps flying, but it only gets to hurt
-                    // each thing once — otherwise it bills them every frame
-                    if (wall && e.hitWall !== wall) {
-                        wall.hp -= e.dmg;
-                        e.hitWall = wall;
-                        g.fx.push({ kind: 'spark', x: e.x, y: e.y, t: 0.3, el: e.el });
-                        SFX.hit();
-                        if (!e.pierce) continue;
-                    }
-                    const decoy = g.ents.find(o => o.kind === 'decoy' && o.owner !== e.owner && Math.hypot(o.x - e.x, (o.y - 40) - e.y) < 30);
-                    if (decoy) {
-                        decoy.life = 0;
-                        g.fx.push({ kind: 'burst', x: decoy.x, y: decoy.y - 40, t: 0.4, el: 'shadow', r: 40 });
-                        continue;
-                    }
-                    const hungry = g.ents.find(o => o.kind === 'zone' && o.eats && Math.abs(o.x - e.x) < o.w / 2);
-                    if (hungry && hungry.owner !== e.owner) {
-                        g.fx.push({ kind: 'spark', x: e.x, y: e.y, t: 0.25, el: 'void' });
-                        continue;
-                    }
-                    // the wizard
-                    const hitR = e.r + 24;
-                    if (!e.hitFoe && Math.hypot(foe.x - e.x, (foe.y - 40) - e.y) < hitR) {
-                        if (e.lowOnly && foe.y < A.floor - 90) { keep.push(e); break; }
-                        if (has(foe, 'mirror')) {
-                            delete foe.st.mirror;
-                            e.owner = 1 - e.owner;
-                            e.vx *= -1;
-                            e.hitFoe = false;      // it gets one hit on its new target
-                            e.hitWall = null;
-                            e.x += e.vx * dt * 2;
-                            float(g, foe.x, foe.y - 86, 'mirrored', '#b04dff');
-                            keep.push(e);
-                            break;
-                        }
-                        if (foe.wardZap && e.r <= 8 && foe.ward > 0) {
-                            foe.ward = Math.max(0, foe.ward - e.dmg * 0.4);
-                            g.fx.push({ kind: 'spark', x: e.x, y: e.y, t: 0.25, el: 'storm' });
-                            continue;
-                        }
-                        applyBoltHit(g, e, foe);
-                        e.hitFoe = true;
-                        // the splash is for everyone else — whoever ate the
-                        // bolt itself does not also get billed for the blast
-                        if (e.aoe) boom(g, e, foe.idx);
-                        if (!e.pierce) continue;
-                    }
-                    keep.push(e);
-                    break;
-                }
-                case 'wall':
-                    e.life -= dt;
-                    if (e.life > 0 && e.hp > 0) keep.push(e);
-                    break;
-                case 'zone': {
-                    e.life -= dt;
-                    for (let i = 0; i < 2; i++) {
-                        const w = g.wiz[i];
-                        if (i === e.owner) continue;
-                        if (Math.abs(w.x - e.x) < e.w / 2 + 20) {
-                            dealDamage(g, i, e.dps * dt, { from: e.owner, contact: false, dodgeable: false });
-                            if (e.burn && Math.random() < dt * 2) addStatus(w, 'burn', e.burn.dur, { dps: e.burn.dps });
-                            if (e.chill) addStatus(w, 'chill', e.chill.dur);
-                        }
-                    }
-                    if (e.life > 0) keep.push(e);
-                    break;
-                }
-                case 'telegraph':
-                    e.t -= dt;
-                    if (e.t <= 0) {
-                        const foe = g.wiz[1 - e.owner];
-                        if (Math.abs(foe.x - e.x) < e.r && Math.abs(foe.y - e.y) < e.r + 40) {
-                            dealDamage(g, 1 - e.owner, e.dmg, { from: e.owner });
-                        }
-                        g.fx.push({ kind: 'pillar', x: e.x, y: e.y, t: 0.45, el: e.el });
-                        SFX.hit();
-                    } else keep.push(e);
-                    break;
-                case 'decoy':
-                    e.life -= dt;
-                    if (e.life > 0) keep.push(e);
-                    break;
-                case 'beam':
-                case 'hexfx':
-                    e.t -= dt;
-                    if (e.t > 0) keep.push(e);
-                    break;
-                default: keep.push(e);
-            }
-        }
-        g.ents = keep;
-    }
-
-    function applyBoltHit(g, e, foe) {
-        dealDamage(g, foe.idx, e.dmg, { from: e.owner, punish: e.punish });
-        if (e.burn) addStatus(foe, 'burn', e.burn.dur, { dps: e.burn.dps });
-        if (e.chill) addStatus(foe, 'chill', e.chill.dur);
-        if (e.status) addStatus(foe, e.status, e.statusDur || 2);
-        if (e.knock) {
-            foe.x += (e.vx > 0 ? 1 : -1) * Math.min(50, e.knock * 0.5);
-            foe.x = Math.max(40, Math.min(A.W - 40, foe.x));
-            addStatus(foe, 'stun', 0.25);
-        }
-        g.fx.push({ kind: 'spark', x: e.x, y: e.y, t: 0.3, el: e.el });
-        SFX.hit();
-    }
-    function boom(g, e, skip) {
-        g.fx.push({ kind: 'burst', x: e.x, y: e.y, t: 0.5, el: e.el, r: e.aoe });
-        for (let i = 0; i < 2; i++) {
-            if (i === e.owner || i === skip) continue;
-            const w = g.wiz[i];
-            if (Math.hypot(w.x - e.x, (w.y - 40) - e.y) < e.aoe) {
-                dealDamage(g, i, e.dmg * 0.6, { from: e.owner, contact: false });
-            }
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // rounds
-    // ---------------------------------------------------------------
-    function endRound(g, winner) {
-        g.phase = 'roundover';
-        g.phaseT = 2.6;
-        g.lastWinner = winner;
-        if (winner >= 0) g.wins[winner]++;
-        if (winner === g.me) SFX.win();
-        if (winner >= 0) botSay(g, winner === 1 ? 'win' : 'lose');
-        if (g.isHost) sendNet(g, 'wz:round', { wins: g.wins, winner, round: g.round });
-    }
-    function nextRound(g) {
-        if (g.wins[0] >= A.rounds || g.wins[1] >= A.rounds) {
-            g.phase = 'matchover';
-            g.over = g.wins[0] > g.wins[1] ? 0 : 1;
-            if (g.isHost) sendNet(g, 'wz:end', { wins: g.wins, winner: g.over });
-            if (g.over === g.me && typeof unlockAchievement === 'function') unlockAchievement('wizardz_win');
-            renderChrome();
-            return;
-        }
-        g.round++;
-        g.ents = []; g.fx = []; g.floats = [];
-        g.wiz.forEach((w, i) => {
-            w.hp = A.maxHp; w.mana = A.maxMana; w.ward = 0; w.wardT = 0;
-            w.wardThorns = 0; w.wardZap = false; w.castT = 0; w.hitT = 0;
-            w.st = {}; w.cd = {}; w.dead = false; w.y = (A.ceil + A.floor) / 2; w.x = w.home;
-        });
-        g.phase = 'countdown';
-        g.phaseT = 3;
-        g.strokes = []; g.stroke = null;
-    }
-
-    // ---------------------------------------------------------------
-    // the machine opponent
-    // ---------------------------------------------------------------
-    // A machine can draw a perfect sigil in zero seconds, so the only
-    // fair handicap is making it wait between casts like you have to.
-    // Each bot brings its own hands; the difficulty dropdown bends them.
-    function botSkill(bot) {
-        const d = D.BOT_DIFFICULTY[difficulty()] || D.BOT_DIFFICULTY.normal;
-        const s = bot.skill;
-        return {
-            react: s.react * d.react,
-            dodge: Math.min(0.95, s.dodge * d.dodge),
-            quality: Math.min(1, s.quality * d.quality)
+        const me = solo ? 0 : (players[0].id === session.id ? 0 : 1);
+        const g = {
+            session, solo, bot, s, me, seed,
+            isHost: solo ? true : !!session.isHost,
+            brain: solo ? S.newBrain(bot, difficulty(), seed ^ 0x5bd1e995, players[1].loadout) : null,
+            yaw: s.wiz[me].yaw, pitch: -0.02,
+            keys: {}, wantFire: false, wantAim: false, touchAim: false, jumpQ: false, dashQ: false,
+            stick: { x: 0, y: 0, id: null, ox: 0, oy: 0, cx: 0, cy: 0 }, lookId: null, lookX: 0, lookY: 0, fireId: null,
+            stance: false, strokes: [], stroke: null, lastInk: 0, penUpAt: 0, penMovedAt: 0, pen: { x: 0, y: 0 }, penDown: false, guide: null,
+            manualCast: preference(LS.manual, 'false') === 'true',
+            loadout: myLoadout(), settings: settings(),
+            acc: 0, snapAcc: 0, inputAcc: 0, netDown: 0, paused: false, pauseWhy: null,
+            pending: [], seq: 0, ack: 0, inSeq: 0, inAck: 0, seen: new Set(), seenTo: 0, outbox: [], history: [], snapTick: -1,
+            fireClock: 0,
+            fx: [], floats: [], beams: [], rings: [],
+            shake: 0, vignette: 0, hitMark: 0, errX: 0, errY: 0, errZ: 0,
+            hint: null, hintT: 0, banner: null, bannerT: 0,
+            camT: 1, fovNow: 1.15, walkA: [0, 0], fall: [0, 0], raise: [0, 0], ended: false,
+            frames: 0, frameMs: 0, frameMax: 0, lastFps: 0, fpsT: 0,
+            speed: 1, trafficOut: 0, trafficIn: 0,
+            // the names a test, or a console, wants to ask about
+            get wiz() { return this.s.wiz; },
+            get ents() { return this.s.ents; },
+            get phase() { return this.s.phase; },
+            get over() { return this.s.over; },
+            get reason() { return this.s.reason; },
+            get wins() { return this.s.score; }
         };
+        if (!solo) s.guessing = !g.isHost;
+        s.guessMe = me;
+        return g;
     }
-    // the bots have opinions, and they say them out loud
-    function botSay(g, kind) {
-        if (!g.solo || !g.bot) return;
-        const lines = (g.bot.lines || {})[kind];
-        if (!lines || !lines.length) return;
-        g.hint = { text: g.bot.name + ': ' + lines[Math.floor(Math.random() * lines.length)], bot: true };
-        g.hintT = 2.6;
+    function say(g, text, kind, t) {
+        g.hint = { text, kind: kind || 'ok' };
+        g.hintT = t || 1.8;
     }
-    function botStep(g, dt) {
-        const bot = g.bot || D.BOTS[0];
-        const cfg = botSkill(bot);
-        const style = bot.style || {};
-        const me = g.wiz[1], foe = g.wiz[0];
-        // dodging: look for the nearest thing coming at us
-        const inc = g.ents.filter(e => e.kind === 'bolt' && e.owner === 0 && (e.x - me.x) * (e.vx) > 0 === false)
-            .sort((a, b) => Math.abs(a.x - me.x) - Math.abs(b.x - me.x))[0];
-        g.input[1] = { up: 0, down: 0 };
-        if (inc && Math.random() < cfg.dodge) {
-            const dy = (inc.y + 40) - me.y;
-            if (Math.abs(dy) < 70) { if (dy > 0) g.input[1].up = 1; else g.input[1].down = 1; }
-        } else if (Math.random() < 0.02) {
-            g.input[1][Math.random() < 0.5 ? 'up' : 'down'] = 1;
+    function banner(g, text, color, t) {
+        g.banner = { text, color: color || '#ffe14d' };
+        g.bannerT = t || 1.6;
+    }
+
+    // ---------------------------------------------------------------
+    // commands: the only way anything changes
+    // ---------------------------------------------------------------
+    function denyText(why) {
+        return ({
+            ink: 'not enough ink', health: 'not enough health', cooling: 'still cooling down',
+            inactive: 'wait for it', frozen: 'you cannot do that right now', dead: 'you are dead bradar', stance: 'you are drawing'
+        })[why] || 'no';
+    }
+    function issue(g, c) {
+        if (g.isHost) {
+            const why = S.command(g.s, g.me, c);
+            return why;
         }
-        // telegraphed strikes have to be walked out of
-        const tel = g.ents.find(e => e.kind === 'telegraph' && e.owner === 0);
-        if (tel && Math.abs(tel.y - me.y) < 60) g.input[1][me.y > tel.y ? 'down' : 'up'] = 1;
-
-        g.botAcc -= dt;
-        if (g.botAcc > 0 || g.phase !== 'live') return;
-        g.botAcc = cfg.react * (0.85 + Math.random() * 0.3);
-
-        const pool = (style.pool ? style.pool.map(id => D.byId(id)) : D.SPELLS).filter(Boolean);
-        const usable = pool.filter(s => !spellReady(g, 1, s));
-        if (!usable.length) return;
-        const aggression = style.aggression === undefined ? 1 : style.aggression;
-        const defence = style.defence === undefined ? 1 : style.defence;
-        const hexLove = style.hexes === undefined ? 1 : style.hexes;
-        // everybody smells blood at the end
-        const closing = foe.hp < 35 ? 1.6 : 1;
-        const score = (s) => {
-            let v = ((s.dmg || 0) + (s.p && s.p.dps ? s.p.dps * 3 : 0)) * aggression * closing;
-            // everyone has a favourite shelf of the spellbook
-            if ((style.els || []).includes(s.el)) v += 16;
-            else if (style.els) v -= 6;
-            if (s.kind === 'heal') v += (me.hp < 45 ? 45 : me.hp > 80 ? -40 : 8) * defence;
-            if (s.kind === 'ward') v += (me.ward > 0 ? -30 : (me.hp < 60 ? 26 : 10) * defence);
-            if (s.kind === 'wall') v = (g.ents.some(e => e.kind === 'wall' && e.owner === 1) ? v - 40 : v + 14 * defence);
-            if (s.kind === 'hex') v = v * hexLove + (Object.keys(foe.st).length > 2 ? -12 : 8 * hexLove);
-            if (s.id === 'sacrifice') v = me.mana < 25 && me.hp > 55 ? 35 : -50;
-            if (s.p && s.p.lowOnly && foe.y < A.floor - 90) v -= 40;
-            // do not blow the whole mana bar on the opening move, and keep
-            // enough back to answer with something. a bot that spends its
-            // last drop on a wall then stands there is not playing, it is
-            // waiting.
-            v -= Math.max(0, (s.cost || 0) - me.mana * 0.55) * 1.2;
-            if ((s.cost || 0) > me.mana - 14 && (s.dmg || 0) < 20) v -= 22;
-            if (s.hp) v -= s.hp * (me.hp < 55 ? 2.5 : 0.8);
-            // the big nukes stay occasional. a person needs a second and a
-            // half to draw anything, and a machine chaining meteor into
-            // oblivion is not a duel, it is a mugging.
-            v -= Math.max(0, (s.dmg || 0) - 18) * 1.6;
-            return v + Math.random() * 12;
-        };
-        const pick = usable.sort((a, b) => score(b) - score(a))[0];
-        if (!pick) return;
-        castSpell(g, 1, pick, cfg.quality * (0.85 + Math.random() * 0.15));
-        // heavy spells cost the machine time as well as mana
-        if ((pick.cost || 0) >= 25 || (pick.dmg || 0) >= 20) g.botAcc += cfg.react * 0.8;
+        // a guest numbers it, and it goes with every input until a snapshot says it landed
+        g.seq++;
+        g.pending.push({ n: g.seq, c });
+        return null;
+    }
+    function packCommand(p) {
+        const c = p.c;
+        if (c.c === 'cast') return [p.n, 0, S.SPELL_INDEX[c.s], round(c.q * 100) / 100];
+        if (c.c === 'fire') return [p.n, 1, round(c.y * 100) / 100, round(c.p * 100) / 100];
+        if (c.c === 'drop') return [p.n, 2];
+        if (c.c === 'resign') return [p.n, 3];
+        return [p.n, 9];
+    }
+    function unpackCommand(a) {
+        if (!Array.isArray(a)) return null;
+        switch (a[1]) {
+            case 0: { const sp = D.SPELLS[a[2]]; return sp ? { c: 'cast', s: sp.id, q: a[3] } : null; }
+            case 1: return { c: 'fire', y: a[2], p: a[3] };
+            case 2: return { c: 'drop' };
+            case 3: return { c: 'resign' };
+        }
+        return null;
     }
 
     // ===============================================================
-    // 6. NETWORKING
+    // the wire
     // ===============================================================
-    function sendNet(g, type, data) {
-        if (g.session && !g.solo) g.session.send(type, data);
+    const onRelays = g => !!(g.session && g.session.transport && g.session.transport.kind === 'bus');
+    function netSend(g, type, data, to) {
+        if (!g.session || g.solo || !g.session.alive) return;
+        g.session.send(type, data, to);
     }
-    function snapshot(g) {
-        return {
-            t: +g.t.toFixed(2), ph: g.phase, pt: +g.phaseT.toFixed(2), rd: g.round, wn: g.wins, lw: g.lastWinner, over: g.over,
-            w: g.wiz.map(w => ({
-                x: Math.round(w.x), y: Math.round(w.y),
-                h: +w.hp.toFixed(1), m: +w.mana.toFixed(1), wd: +w.ward.toFixed(1),
-                c: +w.castT.toFixed(2), ht: +w.hitT.toFixed(2), f: w.face, d: w.dead ? 1 : 0,
-                st: Object.keys(w.st).map(k => [k, +w.st[k].t.toFixed(1)]),
-                cd: Object.keys(w.cd).filter(k => w.cd[k] > 0).map(k => [k, +w.cd[k].toFixed(1)])
-            })),
-            e: g.ents.map(e => {
-                const o = { k: e.kind, x: Math.round(e.x || 0), y: Math.round(e.y || 0), el: e.el, o: e.owner };
-                if (e.r) o.r = e.r;
-                if (e.vx !== undefined) { o.vx = Math.round(e.vx); o.vy = Math.round(e.vy); }
-                if (e.w) o.w = e.w;
-                if (e.h) o.h = e.h;
-                if (e.t) o.t = +e.t.toFixed(2);
-                if (e.hp) o.hp = +e.hp.toFixed(1);
-                if (e.maxHp) o.mh = e.maxHp;
-                if (e.x1 !== undefined) { o.x1 = Math.round(e.x1); o.y1 = Math.round(e.y1); o.x2 = Math.round(e.x2); o.y2 = Math.round(e.y2); }
-                if (e.tx !== undefined) { o.tx = Math.round(e.tx); o.ty = Math.round(e.ty); }
-                return o;
-            }),
-            fl: g.floats.slice(-4).map(f => ({ x: Math.round(f.x), y: Math.round(f.y), s: f.text, c: f.color, t: +f.t.toFixed(2) }))
-        };
+    function sendSnapshot(g, dt) {
+        g.snapAcc += dt;
+        // read every time: a direct link that dies moves to the relays mid-match. A
+        // finished or frozen match only needs a slow heartbeat to say so.
+        const finished = g.s.over !== null && g.s.over !== undefined;
+        const hz = (finished || g.netDown) ? 1 : onRelays(g) ? A.relayHz : A.snapshotHz;
+        if (g.snapAcc < 1 / hz) return;
+        g.snapAcc = 0;
+        if (finished) { g.overSent = (g.overSent || 0) + 1; if (g.overSent > 30) return; } else g.overSent = 0;
+        const extra = { a: g.seenTo, ai: g.inSeq };
+        if (g.netDown) extra.d = 1;
+        if (g.outbox.length) { extra.ev = g.outbox.slice(-16); g.outbox = []; }
+        netSend(g, 'wz:s', S.snapshot(g.s, extra, 1 - g.me));
     }
-    function applySnapshot(g, s) {
-        if (!s || !s.w) return;
-        g.phase = s.ph; g.phaseT = s.pt; g.round = s.rd; g.wins = s.wn || g.wins;
-        if (s.lw !== undefined) g.lastWinner = s.lw;
-        if (s.over !== undefined) g.over = s.over;
-        s.w.forEach((sw, i) => {
-            const w = g.wiz[i];
-            if (!w) return;
-            // remember where it was so rendering can smooth the gap
-            w.px = w.x; w.py = w.y;
-            w.x = sw.x; w.y = sw.y;
-            w.hp = sw.h; w.mana = sw.m; w.ward = sw.wd;
-            w.castT = sw.c; w.hitT = sw.ht; w.face = sw.f; w.dead = !!sw.d;
-            w.st = {};
-            (sw.st || []).forEach(([k, t]) => { w.st[k] = { t }; });
-            w.cd = {};
-            (sw.cd || []).forEach(([k, t]) => { w.cd[k] = t; });
-        });
-        g.ents = (s.e || []).map(e => ({
-            kind: e.k, x: e.x, y: e.y, el: e.el, owner: e.o, r: e.r, w: e.w, h: e.h, vx: e.vx, vy: e.vy,
-            t: e.t, hp: e.hp, maxHp: e.mh, x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, tx: e.tx, ty: e.ty,
-            avatar: e.k === 'decoy' ? g.wiz[e.o].avatar : null
-        }));
-        // floats are cosmetic; only take the new ones
-        (s.fl || []).forEach(f => {
-            if (!g.floats.some(x => x.text === f.s && Math.abs(x.x - f.x) < 4 && Math.abs(x.t - f.t) < 0.3)) {
-                g.floats.push({ x: f.x, y: f.y, text: f.s, color: f.c, t: f.t });
+    function onSnapshot(g, d) {
+        if (!d || !Array.isArray(d.w)) return;
+        const s = g.s;
+        // relays reorder. An old snapshot is not news, unless it is a new match
+        if (d.m < s.match || (d.m === s.match && d.k <= g.snapTick)) return;
+        if (d.m > s.match) {
+            g.seq = 0; g.ack = 0; g.inAck = 0; g.pending = []; g.history = []; g.ended = false; g.wantRematch = false;
+            g.fx = []; g.floats = []; g.beams = []; g.rings = [];
+            g.loadout = myLoadout();
+            clearStance(g);
+            s.match = d.m;
+            g.freshMatch = true;
+        }
+        const me = s.wiz[g.me];
+        const bx = me.x, by = me.y, bz = me.z;
+        const ownVy = me.vy, ownGrounded = me.grounded;
+        if (!S.applySnapshot(s, d)) return;
+        g.snapTick = d.k;
+        g.lastSnap = performance.now();
+        if (typeof d.a === 'number' && d.a > g.ack) {
+            g.ack = d.a;
+            g.pending = g.pending.filter(c => c.n > g.ack);
+        }
+        if (Array.isArray(d.ev)) d.ev.forEach(ev => s.ev.push(ev));
+        // own seat: what the host says, then the inputs it has not seen yet, again
+        me.yaw = g.yaw; me.pitch = g.pitch;
+        if (!me.dead) {
+            const seenInput = typeof d.ai === 'number' ? d.ai : 0;
+            g.history = g.history.filter(h => h.q >= seenInput);
+            if (g.history.length) { me.vy = ownVy; me.grounded = ownGrounded; }
+            for (const h of g.history) S.moveWizard(s, me, h.inp);
+            const ex = bx - me.x, ey = by - me.y, ez = bz - me.z;
+            // close enough to ease over. Further than that and something shoved you
+            if (hypot(ex, ez) < 5) { g.errX += ex; g.errY += ey; g.errZ += ez; }
+            else { g.errX = g.errY = g.errZ = 0; }
+        } else { g.errX = g.errY = g.errZ = 0; g.history = []; }
+        if (d.d && performance.now() - (g.helloAt || 0) > 2000) {
+            g.helloAt = performance.now();
+            if (g.session.alive) g.session.announceProfile();
+        }
+        if (g.netDown && !d.d) comeBack(g);
+        s.guessing = true;
+        // only now, because this repaints off the phase that just arrived
+        if (g.freshMatch) { g.freshMatch = false; paintOverlay(g); focusGame(g); }
+    }
+    function hostInput(g, d, from) {
+        if (!d || typeof d !== 'object') return;
+        const i = g.s.wiz.findIndex(w => w.id === (from && from.id));
+        if (i < 0 || i === g.me) return;
+        if (g.netDown) comeBack(g);
+        if (typeof d.m === 'number' && d.m !== g.s.match) return;
+        if (typeof d.q === 'number' && d.q > g.inSeq) {
+            g.inSeq = d.q;
+            const fl = d.f | 0;
+            S.setInput(g.s, i, { mx: (d.x | 0) / 100, mz: (d.z | 0) / 100, yaw: d.y, pitch: d.p, aim: !!(fl & 1), ink: !!(fl & 2), jump: !!(fl & 4), dash: !!(fl & 8) });
+        }
+        if (Array.isArray(d.c)) {
+            for (const a of d.c.slice(0, 32)) {
+                if (!Array.isArray(a) || typeof a[0] !== 'number') continue;
+                const n = a[0];
+                // the same command twice, because an ack got lost, is still one command
+                if (n <= g.seenTo || g.seen.has(n)) continue;
+                g.seen.add(n);
+                while (g.seen.has(g.seenTo + 1)) { g.seenTo++; g.seen.delete(g.seenTo); }
+                const cmd = unpackCommand(a);
+                if (!cmd) continue;
+                const why = S.command(g.s, i, cmd);
+                if (why && cmd.c === 'cast') netSend(g, 'wz:deny', { why, s: cmd.s }, from.id);
             }
-        });
+        }
     }
-
+    function sendInput(g, dt) {
+        g.inputAcc += dt;
+        const hz = onRelays(g) ? A.relayHz : A.snapshotHz;
+        if (g.inputAcc < 1 / hz) return;
+        g.inputAcc = 0;
+        const inp = g.s.input[g.me];
+        const f = (inp.aim ? 1 : 0) | (inp.ink ? 2 : 0) | (g.jumpSent ? 4 : 0) | (g.dashSent ? 8 : 0);
+        g.jumpSent = false; g.dashSent = false;
+        const msg = { q: ++g.inAck, m: g.s.match, x: round(inp.mx * 100), z: round(inp.mz * 100), y: round(g.yaw * 100) / 100, p: round(g.pitch * 100) / 100, f };
+        if (g.pending.length) msg.c = g.pending.slice(0, 12).map(packCommand);
+        if (g.session && g.session.alive) g.session.sendToHost('wz:i', msg);
+    }
+    function freeMouse(g) { if (isLocked(g) && document.exitPointerLock) { g.hadLock = false; document.exitPointerLock(); } }
+    function goneAway(g) {
+        if (g.s.over !== null && g.s.over !== undefined) return;
+        g.netDown = 1;
+        g.downAt = performance.now();
+        freeMouse(g);
+        paintOverlay(g);
+    }
+    function comeBack(g) {
+        if (!g.netDown) return;
+        g.netDown = 0;
+        g.acc = 0;
+        lastT = performance.now();
+        paintOverlay(g);
+    }
     function bindNet(g) {
         if (!g.session || g.solo) return;
         const s = g.session, offs = [];
         if (g.isHost) {
-            offs.push(s.on('wz:input', (d, from) => {
-                const i = g.wiz.findIndex(w => w.id === (from && from.id));
-                if (i >= 0) g.input[i] = { up: d && d.u ? 1 : 0, down: d && d.d ? 1 : 0 };
-            }));
-            offs.push(s.on('wz:cast', (d, from) => {
-                const i = g.wiz.findIndex(w => w.id === (from && from.id));
-                const spell = D.byId(d && d.s);
-                if (i >= 0 && spell) {
-                    const q = Math.max(0, Math.min(1, +d.q || 0));
-                    const why = castSpell(g, i, spell, q);
-                    if (why) sendNet(g, 'wz:deny', { s: spell.id, why });
-                }
-            }));
-            offs.push(s.on('wz:rematch', () => { if (g.phase === 'matchover') restartMatch(g); }));
+            const other = s.players.find(p => !p.me);
+            g.guestId = other ? other.id : null;
+            offs.push(s.on('wz:i', (d, from) => hostInput(g, d, from)));
+            offs.push(s.on('wz:rematch', () => { g.theyWantRematch = true; if (g.ended) paintOverlay(g); }));
+            offs.push(s.on('player-join', p => { if (p.id === g.guestId) comeBack(g); }));
         } else {
-            offs.push(s.on('wz:snap', d => applySnapshot(g, d)));
-            offs.push(s.on('wz:round', d => { g.wins = d.wins || g.wins; }));
-            offs.push(s.on('wz:end', d => { g.wins = d.wins || g.wins; g.phase = 'matchover'; g.over = d.winner; renderChrome(); }));
-            offs.push(s.on('wz:deny', d => { g.hint = { text: nameOf(d.s) + ': ' + denyText(d.why), bad: true }; g.hintT = 1.4; }));
-            offs.push(s.on('wz:restart', () => { g.wins = [0, 0]; g.round = 1; g.over = null; g.phase = 'countdown'; g.phaseT = 3; renderChrome(); }));
+            offs.push(s.on('wz:s', d => onSnapshot(g, d)));
+            offs.push(s.on('wz:deny', d => {
+                if (!d) return;
+                const sp = D.byId(d.s);
+                say(g, (sp ? sp.name + ': ' : '') + denyText(d.why), 'bad', 1.4);
+                SFX.fizzle();
+            }));
         }
-        // an opponent who walked out cannot lose the round, so the duel
-        // freezes where it stands and the banner explains why
-        const vanished = () => { g.netDown = 1; g.paused = true; };
-        offs.push(s.on('player-leave', vanished));
-        offs.push(s.on('net:down', vanished));
-        offs.push(s.on('closed', vanished));
-        // unless they come back: the link can drop out and pick up again, and
-        // a duel can carry on from where it froze
-        const back = () => { if (s.alive && g.netDown) { g.netDown = 0; g.paused = false; } };
-        offs.push(s.on('net:up', back));
-        offs.push(s.on('player-join', p => { if (g.wiz.some(w => w.id === p.id)) back(); }));
+        // somebody who walked out cannot lose, so the match freezes where it stands
+        offs.push(s.on('player-leave', p => { if (g.s.wiz.some(w => w.id === p.id)) goneAway(g); }));
+        offs.push(s.on('net:down', () => goneAway(g)));
+        offs.push(s.on('closed', () => goneAway(g)));
+        offs.push(s.on('net:up', () => {
+            comeBack(g);
+            if (!g.isHost && s.alive) s.announceProfile();
+        }));
         g._netOffs = offs;
     }
-    const nameOf = id => (D.byId(id) || {}).name || id;
-    function denyText(why) {
-        return ({ mana: 'not enough mana', health: 'not enough health', cooling: 'still cooling down', inactive: 'wait for the duel to resume', frozen: 'you cannot cast right now' })[why] || 'no';
-    }
-
     function restartMatch(g) {
-        g.wins = [0, 0]; g.round = 1; g.over = null;
-        g.ents = []; g.fx = []; g.floats = [];
-        g.wiz.forEach(w => {
-            w.hp = A.maxHp; w.mana = A.maxMana; w.ward = 0; w.wardT = 0;
-            w.wardThorns = 0; w.wardZap = false; w.castT = 0; w.hitT = 0;
-            w.st = {}; w.cd = {}; w.dead = false; w.y = (A.ceil + A.floor) / 2; w.x = w.home;
+        const s = g.s;
+        const next = S.newMatch({
+            seed: (g.seed = (g.seed * 31 + 17) >>> 0), match: s.match + 1,
+            players: s.wiz.map(w => ({ id: w.id, name: w.name, bot: w.bot, avatar: w.avatar, loadout: w.loadout }))
         });
-        g.phase = 'countdown'; g.phaseT = 3;
-        clearInk(g); resetInput(g); g.botAcc = 0; g.simAcc = 0;
-        if (g.isHost) sendNet(g, 'wz:restart', {});
-        renderChrome();
+        next.guessing = !g.isHost;
+        next.guessMe = g.me;
+        g.s = next;
+        g.yaw = next.wiz[g.me].yaw; g.pitch = -0.02;
+        g.ended = false; g.theyWantRematch = false; g.wantRematch = false;
+        g.loadout = myLoadout();
+        g.seen = new Set(); g.seenTo = 0; g.inSeq = 0; g.outbox = [];
+        g.acc = 0;
+        g.fx = []; g.floats = []; g.beams = []; g.rings = [];
+        if (g.brain) g.brain = S.newBrain(g.bot, difficulty(), g.seed ^ 0x5bd1e995, next.wiz[1].loadout);
+        clearStance(g);
+        paintOverlay(g);
+        focusGame(g);
+        if (g.isHost) netSend(g, 'wz:s', S.snapshot(next, { a: 0, ai: 0 }, 1 - g.me));
     }
 
     // ===============================================================
-    // 7. INPUT — drawing and moving
+    // the mouse, the keys, and the thumbs
     // ===============================================================
-    const INK_PAUSE = 420;     // ms of stillness that ends a sigil
-
-    function canvasPoint(ev) {
-        const r = cv.getBoundingClientRect();
-        const p = ev.touches ? ev.touches[0] : ev;
-        return {
-            x: (p.clientX - r.left) * (cv.width / r.width),
-            y: (p.clientY - r.top) * (cv.height / r.height)
-        };
-    }
-    function clearInk(g) { g.strokes = []; g.stroke = null; }
-    function resetInput(g) {
-        if (g._keys) Object.keys(g._keys).forEach(k => delete g._keys[k]);
-        g._touch = {};
-        pushInput(g, {});
+    const INK_PAUSE = 480;      // ms of the pen off the paper that ends a sigil
+    const INK_PAUSE_MAX = 1050; // and how long it waits for a pen that is on its way somewhere
+    const HUD_W = 640;
+    function clearInk(g) { g.strokes = []; g.stroke = null; g.penDown = false; }
+    function enterStance(g) {
+        const me = g.s.wiz[g.me];
+        if (g.stance || g.paused || g.s.phase !== 'live' || me.dead || !S.canAct(me)) return;
+        g.stance = true;
         clearInk(g);
+        g.wantFire = false;
+        g.pen.x = HUD_W / 2; g.pen.y = g.hudH ? g.hudH / 2 : 180;
+        SFX.tick();
+        paintTouch(g);
     }
-    function pauseDuel(g, paused = true) {
-        if (!g || !g.solo || g.phase === 'matchover') return;
-        g.paused = paused;
-        g.simAcc = 0;
-        resetInput(g);
-        renderChrome();
+    function clearStance(g) {
+        g.stance = false;
+        clearInk(g);
+        g.lookId = null;
+        paintTouch(g);
     }
-    function bindInput(g) {
-        const canvas = cv;
-        let pointer = null;
-        const down = ev => {
-            if (g.paused || g.phase !== 'live' || pointer !== null || ev.button > 0) return;
-            ev.preventDefault();
-            canvas.focus({ preventScroll: true });
-            pointer = ev.pointerId;
-            canvas.setPointerCapture(pointer);
-            g.stroke = [canvasPoint(ev)];
-            g.strokes.push(g.stroke);
-            g.lastInk = performance.now();
-        };
-        const move = ev => {
-            if (ev.pointerId !== pointer || !g.stroke) return;
-            ev.preventDefault();
-            const p = canvasPoint(ev), last = g.stroke[g.stroke.length - 1];
-            if (Math.hypot(p.x - last.x, p.y - last.y) > 2.5) g.stroke.push(p);
-            g.lastInk = performance.now();
-        };
-        const up = ev => {
-            if (ev.pointerId !== pointer) return;
-            if (g.stroke && g.stroke.length < 2) g.strokes.pop();
-            g.stroke = null;
-            pointer = null;
-            g.lastInk = performance.now();
-        };
-        const cancel = ev => { if (ev.pointerId === pointer) { up(ev); clearInk(g); } };
-        canvas.addEventListener('pointerdown', down);
-        canvas.addEventListener('pointermove', move);
-        canvas.addEventListener('pointerup', up);
-        canvas.addEventListener('pointercancel', cancel);
-        canvas.addEventListener('lostpointercapture', cancel);
+    function toggleStance(g) { if (g.stance) clearStance(g); else enterStance(g); }
 
-        const keys = {};
-        g._keys = keys;
-        g._touch = {};
-        const typing = e => /^(input|textarea|select)$/i.test((e.target || {}).tagName || '') || e.target?.isContentEditable;
-        const focused = () => root && root.contains(document.activeElement);
-        const keyDown = e => {
-            if (typing(e) || !focused() || e.ctrlKey || e.metaKey || e.altKey) return;
-            const k = e.key.toLowerCase();
-            if (k === 'p' && !e.repeat) { pauseDuel(g, !g.paused); return; }
-            if (g.paused) return;
-            // Native buttons retain Space/Enter activation; the arena owns game shortcuts.
-            if (e.target?.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
-            if (['w', 'arrowup', 's', 'arrowdown', ' ', 'enter'].includes(k)) e.preventDefault();
-            if (k === ' ') { clearInk(g); return; }
-            if (k === 'enter' && !e.repeat) { tryRecognize(g, true); return; }
-            if (/^[1-8]$/.test(k) && !e.repeat) { selectGuide(g, myLoadout()[Number(k) - 1]); return; }
-            keys[k] = true;
-            pushInput(g, keys);
-        };
-        const keyUp = e => { delete keys[e.key.toLowerCase()]; pushInput(g, keys); };
-        const blur = () => { pointer = null; resetInput(g); if (g.solo) pauseDuel(g); };
-        const hidden = () => { if (document.hidden) blur(); };
-        const focusOut = e => { if (!root.contains(e.relatedTarget)) resetInput(g); };
-        window.addEventListener('keydown', keyDown);
-        window.addEventListener('keyup', keyUp);
-        window.addEventListener('blur', blur);
-        document.addEventListener('visibilitychange', hidden);
-        root.addEventListener('focusout', focusOut);
-        const inputRoot = root;
-        g._unbind = () => {
-            resetInput(g);
-            canvas.removeEventListener('pointerdown', down);
-            canvas.removeEventListener('pointermove', move);
-            canvas.removeEventListener('pointerup', up);
-            canvas.removeEventListener('pointercancel', cancel);
-            canvas.removeEventListener('lostpointercapture', cancel);
-            window.removeEventListener('keydown', keyDown);
-            window.removeEventListener('keyup', keyUp);
-            window.removeEventListener('blur', blur);
-            document.removeEventListener('visibilitychange', hidden);
-            inputRoot.removeEventListener('focusout', focusOut);
-        };
-    }
-    function pushInput(g, keys) {
-        const inp = {
-            up: !g.paused && (keys['w'] || keys['arrowup'] || g._touch?.up) ? 1 : 0,
-            down: !g.paused && (keys['s'] || keys['arrowdown'] || g._touch?.down) ? 1 : 0
-        };
-        const mine = g.input[g.me];
-        if (mine.up === inp.up && mine.down === inp.down) return;
-        g.input[g.me] = inp;
-        if (!g.isHost) sendNet(g, 'wz:input', { u: inp.up, d: inp.down });
-    }
-    // touch players get buttons, since they have no keyboard to hover over
-    function touchMove(g, dir, on) {
-        g._touch = g._touch || {};
-        g._touch[dir] = on;
-        pushInput(g, g._keys || {});
-    }
-
-    function tryRecognize(g, force = false) {
-        if (g.paused) return;
-        // ink drawn between rounds is doodling, not casting
-        if (g.phase !== 'live' || g.wiz[g.me].dead) {
-            if (g.strokes.length && !g.stroke && performance.now() - g.lastInk > INK_PAUSE) g.strokes = [];
-            return;
+    function strokePoint(g, x, y) {
+        g.pen.x = clamp(x, 0, HUD_W); g.pen.y = clamp(y, 0, g.hudH || 360);
+        g.penMovedAt = performance.now();
+        if (!g.stroke) return;
+        const last = g.stroke[g.stroke.length - 1];
+        if (hypot(g.pen.x - last.x, g.pen.y - last.y) > 1.2) {
+            g.stroke.push({ x: g.pen.x, y: g.pen.y });
+            g.lastInk = performance.now();
         }
-        if (!g.strokes.length || g.stroke) return;
-        if (!force && (g.manualCast || performance.now() - g.lastInk < INK_PAUSE)) return;
+    }
+    function penDown(g) {
+        if (!g.stance || g.penDown) return;
+        g.penDown = true;
+        g.stroke = [{ x: g.pen.x, y: g.pen.y }];
+        g.strokes.push(g.stroke);
+        g.lastInk = performance.now();
+    }
+    function penUp(g) {
+        if (!g.penDown) return;
+        g.penDown = false;
+        // a tap is not a stroke
+        if (g.stroke && g.stroke.length < 2) g.strokes.pop();
+        g.stroke = null;
+        g.penUpAt = performance.now();
+        g.lastInk = performance.now();
+    }
+
+    // when the drawing is done, did it mean anything?
+    function maybeRead(g, force) {
+        if (!g.stance || !g.strokes.length || g.stroke) return;
+        const now = performance.now();
+        if (!force) {
+            if (g.manualCast) return;
+            const quiet = now - g.penUpAt;
+            if (quiet < INK_PAUSE) return;
+            // on its way to the next stroke: give it a moment
+            if (now - g.penMovedAt < 140 && quiet < INK_PAUSE_MAX) return;
+        }
         const strokes = g.strokes;
-        g.strokes = [];
-        const results = recognize(strokes);
-        if (!results.length) return;
-        const best = results[0];
-        if (best.score < CAST_FLOOR || (results[1] && best.score - results[1].score < CAST_MARGIN)) {
-            // two different failures, and knowing which one it was is the
-            // difference between "draw it better" and "draw it bigger"
-            const split = best.score >= CAST_FLOOR && results[1];
-            g.hint = {
-                text: split
-                    ? 'fizzled — half ' + best.spell.name + ', half ' + results[1].spell.name
-                    : 'fizzled — that looked like ' + best.spell.name,
-                bad: true
-            };
-            g.hintT = 1.6;
+        clearInk(g);
+        // too small to have been on purpose
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        strokes.forEach(st => st.forEach(p => { x0 = min(x0, p.x); y0 = min(y0, p.y); x1 = max(x1, p.x); y1 = max(y1, p.y); }));
+        if (max(x1 - x0, y1 - y0) < 14) { say(g, 'draw it bigger bradar', 'bad', 1.2); return; }
+        const res = R.decide(strokes, g.loadout);
+        g.lastRead = res;
+        if (!res.ok) {
+            const name = sp => (sp ? sp.name : '');
+            let text = 'fizzled';
+            if (res.why === 'split') text = 'fizzled: half ' + name(res.spell) + ', half ' + name(res.spell2);
+            else if (res.why === 'book') text = name(res.spell) + ' is not in your book';
+            else if (res.why === 'rough') text = 'fizzled: that nearly looked like ' + name(res.spell);
+            say(g, text, 'bad', 1.8);
             SFX.fizzle();
             return;
         }
-        const q = qualityOf(best.score);
+        // on a guest this can only be a guess, the host has the last word
         if (g.isHost) {
-            const why = castSpell(g, g.me, best.spell, q);
-            if (why) {
-                g.hint = { text: best.spell.name + ': ' + denyText(why), bad: true };
-                g.hintT = 1.4;
-                SFX.fizzle();
+            const why = S.canInscribe(g.s, g.me, res.spell);
+            if (why) { say(g, res.spell.name + ': ' + denyText(why), 'bad', 1.4); SFX.fizzle(); return; }
+        }
+        issue(g, { c: 'cast', s: res.id, q: res.q });
+        if (!g.isHost) SFX.cast(res.spell.el);
+        say(g, res.spell.name + (res.q > 0.8 ? ': clean!' : ''), 'cast', 1.3);
+        clearStance(g);
+    }
+
+    // A browser hands over at most one move a frame and merges the rest. At 60fps that
+    // is fine. On a slow machine a triangle arrives as three points with the corners cut
+    // off, and fizzles, so a pen has to ask for everything that happened since last time.
+    function everyMove(ev) {
+        const list = ev.getCoalescedEvents ? ev.getCoalescedEvents() : null;
+        return list && list.length && list.length < 64 ? list : [ev];
+    }
+    // Chrome has been known to report a locked mouse teleporting hundreds of pixels in one
+    // event, usually straight back to where it was. A hand does not do that in 1/60 of a
+    // second, and believing it throws your aim at the sky.
+    const MOUSE_SPIKE = 500;
+    function canvasRect(g) { return g.cv.getBoundingClientRect(); }
+    function toHud(g, clientX, clientY) {
+        const r = canvasRect(g);
+        return { x: (clientX - r.left) / r.width * HUD_W, y: (clientY - r.top) / r.height * g.hudH };
+    }
+    function focusGame(g) { if (g.cv && g.cv.focus) g.cv.focus({ preventScroll: true }); }
+
+    function look(g, dx, dy) {
+        const k = 0.0026 * g.settings.sens * (g.wantAim || g.touchAim ? 0.6 : 1);
+        g.yaw += dx * k;
+        g.pitch = clamp(g.pitch - dy * k * (g.settings.invert ? -1 : 1), -1.2, 1.2);
+    }
+    function isLocked(g) { return !!document.pointerLockElement && document.pointerLockElement === g.cv; }
+    function askLock(g) {
+        if (g.noLock || !g.cv.requestPointerLock) { g.noLock = true; return; }
+        try {
+            const p = g.cv.requestPointerLock();
+            if (p && p.catch) p.catch(() => { g.noLock = true; paintOverlay(g); });
+        } catch (e) { g.noLock = true; }
+    }
+
+    function bindInput(g) {
+        const cv = g.cv, stage = g.stage;
+        const touch = g.touch = IS_TOUCH();
+        // ---- the mouse ----
+        const isFinger = ev => ev.pointerType === 'touch' || ev.pointerType === 'pen';
+        const down = ev => {
+            if (isFinger(ev)) return;
+            if (g.touchMode) { g.touchMode = false; g.touch = IS_TOUCH(); paintTouch(g); }
+            if (g.paused || g.ended) return;
+            ev.preventDefault();
+            focusGame(g);
+            if (!isLocked(g) && !g.noLock) {
+                // the first click only takes the mouse
+                askLock(g);
+                g.mouseX = ev.clientX; g.mouseY = ev.clientY;
+                if (!g.stance) return;
+            }
+            if (g.noLock) { g.mouseX = ev.clientX; g.mouseY = ev.clientY; g.dragging = true; }
+            if (ev.button === 2) {
+                if (g.stance) clearStance(g);
+                else g.wantAim = true;
                 return;
             }
+            if (ev.button !== 0) return;
+            if (g.stance) {
+                if (g.noLock || !isLocked(g)) { const h = toHud(g, ev.clientX, ev.clientY); g.pen.x = h.x; g.pen.y = h.y; }
+                penDown(g);
+            } else { g.wantFire = true; g.fireQ = true; }
+        };
+        const move = ev => {
+            if (isFinger(ev)) return;
+            if (g.paused) return;
+            if (isLocked(g)) {
+                const mx = ev.movementX || 0, my = ev.movementY || 0;
+                if (abs(mx) > MOUSE_SPIKE || abs(my) > MOUSE_SPIKE) return;
+                if (g.stance) {
+                    const r = canvasRect(g);
+                    // the pen moves as far on the screen as the mouse did
+                    const parts = everyMove(ev);
+                    let sx = 0, sy = 0;
+                    for (const e of parts) { sx += e.movementX || 0; sy += e.movementY || 0; }
+                    // some browsers leave these empty, and then the total is all there is
+                    const trust = abs(sx - mx) <= 2 && abs(sy - my) <= 2 ? parts : [ev];
+                    for (const e of trust) strokePoint(g, g.pen.x + (e.movementX || 0) / r.width * HUD_W, g.pen.y + (e.movementY || 0) / r.height * g.hudH);
+                } else look(g, mx, my);
+                return;
+            }
+            if (g.stance) {
+                for (const e of everyMove(ev)) {
+                    const h = toHud(g, e.clientX, e.clientY);
+                    strokePoint(g, h.x, h.y);
+                }
+                return;
+            }
+            // no pointer lock on this browser: hold a button and drag to look
+            if (g.noLock && g.dragging) {
+                look(g, ev.clientX - (g.mouseX || ev.clientX), ev.clientY - (g.mouseY || ev.clientY));
+                g.mouseX = ev.clientX; g.mouseY = ev.clientY;
+            }
+        };
+        const up = ev => {
+            if (isFinger(ev)) return;
+            if (ev.button === 2) g.wantAim = false;
+            if (ev.button === 0 || ev.buttons === 0) {
+                g.wantFire = false;
+                penUp(g);
+                g.dragging = false;
+            }
+        };
+        const noMenu = e => { e.preventDefault(); e.stopPropagation(); };
+        cv.addEventListener('pointerdown', down);
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        // the right button aims in here: neither the browser nor the desktop gets a say
+        stage.addEventListener('contextmenu', noMenu);
+        const lockChange = () => {
+            if (isLocked(g)) { g.hadLock = true; paintOverlay(g); return; }
+            // esc, or the browser taking it back
+            g.wantFire = false; g.wantAim = false; penUp(g);
+            if (g.hadLock && !g.ended) {
+                g.hadLock = false;
+                if (g.solo) pause(g, true, 'mouse');
+                paintOverlay(g);
+            }
+        };
+        const lockError = () => { g.noLock = true; paintOverlay(g); };
+        document.addEventListener('pointerlockchange', lockChange);
+        document.addEventListener('pointerlockerror', lockError);
+
+        // ---- the keys ----
+        const typing = e => /^(input|textarea|select)$/i.test((e.target || {}).tagName || '') || (e.target && e.target.isContentEditable);
+        const focused = () => root && (root.contains(document.activeElement) || isLocked(g));
+        const keyDown = e => {
+            if (typing(e) || !focused() || e.ctrlKey || e.metaKey || e.altKey) return;
+            const k = e.key.toLowerCase();
+            if (k === 'escape') {
+                // the desktop would close the window: here it opens the menu
+                e.stopPropagation();
+                e.preventDefault();
+                if (!g.ended) { if (g.paused) pause(g, false); else if (g.solo) pause(g, true, 'menu'); else toggleMenu(g); }
+                return;
+            }
+            if (k === 'p' && !e.repeat) { if (g.solo) pause(g, !g.paused, 'menu'); else toggleMenu(g); return; }
+            if (g.paused) return;
+            if (e.target && e.target.tagName === 'BUTTON' && (k === ' ' || k === 'enter')) return;
+            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'enter', 'shift'].includes(k)) e.preventDefault();
+            if ((k === 'e' || k === 'q' || k === 'r') && !e.repeat) { toggleStance(g); return; }
+            if (k === 'enter' && !e.repeat) { maybeRead(g, true); return; }
+            if (/^[1-8]$/.test(k) && !e.repeat) { pickGuide(g, g.loadout[Number(k) - 1]); return; }
+            if (k === ' ') {
+                if (g.stance) { clearInk(g); return; }
+                if (!e.repeat) g.jumpQ = true;
+            }
+            if (k === 'shift' && !e.repeat) g.dashQ = true;
+            g.keys[k] = true;
+        };
+        const keyUp = e => { delete g.keys[e.key.toLowerCase()]; };
+        const blur = () => { g.keys = {}; g.wantFire = false; g.wantAim = false; penUp(g); if (g.solo && !g.ended) pause(g, true, 'focus'); };
+        const hidden = () => { if (document.hidden) blur(); };
+        window.addEventListener('keydown', keyDown, true);
+        window.addEventListener('keyup', keyUp);
+        window.addEventListener('blur', blur);
+        document.addEventListener('visibilitychange', hidden);
+
+        // ---- thumbs ----
+        const touches = new Map();
+        const tDown = ev => {
+            if (!isFinger(ev)) return;
+            ev.preventDefault();
+            g.touchMode = true;
+            g.touch = true;
+            paintTouch(g);
+            if (g.paused || g.ended) return;
+            const r = stage.getBoundingClientRect();
+            const px = ev.clientX - r.left;
+            const left = px < r.width * 0.42;
+            if (left && g.stick.id === null) {
+                g.stick.id = ev.pointerId;
+                g.stick.ox = g.stick.cx = ev.clientX; g.stick.oy = g.stick.cy = ev.clientY;
+                touches.set(ev.pointerId, 'stick');
+            } else if (g.stance) {
+                const h = toHud(g, ev.clientX, ev.clientY);
+                g.pen.x = h.x; g.pen.y = h.y;
+                if (!g.penDown) { penDown(g); touches.set(ev.pointerId, 'pen'); }
+            } else if (g.lookId === null) {
+                g.lookId = ev.pointerId; g.lookX = ev.clientX; g.lookY = ev.clientY;
+                touches.set(ev.pointerId, 'look');
+            }
+            try { stage.setPointerCapture(ev.pointerId); } catch (e) { }
+        };
+        const tMove = ev => {
+            if (!isFinger(ev)) return;
+            const role = touches.get(ev.pointerId);
+            if (!role) return;
+            ev.preventDefault();
+            if (role === 'stick') {
+                g.stick.cx = ev.clientX; g.stick.cy = ev.clientY;
+                const R0 = 46;
+                let dx = (ev.clientX - g.stick.ox) / R0, dy = (ev.clientY - g.stick.oy) / R0;
+                const l = hypot(dx, dy);
+                if (l > 1) { dx /= l; dy /= l; }
+                g.stick.x = dx; g.stick.y = dy;
+            } else if (role === 'look') {
+                look(g, (ev.clientX - g.lookX) * 2.1, (ev.clientY - g.lookY) * 2.1);
+                g.lookX = ev.clientX; g.lookY = ev.clientY;
+            } else if (role === 'pen') {
+                for (const e of everyMove(ev)) {
+                    const h = toHud(g, e.clientX, e.clientY);
+                    strokePoint(g, h.x, h.y);
+                }
+            }
+        };
+        const tUp = ev => {
+            if (!isFinger(ev)) return;
+            const role = touches.get(ev.pointerId);
+            touches.delete(ev.pointerId);
+            if (role === 'stick') { g.stick.id = null; g.stick.x = 0; g.stick.y = 0; }
+            else if (role === 'look') g.lookId = null;
+            else if (role === 'pen') penUp(g);
+        };
+        stage.addEventListener('pointerdown', tDown);
+        stage.addEventListener('pointermove', tMove);
+        stage.addEventListener('pointerup', tUp);
+        stage.addEventListener('pointercancel', tUp);
+
+        g._unbind = () => {
+            cv.removeEventListener('pointerdown', down);
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            stage.removeEventListener('contextmenu', noMenu);
+            document.removeEventListener('pointerlockchange', lockChange);
+            document.removeEventListener('pointerlockerror', lockError);
+            window.removeEventListener('keydown', keyDown, true);
+            window.removeEventListener('keyup', keyUp);
+            window.removeEventListener('blur', blur);
+            document.removeEventListener('visibilitychange', hidden);
+            stage.removeEventListener('pointerdown', tDown);
+            stage.removeEventListener('pointermove', tMove);
+            stage.removeEventListener('pointerup', tUp);
+            stage.removeEventListener('pointercancel', tUp);
+            if (isLocked(g) && document.exitPointerLock) document.exitPointerLock();
+        };
+    }
+    // online there is nothing to pause, but you can still want the menu
+    function toggleMenu(g) {
+        g.menuOpen = !g.menuOpen;
+        if (g.menuOpen) { g.wantFire = false; penUp(g); freeMouse(g); }
+        paintOverlay(g);
+    }
+    function pickGuide(g, id) { g.guide = g.guide === id ? null : id; }
+    function pause(g, on, why) {
+        if (!g || !g.solo || g.ended) return;
+        if (g.paused === on) return;
+        g.paused = on;
+        g.pauseWhy = why || null;
+        g.keys = {}; g.wantFire = false; g.wantAim = false;
+        if (on) {
+            penUp(g);
+            if (isLocked(g) && document.exitPointerLock) document.exitPointerLock();
         } else {
-            sendNet(g, 'wz:cast', { s: best.spell.id, q: +q.toFixed(2) });
-            SFX.cast(best.spell.el);
+            lastT = performance.now();
+            g.acc = 0;
+            if (!g.touchMode && !g.noLock) askLock(g);
+            focusGame(g);
         }
-        g.hint = { text: best.spell.name + (q > 0.8 ? ' — clean!' : ''), el: best.spell.el };
-        g.hintT = 1.2;
+        paintOverlay(g);
+    }
+
+    // what this seat is holding, in the form the rules read
+    function currentInput(g) {
+        const k = g.keys;
+        let mx = (k.d || k.arrowright ? 1 : 0) - (k.a || k.arrowleft ? 1 : 0);
+        let mz = (k.w || k.arrowup ? 1 : 0) - (k.s || k.arrowdown ? 1 : 0);
+        if (g.stick.id !== null) { mx = g.stick.x; mz = -g.stick.y; }
+        const inp = {
+            mx, mz, yaw: g.yaw, pitch: g.pitch,
+            aim: (g.wantAim || g.touchAim) && !g.stance,
+            ink: g.stance,
+            jump: g.jumpQ, dash: g.dashQ
+        };
+        if (g.jumpQ) g.jumpSent = true;
+        if (g.dashQ) g.dashSent = true;
+        g.jumpQ = false; g.dashQ = false;
+        return inp;
+    }
+    function tryFire(g, dt) {
+        g.fireClock -= dt;
+        const me = g.s.wiz[g.me];
+        // a tap can start and end between two frames, and it still counts
+        if (g.stance || me.dead || g.s.phase !== 'live' || !S.canAct(me)) { g.fireQ = false; return; }
+        if (!g.wantFire && !g.fireQ) return;
+        if (g.fireClock > 0) return;
+        g.fireQ = false;
+        const sp = me.chamber ? D.byId(me.chamber.s) : null;
+        const rof = sp ? ((sp.p && sp.p.rof) || A.rof) : A.zap.rof;
+        const why = issue(g, { c: 'fire', y: g.yaw, p: g.pitch });
+        if (!why) {
+            g.fireClock = rof * (S.has(me, 'overload') ? 0.7 : 1);
+            if (!g.isHost) {
+                // a guess, so that a guest's staff answers before the round trip does
+                g.muzzle = 0.1;
+                me.fireT = 0.14;
+                sp ? SFX.fire() : SFX.zap();
+            }
+        } else if (why === 'cooling') g.fireClock = 0.03;
     }
 
     // ===============================================================
-    // 8. RENDERING
+    // the loop
     // ===============================================================
-    const elColor = el => (D.EL[el] || {}).color || '#fff';
-    const elGlow = el => (D.EL[el] || {}).glow || '#fff';
-
-    function render(g, dt) {
-        const w = cv.width, h = cv.height;
-        ctx.clearRect(0, 0, w, h);
-        drawArena(g, w, h);
-        g.ents.forEach(e => drawEntity(g, e));
-        for (let i = 0; i < 2; i++) {
-            const wz = g.wiz[i];
-            ctx.save();
-            if (wz.hitT > 0) { ctx.globalAlpha = 0.55 + Math.sin(wz.hitT * 60) * 0.3; }
-            if (has(wz, 'phase')) ctx.globalAlpha = 0.45;
-            drawWizard(ctx, wz.avatar, wz.x, wz.y, 1, {
-                time: g.t, face: wz.face, casting: wz.castT / 0.35,
-                shielded: wz.ward > 0
-            });
-            ctx.restore();
-            if (wz.dead) {
-                ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                ctx.beginPath(); ctx.ellipse(wz.x, wz.y, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
-            }
+    function pumpEvents(g) {
+        const s = g.s;
+        if (!s.ev.length) return;
+        for (const e of s.ev) {
+            onEvent(g, e);
+            if (g.isHost && !g.solo) g.outbox.push(e);
         }
-        drawFx(g, dt);
-        drawGuide(g);
-        drawInk(g);
-        drawHud(g, w, h);
-        if (has(g.wiz[g.me], 'blind')) drawBlind(g, w, h);
-        drawBanners(g, w, h);
+        s.ev.length = 0;
     }
-
-    function drawArena(g, w, h) {
-        const grd = ctx.createLinearGradient(0, 0, 0, h);
-        grd.addColorStop(0, '#160a2b');
-        grd.addColorStop(0.7, '#221046');
-        grd.addColorStop(1, '#0d0620');
-        ctx.fillStyle = grd;
-        ctx.fillRect(0, 0, w, h);
-        // stars
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        for (let i = 0; i < 40; i++) {
-            const x = (i * 97 % w), y = (i * 53 % (A.floor - 40));
-            const tw = 0.5 + Math.abs(Math.sin(g.t * 1.2 + i)) * 1.4;
-            ctx.fillRect(x, y, tw, tw);
+    function tick(g) {
+        const s = g.s;
+        // keep the last place for everything, so a frame can land in between ticks
+        s.wiz.forEach(w => { w.px = w.x; w.py = w.y; w.pz = w.z; });
+        s.ents.forEach(e => { e.px = e.x; e.py = e.y; e.pz = e.z; });
+        const inp = currentInput(g);
+        S.setInput(s, g.me, inp);
+        if (!g.isHost) {
+            g.history.push({ q: g.inAck, inp: S.sanitizeInput(inp) });
+            if (g.history.length > 120) g.history.shift();
         }
-        // floor
-        ctx.fillStyle = '#1b1030';
-        ctx.fillRect(0, A.floor, w, h - A.floor);
-        ctx.strokeStyle = '#4b2d7a';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, A.floor); ctx.lineTo(w, A.floor); ctx.stroke();
-        ctx.strokeStyle = 'rgba(120,80,200,0.25)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < w; x += 38) {
-            ctx.beginPath(); ctx.moveTo(x, A.floor); ctx.lineTo(x - 20, h); ctx.stroke();
-        }
-        // the two plinths
-        [A.leftX, A.rightX].forEach(x => {
-            ctx.fillStyle = '#2a1a48';
-            ctx.fillRect(x - 34, A.floor - 6, 68, 10);
-        });
+        if (g.brain) S.think(s, 1, g.brain);
+        S.step(s);
+        if (g.stance && (!S.canAct(s.wiz[g.me]) || s.wiz[g.me].dead || s.phase !== 'live')) clearStance(g);
     }
-
-    function drawEntity(g, e) {
-        const c = elColor(e.el), gl = elGlow(e.el);
-        switch (e.kind) {
-            case 'bolt': {
-                ctx.save();
-                ctx.shadowColor = gl; ctx.shadowBlur = 14;
-                ctx.fillStyle = c;
-                ctx.beginPath(); ctx.arc(e.x, e.y, e.r || 8, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.75)';
-                ctx.beginPath(); ctx.arc(e.x - (e.vx > 0 ? 2 : -2), e.y - 2, (e.r || 8) * 0.4, 0, Math.PI * 2); ctx.fill();
-                ctx.restore();
-                break;
-            }
-            case 'wall': {
-                const frac = e.maxHp ? Math.max(0.15, e.hp / e.maxHp) : 1;
-                ctx.save();
-                ctx.globalAlpha = 0.45 + frac * 0.45;
-                ctx.fillStyle = c;
-                ctx.fillRect(e.x - e.w / 2, e.y - e.h / 2, e.w, e.h);
-                ctx.strokeStyle = gl; ctx.lineWidth = 2;
-                ctx.strokeRect(e.x - e.w / 2, e.y - e.h / 2, e.w, e.h);
-                ctx.restore();
-                break;
-            }
-            case 'zone': {
-                ctx.save();
-                ctx.globalAlpha = 0.16 + Math.sin(g.t * 5) * 0.05;
-                ctx.fillStyle = c;
-                ctx.fillRect(e.x - e.w / 2, A.ceil - 20, e.w, A.floor - A.ceil + 30);
-                ctx.globalAlpha = 0.8;
-                ctx.strokeStyle = gl; ctx.lineWidth = 1.5;
-                for (let i = 0; i < 6; i++) {
-                    const px = e.x - e.w / 2 + ((g.t * 40 + i * e.w / 6) % e.w);
-                    ctx.beginPath();
-                    ctx.moveTo(px, A.floor);
-                    ctx.lineTo(px + 6, A.floor - 20 - (i % 3) * 12);
-                    ctx.stroke();
-                }
-                ctx.restore();
-                break;
-            }
-            case 'telegraph': {
-                ctx.save();
-                ctx.globalAlpha = 0.35 + Math.sin(g.t * 18) * 0.2;
-                ctx.strokeStyle = gl; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.ellipse(e.x, A.floor - 4, e.r, 10, 0, 0, Math.PI * 2); ctx.stroke();
-                ctx.fillStyle = c;
-                ctx.globalAlpha = 0.18;
-                ctx.fillRect(e.x - e.r, A.ceil - 30, e.r * 2, A.floor - A.ceil + 26);
-                ctx.restore();
-                break;
-            }
-            case 'decoy': {
-                ctx.save();
-                ctx.globalAlpha = 0.45;
-                drawWizard(ctx, e.avatar || g.wiz[e.owner].avatar, e.x, e.y, 1, { time: g.t, face: e.owner === 0 ? 1 : -1 });
-                ctx.restore();
-                break;
-            }
-            case 'beam': {
-                ctx.save();
-                ctx.strokeStyle = c;
-                ctx.shadowColor = gl; ctx.shadowBlur = 16;
-                ctx.lineWidth = 3 + Math.max(0, e.t) * 16;
-                ctx.globalAlpha = Math.max(0, Math.min(1, e.t * 4));
-                ctx.beginPath(); ctx.moveTo(e.x1, e.y1); ctx.lineTo(e.x2, e.y2); ctx.stroke();
-                ctx.restore();
-                break;
-            }
-            case 'hexfx': {
-                const k = 1 - Math.max(0, e.t) / 0.3;
-                ctx.save();
-                ctx.globalAlpha = 0.85;
-                ctx.fillStyle = c;
-                ctx.shadowColor = gl; ctx.shadowBlur = 12;
-                ctx.beginPath();
-                ctx.arc(e.x + (e.tx - e.x) * k, e.y + (e.ty - e.y) * k, 7, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-                break;
-            }
-        }
-    }
-
-    function drawFx(g, dt) {
-        const keep = [];
-        for (const f of g.fx) {
-            f.t -= dt;
-            if (f.t <= 0) continue;
-            const c = elColor(f.el), gl = elGlow(f.el);
-            ctx.save();
-            ctx.globalAlpha = Math.max(0, Math.min(1, f.t * 2.4));
-            if (f.kind === 'castring') {
-                ctx.strokeStyle = gl; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.arc(f.x, f.y, (0.4 - f.t) * 90 + 8, 0, Math.PI * 2); ctx.stroke();
-            } else if (f.kind === 'spark') {
-                ctx.fillStyle = c;
-                for (let i = 0; i < 7; i++) {
-                    const a = i * 0.9 + f.t * 8;
-                    const r = (0.3 - f.t) * 90;
-                    ctx.fillRect(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r, 3, 3);
-                }
-            } else if (f.kind === 'burst') {
-                ctx.strokeStyle = gl; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.arc(f.x, f.y, (0.5 - f.t) * (f.r || 60) * 2.2, 0, Math.PI * 2); ctx.stroke();
-            } else if (f.kind === 'pillar') {
-                const grd = ctx.createLinearGradient(f.x, 0, f.x, A.floor);
-                grd.addColorStop(0, 'rgba(255,255,255,0)');
-                grd.addColorStop(1, gl);
-                ctx.fillStyle = grd;
-                ctx.fillRect(f.x - 26, 0, 52, A.floor);
-            }
-            ctx.restore();
-            keep.push(f);
-        }
-        g.fx = keep;
-
-        const fkeep = [];
-        for (const f of g.floats) {
-            f.t -= dt;
-            if (f.t <= 0) continue;
-            ctx.save();
-            ctx.globalAlpha = Math.min(1, f.t);
-            ctx.fillStyle = f.color || '#fff';
-            ctx.font = 'bold 14px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(f.text, f.x, f.y - (1.1 - f.t) * 26);
-            ctx.restore();
-            fkeep.push(f);
-        }
-        g.floats = fkeep;
-    }
-
-    function selectGuide(g, id) {
-        g.guide = g.guide === id ? null : id;
-        renderChrome();
-    }
-    function drawGuide(g) {
-        const spell = D.byId(g.guide);
-        if (!spell || g.phase !== 'live') return;
-        const size = 160, x = (A.W - size) / 2, y = 105;
-        ctx.save();
-        ctx.strokeStyle = elColor(spell.el);
-        ctx.fillStyle = elGlow(spell.el);
-        ctx.globalAlpha = 0.4;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 6]);
-        spell.glyph.forEach(st => {
-            ctx.beginPath();
-            st.forEach((p, i) => { const xx = x + p.x * size / 100, yy = y + p.y * size / 100; if (!i) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy); });
-            ctx.stroke();
-        });
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 0.85;
-        ctx.font = 'bold 13px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('trace ' + spell.name + ' · draw anywhere', A.W / 2, y + size + 25);
-        spell.glyph.forEach((st, i) => {
-            const p = st[0];
-            ctx.fillText(String(i + 1), x + p.x * size / 100 - 12, y + p.y * size / 100 - 8);
-        });
-        ctx.restore();
-    }
-    function drawInk(g) {
-        if (!g.strokes.length) return;
-        ctx.save();
-        ctx.strokeStyle = '#0df259';
-        ctx.shadowColor = '#0df259';
-        ctx.shadowBlur = 12;
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        const fade = Math.max(0.35, 1 - (performance.now() - g.lastInk) / (INK_PAUSE * 2));
-        ctx.globalAlpha = fade;
-        g.strokes.forEach(s => {
-            if (s.length < 2) return;
-            ctx.beginPath();
-            ctx.moveTo(s[0].x, s[0].y);
-            for (let i = 1; i < s.length; i++) ctx.lineTo(s[i].x, s[i].y);
-            ctx.stroke();
-        });
-        ctx.restore();
-    }
-
-    function drawHud(g, w, h) {
-        ctx.save();
-        ctx.font = 'bold 12px "Courier New", monospace';
-        for (let i = 0; i < 2; i++) {
-            const wz = g.wiz[i];
-            const left = i === 0;
-            const x = left ? 12 : w - 12 - 250;
-            const y = 12;
-            // name + round pips
-            ctx.fillStyle = i === g.me ? '#0df259' : '#ff9aa8';
-            ctx.textAlign = left ? 'left' : 'right';
-            ctx.fillText(wz.name + (i === g.me ? ' (you)' : ''), left ? x : w - 12, y + 10);
-            // bars
-            const bw = 250, bh = 12;
-            const bar = (yy, frac, col, bg) => {
-                ctx.fillStyle = bg;
-                ctx.fillRect(x, yy, bw, bh);
-                ctx.fillStyle = col;
-                const fw = Math.max(0, Math.min(1, frac)) * bw;
-                ctx.fillRect(left ? x : x + bw - fw, yy, fw, bh);
-                ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
-                ctx.strokeRect(x + 0.5, yy + 0.5, bw - 1, bh - 1);
-            };
-            bar(y + 16, wz.hp / A.maxHp, '#e4485f', '#3a0f18');
-            bar(y + 32, wz.mana / A.maxMana, '#5b8cff', '#101a3a');
-            if (wz.ward > 0) {
-                ctx.fillStyle = 'rgba(180,230,255,0.85)';
-                const fw = Math.min(1, wz.ward / 40) * bw;
-                ctx.fillRect(left ? x : x + bw - fw, y + 16, fw, 4);
-            }
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = left ? 'left' : 'right';
-            ctx.fillText(Math.ceil(wz.hp) + ' hp', left ? x + 4 : x + bw - 4, y + 26);
-            ctx.fillText(Math.floor(wz.mana) + ' mana', left ? x + 4 : x + bw - 4, y + 42);
-            // statuses
-            const keys = Object.keys(wz.st).filter(k => D.STATUS[k]);
-            keys.slice(0, 7).forEach((k, n) => {
-                const sx = left ? x + n * 24 : x + bw - 20 - n * 24;
-                ctx.fillStyle = D.STATUS[k].color;
-                ctx.fillRect(sx, y + 48, 20, 6);
-                ctx.fillStyle = '#fff';
-                ctx.font = '9px "Courier New", monospace';
-                ctx.textAlign = 'left';
-                ctx.fillText(k.slice(0, 5), sx, y + 64);
-                ctx.font = 'bold 12px "Courier New", monospace';
-            });
-        }
-        // round score
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffe14d';
-        ctx.fillText('round ' + g.round + '   ' + g.wins[0] + ' - ' + g.wins[1], w / 2, 22);
-        // what the last sigil did
-        if (g.hintT > 0 && g.hint) {
-            ctx.globalAlpha = Math.min(1, g.hintT * 2);
-            ctx.fillStyle = g.hint.bad ? '#ff9aa8' : (g.hint.bot ? '#ffe14d' : elGlow(g.hint.el));
-            ctx.font = 'bold 15px "Courier New", monospace';
-            ctx.fillText(g.hint.text, w / 2, A.floor + 34);
-            ctx.globalAlpha = 1;
-        }
-        ctx.restore();
-    }
-
-    function drawBlind(g, w, h) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(126,224,106,0.22)';
-        ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = 'rgba(126,224,106,0.5)';
-        for (let i = 0; i < 60; i++) {
-            const x = (i * 137 + Math.sin(g.t + i) * 30) % w;
-            const y = (i * 71 + Math.cos(g.t * 0.7 + i) * 20) % h;
-            ctx.beginPath(); ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
-    }
-
-    function drawBanners(g, w, h) {
-        ctx.save();
-        ctx.textAlign = 'center';
-        if (g.phase === 'countdown') {
-            const n = Math.ceil(g.phaseT);
-            ctx.fillStyle = 'rgba(0,0,0,0.45)';
-            ctx.fillRect(0, h / 2 - 46, w, 92);
-            ctx.fillStyle = '#ffe14d';
-            ctx.font = 'bold 54px "Courier New", monospace';
-            ctx.fillText(n > 0 ? String(n) : 'DUEL!', w / 2, h / 2 + 16);
-            ctx.fillStyle = '#fff';
-            ctx.font = '13px "Courier New", monospace';
-            ctx.fillText('draw sigils to cast · W/S or arrows to dodge · space clears ink', w / 2, h / 2 + 40);
-        } else if (g.phase === 'roundover') {
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0, h / 2 - 40, w, 80);
-            ctx.fillStyle = g.lastWinner === g.me ? '#0df259' : '#ff6b6b';
-            ctx.font = 'bold 34px "Courier New", monospace';
-            const who = g.lastWinner < 0 ? 'both of you died' : (g.lastWinner === g.me ? 'round won' : 'round lost');
-            ctx.fillText(who, w / 2, h / 2 + 12);
-        } else if (g.phase === 'matchover') {
-            ctx.fillStyle = 'rgba(0,0,0,0.72)';
-            ctx.fillRect(0, 0, w, h);
-            ctx.fillStyle = g.over === g.me ? '#0df259' : '#ff6b6b';
-            ctx.font = 'bold 44px "Courier New", monospace';
-            ctx.fillText(g.over === g.me ? 'YOU WIN' : 'YOU LOSE', w / 2, h / 2);
-            ctx.fillStyle = '#fff';
-            ctx.font = '16px "Courier New", monospace';
-            ctx.fillText(g.wins[0] + ' - ' + g.wins[1] + '  ·  ' + g.wiz[0].name + ' vs ' + g.wiz[1].name, w / 2, h / 2 + 30);
-        }
-        if (g.paused && g.solo) {
-            ctx.fillStyle = 'rgba(13,6,32,0.88)';
-            ctx.fillRect(0, 0, w, h);
-            ctx.fillStyle = '#ffe14d';
-            ctx.font = 'bold 36px "Courier New", monospace';
-            ctx.fillText('PAUSED', w / 2, h / 2);
-            ctx.fillStyle = '#fff';
-            ctx.font = '16px "Courier New", monospace';
-            ctx.fillText('press P or resume when you are ready', w / 2, h / 2 + 32);
-        }
-        if (g.netDown) {
-            ctx.fillStyle = 'rgba(0,0,0,0.6)';
-            ctx.fillRect(0, h / 2 - 24, w, 48);
-            ctx.fillStyle = '#ff9aa8';
-            ctx.font = 'bold 18px "Courier New", monospace';
-            ctx.fillText('your opponent vanished', w / 2, h / 2 + 6);
-        }
-        ctx.restore();
-    }
-
-    // ===============================================================
-    // 9. LOOP + WINDOW CHROME
-    // ===============================================================
     function loop(now) {
         raf = requestAnimationFrame(loop);
-        if (!G || !ctx) return;
-        const dt = Math.max(0, Math.min(0.1, (now - lastT) / 1000 || 0));
-        if (G.solo && winRef?.win.style.display === 'none' && !G.paused) pauseDuel(G);
+        const g = G;
+        if (!g || !g.R) return;
+        const dtRaw = (now - lastT) / 1000 || 0;
+        const dt = clamp(dtRaw, 0, 0.1);
         lastT = now;
-        if (!G.paused) {
-            if (G.isHost) {
-                G.simAcc += dt;
-                while (G.simAcc + 1e-9 >= SIM_DT) {
-                    if (G.solo) botStep(G, SIM_DT);
-                    step(G, SIM_DT);
-                    G.simAcc = Math.max(0, G.simAcc - SIM_DT);
-                }
-                G.snapAcc += dt;
-                // a public relay is a shared resource and a slower road:
-                // fewer, fatter snapshots, and the guest smooths the gap
-                const hz = (G.session && G.session.transport && G.session.transport.kind === 'bus') ? 8 : A.snapshotHz;
-                if (!G.solo && G.snapAcc >= 1 / hz) {
-                    G.snapAcc = 0;
-                    sendNet(G, 'wz:snap', snapshot(G));
-                }
-            } else {
-                // guests still animate everything locally between snapshots
-                G.t += dt;
-                G.ents.forEach(e => {
-                    if (e.kind === 'bolt' && e.vx) { e.x += e.vx * dt; e.y += e.vy * dt; }
-                });
-            }
-            tryRecognize(G);
-            G.hintT = Math.max(0, G.hintT - dt);
-        }
-        render(G, G.paused ? 0 : dt);
-    }
+        const t0 = performance.now();
+        if (g.solo && winRef && winRef.win.style.display === 'none' && !g.paused) pause(g, true, 'focus');
 
+        const running = !g.paused && !g.netDown;
+        if (running) {
+            g.acc += dt * (g.speed || 1);
+            let budget = g.speed > 1 ? 200 : 6;
+            while (g.acc + 1e-9 >= DT && budget-- > 0) {
+                tick(g);
+                g.acc -= DT;
+            }
+            if (g.acc > DT * 4 && g.speed <= 1) g.acc = 0;
+            pumpEvents(g);
+            tryFire(g, dt);
+            maybeRead(g, false);
+        }
+        if (g.isHost && !g.solo) sendSnapshot(g, dt);
+        if (!g.isHost && !g.solo && !g.netDown) sendInput(g, dt);
+        if (!g.ended && g.s.phase === 'matchover') endMatch(g);
+        render(g, g.paused ? 0 : dt);
+
+        // how it is doing, measured
+        const ms = performance.now() - t0;
+        g.frames++;
+        g.frameMs += ms;
+        g.frameMax = max(g.frameMax, ms);
+        g.fpsT += dtRaw;
+        if (g.fpsT >= 1) {
+            g.lastFps = g.frames / g.fpsT;
+            g.lastMs = g.frameMs / g.frames;
+            g.lastMax = g.frameMax;
+            g.frames = 0; g.fpsT = 0; g.frameMs = 0; g.frameMax = 0;
+        }
+    }
     function stopLoop() {
         if (raf) cancelAnimationFrame(raf);
         raf = null;
     }
 
-    let winRef = null;
+    // ===============================================================
+    // what happened, as light and noise
+    // ===============================================================
+    const elCol = el => GL.hex((D.EL[el] || {}).color || '#ffffff');
+    const elGlow = el => GL.hex((D.EL[el] || {}).glow || '#ffffff');
+    const ZAPCOL = [0.05, 0.95, 0.35];
+    function burst(g, x, y, z, n, col, speed, size, life, opts) {
+        if (g.fx.length > 420) return;
+        opts = opts || {};
+        for (let i = 0; i < n; i++) {
+            const a = Math.random() * 6.28, b = Math.random() * 3.14 - 1.57;
+            const v = speed * (0.4 + Math.random() * 0.6);
+            g.fx.push({
+                x, y, z, vx: cos(a) * cos(b) * v, vy: sin(b) * v + (opts.up || 0), vz: sin(a) * cos(b) * v,
+                t: life * (0.6 + Math.random() * 0.5), life, size: size * (0.7 + Math.random() * 0.6),
+                tile: opts.tile === undefined ? GL.TILE.star : opts.tile, col, grav: opts.grav === undefined ? 6 : opts.grav, rot: a
+            });
+        }
+    }
+    function onEvent(g, e) {
+        const s = g.s, me = g.me;
+        switch (e[0]) {
+            case 'cast': {
+                const w = s.wiz[e[1]], sp = D.SPELLS[e[2]];
+                if (!sp) break;
+                burst(g, w.x, w.y + 1, w.z, 14, elGlow(sp.el), 4, 0.22, 0.5);
+                g.rings.push({ x: w.x, y: w.y + 0.06, z: w.z, r0: 0.5, r1: 2.2, t: 0.4, life: 0.4, col: elCol(sp.el), tile: GL.TILE.sigil });
+                if (e[1] === me) { SFX.cast(sp.el); } else if (e[1] !== me) tone(420, 0.1, { type: 'triangle', gain: 0.02 });
+                break;
+            }
+            case 'fire': {
+                const w = s.wiz[e[1]], si = e[2];
+                if (e[1] === me) g.muzzle = 0.1;
+                if (si === S.ZAP) { if (e[1] === me) SFX.zap(); }
+                else if (e[1] === me) SFX.fire();
+                break;
+            }
+            case 'hit': {
+                const i = e[1], amount = e[2];
+                const w = s.wiz[i];
+                const si = e[3];
+                const col = i === me ? '#ff6b6b' : si === S.ZAP ? '#0df259' : '#ffe14d';
+                addFloat(g, w, 2.1, '-' + max(1, round(amount)), col);
+                if (si !== 254) {
+                    if (i === me) { g.vignette = min(1, g.vignette + 0.45); g.shake = min(0.5, g.shake + amount * 0.015); SFX.hurt(); }
+                    else { g.hitMark = 0.22; SFX.hit(); }
+                    burst(g, w.x, w.y + 1.1, w.z, 6, [1, 0.3, 0.3], 3, 0.16, 0.4);
+                }
+                break;
+            }
+            case 'boom': {
+                const [, x, y, z, r, el] = e;
+                const col = elCol(el), gl = elGlow(el);
+                g.rings.push({ x, y: y + 0.05, z, r0: 0.4, r1: r * 1.1, t: 0.45, life: 0.45, col: gl, tile: GL.TILE.ring });
+                burst(g, x, y + 0.4, z, 26, col, r * 2.3, 0.34, 0.65, { tile: GL.TILE.smoke, grav: 2 });
+                burst(g, x, y + 0.4, z, 16, gl, r * 3, 0.2, 0.5);
+                const d = hypot(x - s.wiz[me].x, z - s.wiz[me].z);
+                if (d < 28) { SFX.boom(); g.shake = min(0.7, g.shake + (1 - d / 28) * 0.45); }
+                break;
+            }
+            case 'zap': {
+                const [, x, y, z, el] = e;
+                burst(g, x, y, z, 7, elGlow(el), 4, 0.13, 0.32);
+                break;
+            }
+            case 'beam': {
+                const [, x1, y1, z1, x2, y2, z2, el] = e;
+                g.beams.push({ x1, y1, z1, x2, y2, z2, t: 0.22, life: 0.22, w: 0.36, col: elCol(el), gl: elGlow(el) });
+                burst(g, x2, y2, z2, 12, elGlow(el), 5, 0.18, 0.4);
+                SFX.fire();
+                break;
+            }
+            case 'line': {
+                const [, x1, y1, z1, x2, y2, z2, el] = e;
+                g.beams.push({ x1, y1, z1, x2, y2, z2, t: 0.5, life: 0.5, w: 0.06, col: elCol(el), gl: elCol(el), warn: true });
+                break;
+            }
+            case 'nova': {
+                const w = s.wiz[e[1]];
+                g.rings.push({ x: w.x, y: w.y + 0.3, z: w.z, r0: 0.5, r1: e[2], t: 0.42, life: 0.42, col: elGlow(e[3]), tile: GL.TILE.halo });
+                burst(g, w.x, w.y + 0.9, w.z, 26, elCol(e[3]), e[2] * 2.3, 0.24, 0.55);
+                SFX.boom();
+                break;
+            }
+            case 'buff': {
+                const w = s.wiz[e[1]], sp = D.SPELLS[e[2]];
+                burst(g, w.x, w.y + 1, w.z, 18, elGlow(sp.el), 2.6, 0.2, 0.7, { grav: -3 });
+                if (e[1] === me) SFX.ward();
+                break;
+            }
+            case 'blink': {
+                const [, x1, y1, z1, x2, y2, z2] = e;
+                g.beams.push({ x1, y1: y1 + 1, z1, x2, y2: y2 + 1, z2, t: 0.25, life: 0.25, w: 0.5, col: [0.75, 0.55, 1], gl: [1, 0.85, 1] });
+                burst(g, x1, y1 + 1, z1, 14, [0.75, 0.55, 1], 3, 0.2, 0.45);
+                burst(g, x2, y2 + 1, z2, 14, [0.9, 0.8, 1], 3, 0.2, 0.45);
+                SFX.ward();
+                break;
+            }
+            case 'dash': {
+                const w = s.wiz[e[1]];
+                burst(g, w.x, w.y + 0.3, w.z, 9, [0.8, 0.8, 0.8], 2.4, 0.26, 0.35, { tile: GL.TILE.smoke, grav: 0 });
+                break;
+            }
+            case 'ink': {
+                const w = s.wiz[e[1]];
+                addFloat(g, w, 2.4, '-' + e[2] + ' ink', '#7fa0ff');
+                break;
+            }
+            case 'mirror': {
+                const w = s.wiz[e[1]];
+                addFloat(g, w, 2.4, 'mirrored', '#e0b3ff');
+                SFX.ward();
+                break;
+            }
+            case 'pick': {
+                const p = s.pickups[e[2]];
+                if (!p) break;
+                burst(g, p.x, p.y + 0.6, p.z, 12, [0.6, 0.9, 1], 3, 0.18, 0.5, { grav: -2 });
+                if (e[1] === me) {
+                    SFX.pick();
+                    say(g, A.pickups[p.kind].label, 'pick', 1);
+                }
+                break;
+            }
+            case 'ko': {
+                const vic = e[1];
+                SFX.ko();
+                const w = s.wiz[vic];
+                burst(g, w.x, w.y + 1, w.z, 30, [1, 0.25, 0.3], 7, 0.26, 0.9);
+                if (vic === me) banner(g, 'knocked out', '#ff6b6b', 2.2);
+                else { banner(g, s.wiz[vic].name + ' is down', '#0df259', 1.8); }
+                if (g.solo && g.bot) botLine(g, vic === 0 ? 'win' : 'lose');
+                break;
+            }
+            case 'spawn': break;
+            case 'go': {
+                SFX.tick();
+                if (g.solo) botLine(g, 'start');
+                break;
+            }
+            case 'stance': break;
+            case 'over': break;
+        }
+    }
+    function botLine(g, kind) {
+        if (!g.solo || !g.bot) return;
+        const lines = (g.bot.lines || {})[kind];
+        if (!lines || !lines.length) return;
+        g.hint = { text: g.bot.name + ': ' + lines[floor(Math.random() * lines.length)], kind: 'bot' };
+        g.hintT = 2.8;
+    }
+    function addFloat(g, w, height, text, color) {
+        if (g.floats.length > 24) g.floats.shift();
+        g.floats.push({ x: w.x + (Math.random() - 0.5) * 0.5, y: w.y + height, z: w.z, text, color, t: 1.1 });
+    }
+
+    // ===============================================================
+    // the frame
+    // ===============================================================
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function buildWizards(g, dt, alpha) {
+        const out = [];
+        const s = g.s;
+        for (let i = 0; i < 2; i++) {
+            const w = s.wiz[i];
+            const mine = i === g.me;
+            let x = w.px === undefined ? w.x : lerp(w.px, w.x, alpha), y = w.py === undefined ? w.y : lerp(w.py, w.y, alpha), z = w.pz === undefined ? w.z : lerp(w.pz, w.z, alpha);
+            if (mine && !g.isHost) {
+                const k = Math.pow(0.0005, dt);
+                g.errX *= k; g.errY *= k; g.errZ *= k;
+                x += g.errX; y += g.errY; z += g.errZ;
+            }
+            if (!mine && !g.isHost && !g.solo) {
+                // their last known place, eased, so that five snapshots a second does not stutter
+                const k = 1 - Math.pow(0.0004, dt);
+                g.rvX = g.rvX === undefined ? x : lerp(g.rvX, x, k);
+                g.rvY = g.rvY === undefined ? y : lerp(g.rvY, y, k);
+                g.rvZ = g.rvZ === undefined ? z : lerp(g.rvZ, z, k);
+                x = g.rvX; y = g.rvY; z = g.rvZ;
+            }
+            const speed = hypot(w.mvx || 0, w.mvz || 0);
+            g.walkA[i] += speed * dt * 1.5;
+            const wantFall = w.dead ? 1 : 0;
+            g.fall[i] = lerp(g.fall[i], wantFall, min(1, dt * 7));
+            const yawNow = mine ? g.yaw : w.yaw;
+            const wantRaise = w.aim || w.fireT > 0 || w.stance ? 1 : 0.25;
+            g.raise[i] = lerp(g.raise[i], wantRaise, min(1, dt * 12));
+            const pos = { x, y, z };
+            const dist = hypot(x - s.wiz[g.me].x, z - s.wiz[g.me].z);
+            let alphaOut;
+            if (S.has(w, 'phase')) alphaOut = 0.4;
+            if (S.has(w, 'stealth')) alphaOut = mine ? 0.45 : (dist <= 4.5 ? 0.28 : 0);
+            if (w.safe > 0 && floor(s.t * 10) % 2) alphaOut = 0.5;
+            if (w.dead && g.fall[i] > 0.9 && w.respawn < 0.8) alphaOut = max(0, w.respawn);
+            out.push({
+                x: pos.x, y: pos.y, z: pos.z, groundY: S.heightAt(pos.x, pos.z),
+                yaw: yawNow, pitch: mine ? g.pitch : w.pitch,
+                avatar: w.avatar,
+                walk: speed > 0.3 && !w.dead ? g.walkA[i] : 0,
+                raise: g.raise[i], kneel: w.stance ? 1 : 0, fall: g.fall[i],
+                alpha: alphaOut, hidden: alphaOut === 0 || (mine && g.camT < 0.22),
+                flash: w.hitT > 0 ? 0.7 * w.hitT / 0.25 : 0,
+                xray: !mine && S.has(w, 'mark') && !w.dead, stance: w.stance, i, w
+            });
+        }
+        return out;
+    }
+
+    function render(g, dt) {
+        const s = g.s, me = s.wiz[g.me], renderer = g.R;
+        fit(g);
+        const alpha = clamp(g.acc / DT, 0, 1);
+        const wiz = buildWizards(g, dt, alpha);
+        const mine = wiz[g.me];
+        // the camera follows you, with your own yaw and pitch, which never wait for anything
+        const proxy = { x: mine.x, y: mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch, aim: (g.wantAim || g.touchAim) && !g.stance };
+        const cam = S.camera(s, proxy);
+        g.camT = cam.t;
+        g.shake = max(0, g.shake - dt * 1.4);
+        const shake = g.shake > 0 ? g.shake * 0.25 : 0;
+        const camV = {
+            x: cam.x + (shake ? (Math.random() - 0.5) * shake : 0), y: cam.y + (shake ? (Math.random() - 0.5) * shake : 0), z: cam.z,
+            fx: cam.fx, fy: cam.fy, fz: cam.fz
+        };
+        const wantFov = (proxy.aim ? 0.78 : 1.12) * (g.aspect < 1 ? 1.25 : 1);
+        g.fovNow = lerp(g.fovNow, wantFov, min(1, dt * 12));
+
+        // the draw distance is short anyway, and the closing fog takes it down further
+        const near = S.has(me, 'blind') ? 2 : 9, far = S.has(me, 'blind') ? 9 : 30;
+        const shrink = s.fog < A.fogStart ? clamp(s.fog / 24 + 0.35, 0.38, 1) : 1;
+        const inCloud = s.ents.some(e => e.k === 'zone' && e.s && D.byId(e.s).p.obscure && hypot(e.x - me.x, e.z - me.z) < e.r);
+        const fog = [near * shrink * (inCloud ? 0.4 : 1), far * shrink * (inCloud ? 0.45 : 1)];
+        const danger = s.fog < A.fogStart ? [0.32, 0.36, 0.42] : null;
+
+        let tint = null;
+        if (g.stance) tint = [0.62, 0.66, 0.85];
+        else if (me.dead) tint = [0.55, 0.4, 0.4];
+        else if (S.has(me, 'freeze')) tint = [0.7, 0.85, 1.1];
+
+        const walls = [], gems = [];
+        for (const e of s.ents) {
+            if (e.k === 'wall') {
+                const sp = D.byId(e.s);
+                walls.push({ x: e.x, y: e.y, z: e.z, yaw: -e.ang, sx: sp.p.w, sy: sp.p.h, sz: sp.p.d, ice: sp.el === 'ice', flash: e.hp / e.maxHp < 0.3 ? 0.15 : 0 });
+            } else if (e.k === 'shot') {
+                const x = e.px === undefined ? e.x : lerp(e.px, e.x, alpha), y = e.py === undefined ? e.y : lerp(e.py, e.y, alpha), z = e.pz === undefined ? e.z : lerp(e.pz, e.z, alpha);
+                e.rx = x; e.ry = y; e.rz = z;
+                if (!e.zap) gems.push({ x, y, z, r: max(0.14, e.r * 0.8), col: elCol(e.el), spin: s.t * 7 + e.id });
+            }
+        }
+        const decoys = [];
+        for (const e of s.ents) {
+            if (e.k !== 'decoy') continue;
+            const owner = s.wiz[e.o];
+            const moving = hypot(e.gx - e.x, e.gz - e.z) > 0.5;
+            decoys.push({ x: e.x, y: e.y, z: e.z, groundY: S.heightAt(e.x, e.z), yaw: e.yaw, pitch: 0, avatar: owner.avatar, walk: moving ? s.t * 11 : 0, raise: 0.25, kneel: 0, fall: 0, alpha: e.o === g.me ? 0.6 : undefined, flash: 0 });
+        }
+        const pickups = s.pickups.filter(p => p.t <= 0);
+        const glow = b => drawGlow(g, b, dt, wiz, alpha);
+        renderer.frame({
+            cam: camV, fov: g.fovNow, fog, fogColor: danger, tint,
+            wizards: decoys.length ? wiz.concat(decoys) : wiz, walls, gems, pickups, t: s.t + 100, glow
+        });
+        drawHud(g, dt, wiz);
+        renderTouchKnobs(g);
+    }
+
+    function drawGlow(g, b, dt, wiz, alpha) {
+        const s = g.s, T = b.TILE;
+        // ---- what is on the ground ----
+        for (const e of s.ents) {
+            switch (e.k) {
+                case 'shot': {
+                    const col = e.zap ? ZAPCOL : elCol(e.el), gl = e.zap ? [0.7, 1, 0.8] : elGlow(e.el);
+                    const x = e.rx === undefined ? e.x : e.rx, y = e.ry === undefined ? e.y : e.ry, z = e.rz === undefined ? e.z : e.rz;
+                    const r = e.zap ? 0.28 : e.r;
+                    b.sprite(x, y, z, r * 1.9, T.glow, col, 0);
+                    b.sprite(x, y, z, r * 1.1, e.zap ? T.flare : T.star, gl, s.t * 9);
+                    if (dt > 0 && g.fx.length < 380 && !e.zap && Math.random() < 0.65) {
+                        g.fx.push({ x, y, z, vx: (Math.random() - 0.5), vy: (Math.random() - 0.5), vz: (Math.random() - 0.5), t: 0.32, life: 0.32, size: r * 0.8, tile: T.smoke, col, grav: 0, rot: Math.random() * 6 });
+                    }
+                    break;
+                }
+                case 'zone': {
+                    const sp = D.byId(e.s), col = elCol(sp.el), gl = elGlow(sp.el), p = sp.p;
+                    const y = e.y + 0.05;
+                    b.disc(e.x, y, e.z, e.r, T.ring, col, s.t * 0.5);
+                    b.disc(e.x, y + 0.02, e.z, e.r * 0.7, T.sigil, gl, -s.t * 0.8);
+                    if (p.blocks) {
+                        // a dome: three rings stacked
+                        for (let k = 0; k < 3; k++) b.sprite(e.x, y + e.r * (0.2 + k * 0.28), e.z, e.r * (1 - k * 0.18), T.halo, gl, s.t * (k + 1));
+                    }
+                    if (dt > 0 && g.fx.length < 380) {
+                        const n = p.obscure ? 3 : 1;
+                        for (let k = 0; k < n; k++) {
+                            const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * e.r;
+                            g.fx.push({
+                                x: e.x + cos(a) * d, y, z: e.z + sin(a) * d, vx: p.pull ? -cos(a) * 3 : 0, vy: p.obscure ? 0.9 : 1.8, vz: p.pull ? -sin(a) * 3 : 0,
+                                t: 0.9, life: 0.9, size: p.obscure ? 1.5 : 0.35, tile: p.obscure ? T.smoke : T.star, col: p.obscure ? gl : col, grav: 0, rot: a
+                            });
+                        }
+                    }
+                    break;
+                }
+                case 'trap': {
+                    // yours shows. Theirs is a glint until you are nearly on it
+                    const mine = e.o === g.me;
+                    const d = hypot(e.x - s.wiz[g.me].x, e.z - s.wiz[g.me].z);
+                    if (mine || d < 6.5) {
+                        const col = elCol(e.el);
+                        const k = mine ? 0.9 : 0.5;
+                        b.disc(e.x, e.y + 0.05, e.z, 1.2, T.star, [col[0] * k, col[1] * k, col[2] * k], s.t);
+                    }
+                    break;
+                }
+                case 'strike': {
+                    const sp = D.byId(e.s), col = elCol(sp.el), gl = elGlow(sp.el);
+                    b.disc(e.x, e.y + 0.08, e.z, sp.p.r * (1 + sin(s.t * 18) * 0.05), T.ring, col, s.t * 2);
+                    const delay = sp.p.delay;
+                    const left = clamp(e.t / delay, 0, 1);
+                    // something coming down
+                    const top = e.y + left * 28;
+                    if (sp.el === 'fire') { b.sprite(e.x, top, e.z, 2.2, T.glow, col, 0); b.sprite(e.x, top, e.z, 1.2, T.star, gl, s.t * 6); }
+                    else b.streak(e.x, e.y, e.z, e.x, e.y + 28, e.z, sp.p.r * 0.5 * (1 - left), T.beam, gl);
+                    break;
+                }
+                case 'pending': {
+                    const sp = D.byId(e.s);
+                    const c = elCol(sp.el);
+                    b.streak(e.x, e.y, e.z, e.x + e.dx * sp.p.range, e.y + e.dy * sp.p.range, e.z + e.dz * sp.p.range, 0.08, T.beam, c);
+                    break;
+                }
+            }
+        }
+        // ---- a wizard's own light ----
+        for (const w of wiz) {
+            const av = w.avatar;
+            const q = w.w;
+            if (w.hidden || q.dead) continue;
+            if (av.aura && av.aura !== 'none') {
+                const col = { sparks: [1, 0.9, 0.3], flames: [1, 0.45, 0.15], frost: [0.45, 0.85, 1], shadow: [0.6, 0.45, 0.85], holy: [1, 1, 0.85] }[av.aura];
+                for (let k = 0; k < 4; k++) {
+                    const a = s.t * 1.8 + k * 1.57;
+                    b.sprite(w.x + cos(a) * 0.62, w.y + 0.6 + sin(s.t * 2 + k) * 0.5, w.z + sin(a) * 0.62, 0.12, T.star, col, a);
+                }
+            }
+            if (q.ward > 0) {
+                const col = q.wardZap ? [1, 0.9, 0.3] : q.wardThorns ? [1, 0.5, 0.2] : [0.6, 0.85, 1];
+                b.sprite(w.x, w.y + 1, w.z, 1.25, T.halo, col, s.t * 2);
+                b.sprite(w.x, w.y + 1, w.z, 1.15, T.halo, [col[0] * 0.6, col[1] * 0.6, col[2] * 0.6], -s.t * 1.6);
+            }
+            if (q.stance) {
+                // a wizard drawing has a bubble of slow time round them, and it shows
+                b.disc(w.x, w.groundY + 0.06, w.z, A.stance.slowR, T.ring, [0.05, 0.5, 0.25], s.t * 0.5);
+                b.disc(w.x, w.groundY + 0.07, w.z, 1.1, T.sigil, ZAPCOL, -s.t * 2);
+                b.sprite(w.x, w.y + 1.1, w.z, 1.5, T.halo, [0.1, 0.6, 0.3], s.t * 3);
+            }
+            for (const k of Object.keys(q.st)) {
+                if (k === 'burn' && Math.random() < 0.7 && dt > 0) g.fx.push({ x: w.x + (Math.random() - 0.5) * 0.5, y: w.y + Math.random() * 1.6, z: w.z + (Math.random() - 0.5) * 0.5, vx: 0, vy: 2, vz: 0, t: 0.35, life: 0.35, size: 0.2, tile: T.glow, col: [1, 0.5, 0.15], grav: -1, rot: 0 });
+                if (k === 'freeze') b.sprite(w.x, w.y + 1, w.z, 1.1, T.shard, [0.6, 0.85, 1], 0);
+                if (k === 'root') b.disc(w.x, w.groundY + 0.08, w.z, 1, T.star, [0.35, 0.8, 0.3], s.t);
+                if (k === 'stun') for (let n = 0; n < 3; n++) { const a = s.t * 6 + n * 2.1; b.sprite(w.x + cos(a) * 0.4, w.y + 2.1, w.z + sin(a) * 0.4, 0.12, T.star, [1, 1, 0.5], a); }
+                if (k === 'mirror') b.sprite(w.x, w.y + 1, w.z, 1, T.sigil, [0.75, 0.4, 1], s.t);
+                if (k === 'clock') b.sprite(w.x, w.y + 2.3, w.z, 0.22, T.star, [1, 0.4, 0.8], s.t * 3);
+                if (k === 'turbo') b.sprite(w.x, w.y + 0.1, w.z, 0.55, T.glow, [0.1, 0.9, 0.4], 0);
+            }
+            if (q.fireT > 0) {
+                const f = S.forward(w.yaw, w.pitch);
+                const rx = cos(w.yaw), rz = sin(w.yaw);
+                b.sprite(w.x + rx * 0.42 + f.x * 0.7, w.y + 1.3 + f.y * 0.7, w.z + rz * 0.42 + f.z * 0.7, 0.5, T.flare, q.chamber ? elGlow(D.byId(q.chamber.s).el) : ZAPCOL, s.t * 20);
+            }
+        }
+        // ---- pickups glint, and the altar gives itself away ----
+        for (const p of s.pickups) {
+            if (p.t > 0) continue;
+            const col = p.kind === 'ink' ? [0.35, 0.5, 1] : p.kind === 'hp' ? [1, 0.3, 0.4] : p.kind === 'turbo' ? [0.2, 1, 0.5] : [1, 0.4, 0.85];
+            b.sprite(p.x, p.y + 0.8, p.z, 0.9, T.glow, col, 0);
+            b.disc(p.x, p.y + 0.04, p.z, 1, T.halo, col, s.t);
+        }
+        const on = s.onAltar;
+        const owner = on === 0 || on === 1;
+        const aCol = owner ? (on === g.me ? [0.05, 0.9, 0.35] : [0.95, 0.25, 0.3]) : on === 2 ? [1, 0.9, 0.2] : [0.55, 0.3, 0.9];
+        b.disc(0, A.altar.h + 0.05, 0, A.altar.r, T.ring, aCol, s.t * 0.25);
+        b.sprite(0, A.altar.h + 3.8, 0, 3.4, T.glow, [aCol[0] * 0.5, aCol[1] * 0.5, aCol[2] * 0.5], 0);
+        // ---- particles ----
+        const keep = [];
+        for (const f of g.fx) {
+            f.t -= dt;
+            if (f.t <= 0) continue;
+            f.vy -= f.grav * dt;
+            f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt;
+            const k = clamp(f.t / f.life, 0, 1);
+            b.sprite(f.x, f.y, f.z, f.size * (0.5 + 0.5 * k), f.tile, [f.col[0] * k, f.col[1] * k, f.col[2] * k], f.rot + f.t * 3);
+            keep.push(f);
+        }
+        g.fx = keep;
+        const rkeep = [];
+        for (const r of g.rings) {
+            r.t -= dt;
+            if (r.t <= 0) continue;
+            const k = r.t / r.life;
+            b.disc(r.x, r.y, r.z, lerp(r.r1, r.r0, k), r.tile, [r.col[0] * k, r.col[1] * k, r.col[2] * k], s.t);
+            rkeep.push(r);
+        }
+        g.rings = rkeep;
+        const bkeep = [];
+        for (const r of g.beams) {
+            r.t -= dt;
+            if (r.t <= 0) continue;
+            const k = r.t / r.life;
+            const w = r.warn ? r.w : r.w * (0.4 + k);
+            b.streak(r.x1, r.y1, r.z1, r.x2, r.y2, r.z2, w, T.beam, [r.col[0] * k, r.col[1] * k, r.col[2] * k]);
+            b.streak(r.x1, r.y1, r.z1, r.x2, r.y2, r.z2, w * 0.45, T.beam, [r.gl[0] * k, r.gl[1] * k, r.gl[2] * k]);
+            bkeep.push(r);
+        }
+        g.beams = bkeep;
+    }
+
+    // ===============================================================
+    // the hud: a 2d canvas over the top
+    // ===============================================================
+    const sigilCache = new Map();
+    function sigilImage(id, size, color) {
+        const key = id + ':' + size + ':' + (color || '');
+        let c = sigilCache.get(key);
+        if (c) return c;
+        c = document.createElement('canvas');
+        c.width = c.height = size;
+        paintSigil(c, D.byId(id), { width: 9, pad: 2, color });
+        sigilCache.set(key, c);
+        return c;
+    }
+    function bevelBox(c, x, y, w, h, fill) {
+        c.fillStyle = fill || '#c0c0c0';
+        c.fillRect(x, y, w, h);
+        c.fillStyle = '#ffffff'; c.fillRect(x, y, w, 1); c.fillRect(x, y, 1, h);
+        c.fillStyle = '#404040'; c.fillRect(x, y + h - 1, w, 1); c.fillRect(x + w - 1, y, 1, h);
+    }
+    function bar(c, x, y, w, h, frac, col, back, right) {
+        c.fillStyle = '#000'; c.fillRect(x - 1, y - 1, w + 2, h + 2);
+        c.fillStyle = back; c.fillRect(x, y, w, h);
+        const fw = max(0, min(1, frac)) * w;
+        c.fillStyle = col;
+        c.fillRect(right ? x + w - fw : x, y, fw, h);
+        c.fillStyle = '#ffffff33'; c.fillRect(right ? x + w - fw : x, y, fw, 1);
+    }
+    function text(c, s, x, y, col, size, align, shadow) {
+        c.font = 'bold ' + (size || 11) + 'px "Courier New", monospace';
+        c.textAlign = align || 'left';
+        c.textBaseline = 'alphabetic';
+        if (shadow !== false) { c.fillStyle = '#000'; c.fillText(s, x + 1, y + 1); }
+        c.fillStyle = col || '#fff';
+        c.fillText(s, x, y);
+    }
+    function clock(sec) {
+        sec = max(0, Math.ceil(sec));
+        return floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    }
+    function drawHud(g, dt, wiz) {
+        const c = g.hctx, W = HUD_W, H = g.hudH, s = g.s;
+        const me = s.wiz[g.me], foe = s.wiz[1 - g.me];
+        c.clearRect(0, 0, W, H);
+        c.imageSmoothingEnabled = false;
+        g.hintT = max(0, g.hintT - dt);
+        g.bannerT = max(0, g.bannerT - dt);
+        g.vignette = max(0, g.vignette - dt * 1.6);
+        g.hitMark = max(0, g.hitMark - dt);
+
+        // ---- the screen itself ----
+        if (g.vignette > 0 || me.hp < 28) {
+            const low = me.hp < 28 && !me.dead ? (0.2 + 0.1 * sin(s.t * 6)) : 0;
+            const a = max(g.vignette * 0.55, low);
+            c.fillStyle = 'rgba(190,20,30,' + a + ')';
+            c.fillRect(0, 0, W, 14); c.fillRect(0, H - 14, W, 14); c.fillRect(0, 0, 14, H); c.fillRect(W - 14, 0, 14, H);
+        }
+        if (S.has(me, 'blind')) {
+            c.fillStyle = 'rgba(126,224,106,0.28)'; c.fillRect(0, 0, W, H);
+            c.fillStyle = 'rgba(126,224,106,0.55)';
+            for (let i = 0; i < 46; i++) {
+                const x = (i * 137 + sin(s.t + i) * 22) % W, y = (i * 71 + cos(s.t * 0.7 + i) * 18) % H;
+                c.fillRect(x, y, 3 + (i % 4) * 2, 3 + (i % 4) * 2);
+            }
+        }
+        if (S.has(me, 'freeze')) { c.fillStyle = 'rgba(190,240,255,0.32)'; c.fillRect(0, 0, W, H); }
+        const outside = s.fog < A.fogStart && hypot(me.x, me.z) > s.fog;
+        if (outside && !me.dead) { c.fillStyle = 'rgba(60,90,100,0.35)'; c.fillRect(0, 0, W, H); }
+
+        // ---- numbers floating off people ----
+        const keep = [];
+        for (const f of g.floats) {
+            f.t -= dt;
+            if (f.t <= 0) continue;
+            const p = g.R.project(f.x, f.y + (1.1 - f.t) * 0.9, f.z);
+            if (p && p.d < 50) {
+                c.globalAlpha = min(1, f.t * 2);
+                text(c, f.text, p.x * W, p.y * H, f.color, 12, 'center');
+                c.globalAlpha = 1;
+            }
+            keep.push(f);
+        }
+        g.floats = keep;
+
+        // ---- a name over them ----
+        if (!foe.dead && !wiz[1 - g.me].hidden) {
+            const f = wiz[1 - g.me];
+            const p = g.R.project(f.x, f.y + 2.25, f.z);
+            g.seeT = (g.seeT || 0) - dt;
+            if (g.seeT <= 0) {
+                g.seeT = 0.15;
+                g.camSees = S.clearLine(s, me.x, me.y + 1.7, me.z, foe.x, foe.y + 1.5, foe.z);
+            }
+            if (p && p.d < 36 && g.camSees) {
+                const bw = 44;
+                bar(c, p.x * W - bw / 2, p.y * H, bw, 3, foe.hp / A.maxHp, '#e4485f', '#3a0f18');
+                if (foe.ward > 0) { c.fillStyle = '#bfe8ff'; c.fillRect(p.x * W - bw / 2, p.y * H - 2, min(1, foe.ward / 40) * bw, 1); }
+            }
+        }
+
+        // ---- the top: who is winning ----
+        const cx = W / 2;
+        bevelBox(c, cx - 98, 3, 196, 25, '#c0c0c0');
+        const pips = (i, x, dir) => {
+            for (let k = 0; k < A.knockouts; k++) {
+                const px = x + dir * k * 11;
+                c.fillStyle = '#404040'; c.fillRect(px, 8, 9, 9);
+                c.fillStyle = k < s.score[i] ? (i === g.me ? '#0df259' : '#e4485f') : '#808080';
+                c.fillRect(px + 1, 9, 7, 7);
+            }
+        };
+        pips(g.me, cx - 92, 1);
+        pips(1 - g.me, cx + 83, -1);
+        const fogIn = A.fogAt - s.t;
+        const timeLabel = s.phase === 'live' ? (fogIn > 0 ? clock(fogIn) : 'FOG') : '';
+        text(c, timeLabel, cx, 16, fogIn > 0 ? '#000' : '#a00000', 11, 'center', false);
+        // the ritual
+        const rit = (i, x, dir) => {
+            const f = s.altar[i] / A.ritual;
+            c.fillStyle = '#404040'; c.fillRect(x, 20, dir * 86, 5);
+            c.fillStyle = i === g.me ? '#0df259' : '#e4485f';
+            c.fillRect(x, 21, dir * 86 * f, 3);
+        };
+        rit(g.me, cx - 2, -1);
+        rit(1 - g.me, cx + 2, 1);
+        if (s.onAltar === g.me) text(c, 'the ritual is going. hold the altar', cx, 40, '#0df259', 10, 'center');
+        else if (s.onAltar === 1 - g.me) text(c, foe.name + ' is doing the ritual! get them off', cx, 40, '#ff6b6b', 10, 'center');
+        else if (s.onAltar === 2) text(c, 'the altar is contested', cx, 40, '#ffe14d', 10, 'center');
+        else if (s.fog < A.fogStart) text(c, 'the fog is closing. get to the altar', cx, 40, '#ffe14d', 10, 'center');
+
+        // ---- them, top right ----
+        const fw = 150, fx = W - fw - 8;
+        text(c, foe.name, W - 8, 13, '#ff9aa8', 10, 'right');
+        bar(c, fx, 17, fw, 6, foe.hp / A.maxHp, '#e4485f', '#3a0f18', true);
+        if (foe.ward > 0) { c.fillStyle = '#bfe8ff'; const ww = min(1, foe.ward / 40) * fw; c.fillRect(fx + fw - ww, 17, ww, 2); }
+        statusRow(c, foe, W - 8, 34, -1);
+
+        // ---- you, bottom left ----
+        const bx = 8, by = H - 34, bw2 = 150;
+        text(c, Math.ceil(me.hp) + ' hp', bx, by - 4, '#ffb0b8', 11);
+        bar(c, bx, by, bw2, 9, me.hp / A.maxHp, '#e4485f', '#3a0f18');
+        if (me.ward > 0) { c.fillStyle = '#bfe8ff'; c.fillRect(bx, by, min(1, me.ward / 40) * bw2, 3); }
+        bar(c, bx, by + 13, bw2, 7, me.ink / A.maxInk, '#4a7dff', '#101a3a');
+        text(c, floor(me.ink) + ' ink', bx + bw2 + 6, by + 20, '#9fbaff', 10);
+        statusRow(c, me, bx, by - 15, 1);
+        if (me.dashCd > 0) { c.fillStyle = '#fff'; c.fillRect(bx, by + 24, bw2 * (1 - me.dashCd / A.dash.cd), 1); }
+
+        // ---- the chamber, bottom middle ----
+        const chX = cx - 56, chY = H - 42;
+        bevelBox(c, chX, chY, 112, 36, '#000040');
+        if (me.chamber) {
+            const sp = D.byId(me.chamber.s);
+            c.drawImage(sigilImage(sp.id, 28, (D.EL[sp.el] || {}).color), chX + 4, chY + 4, 28, 28);
+            text(c, sp.name, chX + 36, chY + 14, (D.EL[sp.el] || {}).color, 10);
+            for (let k = 0; k < me.chamber.n; k++) { c.fillStyle = '#fff'; c.fillRect(chX + 36 + k * 8, chY + 20, 6, 8); }
+        } else {
+            text(c, 'staff', chX + 8, chY + 15, '#0df259', 11);
+            text(c, g.touch ? 'tap ink to load' : 'E to load a spell', chX + 8, chY + 28, '#90b0a0', 9);
+        }
+
+        // ---- your eight, bottom right ----
+        const per = g.aspect < 1 ? 4 : 8;
+        const sz = g.aspect < 1 ? 26 : 26, gap = 2;
+        const stripW = per * (sz + gap);
+        const sx0 = W - stripW - 6, sy0 = g.aspect < 1 || g.touch ? 46 : H - sz - 6;
+        g.loadout.forEach((id, i) => {
+            const sp = D.byId(id);
+            const row = floor(i / per), x = sx0 + (i % per) * (sz + gap), y = sy0 + row * (sz + gap);
+            const cool = me.cd[id] || 0;
+            const poor = !!S.canInscribe(s, g.me, sp) && !cool;
+            c.fillStyle = g.guide === id ? '#3a2a60' : 'rgba(10,6,32,0.7)';
+            c.fillRect(x, y, sz, sz);
+            c.globalAlpha = cool ? 0.35 : poor ? 0.5 : 1;
+            c.drawImage(sigilImage(id, sz, (D.EL[sp.el] || {}).color), x + 1, y + 1, sz - 2, sz - 2);
+            c.globalAlpha = 1;
+            if (!g.touch) text(c, String(i + 1), x + 1, y + 9, '#bcaddc', 8);
+            if (cool) text(c, cool.toFixed(cool < 10 ? 1 : 0), x + sz / 2, y + sz / 2 + 3, '#ffe14d', 9, 'center');
+            if (g.guide === id) { c.strokeStyle = '#ffe14d'; c.strokeRect(x + 0.5, y + 0.5, sz - 1, sz - 1); }
+        });
+        g.stripBox = { x: sx0, y: sy0, w: stripW, h: (sz + gap) * (per === 8 ? 1 : 2), per, sz, gap };
+
+        // ---- the crosshair ----
+        if (!g.stance && !me.dead && s.phase === 'live') {
+            const aimP = S.aimPoint(s, g.me, 60);
+            const onFoe = aimP.hit === 'foe';
+            const col = onFoe ? '#ff4040' : '#ffffff';
+            const y = H / 2, gapC = g.wantAim || g.touchAim ? 2 : 4;
+            c.fillStyle = '#000';
+            c.fillRect(cx - gapC - 5, y, 5, 2); c.fillRect(cx + gapC + 1, y, 5, 2); c.fillRect(cx, y - gapC - 5, 2, 5); c.fillRect(cx, y + gapC + 1, 2, 5);
+            c.fillStyle = col;
+            c.fillRect(cx - gapC - 5, y - 1, 5, 1); c.fillRect(cx + gapC + 1, y - 1, 5, 1); c.fillRect(cx - 1, y - gapC - 5, 1, 5); c.fillRect(cx - 1, y + gapC + 1, 1, 5);
+            if (g.hitMark > 0) {
+                c.fillStyle = '#ffe14d';
+                for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) c.fillRect(cx + dx * 8, y + dy * 8, 3, 3);
+            }
+        }
+
+        // ---- the ink stance ----
+        if (g.stance) drawStance(g, c, W, H);
+
+        // ---- words ----
+        if (g.hintT > 0 && g.hint) {
+            c.globalAlpha = min(1, g.hintT * 2.5);
+            const col = g.hint.kind === 'bad' ? '#ff9aa8' : g.hint.kind === 'bot' ? '#ffe14d' : g.hint.kind === 'pick' ? '#9fe0ff' : '#0df259';
+            text(c, g.hint.text, cx, H - 52, col, 12, 'center');
+            c.globalAlpha = 1;
+        }
+        if (g.bannerT > 0 && g.banner) {
+            c.globalAlpha = min(1, g.bannerT * 2);
+            text(c, g.banner.text, cx, H / 2 - 46, g.banner.color, 26, 'center');
+            c.globalAlpha = 1;
+        }
+        if (s.phase === 'countdown') {
+            const n = Math.ceil(s.phaseT);
+            text(c, n > 0 ? String(n) : 'DUEL', cx, H / 2 - 20, '#ffe14d', 54, 'center');
+            text(c, g.touch ? 'left thumb walks. right thumb looks. the ink button draws.' : 'wasd walks. mouse looks. E draws a sigil, click fires it.', cx, H / 2 + 10, '#fff', 12, 'center');
+        }
+        if (me.dead && s.phase === 'live') {
+            text(c, 'back in ' + max(1, Math.ceil(me.respawn)), cx, H / 2 + 6, '#fff', 22, 'center');
+        }
+        if (g.netDown) {
+            c.fillStyle = 'rgba(0,0,0,0.6)'; c.fillRect(0, H / 2 - 22, W, 44);
+            text(c, 'your opponent vanished', cx, H / 2 + 5, '#ff9aa8', 16, 'center');
+        }
+        if (g.showFps) text(c, round(g.lastFps || 0) + ' fps', 4, 12, '#0df259', 9);
+    }
+    function statusRow(c, w, x, y, dir) {
+        let n = 0;
+        for (const k of Object.keys(w.st)) {
+            const d = D.STATUS[k];
+            if (!d) continue;
+            const px = x + dir * n * 34 - (dir < 0 ? 32 : 0);
+            c.fillStyle = 'rgba(0,0,0,0.65)'; c.fillRect(px, y - 8, 32, 10);
+            text(c, d.short, px + 1, y, d.color, 8, 'left', false);
+            n++;
+            if (n >= 5) break;
+        }
+    }
+    function drawStance(g, c, W, H) {
+        const cx = W / 2, cy = H / 2, r = min(W, H) * 0.42;
+        c.fillStyle = 'rgba(8,6,40,0.42)';
+        c.fillRect(0, 0, W, H);
+        c.strokeStyle = 'rgba(13,242,89,0.35)';
+        c.lineWidth = 1;
+        c.beginPath(); c.arc(cx, cy, r, 0, 7); c.stroke();
+        // a guide, if you asked for one
+        const sp = D.byId(g.guide);
+        if (sp) {
+            const size = r * 1.5, x0 = cx - size / 2, y0 = cy - size / 2;
+            c.strokeStyle = (D.EL[sp.el] || {}).color;
+            c.globalAlpha = 0.45;
+            c.lineWidth = 3;
+            c.setLineDash([5, 5]);
+            sp.glyph.forEach(st => {
+                c.beginPath();
+                st.forEach((p, i) => { const xx = x0 + p.x * size / 100, yy = y0 + p.y * size / 100; i ? c.lineTo(xx, yy) : c.moveTo(xx, yy); });
+                c.stroke();
+            });
+            c.setLineDash([]);
+            c.globalAlpha = 0.9;
+            sp.glyph.forEach((st, i) => {
+                const p = st[0];
+                text(c, String(i + 1), x0 + p.x * size / 100 - 4, y0 + p.y * size / 100 - 4, '#ffe14d', 11);
+            });
+            c.globalAlpha = 1;
+        }
+        // the ink
+        c.lineCap = 'round'; c.lineJoin = 'round';
+        const drawLine = (w, col) => {
+            c.strokeStyle = col; c.lineWidth = w;
+            g.strokes.forEach(st => {
+                if (st.length < 2) return;
+                c.beginPath();
+                c.moveTo(st[0].x, st[0].y);
+                for (let i = 1; i < st.length; i++) c.lineTo(st[i].x, st[i].y);
+                c.stroke();
+            });
+        };
+        drawLine(5, 'rgba(13,242,89,0.3)');
+        drawLine(2, '#baffd0');
+        // the pen, because there is no cursor while the mouse is locked
+        if (!g.touchMode) {
+            c.fillStyle = g.penDown ? '#0df259' : '#ffffff';
+            c.fillRect(g.pen.x - 1, g.pen.y - 6, 2, 12); c.fillRect(g.pen.x - 6, g.pen.y - 1, 12, 2);
+        }
+        const me = g.s.wiz[g.me];
+        const label = sp ? 'trace ' + sp.name : (g.touch ? 'draw with your right thumb' : 'hold left click to draw. E or right click to stop');
+        text(c, label, cx, 56, '#baffd0', 11, 'center');
+        if (me.chamber) text(c, 'this replaces your ' + D.byId(me.chamber.s).name, cx, cy + r + 13 > H - 44 ? H - 46 : cy + r + 13, '#ffe14d', 10, 'center');
+        if (g.manualCast && g.strokes.length) text(c, 'enter to cast', cx, cy + r - 2, '#fff', 10, 'center');
+    }
+
+    // ===============================================================
+    // sizing: low resolution on purpose, whatever the window is
+    // ===============================================================
+    const LINES = 240;
+    function fit(g) {
+        const now = performance.now();
+        if (g.fitAt && now - g.fitAt < 200) return;
+        g.fitAt = now;
+        const body = root, stage = g.stage;
+        const rect = body.getBoundingClientRect();
+        const vh = document.documentElement.clientHeight || window.innerHeight || 700;
+        const fs = winRef && winRef.win.classList.contains('fs-active');
+        // the desktop pads a fullscreen window's body, and that is not ours to fill
+        const cs = getComputedStyle(body);
+        const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        const w = max(120, body.clientWidth - padX);
+        let h;
+        if (fs) h = max(120, body.clientHeight - padY);
+        else {
+            const room = vh - max(0, rect.top) - 6;
+            h = clamp(w * 9 / 16, 120, room);
+            // a phone held upright can have a taller stage than 16:9, and it wants one
+            if (w < 520 && vh > w) h = clamp(w * 1.25, 120, room);
+        }
+        h = floor(h);
+        if (g.stageW === w && g.stageH === h && g.cv.style.width === w + 'px' && g.cv.style.height === h + 'px' && g.hud.style.width === w + 'px' && g.hud.style.height === h + 'px') return;
+        g.stageW = w; g.stageH = h;
+        stage.style.height = h + 'px';
+        stage.style.width = w + 'px';
+        const aspect = w / h;
+        g.aspect = aspect;
+        // 240 lines tall, or 240 across if it is taller than wide
+        const rw = aspect >= 1 ? round(LINES * aspect) : LINES;
+        const rh = aspect >= 1 ? LINES : round(LINES / aspect);
+        g.R.resize(rw, rh);
+        g.cv.style.width = w + 'px';
+        g.cv.style.height = h + 'px';
+        g.hudH = round(HUD_W / aspect);
+        g.hud.width = HUD_W;
+        g.hud.height = g.hudH;
+        g.hud.style.width = w + 'px';
+        g.hud.style.height = h + 'px';
+        g.pen.y = min(g.pen.y, g.hudH);
+        // maximize and fullscreen are buttons on this window, and they keep the keyboard
+        const active = document.activeElement;
+        if (winRef && !root.contains(active) && (active === document.body || winRef.win.contains(active))) focusGame(g);
+    }
+
+    // ===============================================================
+    // what sits on top: touch buttons and the paper dialogs
+    // ===============================================================
+    function paintTouch(g) {
+        const el = g && g.touchEl;
+        if (!el) return;
+        el.style.display = g.touch ? '' : 'none';
+        const small = g.stage && g.stage.querySelector('#wz-menubtn');
+        if (small) small.style.display = g.touch ? 'none' : '';
+        const ink = el.querySelector('#wz-t-ink');
+        if (ink) { ink.classList.toggle('on', !!g.stance); ink.textContent = g.stance ? 'stop' : 'ink'; }
+        const aim = el.querySelector('#wz-t-aim');
+        if (aim) aim.classList.toggle('on', !!g.touchAim);
+    }
+    function renderTouchKnobs(g) {
+        const k = g.knob;
+        if (!k) return;
+        if (g.stick.id === null) { k.style.display = 'none'; return; }
+        const r = g.stage.getBoundingClientRect();
+        k.style.display = '';
+        k.style.left = (g.stick.ox - r.left) + 'px';
+        k.style.top = (g.stick.oy - r.top) + 'px';
+        const n = k.firstElementChild;
+        if (n) n.style.transform = 'translate(' + (g.stick.x * 36) + 'px,' + (g.stick.y * 36) + 'px)';
+    }
+    function hideOverlay() { const o = G && G.overlay; if (o) { o.style.display = 'none'; o.innerHTML = ''; } }
+    function paintOverlay(g) {
+        const o = g.overlay;
+        if (!o) return;
+        const canvasOk = !!g.R;
+        if (!canvasOk) return;
+        if (g.ended) { renderEnd(g); return; }
+        const panel = html => { o.style.display = ''; o.innerHTML = '<div class="wz-dialog">' + html + '</div>'; return o; };
+        const menuButtons = `
+            <button class="wz-btn wz-wide" data-go="book">grimoire</button>
+            <button class="wz-btn wz-wide" data-go="load">your eight spells</button>
+            <button class="wz-btn wz-wide" data-go="set">settings</button>
+            <button class="wz-btn wz-wide" data-go="help">how to play</button>
+            <button class="wz-btn wz-wide" data-go="quit">leave the match</button>`;
+        const wire = () => {
+            o.querySelectorAll('[data-go]').forEach(b => {
+                const go = b.dataset.go;
+                b.onclick = e => {
+                    e.stopPropagation();
+                    if (go === 'book') openGrimoire();
+                    if (go === 'load') openLoadout();
+                    if (go === 'set') openSettings();
+                    if (go === 'help') openHelp();
+                    if (go === 'quit') { if (g.session && !g.solo && g.session.alive) g.session.leave(); openMenu(); }
+                    if (go === 'resume') { if (g.solo) pause(g, false); g.menuOpen = false; paintOverlay(g); if (!g.touchMode && !isLocked(g)) askLock(g); }
+                };
+            });
+        };
+        if (g.paused) {
+            panel(`<div class="wz-dialog-title">paused</div>
+                <p>${g.pauseWhy === 'mouse' ? 'you let go of the mouse.' : 'take your time bradar.'}</p>
+                <button class="wz-btn wz-go wz-wide" id="wz-resume" data-go="resume">carry on</button>${menuButtons}`);
+            wire();
+            return;
+        }
+        if (g.menuOpen) {
+            panel(`<div class="wz-dialog-title">menu</div>
+                <p>this does not stop the match bradar. it is still going.</p>
+                <button class="wz-btn wz-go wz-wide" data-go="resume">back to it</button>${menuButtons}`);
+            wire();
+            return;
+        }
+        if (g.netDown) {
+            panel(`<div class="wz-dialog-title">the line went quiet</div>
+                <p>your opponent vanished. if they come back this carries on from here.</p>
+                <button class="wz-btn wz-wide" data-go="quit">leave the match</button>`);
+            wire();
+            return;
+        }
+        if (!g.touchMode && !g.touch && !g.noLock && !isLocked(g) && g.s.phase !== 'matchover') {
+            // nothing else tells you the window wants a click
+            o.style.display = '';
+            o.innerHTML = '<button class="wz-clicktoplay" id="wz-click">click to take the mouse. esc lets go.</button>';
+            const b = o.querySelector('#wz-click');
+            if (b) b.onclick = () => { askLock(g); focusGame(g); };
+            return;
+        }
+        hideOverlay();
+    }
+
+    function endMatch(g) {
+        g.ended = true;
+        clearStance(g);
+        g.wantFire = false;
+        if (isLocked(g) && document.exitPointerLock) document.exitPointerLock();
+        const s = g.s;
+        if (s.over === g.me) {
+            SFX.win();
+            if (typeof unlockAchievement === 'function') unlockAchievement('wizardz_win');
+            if (g.solo) botLine(g, 'lose');
+        } else if (g.solo) botLine(g, 'win');
+        renderEnd(g);
+    }
+    function renderEnd(g) {
+        const s = g.s, o = g.overlay;
+        if (!o) return;
+        const won = s.over === g.me;
+        const how = {
+            ko: won ? 'three knockouts, bradar' : 'three knockouts, against',
+            ritual: won ? 'you finished the ritual' : s.wiz[s.over].name + ' finished the ritual',
+            time: 'the fog ended it. most knockouts wins',
+            resign: won ? 'they gave up' : 'you gave up'
+        }[s.reason] || '';
+        const title = s.over < 0 ? 'nobody wins' : won ? 'YOU WIN' : 'YOU LOSE';
+        const canAgain = g.isHost;
+        o.style.display = '';
+        o.innerHTML = `<div class="wz-dialog wz-end">
+            <div class="wz-dialog-title">${title}</div>
+            <p>${escapeHtml(how)}</p>
+            <p>${escapeHtml(s.wiz[0].name)} ${s.score[0]} - ${s.score[1]} ${escapeHtml(s.wiz[1].name)}</p>
+            ${g.theyWantRematch && !g.solo ? '<p>they want another one.</p>' : ''}
+            ${canAgain
+                ? '<button class="wz-btn wz-go wz-wide" id="wz-rematch">rematch</button>'
+                : `<button class="wz-btn wz-go wz-wide" id="wz-rematch-ask">${g.wantRematch ? 'waiting for the host...' : 'ask for a rematch'}</button>`}
+            <button class="wz-btn wz-wide" id="wz-quit">leave</button>
+        </div>`;
+        const again = o.querySelector('#wz-rematch');
+        if (again) again.onclick = () => restartMatch(g);
+        const ask = o.querySelector('#wz-rematch-ask');
+        if (ask) ask.onclick = () => { g.wantRematch = true; netSend(g, 'wz:rematch', {}); renderEnd(g); };
+        o.querySelector('#wz-quit').onclick = () => {
+            if (g.session && !g.solo && g.session.alive) g.session.leave();
+            openMenu();
+        };
+    }
+
+    // ===============================================================
+    // the window
+    // ===============================================================
     function ensureWindow(title) {
         if (winRef && document.getElementById(winRef.id)) return winRef;
-        winRef = createAppWindow(title || 'wizardz 98', { icon: 'auto_fix_high', width: 800 });
+        const vw = typeof viewportWidth === 'function' ? viewportWidth() : 1000;
+        winRef = createAppWindow(title || 'wizardz 98', { icon: 'auto_fix_high', width: min(1000, vw - 20) });
+        winRef.id = winRef.id || winRef.win.id;
         winRef.body.classList.add('wz-body');
+        if (document.documentElement.clientHeight < 500) winRef.win.style.top = '0px';
+        else if (document.documentElement.clientHeight < 900) winRef.win.style.top = '44px';
         winRef.win._cleanup = () => {
-            stopLoop();
-            if (G) {
-                if (G._chromeTimer) clearInterval(G._chromeTimer);
-                if (G._unbind) G._unbind();
-                if (G._netOffs) G._netOffs.forEach(off => off());
-                if (G.session && !G.solo && G.session.alive) G.session.leave();
-            }
-            G = null; cv = null; ctx = null; root = null; winRef = null;
+            tearDown();
+            root = null; winRef = null;
         };
         root = winRef.body;
         return winRef;
     }
-
-    // the strip of quick-reference sigils under the arena
-    function renderChrome() {
-        if (!root || !G) return;
-        const loadout = myLoadout();
-        const strip = root.querySelector('#wz-strip');
-        if (strip) {
-            const signature = loadout.join(',');
-            if (strip.dataset.loadout !== signature) {
-                strip.dataset.loadout = signature;
-                strip.innerHTML = loadout.map((id, i) => {
-                    const s = D.byId(id);
-                    return `<button type="button" class="wz-card" data-spell="${s.id}" aria-pressed="false" title="${escapeHtml(s.name)} — ${escapeHtml(s.blurb)}">
-                        <span class="wz-card-key">${i + 1}</span>
-                        <canvas width="46" height="46" data-sigil="${s.id}" aria-hidden="true"></canvas>
-                        <span class="wz-card-name" style="color:${elColor(s.el)}">${escapeHtml(s.name)}</span>
-                        <span class="wz-card-cost"></span>
-                    </button>`;
-                }).join('');
-                strip.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil)));
-                strip.querySelectorAll('[data-spell]').forEach(b => b.onclick = () => selectGuide(G, b.dataset.spell));
-            }
-            strip.querySelectorAll('[data-spell]').forEach(b => {
-                const spell = D.byId(b.dataset.spell), w = G.wiz[G.me];
-                const cd = w.cd[spell.id] || 0, why = spellReady(G, G.me, spell);
-                b.classList.toggle('wz-cool', cd > 0);
-                b.classList.toggle('wz-poor', why === 'mana' || why === 'health');
-                b.classList.toggle('on', G.guide === spell.id);
-                b.setAttribute('aria-pressed', String(G.guide === spell.id));
-                const cost = has(w, 'pact') ? Math.ceil((spell.cost || 0) * 0.6 + (spell.hp || 0)) + ' hp' : (spell.cost || 0) + ' mp' + (spell.hp ? ' + ' + spell.hp + ' hp' : '');
-                b.querySelector('.wz-card-cost').textContent = cd > 0 ? cd.toFixed(1) + 's' : cost;
-                b.setAttribute('aria-label', spell.name + ': ' + (why ? denyText(why) : 'ready') + '. Toggle drawing guide.');
-            });
+    function tearDown() {
+        stopLoop();
+        if (G) {
+            if (G._unbind) G._unbind();
+            if (G._netOffs) G._netOffs.forEach(off => off());
+            if (G.session && !G.solo && G.session.alive) G.session.leave();
+            if (G.R && G.R.gl) { const lose = G.R.gl.getExtension && G.R.gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); }
         }
-        const pause = root.querySelector('#wz-pause');
-        if (pause) { pause.textContent = G.paused ? 'resume (P)' : 'pause (P)'; pause.setAttribute('aria-pressed', String(G.paused)); }
-        const cast = root.querySelector('#wz-cast');
-        if (cast) cast.disabled = G.paused || G.phase !== 'live';
-        const status = root.querySelector('#wz-status');
-        if (status) {
-            const text = G.paused && G.solo ? 'Paused. Resume when ready.' : G.hintT > 0 && G.hint ? G.hint.text : G.phase === 'live' ? 'Draw a sigil. ' + (G.manualCast ? 'Press cast when finished.' : 'Lift to cast automatically.') : G.phase === 'matchover' ? (G.over === G.me ? 'You win!' : 'You lose.') : 'Round ' + G.round + ' · ' + G.wins.join(' – ');
-            if (status.textContent !== text) status.textContent = text;
-        }
-        const foot = root.querySelector('#wz-foot');
-        if (foot) {
-            const showRematch = G.phase === 'matchover' && (G.isHost || G.solo);
-            const rb = foot.querySelector('#wz-rematch');
-            if (rb) rb.style.display = showRematch ? '' : 'none';
-            const wait = foot.querySelector('#wz-wait');
-            if (wait) wait.style.display = (G.phase === 'matchover' && !G.isHost && !G.solo) ? '' : 'none';
-        }
+        G = null;
     }
 
+    function startDuel(session, opts) {
+        ensureWindow('wizardz 98');
+        stopLoop();
+        if (G && G._unbind) G._unbind();
+        if (G && G._netOffs) G._netOffs.forEach(off => off());
+        if (G && G.session && G.session !== session && !G.solo && G.session.alive) G.session.leave();
+        if (G && G.R && G.R.gl) { const lose = G.R.gl.getExtension && G.R.gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); }
+        G = makeGame(session, opts || {});
+        const g = G;
+        root.classList.add('wz-playing');
+        root.innerHTML = `
+            <div class="wz-stage" id="wz-stage">
+                <canvas id="wz-canvas" class="wz-canvas" tabindex="0" aria-label="The arena. W A S D walks, the mouse looks, E starts drawing a sigil, click fires, right click aims, space jumps, shift dashes."></canvas>
+                <canvas id="wz-hud" class="wz-hud" aria-hidden="true"></canvas>
+                <div id="wz-touch" class="wz-touch" style="display:none">
+                    <button type="button" class="wz-t wz-t-fire" id="wz-t-fire" aria-label="fire">fire</button>
+                    <button type="button" class="wz-t wz-t-ink" id="wz-t-ink" aria-label="draw a sigil">ink</button>
+                    <button type="button" class="wz-t wz-t-jump" id="wz-t-jump" aria-label="jump">jump</button>
+                    <button type="button" class="wz-t wz-t-dash" id="wz-t-dash" aria-label="dash">dash</button>
+                    <button type="button" class="wz-t wz-t-aim" id="wz-t-aim" aria-label="aim">aim</button>
+                    <button type="button" class="wz-t wz-t-menu" id="wz-t-menu" aria-label="menu">≡</button>
+                    <div class="wz-knob" id="wz-knob" style="display:none"><span></span></div>
+                </div>
+                <button type="button" class="wz-menubtn" id="wz-menubtn" title="menu (P or esc)">≡</button>
+                <div id="wz-overlay" class="wz-overlay" style="display:none"></div>
+            </div>`;
+        g.stage = root.querySelector('#wz-stage');
+        g.cv = root.querySelector('#wz-canvas');
+        g.hud = root.querySelector('#wz-hud');
+        g.hctx = g.hud.getContext('2d');
+        g.overlay = root.querySelector('#wz-overlay');
+        g.touchEl = root.querySelector('#wz-touch');
+        g.knob = root.querySelector('#wz-knob');
+        g.R = GL.create(g.cv);
+        if (!g.R) {
+            root.classList.remove('wz-playing');
+            root.innerHTML = `<div class="wz-menu"><div class="wz-title">no 3d, bradar</div>
+                <div class="wz-sub">this browser would not give wizardz a webgl canvas, so there is nothing to draw the arena on.
+                turn hardware acceleration back on, or try another browser. the grimoire still works.</div>
+                <button class="wz-btn wz-wide" id="wz-nogl-book">grimoire</button>
+                <button class="wz-btn wz-wide" id="wz-nogl-back">back</button></div>`;
+            root.querySelector('#wz-nogl-book').onclick = () => openGrimoire();
+            root.querySelector('#wz-nogl-back').onclick = () => openMenu();
+            if (session && !session.solo && session.alive) session.leave();
+            G = null;
+            return;
+        }
+        fit(g);
+        bindInput(g);
+        bindNet(g);
+        bindTouchButtons(g);
+        g.cv.addEventListener('webglcontextlost', e => { e.preventDefault(); });
+        g.cv.addEventListener('webglcontextrestored', () => { if (G === g) { g.R = GL.create(g.cv); g.fitAt = 0; g.stageW = 0; } });
+        paintTouch(g);
+        paintOverlay(g);
+        root.querySelector('#wz-menubtn').onclick = e => {
+            e.stopPropagation();
+            if (g.solo) pause(g, !g.paused, 'menu');
+            else toggleMenu(g);
+        };
+        focusGame(g);
+        lastT = performance.now();
+        raf = requestAnimationFrame(loop);
+        if (typeof unlockAchievement === 'function') unlockAchievement('wizardz');
+    }
+    function bindTouchButtons(g) {
+        const el = g.touchEl;
+        const stop = e => { e.stopPropagation(); e.preventDefault(); };
+        const hold = (id, on, off) => {
+            const b = el.querySelector(id);
+            b.addEventListener('pointerdown', e => { stop(e); g.touchMode = true; g.touch = true; try { b.setPointerCapture(e.pointerId); } catch (x) { } on(); });
+            const release = e => { stop(e); if (off) off(); };
+            b.addEventListener('pointerup', release);
+            b.addEventListener('pointercancel', release);
+        };
+        hold('#wz-t-fire', () => { if (!g.stance) { g.wantFire = true; g.fireQ = true; } }, () => { g.wantFire = false; });
+        hold('#wz-t-ink', () => { toggleStance(g); });
+        hold('#wz-t-jump', () => { g.jumpQ = true; });
+        hold('#wz-t-dash', () => { g.dashQ = true; });
+        hold('#wz-t-aim', () => { g.touchAim = !g.touchAim; paintTouch(g); });
+        hold('#wz-t-menu', () => { if (g.solo) pause(g, !g.paused, 'menu'); else toggleMenu(g); });
+    }
+
+    // ---------------------------------------------------------------
+    // a sigil on a small canvas, for the book and the hud
+    // ---------------------------------------------------------------
     function paintSigil(canvas, spell, opts) {
         if (!canvas || !spell) return;
         const c = canvas.getContext('2d');
         const w = canvas.width, h = canvas.height;
         const pad = (opts && opts.pad) || 5;
         c.clearRect(0, 0, w, h);
-        const s = Math.min(w, h) - pad * 2;
+        const s = min(w, h) - pad * 2;
         c.save();
         c.translate(pad + (w - pad * 2 - s) / 2, pad + (h - pad * 2 - s) / 2);
         c.scale(s / 100, s / 100);
-        c.strokeStyle = (opts && opts.color) || elColor(spell.el);
+        c.strokeStyle = (opts && opts.color) || (D.EL[spell.el] || {}).color || '#fff';
         c.lineWidth = (opts && opts.width) || 6;
         c.lineCap = 'round';
         c.lineJoin = 'round';
@@ -2179,119 +1962,62 @@
             }
             c.stroke();
         });
+        if (opts && opts.numbers) {
+            c.fillStyle = '#ffe14d';
+            c.font = 'bold 11px "Courier New", monospace';
+            c.textAlign = 'center';
+            spell.glyph.forEach((st, i) => { c.fillText(String(i + 1), st[0].x, st[0].y - 3); });
+        }
         c.restore();
     }
 
     // ===============================================================
-    // 10. SCREENS
+    // screens
     // ===============================================================
-    function startDuel(session, opts) {
-        ensureWindow('wizardz 98');
+    function leaveMatch() {
         stopLoop();
         if (G && G._unbind) G._unbind();
-        if (G && G._netOffs) G._netOffs.forEach(off => off());
-        if (G && G._chromeTimer) clearInterval(G._chromeTimer);
-        if (G && G.session && G.session !== session && !G.solo && G.session.alive) G.session.leave();
-        G = makeDuel(session, opts || {});
-        root.innerHTML = `
-            <div class="wz-arena-wrap">
-                <canvas id="wz-canvas" width="${A.W}" height="${A.H}" class="wz-canvas" tabindex="0" aria-label="Wizard duel arena. Draw sigils to cast. W and S to move, Space to clear, Enter to cast, 1 to 8 for drawing guides." aria-describedby="wz-controls"></canvas>
-            </div>
-            <div class="wz-toolbar">
-                <label><input type="checkbox" id="wz-manual" ${G.manualCast ? 'checked' : ''}> manual cast</label>
-                <span id="wz-controls">tap a spell or press 1–8 for a drawing guide</span>
-            </div>
-            <div id="wz-strip" class="wz-strip" aria-label="Spell drawing guides"></div>
-            <div id="wz-status" class="wz-status" role="status" aria-live="polite"></div>
-            <div id="wz-foot" class="wz-foot">
-                <button class="wz-btn" id="wz-up">▲ up</button>
-                <button class="wz-btn" id="wz-down">▼ down</button>
-                <button class="wz-btn wz-go" id="wz-cast">cast (Enter)</button>
-                <button class="wz-btn" id="wz-clear-ink">clear ink</button>
-                ${G.solo ? '<button class="wz-btn" id="wz-pause" aria-pressed="false">pause (P)</button>' : ''}
-                <button class="wz-btn" id="wz-book">grimoire</button>
-                <button class="wz-btn" id="wz-load">loadout</button>
-                <button class="wz-btn wz-go" id="wz-rematch" style="display:none">rematch</button>
-                <span id="wz-wait" class="wz-wait" style="display:none">waiting for the host...</span>
-                <button class="wz-btn" id="wz-quit">leave duel</button>
-            </div>`;
-        cv = root.querySelector('#wz-canvas');
-        ctx = cv.getContext('2d');
-        bindInput(G);
-        bindNet(G);
-        renderChrome();
-
-        const hold = (btn, dir) => {
-            let pointer = null;
-            btn.addEventListener('pointerdown', e => {
-                if (e.button > 0 || pointer !== null) return;
-                e.preventDefault();
-                cv.focus({ preventScroll: true });
-                pointer = e.pointerId;
-                btn.setPointerCapture(pointer);
-                touchMove(G, dir, true);
-            });
-            const off = e => {
-                if (e.pointerId !== pointer) return;
-                pointer = null;
-                touchMove(G, dir, false);
-            };
-            btn.addEventListener('pointerup', off);
-            btn.addEventListener('pointercancel', off);
-            btn.addEventListener('lostpointercapture', off);
-            btn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); touchMove(G, dir, true); } });
-            btn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); touchMove(G, dir, false); } });
-            btn.addEventListener('blur', () => touchMove(G, dir, false));
-        };
-        hold(root.querySelector('#wz-up'), 'up');
-        hold(root.querySelector('#wz-down'), 'down');
-        root.querySelector('#wz-manual').onchange = e => {
-            G.manualCast = e.target.checked;
-            savePreference(LS.manual, String(G.manualCast));
-        };
-        root.querySelector('#wz-cast').onclick = () => tryRecognize(G, true);
-        root.querySelector('#wz-clear-ink').onclick = () => clearInk(G);
-        if (G.solo) root.querySelector('#wz-pause').onclick = () => pauseDuel(G, !G.paused);
-        root.querySelector('#wz-book').onclick = () => openGrimoire();
-        root.querySelector('#wz-load').onclick = () => openLoadout();
-        root.querySelector('#wz-rematch').onclick = () => restartMatch(G);
-        root.querySelector('#wz-quit').onclick = () => {
-            if (G.session && !G.solo && G.session.alive) G.session.leave();
-            openMenu();
-        };
-        // keep the cooldown numbers honest without redrawing the dom every frame
-        clearInterval(G._chromeTimer);
-        G._chromeTimer = setInterval(() => { if (G) renderChrome(); }, 400);
-        cv.focus({ preventScroll: true });
-        lastT = performance.now();
-        stopLoop();
-        raf = requestAnimationFrame(loop);
-        if (typeof unlockAchievement === 'function') unlockAchievement('wizardz');
-    }
-
-    function openMenu() {
-        ensureWindow('wizardz 98');
-        stopLoop();
-        if (G && G._unbind) G._unbind();
-        if (G && G._chromeTimer) clearInterval(G._chromeTimer);
         if (G && G._netOffs) G._netOffs.forEach(off => off());
         if (G && G.session && !G.solo && G.session.alive) G.session.leave();
-        G = null; cv = null; ctx = null;
+        if (G && G.R && G.R.gl) { const lose = G.R.gl.getExtension && G.R.gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); }
+        G = null;
+        if (root) root.classList.remove('wz-playing');
+    }
+    function spinPortrait(cv, avatar, opt) {
+        let ok = true;
+        const t0 = performance.now();
+        let last = 0;
+        const spin = now => {
+            if (!ok || !document.body.contains(cv)) return;
+            if (now - last > 66) {
+                last = now;
+                const t = (performance.now() - t0) / 1000;
+                const a = typeof avatar === 'function' ? avatar() : avatar;
+                if (!GL.paintPortrait(cv, a, t, Object.assign({ angle: 0.6 + sin(t * 0.6) * 0.5 }, opt || {}))) { ok = false; return; }
+            }
+            requestAnimationFrame(spin);
+        };
+        requestAnimationFrame(spin);
+    }
+    function openMenu() {
+        ensureWindow('wizardz 98');
+        leaveMatch();
         const av = myAvatar();
+        const lo = myLoadout();
         root.innerHTML = `
             <div class="wz-menu">
                 <div class="wz-title">wizardz 98</div>
-                <div class="wz-sub">two wizards. fifty sigils. no buttons — you draw the spells.</div>
+                <div class="wz-sub">a third person shooter where the only way to load your staff is to draw on the air, bradar.</div>
                 <div class="wz-menu-grid">
                     <div class="wz-menu-side">
-                        <canvas id="wz-me" width="150" height="170"></canvas>
+                        <canvas id="wz-me" width="180" height="210"></canvas>
                         <div class="wz-me-name" id="wz-me-name"></div>
                         <button class="wz-btn wz-wide" id="wz-edit">customise wizard</button>
                     </div>
                     <div class="wz-menu-main">
                         <button class="wz-btn wz-go wz-wide" id="wz-mp">1 v 1 — play someone (invite code)</button>
                         <button class="wz-btn wz-go wz-wide" id="wz-solo">1 v bot — pick an opponent</button>
-                        <button class="wz-btn wz-wide" id="wz-quick">quick duel vs a random bot</button>
+                        <button class="wz-btn wz-wide" id="wz-quick">quick match vs a random bot</button>
                         <div class="wz-row">
                             <label for="wz-diff">difficulty</label>
                             <select id="wz-diff" class="wz-input">
@@ -2300,13 +2026,11 @@
                                 <option value="hard">hard</option>
                             </select>
                         </div>
+                        <button class="wz-btn wz-wide" id="wz-load2">your eight spells</button>
                         <button class="wz-btn wz-wide" id="wz-book2">grimoire — all 50 sigils</button>
-                        <button class="wz-btn wz-wide" id="wz-load2">quick reference loadout</button>
-                        <div class="wz-hint">
-                            draw a sigil anywhere on the arena to cast it. W/S or the arrow keys
-                            dodge up and down. Tap a spell card for a tracing guide. Choose manual
-                            cast for multi-stroke sigils; Enter casts, Space clears, P pauses bot duels.
-                        </div>
+                        <button class="wz-btn wz-wide" id="wz-help">how to play</button>
+                        <button class="wz-btn wz-wide" id="wz-set">settings</button>
+                        <div class="wz-mini-strip" id="wz-mini-strip" aria-label="what you are carrying"></div>
                     </div>
                 </div>
             </div>`;
@@ -2314,21 +2038,18 @@
         const nameEl = root.querySelector('#wz-me-name');
         const prof = window.Netplay ? Netplay.profile() : { name: 'you' };
         nameEl.textContent = prof.name + ' — ' + (av.title || 'apprentice');
-        let t0 = performance.now();
-        const spin = () => {
-            if (!document.body.contains(meCv)) return;
-            const c = meCv.getContext('2d');
-            c.clearRect(0, 0, meCv.width, meCv.height);
-            drawWizard(c, av, meCv.width / 2, meCv.height - 12, 1.25, { time: (performance.now() - t0) / 1000, face: 1 });
-            requestAnimationFrame(spin);
-        };
-        spin();
+        spinPortrait(meCv, av, { bg: [0, 0.5, 0.5] });
+        const strip = root.querySelector('#wz-mini-strip');
+        strip.innerHTML = lo.map(id => `<canvas width="34" height="34" title="${escapeHtml(D.byId(id).name)}" data-sigil="${id}"></canvas>`).join('');
+        strip.querySelectorAll('canvas').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
         const diff = root.querySelector('#wz-diff');
         diff.value = difficulty();
         diff.onchange = () => savePreference(LS.diff, diff.value);
         root.querySelector('#wz-edit').onclick = () => openAvatarEditor();
         root.querySelector('#wz-book2').onclick = () => openGrimoire();
         root.querySelector('#wz-load2').onclick = () => openLoadout();
+        root.querySelector('#wz-help').onclick = () => openHelp();
+        root.querySelector('#wz-set').onclick = () => openSettings();
         root.querySelector('#wz-solo').onclick = () => openBotPicker();
         root.querySelector('#wz-quick').onclick = () => startBotDuel();
         root.querySelector('#wz-mp').onclick = () => {
@@ -2336,51 +2057,37 @@
             else showToast('wizardz', 'netplay is not loaded');
         };
     }
-
-    // ---------------------------------------------------------------
-    // 1 v bot — the roster
-    //
-    // Six opponents, each with its own hands and its own taste in
-    // spells. They run through exactly the same simulation a human
-    // opponent does; the only thing they skip is the drawing.
-    // ---------------------------------------------------------------
     function startBotDuel(botId) {
         const s = window.Netplay ? Netplay.soloSession('wizardz') : null;
         ensureWindow('wizardz 98');
-        startDuel(s, { solo: true, botId: botId });
+        startDuel(s, { solo: true, botId });
     }
-
     function openBotPicker() {
         ensureWindow('wizardz 98');
-        stopLoop();
-        if (G && G._unbind) G._unbind();
-        if (G && G._chromeTimer) clearInterval(G._chromeTimer);
-        if (G && G._netOffs) G._netOffs.forEach(off => off());
-        if (G && G.session && !G.solo && G.session.alive) G.session.leave();
-        G = null; cv = null; ctx = null;
+        leaveMatch();
         const tierColor = { easy: '#7ee06a', normal: '#ffe14d', hard: '#e4485f' };
+        const elColor = el => (D.EL[el] || {}).color || '#fff';
         root.innerHTML = `
             <div class="wz-menu">
                 <div class="wz-title">1 v bot</div>
-                <div class="wz-sub">pick something to duel. they all cheat in different directions.</div>
+                <div class="wz-sub">pick something to fight. they all cheat in different directions.</div>
                 <div class="wz-row">
                     <label for="wz-diff3">difficulty</label>
                     <select id="wz-diff3" class="wz-input">
                         <option value="easy">easy — slower hands</option>
                         <option value="normal">normal — as written</option>
-                        <option value="hard">hard — faster, dodgier, tidier sigils</option>
+                        <option value="hard">hard — faster, dodgier, better aim</option>
                     </select>
                 </div>
                 <div class="wz-bots">
                     ${D.BOTS.map(b => `
                         <button class="wz-bot" data-bot="${escapeHtml(b.id)}">
-                            <canvas width="86" height="104" data-botav="${escapeHtml(b.id)}"></canvas>
+                            <canvas width="100" height="118" data-botav="${escapeHtml(b.id)}"></canvas>
                             <div class="wz-bot-name">${escapeHtml(b.name)}</div>
                             <div class="wz-bot-title">${escapeHtml(b.title)}</div>
                             <div class="wz-bot-tier" style="color:${tierColor[b.tier] || '#fff'}">${escapeHtml(b.tier)}</div>
                             <div class="wz-bot-blurb">${escapeHtml(b.blurb)}</div>
-                            <div class="wz-bot-els">${(b.style.els || []).map(e =>
-                                `<span style="color:${elColor(e)}">${escapeHtml(e)}</span>`).join(' · ')}</div>
+                            <div class="wz-bot-els">${(b.style.els || []).map(e => `<span style="color:${elColor(e)}">${escapeHtml(e)}</span>`).join(' · ')}</div>
                         </button>`).join('')}
                 </div>
                 <div class="wz-foot">
@@ -2391,31 +2098,79 @@
         const diff = root.querySelector('#wz-diff3');
         diff.value = difficulty();
         diff.onchange = () => savePreference(LS.diff, diff.value);
-        const t0 = performance.now();
-        const cvs = [...root.querySelectorAll('canvas[data-botav]')];
-        const spin = () => {
-            if (!cvs.length || !document.body.contains(cvs[0])) return;
-            cvs.forEach(cv2 => {
-                const b = D.botById(cv2.dataset.botav);
-                const c = cv2.getContext('2d');
-                c.clearRect(0, 0, cv2.width, cv2.height);
-                drawWizard(c, b.avatar, cv2.width / 2, cv2.height - 6, 0.78, { time: (performance.now() - t0) / 1000, face: 1 });
-            });
-            requestAnimationFrame(spin);
-        };
-        spin();
-        root.querySelectorAll('.wz-bot').forEach(b => b.onclick = () => startBotDuel(b.dataset.bot));
+        // six little stages, painted once. Nobody needs them spinning at once
+        root.querySelectorAll('canvas[data-botav]').forEach(cv2 => {
+            const b = D.botById(cv2.dataset.botav);
+            GL.paintPortrait(cv2, normAvatar(b.avatar), 1, { angle: 0.5, bg: [0.09, 0.05, 0.17] });
+        });
+        root.querySelectorAll('.wz-bot').forEach(b => { b.onclick = () => startBotDuel(b.dataset.bot); });
         root.querySelector('#wz-bot-random').onclick = () => startBotDuel();
         root.querySelector('#wz-bot-back').onclick = () => openMenu();
     }
 
-    // ---------------------------------------------------------------
-    // grimoire — every sigil, drawn out, with a place to practise
-    // ---------------------------------------------------------------
+    const KIND_WORDS = {
+        shot: 'loads your staff: shots', beam: 'loads your staff: an instant beam', strike: 'loads your staff: falls from above',
+        wall: 'loads your staff: stands where you point', zone: 'loads your staff: a patch of ground', trap: 'loads your staff: waits on the floor',
+        summon: 'loads your staff: a decoy', nova: 'goes off at once, round you', self: 'goes off at once, on you', move: 'goes off at once, moves you'
+    };
+    function openHelp() {
+        pause(G, true, 'menu');
+        const { body } = createAppWindow('how to play wizardz', { icon: 'auto_stories', width: 480 });
+        body.classList.add('wz-book');
+        body.innerHTML = `<div class="wz-help">
+            <h3>the idea</h3>
+            <p>a sigil is a reload. press <b>E</b>, draw, and whatever you drew goes in your staff.
+            click to fire it where the crosshair points. out of spells, the staff still fires a weak free shot, and every hit earns ink back.</p>
+            <p>while you draw you can only shuffle, you cannot shoot, and you take a fifth more damage.
+            but anything of theirs that flies near you slows right down. duck behind something first, bradar.</p>
+            <h3>winning</h3>
+            <p><b>three knockouts</b>, or <b>the ritual</b>: stand on the altar in the middle, alone, for ${A.ritual} seconds in total.
+            after ${A.fogAt} seconds the fog closes in on the altar and hurts anyone outside it.</p>
+            <h3>the mouse and the keys</h3>
+            <table class="wz-keys">
+                <tr><td>wasd</td><td>walk</td></tr>
+                <tr><td>mouse</td><td>look</td></tr>
+                <tr><td>left click</td><td>fire</td></tr>
+                <tr><td>right click</td><td>aim, over the shoulder</td></tr>
+                <tr><td>space</td><td>jump (clears the ink while drawing)</td></tr>
+                <tr><td>shift</td><td>dash</td></tr>
+                <tr><td>e</td><td>start drawing, or stop</td></tr>
+                <tr><td>1 to 8</td><td>show a tracing guide while drawing</td></tr>
+                <tr><td>esc or p</td><td>let go of the mouse, menu</td></tr>
+            </table>
+            <h3>on a phone</h3>
+            <p>left thumb walks, right thumb looks. the ink button starts a drawing and your right thumb is the pen, while your left one keeps walking.</p>
+            <h3>the sigils</h3>
+            <p>stroke order, direction, size and angle do not matter. upside down is fine. draw it big, and clean ones hit harder.
+            you carry eight into a match, and only those can be cast.</p>
+        </div>`;
+    }
+    function openSettings() {
+        pause(G, true, 'menu');
+        const { body } = createAppWindow('wizardz settings', { icon: 'settings', width: 340 });
+        body.classList.add('wz-book');
+        const cur = settings();
+        const manual = preference(LS.manual, 'false') === 'true';
+        body.innerHTML = `<div class="wz-help">
+            <label class="wz-row" for="wz-sens">mouse speed <input id="wz-sens" type="range" min="0.2" max="3" step="0.05" value="${cur.sens}"></label>
+            <label class="wz-row"><input id="wz-inv" type="checkbox" ${cur.invert ? 'checked' : ''}> invert up and down</label>
+            <label class="wz-row"><input id="wz-man" type="checkbox" ${manual ? 'checked' : ''}> manual cast: wait for enter instead of reading the ink when you stop</label>
+            <label class="wz-row"><input id="wz-fps" type="checkbox" ${G && G.showFps ? 'checked' : ''}> show frames per second</label>
+        </div>`;
+        const save = () => {
+            const s = { sens: Number(body.querySelector('#wz-sens').value), invert: body.querySelector('#wz-inv').checked };
+            savePreference(LS.settings, JSON.stringify(s));
+            const m = body.querySelector('#wz-man').checked;
+            savePreference(LS.manual, String(m));
+            if (G) { G.settings = settings(); G.manualCast = m; G.showFps = body.querySelector('#wz-fps').checked; }
+        };
+        body.querySelectorAll('input').forEach(i => { i.onchange = save; i.oninput = save; });
+    }
     function openGrimoire() {
-        pauseDuel(G);
+        pause(G, true, 'menu');
         const { body } = createAppWindow('grimoire — 50 sigils', { icon: 'auto_stories', width: 560 });
         body.classList.add('wz-book');
+        const elColor = el => (D.EL[el] || {}).color || '#fff';
         let filter = 'all';
         let picked = D.SPELLS[0];
         function draw() {
@@ -2435,43 +2190,41 @@
                     <div class="wz-book-detail">
                         <canvas id="wz-big" width="180" height="180"></canvas>
                         <div class="wz-book-name" style="color:${elColor(picked.el)}">${escapeHtml(picked.name)}</div>
-                        <div class="wz-book-meta">${picked.el} · ${picked.kind} · ${picked.cost || 0} mana${picked.hp ? ' + ' + picked.hp + ' hp' : ''} · ${picked.cd}s</div>
+                        <div class="wz-book-meta">${picked.el} · ${picked.cost || 0} ink${picked.hp ? ' + ' + picked.hp + ' hp' : ''} · ${picked.cd}s · ${picked.glyph.length} stroke${picked.glyph.length > 1 ? 's' : ''}</div>
+                        <div class="wz-book-meta">${KIND_WORDS[picked.kind]}${picked.charges > 1 ? ', ' + picked.charges + ' of them' : ''}</div>
                         <div class="wz-book-blurb">${escapeHtml(picked.blurb)}</div>
                         ${picked.dmg ? `<div class="wz-book-meta">damage ${picked.dmg}</div>` : ''}
                         <button class="wz-btn wz-wide" id="wz-practise">practise this sigil</button>
                     </div>
                 </div>`;
             body.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
-            body.querySelectorAll('.wz-tab').forEach(b => b.onclick = () => { filter = b.dataset.el; if (filter !== 'all' && picked.el !== filter) picked = D.SPELLS.find(s => s.el === filter); draw(); });
-            body.querySelectorAll('.wz-book-item').forEach(b => b.onclick = () => { picked = D.byId(b.dataset.id); draw(); });
+            body.querySelectorAll('.wz-tab').forEach(b => { b.onclick = () => { filter = b.dataset.el; if (filter !== 'all' && picked.el !== filter) picked = D.SPELLS.find(s => s.el === filter); draw(); }; });
+            body.querySelectorAll('.wz-book-item').forEach(b => { b.onclick = () => { picked = D.byId(b.dataset.id); draw(); }; });
             body.querySelector('#wz-practise').onclick = () => openTrainer(picked);
-            // animate the big one being drawn, once
             const big = body.querySelector('#wz-big');
-            let p = 0, t0 = performance.now();
+            const t0 = performance.now();
             const anim = () => {
                 if (!document.body.contains(big)) return;
-                p = Math.min(1.4, (performance.now() - t0) / 900);
-                paintSigil(big, picked, { width: 9, progress: Math.min(1, p) });
+                const p = min(1.4, (performance.now() - t0) / 900);
+                paintSigil(big, picked, { width: 9, progress: min(1, p), numbers: p >= 1 });
                 if (p < 1.4) requestAnimationFrame(anim);
             };
             anim();
         }
         draw();
     }
-
-    // draw the sigil, get scored on it. also the honest way to find out
-    // whether your circle is a circle.
+    // draw it, get scored on it. also the honest way to find out whether your circle is a circle
     function openTrainer(spell) {
-        const { body, win } = createAppWindow('practise: ' + spell.name, { icon: 'draw', width: 380 });
+        const { body, win } = createAppWindow('practise: ' + spell.name, { icon: 'draw', width: 400 });
         body.classList.add('wz-train');
         body.innerHTML = `
             <div class="wz-train-row">
                 <canvas id="wz-ref" width="150" height="150"></canvas>
                 <canvas id="wz-pad" width="180" height="180" class="wz-pad" aria-label="Draw the practice sigil here"></canvas>
             </div>
-            <div id="wz-score" class="wz-score" role="status">draw it on the right</div>
+            <div id="wz-score" class="wz-score" role="status">draw it on the right. any angle, any size.</div>
             <button class="wz-btn wz-wide" id="wz-clear">clear</button>`;
-        paintSigil(body.querySelector('#wz-ref'), spell, { width: 8 });
+        paintSigil(body.querySelector('#wz-ref'), spell, { width: 8, numbers: true });
         const pad = body.querySelector('#wz-pad'), pctx = pad.getContext('2d');
         let strokes = [], cur = null, timer = null, pointer = null;
         const redraw = () => {
@@ -2486,27 +2239,23 @@
         };
         const at = ev => {
             const r = pad.getBoundingClientRect();
-            const p = ev.touches ? ev.touches[0] : ev;
-            return { x: (p.clientX - r.left) * (pad.width / r.width), y: (p.clientY - r.top) * (pad.height / r.height) };
+            return { x: (ev.clientX - r.left) * (pad.width / r.width), y: (ev.clientY - r.top) * (pad.height / r.height) };
         };
         const score = () => {
-            const res = recognize(strokes);
+            const res = R.recognize(strokes);
             const el = body.querySelector('#wz-score');
             if (!res.length) return;
             const mine = res.find(r => r.id === spell.id);
             const best = res[0];
             const pct = Math.round((mine ? mine.score : 0) * 100);
-            const bar = Math.round(CAST_FLOOR * 100);
-            // the duel also refuses a drawing that sits between two
-            // spells, so the practice pad has to refuse it too — saying
-            // "that would cast" and then fizzling is worse than useless
-            const tooClose = res[1] && best.score - res[1].score < CAST_MARGIN;
-            if (best.id === spell.id && best.score >= CAST_FLOOR && !tooClose) {
-                el.innerHTML = `<b style="color:#0df259">${pct}% — that would cast, at ${Math.round((0.8 + qualityOf(best.score) * 0.4) * 100)}% spell strength</b>`;
+            const tooClose = res[1] && best.score - res[1].score < R.CAST_MARGIN;
+            if (best.id === spell.id && best.score >= REC_FLOOR && !tooClose) {
+                const lo = A.qualityPower[0], hi = A.qualityPower[1];
+                el.innerHTML = `<b style="color:#0df259">${pct}% — that would cast, at ${Math.round((lo + (hi - lo) * R.qualityOf(best.score)) * 100)}% power</b>`;
             } else if (best.id === spell.id && tooClose) {
                 el.innerHTML = `<b style="color:#ffe14d">${pct}% — half ${escapeHtml(spell.name)}, half ${escapeHtml(res[1].spell.name)}</b>`;
             } else if (best.id === spell.id) {
-                el.innerHTML = `<b style="color:#ffe14d">${pct}% — closest match, but ${bar}% is the bar</b>`;
+                el.innerHTML = `<b style="color:#ffe14d">${pct}% — closest match, but ${Math.round(REC_FLOOR * 100)}% is the bar</b>`;
             } else {
                 el.innerHTML = `<b style="color:#ff9aa8">${pct}% — the game read that as ${escapeHtml(best.spell.name)}</b>`;
             }
@@ -2516,36 +2265,32 @@
             e.preventDefault(); pointer = e.pointerId; pad.setPointerCapture(pointer);
             cur = [at(e)]; strokes.push(cur); clearTimeout(timer);
         };
-        const move = e => { if (!cur || e.pointerId !== pointer) return; e.preventDefault(); cur.push(at(e)); redraw(); };
+        const move = e => { if (!cur || e.pointerId !== pointer) return; e.preventDefault(); for (const m of everyMove(e)) cur.push(at(m)); redraw(); };
         const up = e => { if (e.pointerId !== pointer) return; pointer = null; cur = null; redraw(); clearTimeout(timer); timer = setTimeout(score, INK_PAUSE); };
-        const clear = () => { clearTimeout(timer); strokes = []; cur = null; pointer = null; redraw(); body.querySelector('#wz-score').textContent = 'draw it on the right'; };
+        const clear = () => { clearTimeout(timer); strokes = []; cur = null; pointer = null; redraw(); body.querySelector('#wz-score').textContent = 'draw it on the right. any angle, any size.'; };
         pad.addEventListener('pointerdown', down); pad.addEventListener('pointermove', move);
         pad.addEventListener('pointerup', up);
         pad.addEventListener('pointercancel', e => { if (pointer === e.pointerId) clear(); });
-        pad.addEventListener('lostpointercapture', e => { if (pointer === e.pointerId) clear(); });
         body.querySelector('#wz-clear').onclick = clear;
         win._cleanup = () => { clearTimeout(timer); };
-
     }
-
-    // ---------------------------------------------------------------
-    // loadout — which eight sigils sit under the arena
-    // ---------------------------------------------------------------
     function openLoadout() {
-        pauseDuel(G);
-        const { body } = createAppWindow('quick reference loadout', { icon: 'bookmark', width: 520 });
+        pause(G, true, 'menu');
+        const { body } = createAppWindow('your eight spells', { icon: 'bookmark', width: 540 });
         body.classList.add('wz-book');
+        const elColor = el => (D.EL[el] || {}).color || '#fff';
         let loadout = myLoadout();
+        let slot = 0;
         function draw() {
             body.innerHTML = `
-                <div class="wz-load-top">pick eight sigils to keep on the strip under the arena. you can still
-                cast any of the fifty — this is only your cheat sheet.</div>
+                <div class="wz-load-top">you carry eight sigils into a match, and only those can be cast. pick a slot, then a spell.
+                the next match uses them.</div>
                 <div class="wz-load-row" id="wz-chosen"></div>
                 <div class="wz-book-list wz-load-all" id="wz-all"></div>`;
             const chosen = body.querySelector('#wz-chosen');
             chosen.innerHTML = loadout.map((id, i) => {
                 const s = D.byId(id);
-                return `<button class="wz-card" data-slot="${i}"><canvas width="40" height="40" data-sigil="${id}"></canvas>
+                return `<button class="wz-card ${i === slot ? 'on' : ''}" data-slot="${i}"><canvas width="40" height="40" data-sigil="${id}"></canvas>
                     <div class="wz-card-name" style="color:${elColor(s.el)}">${escapeHtml(s.name)}</div></button>`;
             }).join('');
             const all = body.querySelector('#wz-all');
@@ -2553,28 +2298,25 @@
                 <canvas width="30" height="30" data-sigil="${s.id}"></canvas>
                 <span style="color:${elColor(s.el)}">${escapeHtml(s.name)}</span></button>`).join('');
             body.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
-            let slot = 0;
-            body.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => {
-                slot = +b.dataset.slot;
-                body.querySelectorAll('[data-slot]').forEach(x => x.classList.remove('on'));
-                b.classList.add('on');
-            });
-            all.querySelectorAll('[data-id]').forEach(b => b.onclick = () => {
-                loadout[slot] = b.dataset.id;
-                slot = (slot + 1) % 8;
-                saveLoadout(loadout);
-                draw();
-                renderChrome();
+            body.querySelectorAll('[data-slot]').forEach(b => { b.onclick = () => { slot = +b.dataset.slot; draw(); }; });
+            all.querySelectorAll('[data-id]').forEach(b => {
+                b.onclick = () => {
+                    const id = b.dataset.id;
+                    const already = loadout.indexOf(id);
+                    // picking something you already carry swaps the two
+                    if (already >= 0) { loadout[already] = loadout[slot]; }
+                    loadout[slot] = id;
+                    slot = (slot + 1) % D.LOADOUT_SIZE;
+                    saveLoadout(loadout);
+                    if (G && G.s && G.s.phase !== 'live') G.loadout = myLoadout();
+                    draw();
+                };
             });
         }
         draw();
     }
-
-    // ---------------------------------------------------------------
-    // the dressing room
-    // ---------------------------------------------------------------
     function openAvatarEditor() {
-        const { body } = createAppWindow('customise wizard', { icon: 'face', width: 480 });
+        const { body } = createAppWindow('customise wizard', { icon: 'face', width: 500 });
         body.classList.add('wz-dress');
         let av = myAvatar();
         const parts = [
@@ -2589,7 +2331,7 @@
         body.innerHTML = `
             <div class="wz-dress-wrap">
                 <div class="wz-dress-view">
-                    <canvas id="wz-dress-cv" width="180" height="200"></canvas>
+                    <canvas id="wz-dress-cv" width="200" height="230"></canvas>
                     <div class="wz-row">
                         <input id="wz-dress-name" class="wz-input" maxlength="16" value="${escapeHtml(window.Netplay ? Netplay.profile().name : 'wizard')}">
                     </div>
@@ -2597,7 +2339,7 @@
                     <button class="wz-btn wz-go wz-wide" id="wz-save">save</button>
                 </div>
                 <div class="wz-dress-parts">
-                    ${parts.map(([key, label, list]) => `
+                    ${parts.map(([key, label]) => `
                         <div class="wz-part" data-key="${key}">
                             <button class="wz-btn wz-tiny" data-dir="-1">◄</button>
                             <div class="wz-part-label"><span>${label}</span><b id="wz-v-${key}"></b></div>
@@ -2606,8 +2348,6 @@
                 </div>
             </div>`;
         const cvd = body.querySelector('#wz-dress-cv');
-        const cd = cvd.getContext('2d');
-        const t0 = performance.now();
         const paintVals = () => parts.forEach(([key]) => {
             const el = body.querySelector('#wz-v-' + key);
             if (!el) return;
@@ -2615,22 +2355,18 @@
             if (String(v).startsWith('#')) { el.textContent = '■'; el.style.color = v; }
             else { el.textContent = v; el.style.color = '#ffe14d'; }
         });
-        const spin = () => {
-            if (!document.body.contains(cvd)) return;
-            cd.clearRect(0, 0, cvd.width, cvd.height);
-            drawWizard(cd, av, cvd.width / 2, cvd.height - 14, 1.5, { time: (performance.now() - t0) / 1000, face: 1 });
-            requestAnimationFrame(spin);
-        };
-        spin();
+        spinPortrait(cvd, () => normAvatar(av), { bg: [0, 0.5, 0.5] });
         paintVals();
         body.querySelectorAll('.wz-part').forEach(row => {
             const key = row.dataset.key;
             const list = (parts.find(p => p[0] === key) || [])[2] || [];
-            row.querySelectorAll('button[data-dir]').forEach(b => b.onclick = () => {
-                const i = Math.max(0, list.indexOf(av[key]));
-                av[key] = list[(i + list.length + (+b.dataset.dir)) % list.length];
-                paintVals();
-                if (typeof playSound === 'function') playSound('click');
+            row.querySelectorAll('button[data-dir]').forEach(b => {
+                b.onclick = () => {
+                    const i = max(0, list.indexOf(av[key]));
+                    av[key] = list[(i + list.length + (+b.dataset.dir)) % list.length];
+                    paintVals();
+                    if (typeof playSound === 'function') playSound('click');
+                };
             });
         });
         body.querySelector('#wz-random').onclick = () => { av = D.randomAvatar(); paintVals(); };
@@ -2638,14 +2374,24 @@
             saveAvatar(av);
             const n = body.querySelector('#wz-dress-name').value.trim();
             if (n && window.Netplay) Netplay.setName(n);
-            if (G) G.wiz[G.me].avatar = normAvatar(av);
-            showToast && showToast('wizardz', 'your wizard is saved');
+            if (G) G.s.wiz[G.me].avatar = normAvatar(av);
+            if (typeof showToast === 'function') showToast('wizardz', 'your wizard is saved');
             if (typeof playSound === 'function') playSound('ding');
         };
     }
 
+    // used by the lobby to draw everybody's wizard on a small canvas
+    function paintAvatar(canvas, avatar) {
+        if (!canvas || !canvas.getContext) return;
+        if (!GL.paintPortrait(canvas, normAvatar(avatar), performance.now() / 1000, { angle: 0.5, bg: [0.09, 0.05, 0.17] })) {
+            const c = canvas.getContext('2d');
+            c.fillStyle = (avatar && avatar.robeColor) || '#7b2ff7';
+            c.fillRect(canvas.width * 0.3, canvas.height * 0.3, canvas.width * 0.4, canvas.height * 0.6);
+        }
+    }
+
     // ===============================================================
-    // 11. WIRING
+    // wiring
     // ===============================================================
     if (window.Netplay) {
         window.Netplay.registerGame({
@@ -2658,7 +2404,6 @@
             editAvatar: openAvatarEditor
         });
     }
-
     window.startWizardz = function (mode, botId) {
         if (mode === 'solo') { startBotDuel(botId); return; }
         if (mode === 'bot' || mode === 'bots') { openBotPicker(); return; }
@@ -2667,10 +2412,10 @@
     window.wizardzGrimoire = openGrimoire;
     window.wizardzAvatar = openAvatarEditor;
     window.wizardzBots = openBotPicker;
-    // handy for the console, and for the check script. state() hands out
-    // the live duel so a test can ask whether that fireball landed.
+    // handy for the console, and for the browser tests. state() hands out the live match
     window.WZ_ENGINE = {
-        recognize, featuresOf, similarity, templates, paintSigil, drawWizard,
-        CAST_FLOOR, CAST_MARGIN, qualityOf, TILTS, state: () => G
+        recognize: R.recognize, decide: R.decide, featuresOf: R.featuresOf, templates: R.templates,
+        paintSigil, paintAvatar, CAST_FLOOR: R.CAST_FLOOR, CAST_MARGIN: R.CAST_MARGIN, qualityOf: R.qualityOf,
+        normAvatar, myLoadout, state: () => G, onSnapshot, hostInput
     };
 })();

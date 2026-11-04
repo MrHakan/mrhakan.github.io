@@ -100,8 +100,10 @@ try { loadInto(win, 'games/netplay.js'); ok('games/netplay.js runs without a dom
 catch (e) { bad('games/netplay.js runs without a dom', e.message); }
 try { loadInto(win, 'games/wizardz/wizardz-data.js'); ok('games/wizardz/wizardz-data.js runs'); }
 catch (e) { bad('games/wizardz/wizardz-data.js runs', e.message); }
-try { loadInto(win, 'games/wizardz/wizardz.js'); ok('games/wizardz/wizardz.js runs'); }
-catch (e) { bad('games/wizardz/wizardz.js runs', e.message); }
+for (const f of ['wizardz-sigil', 'wizardz-sim', 'wizardz-gl', 'wizardz']) {
+    try { loadInto(win, 'games/wizardz/' + f + '.js'); ok('games/wizardz/' + f + '.js runs'); }
+    catch (e) { bad('games/wizardz/' + f + '.js runs', e.message); }
+}
 
 const WZ = win.WZ;
 const ENGINE = win.WZ_ENGINE;
@@ -118,7 +120,7 @@ expect(!!(NP && NP.games && NP.games.wizardz), 'wizardz registered itself with n
 section('the fifty spells');
 // ===================================================================
 const S = WZ.SPELLS;
-const KINDS = ['bolt', 'beam', 'wall', 'ward', 'heal', 'buff', 'hex', 'zone', 'summon', 'special'];
+const KINDS = ['shot', 'beam', 'strike', 'wall', 'zone', 'trap', 'summon', 'nova', 'self', 'move'];
 expect(S.length === 50, 'there are exactly 50 spells', 'found ' + S.length);
 expect(new Set(S.map(s => s.id)).size === S.length, 'every spell id is unique');
 expect(new Set(S.map(s => s.name)).size === S.length, 'every spell name is unique');
@@ -133,9 +135,9 @@ for (const s of S) {
     if (typeof s.cd !== 'number' || s.cd < 0 || s.cd > 40) badFields.push(s.id + ': silly cooldown ' + s.cd);
     if (s.dmg !== undefined && (s.dmg < 0 || s.dmg > WZ.ARENA.maxHp / 2)) badFields.push(s.id + ': damage out of range ' + s.dmg);
     if (!s.blurb || s.blurb.length < 10) badFields.push(s.id + ': no blurb');
-    if (s.cost === 0 && !s.hp && s.kind !== 'buff' && s.kind !== 'special') badFields.push(s.id + ': free and not a buff');
-    const st = (s.p && s.p.status) || (s.p && s.p.statusName);
-    if (st && !WZ.STATUS[st]) badFields.push(s.id + ': unknown status ' + st);
+    if (s.cost === 0 && !s.hp) badFields.push(s.id + ': free, which nothing should be');
+    const st = s.p && s.p.status;
+    if (st && !WZ.STATUS[st.k]) badFields.push(s.id + ': unknown status ' + st.k);
 }
 expect(!badFields.length, 'every spell has sane numbers and legal effects', badFields.join('\n        '));
 expect(Object.keys(elCounts).length === Object.keys(WZ.EL).length, 'every element is used',
@@ -171,200 +173,7 @@ for (const s of S) {
 }
 expect(!glyphProblems.length, 'all 50 sigils are well formed', glyphProblems.join('\n        '));
 
-// ===================================================================
-section('the recogniser can tell them apart');
-// ===================================================================
-const templates = ENGINE.templates();
-expect(templates.length === 50, 'the recogniser built 50 templates');
-
-// 1. a perfectly drawn sigil must come back as itself, top of the list
-let selfFails = [];
-for (const s of S) {
-    const res = ENGINE.recognize(s.glyph);
-    if (!res.length || res[0].id !== s.id) selfFails.push(s.id + ' -> ' + (res[0] ? res[0].id : 'nothing'));
-}
-expect(!selfFails.length, 'a clean sigil always matches itself', selfFails.join(', '));
-
-// 2. no two templates may sit on top of each other
-const feats = S.map(s => ({ id: s.id, f: ENGINE.featuresOf(s.glyph) }));
-let worst = { s: 0 };
-const closest = [];
-for (let i = 0; i < feats.length; i++) {
-    for (let j = i + 1; j < feats.length; j++) {
-        const sim = ENGINE.similarity(feats[i].f, feats[j].f);
-        closest.push({ a: feats[i].id, b: feats[j].id, s: sim });
-        if (sim > worst.s) worst = { s: sim, a: feats[i].id, b: feats[j].id };
-    }
-}
-closest.sort((x, y) => y.s - x.s);
-const PAIR_CEILING = 0.70;
-expect(worst.s < PAIR_CEILING,
-    `no two sigils are more than ${PAIR_CEILING} alike`,
-    'closest: ' + closest.slice(0, 3).map(p => `${p.a}~${p.b} ${p.s.toFixed(3)}`).join(', '));
-console.log('        closest pairs: ' + closest.slice(0, 3).map(p => `${p.a}~${p.b} ${p.s.toFixed(3)}`).join(', '));
-
-// 3. and they must survive being drawn badly
-function mulberry(a) {
-    return function () {
-        a |= 0; a = a + 0x6D2B79F5 | 0;
-        let t = Math.imul(a ^ a >>> 15, 1 | a);
-        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-}
-// rotation, aspect, a wobbly line and a few dropped points — roughly
-// what a sigil looks like drawn at speed on a trackpad
-function shaky(strokes, rnd, level, tiltDeg) {
-    const rot = (rnd() - 0.5) * 2 * (tiltDeg === undefined ? level * 9 : tiltDeg) * Math.PI / 180;
-    const sx = 1 + (rnd() - 0.5) * 0.3 * level, sy = 1 + (rnd() - 0.5) * 0.3 * level;
-    const cos = Math.cos(rot), sin = Math.sin(rot);
-    const wobA = level * 3.2, wobF = 1 + rnd() * 3;
-    return strokes.map(st => {
-        const pts = st.filter((_, i) => i === 0 || i === st.length - 1 || rnd() > 0.15 * level);
-        return pts.map((p, i) => {
-            const x = (p.x - 50) * sx, y = (p.y - 50) * sy;
-            const rx = x * cos - y * sin, ry = x * sin + y * cos;
-            return {
-                x: rx + 50 + Math.sin(i / pts.length * Math.PI * wobF) * wobA + (rnd() - 0.5) * 2.4 * level,
-                y: ry + 50 + Math.cos(i / pts.length * Math.PI * wobF) * wobA + (rnd() - 0.5) * 2.4 * level
-            };
-        });
-    });
-}
-function trial(level, per, seed, tiltDeg) {
-    const rnd = mulberry(seed);
-    const misses = [], wrong = [];
-    let n = 0, selfSum = 0, castable = 0;
-    for (const s of S) {
-        for (let k = 0; k < per; k++) {
-            const res = ENGINE.recognize(shaky(s.glyph, rnd, level, tiltDeg));
-            n++;
-            const self = res.find(r => r.id === s.id);
-            selfSum += self ? self.score : 0;
-            const fires = res.length && res[0].score >= ENGINE.CAST_FLOOR &&
-                (!res[1] || res[0].score - res[1].score >= ENGINE.CAST_MARGIN);
-            if (fires && res[0].id === s.id) castable++;
-            // a fizzle costs you a moment; a spell you did not ask for
-            // costs you the mana and the exchange
-            if (fires && res[0].id !== s.id) wrong.push(s.id + '->' + res[0].id);
-            if (!res.length || res[0].id !== s.id) misses.push(s.id + '->' + (res[0] ? res[0].id : 'nothing'));
-        }
-    }
-    return { n, misses, wrong, mean: selfSum / n, castable };
-}
-const tidy = trial(0.55, 8, 20260813);
-const sloppy = trial(0.8, 8, 424242);
-const awful = trial(1.0, 8, 7777);
-// nobody draws upright, and this is the case the recogniser used to be
-// worst at: a sigil leaning twenty degrees was a coin flip
-const tilted = trial(0.6, 8, 31415, 22);
-console.log(`        tidy   ${tidy.n - tidy.misses.length}/${tidy.n} right, mean score ${tidy.mean.toFixed(3)}, ${tidy.castable} would cast`);
-console.log(`        sloppy ${sloppy.n - sloppy.misses.length}/${sloppy.n} right, mean score ${sloppy.mean.toFixed(3)}`);
-console.log(`        awful  ${awful.n - awful.misses.length}/${awful.n} right, mean score ${awful.mean.toFixed(3)}`);
-expect(!tidy.misses.length, 'a tidily drawn sigil is never mistaken for another spell', tidy.misses.slice(0, 8).join(', '));
-expect(tidy.castable / tidy.n > 0.97, 'a tidily drawn sigil clears the casting threshold',
-    `${tidy.castable}/${tidy.n} cleared ${ENGINE.CAST_FLOOR}`);
-expect(sloppy.misses.length / sloppy.n <= 0.02, 'a sloppily drawn sigil is right at least 98% of the time',
-    sloppy.misses.slice(0, 8).join(', '));
-expect(awful.misses.length / awful.n <= 0.06, 'even a badly drawn sigil is right at least 94% of the time',
-    awful.misses.slice(0, 8).join(', '));
-console.log(`        tilted ±22° ${tilted.n - tilted.misses.length}/${tilted.n} right, ${tilted.castable} would cast`);
-expect(tilted.misses.length / tilted.n <= 0.03, 'a sigil drawn at a lean is right at least 97% of the time',
-    tilted.misses.slice(0, 8).join(', '));
-expect(tilted.castable / tilted.n >= 0.9, 'and nine out of ten of those still cast',
-    `${tilted.castable}/${tilted.n}`);
-
-// the tilt search used to stop at ±18°, so a sigil drawn at thirty
-// degrees fell off the end of it: two thirds of them cast, and the ones
-// that did not were the ones firing the *wrong* spell. it reaches ±30°
-// now, and this is the case that says so.
-const leaning = trial(0.6, 8, 2718, 30);
-console.log(`        tilted ±30° ${leaning.n - leaning.misses.length}/${leaning.n} right, ${leaning.castable} would cast`);
-expect(leaning.misses.length / leaning.n <= 0.04, 'a sigil drawn at a heavy lean is still right 96% of the time',
-    leaning.misses.slice(0, 8).join(', '));
-expect(leaning.castable / leaning.n >= 0.93, 'and it casts rather than fizzling',
-    `${leaning.castable}/${leaning.n}`);
-
-// the unforgivable failure is not a fizzle, it is casting something
-// nobody asked for — you lose the mana and the duel argues with you
-{
-    const misfires = [];
-    for (const [name, t] of [['tidy', tidy], ['sloppy', sloppy], ['awful', awful], ['±22°', tilted], ['±30°', leaning]]) {
-        if (t.wrong.length) misfires.push(`${name}: ${t.wrong.slice(0, 4).join(', ')}`);
-    }
-    const total = [tidy, sloppy, awful, tilted, leaning].reduce((a, t) => a + t.wrong.length, 0);
-    const n = [tidy, sloppy, awful, tilted, leaning].reduce((a, t) => a + t.n, 0);
-    console.log(`        wrong spell cast: ${total}/${n}`);
-    expect(total / n <= 0.005, 'a drawn sigil almost never casts the wrong spell', misfires.join(' | '));
-}
-
-// how well you drew it decides how hard it hits, and the scale is
-// anchored: scraping through the door is a weak spell, not a free one
-expect(ENGINE.qualityOf(ENGINE.CAST_FLOOR) === 0 && ENGINE.qualityOf(ENGINE.CAST_FLOOR - 0.1) === 0,
-    'a drawing at the threshold casts at zero power');
-expect(ENGINE.qualityOf(0.86) === 1 && ENGINE.qualityOf(ENGINE.CAST_FLOOR + 0.13) > 0.45,
-    'and a clean one at full', String(ENGINE.qualityOf(0.86)));
-
-// and the other half of the job: a panic scribble must not fire a spell
-function scribble(rnd) {
-    const strokes = [];
-    for (let s = 0; s < 1 + Math.floor(rnd() * 2); s++) {
-        const pts = [];
-        let x = rnd() * 100, y = rnd() * 100;
-        for (let i = 0; i < 12 + Math.floor(rnd() * 20); i++) {
-            x = Math.max(0, Math.min(100, x + (rnd() - 0.5) * 34));
-            y = Math.max(0, Math.min(100, y + (rnd() - 0.5) * 34));
-            pts.push({ x, y });
-        }
-        strokes.push(pts);
-    }
-    return strokes;
-}
-// a slower hand: one long wandering line rather than a panic scrub. this
-// is the junk that looks most like a real gesture, and the one the lower
-// casting threshold lets closest to the door.
-function doodle(rnd) {
-    const pts = [];
-    let x = 20 + rnd() * 60, y = 20 + rnd() * 60, a = rnd() * Math.PI * 2;
-    for (let i = 0; i < 20 + Math.floor(rnd() * 25); i++) {
-        a += (rnd() - 0.5) * 1.2;
-        x = Math.max(2, Math.min(98, x + Math.cos(a) * 9));
-        y = Math.max(2, Math.min(98, y + Math.sin(a) * 9));
-        pts.push({ x, y });
-    }
-    return [pts];
-}
-function junkRate(gen, n, seed) {
-    const rnd = mulberry(seed);
-    let fired = 0;
-    for (let i = 0; i < n; i++) {
-        const res = ENGINE.recognize(gen(rnd));
-        if (res.length && res[0].score >= ENGINE.CAST_FLOOR &&
-            (!res[1] || res[0].score - res[1].score >= ENGINE.CAST_MARGIN)) fired++;
-    }
-    return fired;
-}
-{
-    const N = 200, fired = junkRate(scribble, N, 1234);
-    console.log(`        scribbles that would cast: ${fired}/${N}`);
-    expect(fired / N <= 0.04, 'a scribble almost never casts anything', fired + '/' + N + ' fired');
-
-    const M = 150, wandered = junkRate(doodle, M, 5678);
-    console.log(`        idle doodles that would cast: ${wandered}/${M}`);
-    expect(wandered / M <= 0.22, 'and an idle doodle usually does not either', wandered + '/' + M + ' fired');
-}
-// what stops junk at a 0.60 door is that the score now costs you for
-// wandering: a scribble turns a corner every few points, a sigil does not
-{
-    const rnd = mulberry(31337);
-    const turns = S.map(s => ENGINE.featuresOf(s.glyph).turn).sort((a, b) => a - b);
-    const junk = [];
-    for (let i = 0; i < 40; i++) junk.push(ENGINE.featuresOf(scribble(rnd)).turn);
-    junk.sort((a, b) => a - b);
-    console.log(`        turning: sigils ${turns[0].toFixed(1)}..${turns[turns.length - 1].toFixed(1)}, scribbles median ${junk[20].toFixed(1)}`);
-    expect(junk[20] > turns[Math.floor(turns.length * 0.9)],
-        'a scribble turns more than nine out of ten real sigils', `${junk[20].toFixed(1)} vs ${turns[Math.floor(turns.length * 0.9)].toFixed(1)}`);
-}
+// The recogniser has a file of its own now, check-sigils.mjs, with a confusion matrix.
 
 // ===================================================================
 section('the faces you play against');
@@ -550,7 +359,7 @@ const sw = read('sw.js');
 const html = read('index.html');
 const indexJs = read('js/index.js');
 const extras = read('js/extras.js');
-['games/netplay.js', 'games/wizardz/wizardz-data.js', 'games/wizardz/wizardz.js'].forEach(f =>
+['games/netplay.js', 'games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js'].forEach(f =>
     expect(sw.includes('/' + f), 'service worker precaches ' + f));
 expect(/const CACHE = 'mrhakan98-v(\d+)'/.test(sw), 'service worker has a cache version');
 expect(html.includes("startMenuAction('wizardz')"), 'wizardz is in the start menu');
