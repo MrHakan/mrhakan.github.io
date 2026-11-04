@@ -13,6 +13,7 @@
 // ===================================================================
 import { chromium } from 'playwright';
 import { spawn } from 'child_process';
+import { TRIANGLE, ZBOLT, takeMouse, inkDraw, faceOff, shoot, honestMouse } from './wizardz-play.mjs';
 
 const BASE = (process.env.SITE_URL || 'http://localhost:8092').replace(/\/$/, '');
 const RELAY_PORT = 8700 + Math.floor(Math.random() * 90);
@@ -95,8 +96,9 @@ const FAKE_PEERJS = String.raw`
 const relay = spawn(process.execPath, ['server/nostr-test-relay.mjs'], { env: { ...process.env, PORT: String(RELAY_PORT) }, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 500));
 
-const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
+const browser = await chromium.launch(Object.assign({ args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] }, process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}));
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 } });
+await honestMouse(ctx);
 let cdnBlocked = false;
 await ctx.route('**/*', route => {
     const u = route.request().url();
@@ -138,20 +140,6 @@ async function joinOn(p, code) {
     await p.waitForSelector('.np-code', { timeout: 30000 });
 }
 const kind = p => p.evaluate(() => Netplay.current ? Netplay.current.transport.kind : (window.WZ_ENGINE && WZ_ENGINE.state().session.transport.kind));
-const TRIANGLE = [[[380, 120], [455, 255], [305, 255], [380, 120]]];   // fireball
-const ZBOLT = [[[430, 120], [340, 190], [400, 190], [320, 270]]];      // spark
-async function draw(page, strokes) {
-    const box = await (await page.$('#wz-canvas')).boundingBox();
-    const sx = box.width / 760, sy = box.height / 400;
-    for (const s of strokes) {
-        await page.mouse.move(box.x + s[0][0] * sx, box.y + s[0][1] * sy);
-        await page.mouse.down();
-        for (const [x, y] of s.slice(1)) await page.mouse.move(box.x + x * sx, box.y + y * sy, { steps: 5 });
-        await page.mouse.up();
-        await page.waitForTimeout(50);
-    }
-    await page.waitForTimeout(700);
-}
 const live = p => p.waitForFunction(() => { const g = window.WZ_ENGINE && WZ_ENGINE.state(); return g && g.phase === 'live'; }, null, { timeout: 30000 });
 async function startDuel(host, guest) {
     await host.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
@@ -164,8 +152,13 @@ async function startDuel(host, guest) {
     await Promise.all([live(host), live(guest)]);
 }
 async function spellsCross(host, guest, what) {
-    await draw(guest, TRIANGLE);
-    await draw(host, ZBOLT);
+    await faceOff(host, [guest]);
+    await takeMouse(guest);
+    await inkDraw(guest, TRIANGLE);
+    await shoot(guest, 2);
+    await takeMouse(host);
+    await inkDraw(host, ZBOLT);
+    await shoot(host, 3);
     const landed = await host.waitForFunction(() => { const g = WZ_ENGINE.state(); return g.wiz[0].hp < 100 && g.wiz[1].hp < 100; }, null, { timeout: 25000 }).then(() => true, () => false);
     expect(landed, 'spells drawn on both sides land ' + what);
     await host.waitForTimeout(800);
@@ -314,7 +307,10 @@ try {
         await host.waitForTimeout(1500);
         const down = await Promise.all([host, guest].map(p => p.evaluate(() => WZ_ENGINE.state().netDown)));
         expect(down.every(d => !d), 'nobody gets told the other one walked out', JSON.stringify(down));
-        await draw(guest, TRIANGLE);
+        await faceOff(host, [guest]);
+        await takeMouse(guest);
+        await inkDraw(guest, TRIANGLE);
+        await shoot(guest, 2);
         const landed = await host.waitForFunction(h => WZ_ENGINE.state().wiz[0].hp < h, hp, { timeout: 25000 }).then(() => true, () => false);
         expect(landed, 'and a spell cast after the move still lands');
         await host.close();

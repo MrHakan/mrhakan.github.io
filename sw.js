@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v32';
+const CACHE = 'mrhakan98-v33';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -69,6 +69,9 @@ const PRECACHE_LATER = [
     '/games/echoes/echoes.js',
     '/games/netplay.js',
     '/games/wizardz/wizardz-data.js',
+    '/games/wizardz/wizardz-sigil.js',
+    '/games/wizardz/wizardz-sim.js',
+    '/games/wizardz/wizardz-gl.js',
     '/games/wizardz/wizardz.js',
     '/games/age-of-troll/age-of-troll-data.js',
     '/games/age-of-troll/age-of-troll-sim.js',

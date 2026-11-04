@@ -62,8 +62,14 @@ jobs:
             - name: Check concert lighting and music playback state
               run: node .github/scripts/check-music-stage.mjs
 
-            - name: Check Wizardz combat, input and offline behavior
+            # a thousand bot matches against the balance targets, and every rule
+            - name: Check Wizardz rules and balance, and offline behavior
               run: node .github/scripts/check-wizardz.mjs && node .github/scripts/check-offline.mjs
+
+            # every symbol drawn badly a few hundred times, and the confusion
+            # matrix held to its targets. The matrix lands in .ci-shots
+            - name: Check that Wizardz can read a drawing
+              run: node .github/scripts/check-sigils.mjs
 
             # a lobby on a static site stands on other people's servers. This
             # holds the transports to what happens when those misbehave
@@ -218,6 +224,18 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8103 node .github/scripts/browser-age-of-troll.mjs
+
+            # a match to the end with a real mouse, a phone with real thumbs, two
+            # browsers direct and over the relays, a link dying and a player going.
+            # It brings its own stand-ins for peerjs and the relays
+            - name: Play wizardz
+              run: |
+                  python3 -m http.server 8104 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
+                  sleep 2
+                  kill -0 "$site_pid"
+                  SITE_URL=http://localhost:8104 node .github/scripts/browser-wizardz.mjs
 
             # the auto scaler moves a real mouse by a known number of real pixels on
             # the screens people have, and presses every button in the news panel.

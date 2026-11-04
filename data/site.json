@@ -164,6 +164,20 @@
     ],
     "changelog": [
         {
+            "version": "10.0",
+            "date": "2026-11-05",
+            "changes": [
+                "wizardz 98 is a third person shooter now: over the shoulder, wasd and a locked mouse, jump, dash, cover, in a walled arena with an error dialog the size of a bus",
+                "it looks like a playstation because it does what one did: 240 lines, corners that snap to whole pixels, textures with no perspective correction, 5 bits a channel with dithering, fog where the draw distance runs out, and wizards made of boxes on hinges. hand written webgl, no library",
+                "a sigil is a reload. press e, draw, and the spell goes in your staff for the left mouse button. while you draw you shuffle and take more damage, but anything of theirs flying near you slows right down",
+                "two ways to win: three knockouts, or forty two seconds alone on the altar. after two and a half minutes the fog closes in on it",
+                "all fifty spells rebuilt for 3d, with fifty new symbols that are different at any angle. you carry eight into a match",
+                "the recogniser is new too: stroke order, direction, size and angle do not count, and it also looks at loops, corners and which way the line was going. a confusion matrix in CI holds it to about 99% first guess on an ordinary hand, with 0.4% casting the wrong spell",
+                "balance held to a thousand bot matches in CI, so no spell in the book wins everything or nothing",
+                "it plays on a phone with two thumbs, and online through the same lobby, including over the public relays at about a megabyte a minute"
+            ]
+        },
+        {
             "version": "9.9",
             "date": "2026-11-04",
             "changes": [

@@ -567,7 +567,7 @@ const SHORTCUTS = [
     ['type: solitaire, defrag', 'the good windows programs'],
     ['type: jokerz or balatro', 'the poker roguelike'],
     ['type: troll or orcs', 'sir, we have a troll problem'],
-    ['type: wizardz or duel', 'draw spells at another wizard'],
+    ['type: wizardz or duel', 'draw spells, then shoot them at another wizard'],
     ['type: ageoftroll', 'five ages, two walls, one lane'],
     ['type: bot', '1 v bot — pick an opponent'],
     ['type: lobby', 'the multiplayer lobby'],

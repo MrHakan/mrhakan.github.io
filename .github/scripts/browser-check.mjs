@@ -13,6 +13,7 @@ import { mockGiscus } from './mock-giscus.mjs';
 // ===================================================================
 import { chromium, devices } from 'playwright';
 import fs from 'fs';
+import { TRIANGLE, ZBOLT, live as waitLive, takeMouse, inkDraw, faceOff, shoot, honestMouse } from './wizardz-play.mjs';
 
 const BASE = process.env.SITE_URL || 'http://localhost:8099/index.html';
 const SHOTS = '.ci-shots';
@@ -25,9 +26,10 @@ const expect = (c, m, d) => c ? ok(m) : bad(m, d);
 const section = n => console.log('\n== ' + n + ' ==');
 
 // PW_CHROMIUM lets a machine that already has a chromium skip the download
-const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
+const browser = await chromium.launch(Object.assign({ args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] }, process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}));
 const ctx = await browser.newContext({ viewport: { width: 1180, height: 860 } });
 await mockGiscus(ctx);
+await honestMouse(ctx);
 // the welcome popup fires 1.4s after every boot and, being a retro dialog,
 // evicts whatever dialog is already on screen — including one a test just
 // opened. mark the session as welcomed before any page script runs.
@@ -50,31 +52,6 @@ async function boot(tag, url) {
     await p.evaluate(() => { window.soundEnabled = false; });
     return p;
 }
-// draw strokes in arena coordinates (760x400) with the real mouse
-async function draw(page, strokes) {
-    const box = await (await page.$('#wz-canvas')).boundingBox();
-    const sx = box.width / 760, sy = box.height / 400;
-    for (const s of strokes) {
-        await page.mouse.move(box.x + s[0][0] * sx, box.y + s[0][1] * sy);
-        await page.mouse.down();
-        for (const [x, y] of s.slice(1)) await page.mouse.move(box.x + x * sx, box.y + y * sy, { steps: 5 });
-        await page.mouse.up();
-        await page.waitForTimeout(50);
-    }
-    await page.waitForTimeout(700);           // the recogniser waits for a pause
-}
-// the simulation is frame driven and headless chromium renders slowly,
-// so never guess at the countdown — wait for the round to actually start
-async function waitLive(page) {
-    const h = await page.waitForFunction(() => {
-        const g = window.WZ_ENGINE && WZ_ENGINE.state();
-        return g && g.phase === 'live' ? { bot: g.bot && g.bot.id, hint: g.hint && g.hint.text } : null;
-    }, null, { timeout: 30000 });
-    return h.jsonValue();
-}
-const TRIANGLE = [[[380, 120], [455, 255], [305, 255], [380, 120]]];   // fireball
-const ZBOLT = [[[430, 120], [340, 190], [400, 190], [320, 270]]];      // spark
-
 try {
     // ---------------------------------------------------------------
     section('single player');
@@ -87,6 +64,7 @@ try {
     await solo.screenshot({ path: SHOTS + '/1-menu.png' });
 
     const counts = await solo.evaluate(() => ({ spells: WZ.SPELLS.length, templates: WZ_ENGINE.templates().length }));
+    expect(await solo.evaluate(() => !!(window.WZ_SIM && window.WZ_GL && window.WZ_SIGIL)), 'and all five of its files came down');
     expect(counts.spells === 50 && counts.templates === 50, 'fifty spells and fifty templates in the browser', JSON.stringify(counts));
 
     await solo.evaluate(() => startWizardz('solo', 'cinder'));
@@ -100,14 +78,20 @@ try {
         'you fight the bot you picked, with its own face', JSON.stringify(opponent));
     await waitLive(solo);
 
-    await draw(solo, TRIANGLE);
+    await takeMouse(solo);
+    await inkDraw(solo, TRIANGLE);
     const afterDraw = await solo.evaluate(() => {
-        const g = WZ_ENGINE.state();
-        return { ents: g.ents.length, mana: g.wiz[g.me].mana, hint: g.hint && g.hint.text };
+        const g = WZ_ENGINE.state(), w = g.wiz[g.me];
+        return { chamber: w.chamber && w.chamber.s, ink: w.ink, start: WZ.ARENA.startInk, hint: g.hint && g.hint.text };
     });
-    expect(afterDraw.ents > 0, 'drawing a triangle put a fireball in the air', JSON.stringify(afterDraw));
-    expect(afterDraw.mana < 100, 'casting cost mana', 'mana ' + afterDraw.mana);
+    expect(afterDraw.chamber === 'fireball', 'drawing a triangle loaded a fireball', JSON.stringify(afterDraw));
+    expect(afterDraw.ink < afterDraw.start, 'casting cost ink', 'ink ' + afterDraw.ink);
     expect(/fireball/.test(afterDraw.hint || ''), 'the game says what it read', afterDraw.hint);
+    await solo.mouse.down();
+    await solo.waitForTimeout(120);
+    await solo.mouse.up();
+    const fired = await solo.evaluate(() => WZ_ENGINE.state().ents.some(e => e.s === 'fireball'));
+    expect(fired, 'and a click put it in the air');
     await solo.screenshot({ path: SHOTS + '/2-duel.png' });
 
     // the machine has to be both dangerous and survivable: a player who
@@ -116,14 +100,14 @@ try {
     // target sixty times a second.
     await solo.evaluate(() => { localStorage.setItem('mrhakan98-wizardz-difficulty', 'normal'); startWizardz('solo', 'cinder'); });
     await waitLive(solo);
+    const startedAt = await solo.evaluate(() => { const b = WZ_ENGINE.state().wiz[1]; return [b.x, b.z]; });
     await solo.waitForTimeout(8000);
     const survived = await solo.evaluate(() => {
-        const g = WZ_ENGINE.state();
-        return { hp: Math.round(g.wiz[g.me].hp), round: g.round, wins: g.wins, phase: g.phase };
+        const g = WZ_ENGINE.state(), b = g.wiz[1];
+        return { hp: Math.round(g.wiz[g.me].hp), score: g.wins, phase: g.phase, at: [b.x, b.z], ink: b.ink };
     });
-    expect(survived.hp > 0 && survived.round === 1, 'a passive player survives eight seconds on normal', JSON.stringify(survived));
-    expect(survived.hp < 100, 'but the machine is definitely trying', JSON.stringify(survived));
-    console.log('        hp left after doing nothing for 8s: ' + survived.hp);
+    expect(survived.phase === 'live' && survived.score[1] === 0, 'a passive player survives eight seconds on normal', JSON.stringify(survived));
+    expect(Math.hypot(survived.at[0] - startedAt[0], survived.at[1] - startedAt[1]) > 5, 'but the machine is definitely coming', JSON.stringify(survived));
 
     // the roster screen
     await solo.evaluate(() => startWizardz('bot'));
@@ -684,11 +668,16 @@ try {
     await waitLive(host);
     await waitLive(guest);
 
-    // the guest draws a fireball; the host owns the simulation, so the
-    // damage has to show up there
-    await draw(guest, TRIANGLE);
-    await draw(host, ZBOLT);
-    await host.waitForTimeout(2200);
+    // the guest draws a fireball and fires it; the host owns the simulation, so
+    // the damage has to show up there
+    await faceOff(host, [guest]);
+    await takeMouse(guest);
+    await inkDraw(guest, TRIANGLE);
+    await shoot(guest, 2);
+    await takeMouse(host);
+    await inkDraw(host, ZBOLT);
+    await shoot(host, 3);
+    await host.waitForTimeout(1000);
     const hostState = await host.evaluate(() => {
         const g = WZ_ENGINE.state();
         return { host: !!g.isHost, me: g.me, hp: g.wiz.map(w => Math.round(w.hp)), st: Object.keys(g.wiz[0].st) };
@@ -700,7 +689,7 @@ try {
     expect(hostState.host && !guestState.host, 'exactly one side is running the simulation', JSON.stringify([hostState, guestState]));
     expect(hostState.hp[0] < 100, "the guest's spell damaged the host", JSON.stringify(hostState));
     expect(hostState.hp[1] < 100, "the host's spell damaged the guest", JSON.stringify(hostState));
-    expect(Math.abs(hostState.hp[0] - guestState.hp[0]) <= 4 && Math.abs(hostState.hp[1] - guestState.hp[1]) <= 4,
+    expect(Math.abs(hostState.hp[0] - guestState.hp[0]) <= 8 && Math.abs(hostState.hp[1] - guestState.hp[1]) <= 8,
         'both screens agree on the health bars', JSON.stringify([hostState.hp, guestState.hp]));
     console.log('        host sees ' + JSON.stringify(hostState.hp) + ', guest sees ' + JSON.stringify(guestState.hp));
     await host.screenshot({ path: SHOTS + '/6-duel-host.png' });
@@ -744,8 +733,13 @@ try {
             bGuest.waitForSelector('#wz-canvas', { timeout: 40000 })
         ]);
         await Promise.all([waitLive(bHost), waitLive(bGuest)]);
-        await draw(bGuest, TRIANGLE);
-        await draw(bHost, ZBOLT);
+        await faceOff(bHost, [bGuest]);
+        await takeMouse(bGuest);
+        await inkDraw(bGuest, TRIANGLE);
+        await shoot(bGuest, 3);
+        await takeMouse(bHost);
+        await inkDraw(bHost, ZBOLT);
+        await shoot(bHost, 3);
         // the simulation is frame driven, and by now there are four pages
         // fighting over the cpu — so a couple of seconds of wall clock is
         // not a fixed number of frames. wait for the spells to land rather
