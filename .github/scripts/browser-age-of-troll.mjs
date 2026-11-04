@@ -290,6 +290,123 @@ try {
     }
 
     // ===================================================================
+    section('the theme, on winamp');
+    // ===================================================================
+    {
+        const ctx = await context({ viewport: { width: 1180, height: 900 } });
+        // context() turns sound off for everybody else. A later script wins.
+        await ctx.addInitScript(() => localStorage.setItem('sound-enabled', 'true'));
+        // playwright's own calls count as a gesture, so the browser's flag is up before
+        // this has done anything. Here it goes up on a real press, and nothing else.
+        await ctx.addInitScript(() => {
+            let touched = false;
+            document.addEventListener('pointerdown', () => { touched = true; }, true);
+            Object.defineProperty(navigator, 'userActivation', { get: () => ({ get hasBeenActive() { return touched; } }) });
+        });
+        const THEME = 'Age of War - Theme Soundtrack.mp3';
+
+        // opened from a link, and nothing in this page has been touched yet
+        const p = await open(ctx, BASE + '/?app=ageoftroll');
+        const player = () => p.evaluate(() => {
+            const a = document.getElementById('audio-player');
+            return { song: decodeURIComponent(a.src).split('/').pop(), paused: a.paused, loop: a.loop,
+                lit: document.getElementById('winamp-repeat').classList.contains('winamp-toggle-on'),
+                held: !!heldTrack, listed: [...document.querySelectorAll('#winamp-playlist > div')].map(d => d.textContent) };
+        });
+        const closeGame = () => p.evaluate(() => closeAppWindow(document.querySelector('.aot-body').closest('.app-window').id));
+        const playing = () => p.waitForFunction(() => {
+            const a = document.getElementById('audio-player');
+            return !a.paused && a.currentTime > 0;
+        }, null, { timeout: 15000 });
+
+        await p.waitForSelector('.aot-menu', { timeout: 20000 });
+        let now = await player();
+        expect(now.paused && now.song !== THEME && now.held, 'from a link it waits for a touch, and the browser refuses nothing', now.song);
+        expect(now.listed.some(t => /Age of War - Theme Soundtrack/.test(t)), 'it is in the playlist');
+
+        await p.locator('.aot-menu').click({ position: { x: 4, y: 4 } });
+        await playing();
+        now = await player();
+        expect(now.song === THEME && !now.paused, 'the first touch starts the theme, on winamp', now.song);
+        expect(now.loop && now.lit, 'on loop, with the repeat button saying so');
+
+        await p.evaluate(() => pauseTrack());
+        await p.locator('.aot-menu').click({ position: { x: 4, y: 4 } });
+        await p.waitForTimeout(300);
+        expect((await player()).paused, 'pause on winamp stays paused');
+        await p.evaluate(() => playTrack());
+        await playing();
+
+        await closeGame();
+        await p.waitForTimeout(300);
+        now = await player();
+        expect(now.paused && !now.loop && !now.lit && !now.held, 'closing the window stops it and hands winamp back', JSON.stringify({ ...now, listed: 0 }));
+
+        // Going round for real. A half second of tone in place of the song, so
+        // this takes seconds and needs no range requests, which the server in ci
+        // does not do. Another song starting here would be the bug.
+        const rate = 8000, samples = rate / 2, wav = Buffer.alloc(44 + samples * 2);
+        wav.write('RIFF', 0); wav.writeUInt32LE(36 + samples * 2, 4); wav.write('WAVEfmt ', 8);
+        wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+        wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+        wav.write('data', 36); wav.writeUInt32LE(samples * 2, 40);
+        for (let i = 0; i < samples; i++) wav.writeInt16LE(Math.round(Math.sin(i / 8) * 3000), 44 + i * 2);
+        await ctx.route('**/Age%20of%20War*', route => route.fulfill({ status: 200, contentType: 'audio/wav', body: wav }));
+
+        await p.evaluate(() => openAgeOfTroll('bot'));
+        await p.waitForSelector('.aot-cmd', { timeout: 20000 });
+        await playing();
+        const round = await p.evaluate(() => new Promise(done => {
+            const a = document.getElementById('audio-player');
+            let ended = 0, rounds = 0;
+            const onEnded = () => { ended++; }, onSeeked = () => { rounds++; };
+            a.addEventListener('ended', onEnded); a.addEventListener('seeked', onSeeked);
+            setTimeout(() => {
+                a.removeEventListener('ended', onEnded); a.removeEventListener('seeked', onSeeked);
+                done({ ended, rounds, paused: a.paused, song: decodeURIComponent(a.src).split('/').pop() });
+            }, 2600);
+        }));
+        expect(round.ended === 0 && round.rounds >= 3 && !round.paused && round.song === THEME, 'it goes round and round, and no next song comes on', JSON.stringify(round));
+        await ctx.unroute('**/Age%20of%20War*');
+
+        // a song picked by hand partway through is the visitor's
+        await p.evaluate(() => { const i = tracks.findIndex(t => /Sound System/.test(t.artist)); currentTrackIndex = i; loadTrack(i); playTrack(); });
+        await p.waitForFunction(() => /Sound System/.test(decodeURIComponent(document.getElementById('audio-player').src)) && !document.getElementById('audio-player').paused, null, { timeout: 15000 });
+        now = await player();
+        expect(!now.loop && !now.held && !now.lit, 'picking another song ends the arrangement');
+        await closeGame();
+        await p.waitForTimeout(300);
+        expect(!(await player()).paused, 'and that song keeps playing after the window closes');
+        await p.evaluate(() => stopTrack());
+
+        // the repeat button turns it off, and leaves the song alone at the end
+        await p.evaluate(() => openAgeOfTroll('bot'));
+        await playing();
+        await p.waitForFunction(() => /Age of War/.test(decodeURIComponent(document.getElementById('audio-player').src)), null, { timeout: 5000 });
+        await p.locator('#winamp-repeat').evaluate(b => b.click());
+        now = await player();
+        expect(!now.loop && !now.lit && !now.held && !now.paused, 'the repeat button ends it too');
+        await closeGame();
+        await p.waitForTimeout(300);
+        expect(!(await player()).paused, 'and that also leaves the song playing');
+        await p.evaluate(() => stopTrack());
+
+        // sound off means quiet
+        await p.evaluate(() => { toggleSound(); openAgeOfTroll('bot'); });
+        await p.waitForSelector('.aot-cmd', { timeout: 20000 });
+        await p.waitForTimeout(500);
+        expect((await player()).paused, 'with sound off it does not start');
+        await p.evaluate(() => toggleSound());
+        await playing();
+        expect((await player()).song === THEME, 'turning sound on starts it');
+        await p.evaluate(() => toggleSound());
+        await p.waitForTimeout(200);
+        expect((await player()).paused, 'and turning it off stops it');
+        await closeGame();
+        await ctx.close();
+    }
+
+    // ===================================================================
     section('a phone');
     // ===================================================================
     {

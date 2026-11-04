@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v30';
+const CACHE = 'mrhakan98-v32';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -16,6 +16,7 @@ const PRECACHE = [
     '/css/style.css',
     '/css/tailwind.css',
     '/js/lazy.js',
+    '/js/scale.js',
     '/js/index.js',
     '/js/music-stage.js',
     '/js/music-scenes.js',
@@ -31,6 +32,7 @@ const PRECACHE = [
     '/js/themes.js',
     '/js/vendor/typed.umd.js',
     '/data/site.json',
+    '/data/news.json',
     '/data/github.json',
     '/src/music/music.json',
     '/src/fonts/material-symbols-subset.woff2?v=8',

@@ -1,0 +1,7 @@
+[
+    { "date": "2026-11-04", "icon": "⚔️", "title": "age of troll", "text": "a long lane war with the site's trolls. five ages, two walls, and a bot or a bradar online to throw them at.", "button": "play now", "app": "ageoftroll" },
+    { "date": "2026-11-04", "icon": "🎨", "title": "flood tiles 98", "text": "flood the whole board from one corner, one colour at a time. a new board every day and 25 moves to do it in.", "button": "play now", "url": "/games/flood-tiles/" },
+    { "date": "2026-11-04", "icon": "🖼️", "title": "aspect frame 98", "text": "try an image in every aspect ratio and fit, then copy the css. it all stays in your browser.", "button": "open it", "url": "/apps/aspect-frame/" },
+    { "date": "2026-11-03", "icon": "🔴", "title": "color echo 98", "text": "simon, with a seeded sequence every day. remember the colours or do not.", "button": "play now", "url": "/games/color-echo/" },
+    { "date": "2026-11-03", "icon": "🧵", "title": "pattern loom 98", "text": "a seamless svg pattern maker. five motifs, a randomise button, and an export that is yours.", "button": "open it", "url": "/apps/pattern-loom/" }
+]

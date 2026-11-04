@@ -47,6 +47,9 @@ const CONFIG = `module.exports = {
     darkMode: 'class',
     theme: {
         extend: {
+            // js/scale.js: under css zoom a bare 100vh is taller than the screen
+            height: { 'screen': 'calc(100vh / var(--z, 1))' },
+            minHeight: { 'screen': 'calc(100vh / var(--z, 1))' },
             colors: {
                 'primary': '#0df259',
                 'background-light': '#f5f8f6',

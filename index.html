@@ -29,11 +29,45 @@
   <link rel="me" href="https://www.youtube.com/@MrHakanYT" />
   <link rel="me" href="https://steamcommunity.com/id/prufski/" />
   <link rel="preload" href="src/fonts/material-symbols-subset.woff2?v=8" as="font" type="font/woff2" crossorigin />
+  <script>
+    // the half of js/scale.js that has to land before the first paint. Every page
+    // carries the same text, and check-startup.mjs holds them to it.
+    (function (root) {
+      var rects, units;
+      var fit = window.siteFit = function (w, h) {
+        var z = 1, off = false;
+        try { off = localStorage.getItem('site-scale') === 'off'; } catch (e) { }
+        if (!off && 'zoom' in root.style && !matchMedia('(pointer: coarse)').matches) {
+          if (self === top) z = Math.floor(Math.min(w / 1706, h / 960) * 100) / 100;
+          // a frame: chromium zooms what is inside along with the box, the others only the box
+          else try { z = w / frameElement.offsetWidth; } catch (e) { }
+          if (z < 1.05 || !isFinite(z)) z = 1;
+        }
+        root.style.zoom = z > 1 ? z : '';
+        // firefox shrinks a root font-size it was not given, and every rem with it
+        root.style.fontSize = z > 1 ? '16px' : '';
+        if (z > 1 && rects === undefined) {
+          var p = document.createElement('i');
+          p.style.cssText = 'position:fixed;top:0;left:0;width:100px;height:100vh;visibility:hidden';
+          root.appendChild(p);
+          var r = p.getBoundingClientRect();
+          p.remove();
+          rects = r.width > 101;
+          units = r.height / (rects ? z : 1) > h / z * 1.01;
+        }
+        root.style.setProperty('--z', z > 1 && units ? z : 1);
+        fit.rectFactor = z > 1 && rects ? z : 1;
+        return z;
+      };
+      fit(innerWidth, innerHeight);
+    })(document.documentElement);
+  </script>
   <link href="css/style.css" rel="stylesheet" />
   <!-- tailwind.css is generated, and comes second on purpose: the same rule at
        the same specificity has to keep losing to it, as it did off the cdn -->
   <link href="css/tailwind.css" rel="stylesheet" />
   <script src="js/lazy.js" defer></script>
+  <script src="js/scale.js" defer></script>
   <script src="js/vendor/typed.umd.js" defer></script>
   <script src="js/touch.js" defer></script>
   <script src="js/fx.js" defer></script>
@@ -111,7 +145,7 @@
     </div>
   </div>
   <div
-    class="container mx-auto h-[calc(100vh-80px)] flex flex-col md:flex-row gap-4 p-4 overflow-y-auto md:overflow-hidden relative z-30">
+    class="container mx-auto h-[calc(100vh/var(--z,1)-80px)] flex flex-col md:flex-row gap-4 p-4 overflow-y-auto md:overflow-hidden relative z-30">
 
     <div id="desk-sidebar" class="w-full md:w-64 flex-shrink-0 flex flex-col gap-6">
       <div class="bg-retro-gray p-1 bevel-out">
@@ -313,6 +347,18 @@
                 </div>
               </div>
             </div>
+            <!-- what is new. js/pages.js fills it from data/news.json, and adding a
+                 line to that file is all a new thing takes. -->
+            <section id="news-panel" class="news-panel bevel-out" aria-labelledby="news-title" hidden>
+              <div class="news-bar bg-gradient-to-r from-[#000080] to-[#1084d0]">
+                <h2 id="news-title" class="font-header">whats_new.txt</h2>
+                <span class="font-pixel">fresh off the shithole</span>
+              </div>
+              <ul id="news-list" class="news-list bevel-in"></ul>
+              <div class="news-foot">
+                <button type="button" class="news-btn bevel-out font-header" onclick="startMenuAction('changelog')">the whole changelog</button>
+              </div>
+            </section>
           </div>
 
 
@@ -516,7 +562,7 @@
           <button id="winamp-concert" type="button" class="music-concert-button" aria-pressed="false"
             onclick="MusicStage.toggleConcert()">&#10022; enter concert mode</button>
           <button id="winamp-setlist" type="button" aria-expanded="false" aria-controls="winamp-playlist"
-            onclick="MusicStage.toggleSetlist()">setlist / 21 tracks ↑</button>
+            onclick="MusicStage.toggleSetlist()">setlist / 22 tracks ↑</button>
         </div>
       </div>
 

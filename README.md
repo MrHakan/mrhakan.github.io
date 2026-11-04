@@ -17,6 +17,8 @@ sw.js                 the service worker — has to stay at the root, its
 js/                   everything the pages load
   lazy.js               stand-ins for the windows that load when they are
                         opened. Loads first, so nothing can ask before it is here
+  scale.js              the auto scaler: a big screen gets the same desktop, bigger.
+                        The fit itself is inline in each page's head
   index.js              the desktop: windows, taskbar, start menu, repo grid
   extras.js             the lazy loaders and find: files
   apps.js  fun.js       the accessories and the toys
@@ -59,7 +61,8 @@ games/                one folder per game, plus the shared netplay layer
   echoes/  jokerz/  wizardz/  age-of-troll/  become-user/  troll-problem/
   netplay.js
 data/                 site content, board config, the projects list, the
-                      github snapshot
+                      github snapshot, and news.json: the what's new panel on
+                      the home page, one line per thing
 src/                  assets only: images, fonts, music
 server/               the optional self-hosted netplay relay
 feed.xml              the rss, written by hand
@@ -77,10 +80,10 @@ npm test           # the whole headless suite
 npm run css        # rewrite css/tailwind.css after using a new utility class
 ```
 
-Winamp's **enter concert mode** button opens the music room. All 21 tracks
+Winamp's **enter concert mode** button opens the music room. All 22 tracks
 have distinct sets and choreography: a rainy cathedral, bunny dancers,
 a robot factory, a walking line character, Persona's cut-paper poster,
-Portal's test chamber, Metin2's pagoda and a vintage television, among others.
+Portal's test chamber, Metin2's pagoda, a vintage television and a lane war at dusk, among others.
 Bass drives the set's lights and props through the existing audio analyser.
 Local Motion timelines reveal the titles with staggered spring transitions.
 Pause holds the stage, and **Esc** or **back to desktop** restores the

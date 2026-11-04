@@ -24,7 +24,8 @@
         winter_wonderland: ['winter', 'PARADISE / NUCLEAR WINTER', '#6ccad6', '#e5efcf', '#f4c66b'],
         red_sun_rays: ['sun', 'RED SUN TRANSMISSION', '#f44532', '#ffce63', '#ffe8aa'],
         eastern_mist: ['eastern', 'ENTER THE EAST / VILLAGE 01', '#58c6ae', '#ffb6c5', '#ead7a0'],
-        retro_tv_stage: ['retro', 'LIVE FROM STUDIO 1976', '#ffb85c', '#81d6c7', '#fff0bd']
+        retro_tv_stage: ['retro', 'LIVE FROM STUDIO 1976', '#ffb85c', '#81d6c7', '#fff0bd'],
+        lane_war: ['lanewar', 'THE LANE AT DUSK', '#e0a23c', '#8fd14f', '#ffe9b0']
     };
     const modes = new Set(Object.values(presets).map(p => p[0]));
     let canvas, ctx, container, track, profile, raf = 0;
@@ -211,7 +212,7 @@
         title.replaceChildren(...words);
         hud.querySelector('.music-stage-label').textContent = profile.label;
         hud.querySelector('.music-stage-description').textContent = profile.description;
-        hud.querySelector('.music-stage-number').textContent = `SET ${String(song.id).padStart(2, '0')} / 21`;
+        hud.querySelector('.music-stage-number').textContent = `SET ${String(song.id).padStart(2, '0')} / 22`;
         hud.dataset.scene = profile.mode;
         container.dataset.scene = profile.mode;
         resize(); sync(); reveal();
@@ -250,7 +251,7 @@
         const control = document.getElementById('winamp-setlist');
         if (control) {
             control.setAttribute('aria-expanded', String(next));
-            control.textContent = next ? 'close setlist ↓' : 'setlist / 21 tracks ↑';
+            control.textContent = next ? 'close setlist ↓' : 'setlist / 22 tracks ↑';
         }
     }
     function init() {

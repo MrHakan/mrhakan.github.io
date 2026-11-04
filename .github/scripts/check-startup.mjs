@@ -166,6 +166,79 @@ section('startup does not build what nobody asked for');
 }
 
 // ===================================================================
+section('the auto scaler');
+// ===================================================================
+{
+    const unix = s => s.replace(/\r\n/g, '\n').replace(/^[ \t]+/gm, '');
+    const snippet = src => (/<script>\s*\/\/ the half of js\/scale\.js[\s\S]*?<\/script>/.exec(src) || [''])[0];
+    const first = unix(snippet(html));
+    expect(first.includes('window.siteFit'), 'index.html fits the page in its head');
+    for (const page of PAGES) {
+        const src = read(page);
+        expect(unix(snippet(src)) === first, page + ' carries the same text');
+        expect(src.indexOf('the half of js/scale.js') < src.indexOf('css/style.css'), 'and runs before the first stylesheet, so nothing paints at the wrong size');
+        const order = [...src.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(m => m[1]);
+        expect(order.includes('js/scale.js') && order.indexOf('js/scale.js') < order.indexOf('js/index.js'), 'and loads js/scale.js before anything that reads the mouse');
+    }
+    expect(scripts[1] === 'js/scale.js', 'on the desktop right behind js/lazy.js, first in the queue for a resize', scripts[1]);
+    expect(read('sw.js').includes("'/js/scale.js'"), 'the service worker keeps it for offline');
+
+    // Under zoom, 100vh is taller than the screen in two engines out of three. A
+    // rule behind a narrow media query never sees a scale above 1: it takes a
+    // viewport over 1706 wide to get one.
+    const bare = /(?<![\w.])[\d.]+d?v[hw]\b(?!\s*\/\s*var\(--z)/;
+    const offenders = [];
+    let depth = 0, inComment = false;
+    const narrow = [];
+    read('css/style.css').split(/\r?\n/).forEach((line, i) => {
+        const code = line.replace(/\/\*.*?\*\//g, '');
+        const opens = code.includes('/*'), closes = code.includes('*/');
+        const live = inComment || opens ? '' : code;
+        if (opens && !closes) inComment = true;
+        if (closes && !opens) inComment = false;
+        if (bare.test(live) && !narrow.length && !/@supports/.test(live) && !/-?[\d.]+d?v[hw] \/ var/.test(live)) offenders.push((i + 1) + ': ' + live.trim());
+        if (/@media[^{]*max-(?:width|height)/.test(live)) narrow.push(depth);
+        depth += (live.match(/\{/g) || []).length - (live.match(/\}/g) || []).length;
+        while (narrow.length && depth <= narrow[narrow.length - 1]) narrow.pop();
+    });
+    expect(!offenders.length, 'style.css divides every viewport unit by the scale', offenders.slice(0, 6).join(' | '));
+    // the declarations only: a class name is allowed to mention what it does
+    const tw = read('css/tailwind.css').replace(/[^{}]+{/g, '{');
+    expect(!/[\d.]d?v[hw](?!\s*\/\s*var\(--z)[^\w]/.test(tw), 'and so does tailwind.css', (/.{30}\d+d?v[hw].{20}/.exec(tw) || [''])[0]);
+
+    // in a script a viewport unit is a string. isMobile is never scaled, and the
+    // minimize animation only overshoots a little further off the screen.
+    const strays = [];
+    for (const f of fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js'))) {
+        read('js/' + f).split(/\r?\n/).forEach((line, i) => {
+            if (/['"`][^'"`]*\d+d?v[hw]\b/.test(line) && !/isMobile|translateY\(40vh\)|var\(--z/.test(line) && !/^\s*\/\//.test(line)) strays.push(f + ':' + (i + 1));
+        });
+    }
+    expect(!strays.length, 'and so does every script', strays.join(', '));
+}
+
+// ===================================================================
+section('data/news.json opens what it says it opens');
+// ===================================================================
+{
+    const news = JSON.parse(read('data/news.json'));
+    expect(Array.isArray(news) && news.length >= 3, 'it has news in it');
+    const actionsSrc = read('js/index.js');
+    const actions = actionsSrc.slice(actionsSrc.indexOf('function appActions()'), actionsSrc.indexOf('function startMenuAction'));
+    for (const item of news) {
+        const name = item.title || JSON.stringify(item);
+        expect(/^\d{4}-\d{2}-\d{2}$/.test(item.date || ''), name + ' has a date');
+        expect(!!item.text && item.text === item.text.toLowerCase(), 'and a line in the house style');
+        expect(!!item.app !== !!item.url, 'and one thing it opens, an app or a url');
+        if (item.app) expect(new RegExp("^\\s+'?" + item.app + "'?:", 'm').test(actions), item.app + ' is on the action table');
+        if (item.url) expect(/^\/[\w/-]+\/$/.test(item.url) && exists(item.url.slice(1) + 'index.html'), item.url + ' is a page on the disk');
+    }
+    const dates = news.map(i => i.date);
+    expect(dates.join() === [...dates].sort().reverse().join(), 'newest first, since the panel shows the top of the file');
+    expect(read('sw.js').includes("'/data/news.json'"), 'and the service worker has it for offline');
+}
+
+// ===================================================================
 section('the budget');
 // ===================================================================
 {

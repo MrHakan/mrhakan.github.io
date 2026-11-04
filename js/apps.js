@@ -530,6 +530,7 @@ function openControlPanel() {
             <label><input type="checkbox" id="cp-stars"> starfield</label>
             <label><input type="checkbox" id="cp-snow"> let it snow</label>
             <label><input type="checkbox" id="cp-motion"> window animations</label>
+            <label><input type="checkbox" id="cp-scale"> fit the desktop to big screens</label>
         </div>`;
 
     // the savers themselves live in extras.js
@@ -572,6 +573,9 @@ function openControlPanel() {
         mo.parentElement.append(' (your system asked for less motion)');
     }
     mo.onchange = () => { FX.setEnabled(mo.checked); playSound('click'); };
+    const sc = body.querySelector('#cp-scale');
+    sc.checked = SCALE.enabled();
+    sc.onchange = () => { SCALE.setEnabled(sc.checked); playSound('click'); };
     crt.onchange = () => { localStorage.setItem('crt-off', crt.checked ? '0' : '1'); applyDisplayPrefs(); };
     sp.onchange = () => { localStorage.setItem('sparkles-off', sp.checked ? '0' : '1'); applyDisplayPrefs(); };
     st.onchange = () => { localStorage.setItem('stars-off', st.checked ? '0' : '1'); applyDisplayPrefs(); };

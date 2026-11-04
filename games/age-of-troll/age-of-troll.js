@@ -112,6 +112,8 @@
         if (winRef && document.getElementById(winRef.win.id)) return winRef;
         winRef = createAppWindow('age of troll', { icon: 'castle', width: 900 });
         winRef.body.classList.add('aot-body');
+        // the war has a theme, on winamp, on repeat, until the window closes
+        const releaseMusic = typeof holdTrack === 'function' ? holdTrack('Age of War - Theme Soundtrack.mp3') : null;
         // a phone on its side has no height to waste on a window's usual offset
         if (document.documentElement.clientHeight < 500) winRef.win.style.top = '0px';
         winRef.win._cleanup = () => {
@@ -119,6 +121,7 @@
             stopEverything();
             if (G) leaveSession(G);
             G = null; cv = null; ctx = null; root = null; winRef = null;
+            if (releaseMusic) releaseMusic();
         };
         root = winRef.body;
         return winRef;

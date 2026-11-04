@@ -285,7 +285,7 @@ body {
     }
 
     100% {
-        transform: translateY(100vh);
+        transform: translateY(calc(100vh / var(--z, 1)));
     }
 }
 
@@ -310,7 +310,7 @@ body {
     }
 
     to {
-        background-position: 0 100vh;
+        background-position: 0 calc(100vh / var(--z, 1));
     }
 }
 
@@ -576,7 +576,7 @@ body {
     text-shadow: 3px 3px 0 #b23383, 6px 6px 0 #152b49;
     font-family: 'Arial Rounded MT Bold', 'Arial Black', sans-serif;
     letter-spacing: -0.07em;
-    font-size: clamp(32px, 6.2vw, 84px);
+    font-size: clamp(32px, 6.2vw / var(--z, 1), 84px);
 }
 .music-stage-hud[data-scene="hypercam"] .music-stage-title,
 .music-stage-hud[data-scene="space"] .music-stage-title { font-family: 'Arial Black', Arial, sans-serif; }
@@ -611,8 +611,8 @@ body {
 .music-stage-copy {
     position: absolute;
     top: 45%;
-    left: 7vw;
-    width: min(61vw, 880px);
+    left: calc(7vw / var(--z, 1));
+    width: min(61vw / var(--z, 1), 880px);
     transform: translateY(-50%);
 }
 
@@ -630,7 +630,7 @@ body {
 .music-stage-artist {
     margin: 0 0 12px;
     color: var(--stage-highlight);
-    font-size: clamp(13px, 1.4vw, 20px);
+    font-size: clamp(13px, 1.4vw / var(--z, 1), 20px);
     letter-spacing: 0.08em;
     font-family: var(--music-font, 'Courier New', monospace);
 }
@@ -638,7 +638,7 @@ body {
 .music-stage-title {
     margin: 0;
     max-width: 100%;
-    font: 900 clamp(44px, 8.8vw, 142px)/0.96 Impact, 'Arial Black', sans-serif;
+    font: 900 clamp(44px, 8.8vw / var(--z, 1), 142px)/0.96 Impact, 'Arial Black', sans-serif;
     letter-spacing: -0.035em;
     text-wrap: balance;
     overflow-wrap: anywhere;
@@ -697,7 +697,7 @@ body {
     letter-spacing: 0.08em;
 }
 
-body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
+body.concert-mode { overflow: hidden !important; height: calc(100dvh / var(--z, 1)) !important; }
 .concert-mode .music-stage-canvas { opacity: 1; }
 .concert-mode #effects-container.music-stage { display: block; }
 .concert-mode #desk-sidebar, .concert-mode #main-window,
@@ -715,7 +715,7 @@ body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
     pointer-events: none;
     position: fixed;
     inset: 0;
-    height: 100dvh !important;
+    height: calc(100dvh / var(--z, 1)) !important;
     max-width: none;
     width: 100%;
     overflow: visible !important;
@@ -728,7 +728,7 @@ body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
     position: fixed !important;
     inset: auto 36px 64px auto !important;
     width: 282px !important;
-    max-height: calc(100dvh - 150px);
+    max-height: calc(100dvh / var(--z, 1) - 150px);
     overflow-y: auto;
     z-index: 120 !important;
     box-shadow: 0 12px 60px #000a, 0 0 0 1px #ffffff18;
@@ -1154,8 +1154,8 @@ body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
 /* ===== in-site internet explorer windows ===== */
 .ie-window {
     position: fixed;
-    width: min(720px, 94vw);
-    height: min(540px, 74vh);
+    width: min(720px, 94vw / var(--z, 1));
+    height: min(540px, 74vh / var(--z, 1));
     background: #c0c0c0;
     z-index: 200;
     display: flex;
@@ -1301,7 +1301,7 @@ body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
     flex-direction: column;
     padding: 2px;
     box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
-    max-width: 96vw;
+    max-width: calc(96vw / var(--z, 1));
 }
 
 .app-window-header {
@@ -1803,7 +1803,7 @@ body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
     padding: 3px 0;
     z-index: 70;
     box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
-    max-height: 70vh;
+    max-height: calc(70vh / var(--z, 1));
     overflow-y: auto;
 }
 
@@ -1823,7 +1823,7 @@ body.concert-mode { overflow: hidden !important; height: 100dvh !important; }
 }
 
 .app-window.maximized {
-    height: calc(100vh - 82px);
+    height: calc(100vh / var(--z, 1) - 82px);
 }
 
 /* ---- notepad ---- */
@@ -2325,7 +2325,7 @@ body.wp-matrix {
     padding: 8px 14px;
     box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
     animation: achv-pop 0.35s ease-out;
-    max-width: 92vw;
+    max-width: calc(92vw / var(--z, 1));
 }
 
 @keyframes achv-pop {
@@ -2437,7 +2437,7 @@ body.wp-matrix {
 
 @keyframes confetti-fall {
     to {
-        transform: translateY(105vh) rotate(720deg);
+        transform: translateY(calc(105vh / var(--z, 1))) rotate(720deg);
         opacity: 0.2;
     }
 }
@@ -2472,7 +2472,7 @@ body.wp-matrix {
 
 @keyframes bubble-rise {
     to {
-        transform: translateY(-110vh) translateX(40px);
+        transform: translateY(calc(-110vh / var(--z, 1))) translateX(40px);
         opacity: 0;
     }
 }
@@ -2929,7 +2929,7 @@ body.disco-floor::after {
    =================================================================== */
 
 .doc-body {
-    max-height: min(430px, 62vh);
+    max-height: min(430px, 62vh / var(--z, 1));
     overflow-y: auto;
     background: #fff !important;
     color: #000;
@@ -3637,7 +3637,7 @@ body.disco-floor::after {
 
 @keyframes sol-fall {
     to {
-        transform: translate(var(--dx), 110vh) rotate(var(--rot));
+        transform: translate(var(--dx), calc(110vh / var(--z, 1))) rotate(var(--rot));
     }
 }
 
@@ -3754,7 +3754,7 @@ body.disco-floor::after {
     color: #eee;
     padding: 6px;
     font-size: 11px;
-    max-height: 78vh;
+    max-height: calc(78vh / var(--z, 1));
     /* floating numbers are positioned against this */
     position: relative;
 }
@@ -5355,14 +5355,14 @@ body.disco-floor::after {
    theme maker
    =================================================================== */
 .tm-window {
-    max-height: 88vh;
+    max-height: calc(88vh / var(--z, 1));
 }
 
 .tm-window .app-window-body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 78vh;
+    max-height: calc(78vh / var(--z, 1));
 }
 
 .tm-meta {
@@ -5530,7 +5530,7 @@ body.disco-floor::after {
     flex: 0 0 150px;
     background: #fff;
     overflow: auto;
-    max-height: 46vh;
+    max-height: calc(46vh / var(--z, 1));
     padding: 2px;
 }
 
@@ -5580,7 +5580,7 @@ body.disco-floor::after {
     flex: 1;
     min-width: 0;
     overflow: auto;
-    max-height: 46vh;
+    max-height: calc(46vh / var(--z, 1));
     padding: 0 2px;
 }
 
@@ -6167,9 +6167,9 @@ body.disco-floor::after {
     inset: 0 !important;
     left: 0 !important;
     top: 0 !important;
-    width: 100vw !important;
-    max-width: 100vw !important;
-    height: 100vh !important;
+    width: calc(100vw / var(--z, 1)) !important;
+    max-width: calc(100vw / var(--z, 1)) !important;
+    height: calc(100vh / var(--z, 1)) !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
@@ -6929,7 +6929,7 @@ body.disco-floor::after {
     font-family: "Courier New", monospace;
     font-size: 12px;
     padding: 8px;
-    max-height: 70vh;
+    max-height: calc(70vh / var(--z, 1));
     overflow-y: auto;
 }
 
@@ -7210,7 +7210,7 @@ body.disco-floor::after {
     font-family: "Courier New", monospace;
     font-size: 12px;
     padding: 6px;
-    max-height: 80vh;
+    max-height: calc(80vh / var(--z, 1));
     overflow-y: auto;
 }
 
@@ -7401,7 +7401,7 @@ body.disco-floor::after {
     font-family: "Courier New", monospace;
     font-size: 12px;
     padding: 6px;
-    max-height: 74vh;
+    max-height: calc(74vh / var(--z, 1));
     overflow-y: auto;
 }
 
@@ -7544,7 +7544,7 @@ body.disco-floor::after {
     font-family: "Courier New", monospace;
     font-size: 12px;
     padding: 8px;
-    max-height: 74vh;
+    max-height: calc(74vh / var(--z, 1));
     overflow-y: auto;
 }
 
@@ -7812,7 +7812,7 @@ body.disco-floor::after {
     color: #d8d2c2;
     font-family: 'Courier New', monospace;
     font-size: 12px;
-    max-height: 80vh;
+    max-height: calc(80vh / var(--z, 1));
     padding: 6px;
 }
 
@@ -7833,7 +7833,7 @@ body.disco-floor::after {
 }
 
 .et-scroll {
-    max-height: 66vh;
+    max-height: calc(66vh / var(--z, 1));
     overflow-y: auto;
     padding-right: 4px;
 }
@@ -9752,12 +9752,12 @@ mark.find-hit.on {
    grows with the browser chrome; vh stays as the fallback for anything
    that has not got it. */
 .app-window.fs-active {
-    height: 100vh !important;
+    height: calc(100vh / var(--z, 1)) !important;
 }
 
 @supports (height: 100dvh) {
     .app-window.fs-active {
-        height: 100dvh !important;
+        height: calc(100dvh / var(--z, 1)) !important;
     }
 }
 
@@ -9924,7 +9924,7 @@ html.fs-locked body {
     flex-direction: column;
     gap: 6px;
     align-items: center;
-    max-height: min(560px, 74vh);
+    max-height: min(560px, 74vh / var(--z, 1));
     overflow-y: auto;
 }
 
@@ -10132,7 +10132,7 @@ html.fs-locked body {
     display: flex;
     flex-direction: column;
     gap: 7px;
-    max-height: min(560px, 74vh);
+    max-height: min(560px, 74vh / var(--z, 1));
     overflow-y: auto;
     font-family: 'Courier New', monospace;
     font-size: 12px;
@@ -10645,8 +10645,8 @@ html {
    world. Cap the window and let the body, which already has overflow:
    auto, do the scrolling. */
 .is-narrow .app-window {
-    max-height: calc(100vh - 96px);
-    max-height: calc(100dvh - 96px);
+    max-height: calc(100vh / var(--z, 1) - 96px);
+    max-height: calc(100dvh / var(--z, 1) - 96px);
 }
 
 /* a flex child will not shrink below its content without this, and a body
@@ -10761,7 +10761,7 @@ html {
 .aot-group p { margin: 2px 0 6px; line-height: 1.35; }
 .aot-field { display: block; margin: 4px 0; }
 .aot-input { display: block; width: 100%; font: inherit; padding: 2px; background: #fff; border: 2px solid; border-color: #404040 #fff #fff #404040; }
-.aot-helpbody { font-size: 13px; line-height: 1.4; max-height: 70vh; font-family: Tahoma, "MS Sans Serif", sans-serif; }
+.aot-helpbody { font-size: 13px; line-height: 1.4; max-height: calc(70vh / var(--z, 1)); font-family: Tahoma, "MS Sans Serif", sans-serif; }
 .aot-helpbody h3 { font-weight: bold; margin: 8px 0 2px; color: #000080; }
 .aot-helpbody ul { list-style: disc; margin: 0 0 0 18px; }
 .aot-roster { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -10838,4 +10838,57 @@ html {
     .wz-book-body { flex-direction: column; }
     .wz-book-list { width: 100%; max-height: 180px; }
     .wz-book-detail { min-width: 0; }
+}
+
+/* ==========================================================================
+   the auto scaler's half of the stylesheet, see js/scale.js
+   ========================================================================== */
+@media print {
+    :root { zoom: 1 !important; --z: 1 !important; }
+}
+
+/* the right-hand column on a screen with less height than it wants. winamp used
+   to give up the difference by being cut off at the bottom, which at 960 tall
+   took the concert button and most of the playlist with it. the playlist scrolls
+   anyway, so it gives up its rows first and everything else stays on screen */
+@media (min-width: 768px) {
+    #desk-extras { gap: 1rem; min-height: 0; }
+    #desk-extras > #winamp-window { display: flex; flex-direction: column; }
+    #winamp-window > * { flex-shrink: 0; }
+    #winamp-window > :last-child { display: flex; flex-direction: column; flex-shrink: 1; min-height: 0; overflow: hidden; }
+    #winamp-window > :last-child > * { flex-shrink: 0; }
+    #winamp-window #winamp-playlist { flex-shrink: 1; min-height: 0; }
+    #shoutbox-window { min-height: 260px; }
+}
+
+/* ==========================================================================
+   whats_new.txt, on the home page. js/pages.js fills it from data/news.json
+   ========================================================================== */
+.news-panel { margin-top: 2rem; padding: 3px; background: #c0c0c0; color: #000; }
+.news-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 6px; color: #fff; }
+.news-bar h2 { font-size: 14px; font-weight: 700; }
+.news-bar span { font-size: 10px; opacity: .85; white-space: nowrap; }
+.news-list { margin: 3px 0; padding: 0; list-style: none; background: #fff; }
+.news-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; }
+.news-item + .news-item { border-top: 1px dashed #a0a0a0; }
+.news-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; font-size: 18px; line-height: 1; background: #f0f0f0; }
+.news-copy { flex: 1; min-width: 0; }
+.news-copy h3 { font-size: 14px; font-weight: 700; line-height: 1.25; }
+.news-copy time { margin-left: 8px; font-size: 10px; font-weight: 400; color: #555; white-space: nowrap; }
+.news-copy p { margin-top: 2px; font-size: 11px; line-height: 1.35; color: #222; }
+.news-new { margin-left: 6px; padding: 0 3px; font: 700 10px 'Courier New', monospace; color: #ff0; background: #c00; vertical-align: 1px; }
+.news-btn { flex: none; display: inline-block; padding: 3px 10px; font-size: 13px; font-weight: 700; color: #000; background: #c0c0c0; white-space: nowrap; }
+.news-btn:hover { background: #d4d4d4; }
+.news-btn:active { transform: translateY(1px); }
+.news-foot { display: flex; justify-content: flex-end; padding-top: 1px; }
+.news-foot .news-btn { font-size: 11px; padding: 1px 8px; }
+@media (max-width: 520px) {
+    .news-bar span { display: none; }
+    .news-item { flex-wrap: wrap; }
+    .news-copy { flex-basis: calc(100% - 44px); }
+    .news-item > .news-btn { margin-left: 44px; }
+}
+@media (pointer: coarse) {
+    .news-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; font-size: 15px; }
+    .news-foot .news-btn { font-size: 13px; }
 }
