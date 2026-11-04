@@ -397,7 +397,48 @@ async function initStatusWidget() {
     } catch (e) { /* no status, no problem */ }
 }
 
+// ---------- what's new, on the home page ----------
+// One line in data/news.json each. It says "app" for something the start menu can
+// open, or "url" for one of the pages in games/ and apps/, the same two ways the
+// site opens anything. check-startup.mjs fails on a line that opens nothing.
+const NEWS_SHOWN = 5;
+const NEWS_IS_NEW_DAYS = 7;
+
+function newsItem(item) {
+    const age = (Date.now() - Date.parse(item.date)) / 864e5;
+    const fresh = age < NEWS_IS_NEW_DAYS ? '<span class="news-new">new!</span>' : '';
+    const label = escapeHtml(item.button || 'open it');
+    const go = item.app
+        ? `<button type="button" class="news-btn bevel-out font-header" data-news-app="${escapeHtml(item.app)}">${label} ▸</button>`
+        : `<a class="news-btn bevel-out font-header" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${label} ↗</a>`;
+    return `<li class="news-item">
+        <span class="news-icon bevel-in" aria-hidden="true">${escapeHtml(item.icon || '')}</span>
+        <div class="news-copy">
+            <h3 class="font-header">${escapeHtml(item.title)}${fresh}<time class="font-pixel" datetime="${escapeHtml(item.date)}">${escapeHtml(item.date)}</time></h3>
+            <p class="font-pixel">${escapeHtml(item.text)}</p>
+        </div>
+        ${go}
+    </li>`;
+}
+
+async function initNews() {
+    const panel = document.getElementById('news-panel'), list = document.getElementById('news-list');
+    if (!panel || !list) return;
+    try {
+        const res = await fetch('data/news.json');
+        const items = (await res.json()).filter(i => i && i.title && (i.app || /^\/[\w/-]+\/$/.test(i.url || '')));
+        if (!items.length) return;
+        list.innerHTML = items.slice(0, NEWS_SHOWN).map(newsItem).join('');
+        list.addEventListener('click', e => {
+            const b = e.target.closest('[data-news-app]');
+            if (b) startMenuAction(b.dataset.newsApp);
+        });
+        panel.hidden = false;
+    } catch (e) { /* no news, and the home page was fine without it */ }
+}
+
 // ---------- boot ----------
 document.addEventListener('DOMContentLoaded', () => {
+    initNews();
     setTimeout(initStatusWidget, 600);
 });

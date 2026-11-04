@@ -1703,7 +1703,7 @@ function openGiscusComposer(kind, entry) {
     const frame = document.createElement('iframe');
     frame.title = kind === 'shouts' ? 'Giscus Shoutbox' : 'Giscus Guestbook';
     frame.src = 'guestbook.html?embedded=1&composer=giscus&board=' + (kind === 'shouts' ? 'shouts' : 'guestbook');
-    frame.style.cssText = 'display:block;width:100%;height:52vh;min-height:260px;border:0;margin-top:8px';
+    frame.style.cssText = 'display:block;width:100%;height:calc(52vh / var(--z, 1));min-height:260px;border:0;margin-top:8px';
     content.append(details, frame);
     showRetroDialog({
         title: kind === 'shouts' ? 'giscus - shoutbox' : 'giscus - guestbook',
@@ -1955,10 +1955,10 @@ function showRetroDialog({ title, lines, preview, content, okLabel, cancelLabel,
     const dialog = document.createElement('div');
     dialog.className = 'retro-dialog bevel-out';
     if (content || secondaryLabel) {
-        dialog.style.maxHeight = 'calc(100dvh - 32px)';
+        dialog.style.maxHeight = 'calc(100dvh / var(--z, 1) - 32px)';
         dialog.style.overflowY = 'auto';
     }
-    if (content) dialog.style.maxWidth = 'min(640px, calc(100vw - 32px))';
+    if (content) dialog.style.maxWidth = 'min(640px, calc(100vw / var(--z, 1) - 32px))';
     const titleBar = document.createElement('div');
     titleBar.className = 'retro-dialog-title';
     titleBar.textContent = title;
@@ -2211,7 +2211,7 @@ function createAppWindow(title, opts = {}) {
     maxBtn.onclick = () => {
         if (win.classList.toggle('maximized')) {
             win._restore = { left: win.style.left, top: win.style.top, width: win.style.width };
-            win.style.left = '0px'; win.style.top = '40px'; win.style.width = '100vw';
+            win.style.left = '0px'; win.style.top = '40px'; win.style.width = 'calc(100vw / var(--z, 1))';
         } else if (win._restore) {
             win.style.left = win._restore.left; win.style.top = win._restore.top; win.style.width = win._restore.width;
         }

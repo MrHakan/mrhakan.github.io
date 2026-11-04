@@ -15,10 +15,12 @@ on:
             - "server/**"
             - "index.html"
             - "guestbook.html"
+            - "links.html"
             - "js/**"
             - "css/**"
             - "sw.js"
             - "data/site.json"
+            - "data/news.json"
             - "data/github.json"
             - "data/playground.json"
             - ".github/scripts/**"
@@ -216,6 +218,12 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8103 node .github/scripts/browser-age-of-troll.mjs
+
+            # the auto scaler moves a real mouse by a known number of real pixels on
+            # the screens people have, and presses every button in the news panel.
+            # It brings its own server and sends nothing off the machine
+            - name: The auto scaler and the news panel
+              run: node .github/scripts/browser-scale.mjs
 
             - name: Giscus isolation, responsive boards and failure recovery
               run: |

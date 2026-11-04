@@ -31,8 +31,42 @@
         .giscus-composer p[data-board="giscus"] { display: none !important; }
         .guestbook-embedded.giscus-composer #guestbook-content { padding: 0; border: 0; box-shadow: none; background: transparent; }
     </style>
+    <script>
+      // the half of js/scale.js that has to land before the first paint. Every page
+      // carries the same text, and check-startup.mjs holds them to it.
+      (function (root) {
+        var rects, units;
+        var fit = window.siteFit = function (w, h) {
+          var z = 1, off = false;
+          try { off = localStorage.getItem('site-scale') === 'off'; } catch (e) { }
+          if (!off && 'zoom' in root.style && !matchMedia('(pointer: coarse)').matches) {
+            if (self === top) z = Math.floor(Math.min(w / 1706, h / 960) * 100) / 100;
+            // a frame: chromium zooms what is inside along with the box, the others only the box
+            else try { z = w / frameElement.offsetWidth; } catch (e) { }
+            if (z < 1.05 || !isFinite(z)) z = 1;
+          }
+          root.style.zoom = z > 1 ? z : '';
+          // firefox shrinks a root font-size it was not given, and every rem with it
+          root.style.fontSize = z > 1 ? '16px' : '';
+          if (z > 1 && rects === undefined) {
+            var p = document.createElement('i');
+            p.style.cssText = 'position:fixed;top:0;left:0;width:100px;height:100vh;visibility:hidden';
+            root.appendChild(p);
+            var r = p.getBoundingClientRect();
+            p.remove();
+            rects = r.width > 101;
+            units = r.height / (rects ? z : 1) > h / z * 1.01;
+          }
+          root.style.setProperty('--z', z > 1 && units ? z : 1);
+          fit.rectFactor = z > 1 && rects ? z : 1;
+          return z;
+        };
+        fit(innerWidth, innerHeight);
+      })(document.documentElement);
+    </script>
     <link href="css/style.css" rel="stylesheet" />
     <link href="css/tailwind.css" rel="stylesheet" />
+    <script src="js/scale.js" defer></script>
     <script src="js/fx.js" defer></script>
     <script src="js/guestbook.js" defer></script>
     <script src="js/index.js" defer></script>
