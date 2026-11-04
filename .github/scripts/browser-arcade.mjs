@@ -65,6 +65,7 @@ for (const [slug, ready, entry] of [
     ['becomeuser', '.bu-body', 'startBecomeUser'],
     ['echoes', '#et-seed', 'startEchoes'],
     ['wizardz', '.wz-body', 'startWizardz'],
+    ['ageoftroll', '.aot-body', 'startAgeOfTroll'],
     ['thememaker', '.tm-window', 'openThemeMaker']
 ]) {
     is(await p.evaluate(name => !window[name], entry), slug + ': starts with a cold loader');

@@ -1191,6 +1191,14 @@
             min: 2, max: 2,
             blurb: 'draw sigils to sling 50 spells at another wizard',
             scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz.js']
+        },
+        {
+            id: 'ageoftroll',
+            name: 'age of troll',
+            icon: 'castle',
+            min: 2, max: 2,
+            blurb: 'march an army of trolls through five ages at somebody\'s wall',
+            scripts: ['games/age-of-troll/age-of-troll-data.js', 'games/age-of-troll/age-of-troll-sim.js', 'games/age-of-troll/age-of-troll.js']
         }
     ];
     NP.games = {};

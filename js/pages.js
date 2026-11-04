@@ -231,6 +231,7 @@ const SITE_MAP = [
             ['jokerz 98 (poker roguelike)', 'openBalatro()'],
             ['sir, we have a troll problem', 'openTrollProblem()'], ['become user', 'openBecomeUser()'],
             ['wizardz 98 (draw your spells)', 'openWizardz()'], ['wizardz: 1 v bot', "openWizardz('bot')"],
+            ['age of troll', 'openAgeOfTroll()'],
             ['multiplayer lobby', 'openNetplay()'],
             ['solitaire', 'openSolitaire()'],
             ['minesweeper', 'openMinesweeper()'], ['snake', 'openSnake()'], ['pong', 'openPong()'],

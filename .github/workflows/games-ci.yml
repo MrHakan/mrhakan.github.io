@@ -99,6 +99,11 @@ jobs:
             - name: Check echoes of the tide
               run: node .github/scripts/check-echoes.mjs
 
+            # same idea for the lane game: a few hundred games of bots against
+            # its balance targets, its rules and what it sends over the wire
+            - name: Check age of troll
+              run: node .github/scripts/check-age-of-troll.mjs
+
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest
@@ -199,6 +204,18 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8098/index.html node .github/scripts/browser-echoes.mjs
+
+            # a match against a bot through to a win, on a desktop and a phone, and
+            # another between two browsers, direct and over the relays. It brings
+            # its own stand-ins for peerjs and the relays
+            - name: Play age of troll
+              run: |
+                  python3 -m http.server 8103 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
+                  sleep 2
+                  kill -0 "$site_pid"
+                  SITE_URL=http://localhost:8103 node .github/scripts/browser-age-of-troll.mjs
 
             - name: Giscus isolation, responsive boards and failure recovery
               run: |

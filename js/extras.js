@@ -517,6 +517,23 @@ function openWizardz(mode) {
     });
 }
 
+// ---------- age of troll ----------
+function aotLoadScripts() {
+    if (window.startAgeOfTroll) return Promise.resolve();
+    return npLoadScripts().then(() => Netplay.loadGame('ageoftroll'));
+}
+
+function openAgeOfTroll(mode) {
+    if (window.startAgeOfTroll) { startAgeOfTroll(mode); return; }
+    const { body, win } = createAppWindow('age of troll', { icon: 'castle', width: 320 });
+    body.innerHTML = '<div class="bj-loading">dialling up the trolls...</div>';
+    aotLoadScripts().then(() => {
+        replaceLazyWindow(win, () => startAgeOfTroll(mode));
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">the trolls got lost on the way bradar</div>';
+    });
+}
+
 // ===================================================================
 // theme maker — the editor is only useful once, so it loads on demand.
 // the engine itself (themes.js) is not lazy: it has to run at boot to put
@@ -894,6 +911,8 @@ function siteSearchIndex() {
         ['become user', 'game', () => openBecomeUser(), 'interactive drama story branching choices adventure narrative visual novel qte flowchart endings 1999 y2k androids'],
         ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire'],
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
+        ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
+        ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
         ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],

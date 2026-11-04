@@ -34,6 +34,20 @@ The arena must have focus for game shortcuts, so other desktop windows retain
 their keyboard controls. Combat runs at 60 simulation ticks per second regardless
 of display refresh rate. Closing the duel or trainer releases its listeners and timers.
 
+## age of troll
+
+A lane game in the style of Age of War: two walls, five ages, units that march
+on their own. `age-of-troll-data.js` has the numbers, `age-of-troll-sim.js` has
+the rules and the bot, and neither touches the page, which is how
+`check-age-of-troll.mjs` plays a few hundred games in a minute. Tune in the data
+file and run that.
+
+Online it is host authoritative like wizardz, with one difference: a guest runs
+the same `step()` from the last snapshot rather than only moving things along.
+So over the relays it needs 3 snapshots a second rather than 8. Guests send
+numbered commands, resend whatever the next snapshots have not acknowledged, and
+the host ignores a number it has seen, because relays drop and reorder things.
+
 ## adding multiplayer to a game
 
 ### 1. put it in the catalogue

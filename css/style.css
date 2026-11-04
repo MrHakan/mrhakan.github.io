@@ -10663,6 +10663,139 @@ html {
     max-height: none;
 }
 
+/* ===================================================================
+   AGE OF TROLL  (.aot-)
+   =================================================================== */
+.aot-body {
+    position: relative;
+    padding: 4px;
+    font-family: Tahoma, "MS Sans Serif", sans-serif;
+    font-size: 12px;
+    color: #000;
+    user-select: none;
+}
+.aot-hud, .aot-factory, .aot-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.aot-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    min-height: 20px; padding: 1px 6px;
+    background: #c0c0c0; white-space: nowrap;
+    border: 1px solid; border-color: #808080 #fff #fff #808080;
+}
+.aot-gold b { font-size: 14px; color: #6a4a00; }
+.aot-gold small { color: #006000; font-size: 11px; }
+.aot-xpbox { position: relative; flex: 1 1 110px; min-width: 110px; padding: 0; background: #fff; overflow: hidden; }
+.aot-xpfill { position: absolute; inset: 0 auto 0 0; background: #8fb8e8; }
+.aot-xplabel { position: relative; padding: 0 6px; font-size: 11px; }
+.aot-link { color: #000080; }
+.aot-stage { position: relative; margin: 3px 0; background: #008080; border: 2px solid; border-color: #404040 #fff #fff #404040; line-height: 0; }
+.aot-stage canvas { display: block; width: 100%; touch-action: pan-y; cursor: grab; }
+.aot-stage canvas:active { cursor: grabbing; }
+.aot-stage canvas:focus-visible, .aot-cmd:focus-visible, .aot-btn:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.aot-factory { height: 28px; margin-bottom: 3px; flex-wrap: nowrap; }
+.aot-queue { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 1px; min-height: 22px; min-width: 132px; padding: 0 2px; background: #a8a8a8; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+.aot-queue img { width: 20px; height: 20px; object-fit: contain; }
+.aot-train { flex: 0 0 56px; height: 12px; background: #fff; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+.aot-train span { display: block; height: 100%; width: 0; background: #000080; }
+.aot-say { flex: 1 1 0; min-width: 0; max-height: 26px; overflow: hidden; font-size: 11px; line-height: 13px; color: #000080; }
+.aot-say.aot-bad { color: #a00000; font-weight: bold; }
+.aot-dim { color: #505050; font-size: 11px; }
+.aot-cmds { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.aot-cmd {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: 4px;
+    min-height: 44px; padding: 2px 3px; text-align: left;
+    background: #c0c0c0; color: #000; font: inherit; cursor: pointer;
+    border: 2px solid; border-color: #fff #404040 #404040 #fff;
+    touch-action: manipulation;
+}
+.aot-cmd:active { border-color: #404040 #fff #fff #404040; }
+.aot-cmd[data-cmd="ag"] { grid-column: span 2; }
+.aot-cmd.aot-off { color: #606060; }
+.aot-cmd.aot-off .aot-pic { opacity: .5; filter: grayscale(.7); }
+.aot-cmd.aot-ready { background: #d0e8c0; }
+.aot-cmd.aot-save { background: #f0e8b0; }
+.aot-cmd.aot-save .aot-pic { opacity: 1; filter: none; }
+.aot-cmd.aot-on { background: #e8d890; border-color: #404040 #fff #fff #404040; }
+.aot-pic { flex: 0 0 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.aot-pic img { max-width: 32px; max-height: 32px; object-fit: contain; pointer-events: none; }
+.aot-glyph { font-size: 22px; line-height: 1; }
+.aot-txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.aot-txt b { font-size: 11px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aot-txt i { font-style: normal; font-size: 11px; color: #6a4a00; white-space: nowrap; }
+.aot-cmd.aot-off .aot-txt i { color: #707070; }
+.aot-cmd kbd { position: absolute; top: 0; right: 2px; font: 9px "Courier New", monospace; color: #606060; }
+.aot-cool { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(0, 0, 80, .28); pointer-events: none; }
+.aot-foot { margin-top: 4px; justify-content: flex-end; }
+.aot-btn {
+    font: inherit; padding: 3px 10px; min-height: 26px; cursor: pointer;
+    background: #c0c0c0; color: #000;
+    border: 2px solid; border-color: #fff #404040 #404040 #fff;
+}
+.aot-btn:active { border-color: #404040 #fff #fff #404040; }
+.aot-btn:disabled { color: #808080; cursor: default; }
+.aot-go { font-weight: bold; }
+.aot-wide { display: block; width: 100%; margin: 4px 0; padding: 6px; }
+.aot-end { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .4); line-height: 1.3; overflow: auto; padding: 6px; }
+.aot-end[hidden], .aot-net[hidden] { display: none; }
+.aot-net { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; width: max-content; max-width: 94%; padding: 6px 10px; line-height: 1.3; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.aot-dialog { background: #c0c0c0; width: min(330px, 100%); border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: 1px 1px 0 #000; margin: auto; }
+.aot-dtitle { padding: 2px 5px; color: #fff; font-weight: bold; background: linear-gradient(90deg, #000080, #1084d0); }
+.aot-dbody { padding: 8px 10px; }
+.aot-dbody p { margin: 3px 0; }
+.aot-result { font-size: 22px; font-weight: bold; color: #800000; }
+.aot-result.aot-won { color: #000080; }
+.aot-stats { width: 100%; margin: 5px 0; border-collapse: collapse; font-size: 12px; }
+.aot-stats td, .aot-stats th { padding: 1px 6px; text-align: right; border-bottom: 1px solid #a0a0a0; }
+.aot-stats td:first-child { text-align: left; }
+.aot-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.aot-menu { padding: 4px; }
+.aot-logo { text-align: center; padding: 12px 8px 10px; background: #008080; color: #fff; border: 2px solid; border-color: #404040 #fff #fff #404040; }
+.aot-logo-title { font-family: "Courier New", monospace; font-size: 34px; font-weight: bold; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
+.aot-parade { display: flex; justify-content: center; align-items: flex-end; gap: 8px; margin: 8px 0 6px; min-height: 56px; }
+.aot-parade img { height: 44px; max-width: 56px; object-fit: contain; }
+.aot-parade img:nth-child(even) { height: 56px; }
+.aot-sub { font-size: 12px; }
+.aot-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.aot-group { border: 2px groove #e0e0e0; padding: 6px 8px; margin: 0; min-width: 0; }
+.aot-group legend { padding: 0 4px; font-weight: bold; }
+.aot-group p { margin: 2px 0 6px; line-height: 1.35; }
+.aot-field { display: block; margin: 4px 0; }
+.aot-input { display: block; width: 100%; font: inherit; padding: 2px; background: #fff; border: 2px solid; border-color: #404040 #fff #fff #404040; }
+.aot-helpbody { font-size: 13px; line-height: 1.4; max-height: 70vh; font-family: Tahoma, "MS Sans Serif", sans-serif; }
+.aot-helpbody h3 { font-weight: bold; margin: 8px 0 2px; color: #000080; }
+.aot-helpbody ul { list-style: disc; margin: 0 0 0 18px; }
+.aot-roster { width: 100%; border-collapse: collapse; font-size: 12px; }
+.aot-roster th { text-align: left; background: #000080; color: #fff; padding: 1px 4px; }
+.aot-roster td { padding: 1px 4px; border-bottom: 1px solid #a0a0a0; }
+.aot-roster img { width: 24px; height: 24px; object-fit: contain; }
+.app-window.fs-active .aot-body { display: flex; flex-direction: column; }
+.app-window.fs-active .aot-stage canvas { max-width: 100%; }
+/* a phone: four columns of buttons you can hit, and the lane stays on screen */
+@media (max-width: 640px) {
+    .aot-cmds { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .aot-pic { flex-basis: 22px; height: 26px; }
+    .aot-pic img { max-width: 22px; max-height: 26px; }
+    .aot-glyph { font-size: 17px; }
+    .aot-cmd { padding: 2px; gap: 2px; min-height: 48px; }
+    .aot-txt b, .aot-txt i { font-size: 10px; }
+    .aot-chip { padding: 0 4px; font-size: 11px; }
+    .aot-menu-grid { grid-template-columns: 1fr; }
+    .aot-logo-title { font-size: 26px; }
+    .aot-cmd kbd { display: none; }
+}
+/* a phone on its side: everything in as little height as it will go */
+@media (max-height: 500px) and (pointer: coarse) {
+    .aot-cmds { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .aot-cmd { min-height: 40px; }
+    .aot-hud .aot-chip:nth-child(n+3) { display: none; }
+    .aot-foot { flex-wrap: nowrap; }
+}
+@media (pointer: coarse) {
+    .aot-cmd kbd { display: none; }
+    .aot-btn { min-height: 40px; }
+    .aot-input { min-height: 40px; font-size: 16px; }
+}
+
 /* Wizardz: keep the arena proportional and controls usable with a thumb. */
 .wz-canvas {
     width: 100%;

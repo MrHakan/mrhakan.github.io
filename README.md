@@ -56,7 +56,7 @@ css/
   giscus-win98.css      the theme the giscus iframe loads, since style.css
                         cannot reach into another origin
 games/                one folder per game, plus the shared netplay layer
-  echoes/  jokerz/  wizardz/  become-user/  troll-problem/
+  echoes/  jokerz/  wizardz/  age-of-troll/  become-user/  troll-problem/
   netplay.js
 data/                 site content, board config, the projects list, the
                       github snapshot
@@ -117,12 +117,14 @@ exits non-zero if anything drifted.
 | `check-netplay.mjs` | the ways online against fake relays and a fake broker that misbehave the way real ones do: refusing, throttling, dropping, reordering, no route, a direct link dying mid-duel |
 | `check-defrag.mjs` | the defragmenter's plan never loses a cluster |
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
+| `check-age-of-troll.mjs` | the lane game's rules, what it sends over the wire, and a few hundred bot games: no unit or plan dominates, the difficulties are really difficulties, and a game lasts about as long as intended |
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
 | `browser-arcade.mjs` | the thirty new windows played rather than opened: eight games of tic-tac-toe it expects to lose, tiles merged in 2048, the pet's clock wound back nine hours |
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 | `browser-netplay.mjs` | two strangers into a duel with nothing picked: an invite link through the boot screen, direct when there is a route, the relays when there is not, a blocked cdn, a wrong code, and a direct link dying mid-duel. Runs on no outside server |
+| `browser-age-of-troll.mjs` | a match against the bot through to a win with real clicks, on a desktop and a phone; a save surviving a reload; and two browsers through a match over a direct link and the relays, with the link dying partway and a player vanishing |
 | `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem aims before it builds, and the music is never handed to a sleeping audio graph |
 | `browser-giscus.mjs` | original boards by default, both posting methods and preserved drafts on desktop and mobile, isolated discussion terms and theme URLs, blocked scripts, service errors and stalled frames; proves CORS and application errors are still detected |
 

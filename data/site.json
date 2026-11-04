@@ -164,6 +164,17 @@
     ],
     "changelog": [
         {
+            "version": "9.9",
+            "date": "2026-11-04",
+            "changes": [
+                "age of troll — a long lane war in the spirit of age of war: two walls, five ages, and an army made of the emoji shelf, from he.gif to the troll king",
+                "1 v bot with four difficulties and four plans, and 1 v 1 online through the same lobby as wizardz, including over the public relays",
+                "the walls are computers: a desk and a modem at dial-up, a castle of bevels by the end, and they crash on the way down",
+                "hold your army for a wave, fight over the server in the middle, buy a modem and hope nobody rushes you. a game saves itself, and at thirty minutes the disks fill up so it always ends",
+                "balance held to a few hundred bot games in CI, so no unit or plan is the whole game and the easy bot is really the easy one"
+            ]
+        },
+        {
             "version": "9.8",
             "date": "2026-08-29",
             "changes": [
