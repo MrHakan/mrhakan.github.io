@@ -1,5 +1,41 @@
 [
   {
+    "name": "Flood Tiles 98",
+    "type": "game",
+    "date": "2026-11-04",
+    "url": "/games/flood-tiles/",
+    "description": "Offline flood-fill color puzzle with daily seeded boards, random practice, undo, keyboard/touch controls and a 25-move challenge.",
+    "icon": "🎨",
+    "tags": [
+      "flood-fill",
+      "colors",
+      "daily",
+      "strategy",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Aspect Frame 98",
+    "type": "app",
+    "date": "2026-11-04",
+    "url": "/apps/aspect-frame/",
+    "description": "Private responsive aspect-ratio and image-fit preview with presets, live CSS generation and shareable settings.",
+    "icon": "🖼️",
+    "tags": [
+      "css",
+      "aspect-ratio",
+      "object-fit",
+      "responsive",
+      "design",
+      "developer",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Color Echo 98",
     "type": "game",
     "date": "2026-11-03",
