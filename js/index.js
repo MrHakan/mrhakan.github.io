@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // this replaced the array, so an active theme has to put its own
             // track back on the end
             if (typeof themeOnTracksLoaded === 'function') themeOnTracksLoaded();
+            startHeldTrack();
         })
         .catch(err => console.error('Error loading music:', err));
 
@@ -997,12 +998,16 @@ function playTrack() {
     if (!audio.src || audio.src === window.location.href) {
         loadTrack(currentTrackIndex);
     }
-    audio.play().then(() => {
+    return audio.play().then(() => {
         isPlaying = true;
         text.classList.add('animate-marquee');
+        return true;
     }).catch(e => {
+        // somebody stopped it or changed the song before it got going, which is fine
+        if (e.name === 'AbortError') return false;
         console.error("Playback failed (likely autoplay policy)", e);
         text.textContent = "*** click play to start ***";
+        return false;
     });
 }
 function pauseTrack() {
@@ -1023,6 +1028,70 @@ function stopTrack() {
 }
 let shuffleOn = false;
 let repeatOn = false;
+
+// A window can ask winamp to keep one song going for as long as it is open.
+// Age of Troll does. It is the real player doing the real thing, so the display,
+// the seek bar, the visualizer and concert mode all carry on working, and the
+// visitor still owns it: pause stays paused, and picking another song or turning
+// repeat off ends the arrangement, and that song is left alone afterwards.
+let heldTrack = null;
+function holdTrack(filename) {
+    heldTrack = { filename, started: false };
+    const hold = heldTrack;
+    startHeldTrack();
+    return () => {
+        if (heldTrack !== hold) return;
+        dropHeldTrack();
+        if (hold.started) stopTrack();
+    };
+}
+function startHeldTrack() {
+    const hold = heldTrack;
+    if (!hold || hold.started || !soundEnabled) return;
+    // not here yet means music.json is on its way, and it calls this when it lands
+    const index = tracks.findIndex(t => t.filename === hold.filename);
+    if (index < 0) return;
+    // opened from a link, nobody has touched the page and the browser would only refuse
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) { startHeldTrackOnGesture(); return; }
+    const audio = document.getElementById('audio-player');
+    hold.started = true;
+    audio.loop = true;
+    paintRepeat(true);
+    // it might already be the song on, and then it should not jump back to the start
+    if (index !== currentTrackIndex || audio.paused) {
+        currentTrackIndex = index;
+        loadTrack(index);
+        playTrack().then(played => {
+            // some phones want the tap itself, and this comes after a download
+            if (played || heldTrack !== hold) return;
+            hold.started = false;
+            startHeldTrackOnGesture();
+        });
+    }
+}
+let waitingForGesture = false;
+function startHeldTrackOnGesture() {
+    if (waitingForGesture) return;
+    waitingForGesture = true;
+    const kinds = ['pointerdown', 'pointerup', 'keydown'];
+    const go = () => {
+        // a finger going down does not count as a gesture yet, and its lifting does
+        if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+        kinds.forEach(k => document.removeEventListener(k, go, true));
+        waitingForGesture = false;
+        startHeldTrack();
+    };
+    kinds.forEach(k => document.addEventListener(k, go, true));
+}
+function dropHeldTrack() {
+    heldTrack = null;
+    document.getElementById('audio-player').loop = false;
+    paintRepeat(repeatOn);
+}
+function paintRepeat(on) {
+    const btn = document.getElementById('winamp-repeat');
+    if (btn) btn.classList.toggle('winamp-toggle-on', on);
+}
 function nextTrack() {
     if (!tracks.length) return;
     // called on 'ended' too: honor repeat-one, then shuffle, then sequential
@@ -1048,9 +1117,10 @@ function toggleShuffle() {
     showToast('winamp', shuffleOn ? 'shuffle on' : 'shuffle off');
 }
 function toggleRepeat() {
+    // a held song has the button lit, so a click on it is a click to turn it off
+    if (heldTrack && heldTrack.started) { dropHeldTrack(); repeatOn = true; }
     repeatOn = !repeatOn;
-    const btn = document.getElementById('winamp-repeat');
-    if (btn) btn.classList.toggle('winamp-toggle-on', repeatOn);
+    paintRepeat(repeatOn);
     showToast('winamp', repeatOn ? 'repeat one on' : 'repeat off');
 }
 function prevTrack() {
@@ -1094,6 +1164,7 @@ function pickTrackMeme(track) {
 
 function loadTrack(index) {
     const audio = document.getElementById('audio-player');
+    if (heldTrack && tracks[index].filename !== heldTrack.filename) dropHeldTrack();
     const text = document.getElementById('winamp-text');
 
     const src = tracks[index].filename ? `src/music/${tracks[index].filename}` : tracks[index].url;
@@ -1196,6 +1267,11 @@ function toggleSound() {
     localStorage.setItem('sound-enabled', soundEnabled);
     updateSoundUI();
     if (soundEnabled) playSound('ding');
+    // the button means quiet, and a song nobody chose should listen to it
+    if (heldTrack) {
+        if (!soundEnabled && heldTrack.started) { pauseTrack(); heldTrack.started = false; }
+        startHeldTrack();
+    }
 }
 function updateSoundUI() {
     const btn = document.getElementById('sound-toggle');

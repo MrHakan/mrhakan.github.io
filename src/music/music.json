@@ -877,5 +877,34 @@
             "the stage curtains cost more than this entire website",
             "the warmest possible welcome to the wrong television channel"
         ]
+    },
+    {
+        "id": 22,
+        "filename": "Age of War - Theme Soundtrack.mp3",
+        "title": "Theme Soundtrack",
+        "artist": "Age of War",
+        "theme": {
+            "primaryColor": "#e0a23c",
+            "accentColor": "#8fd14f",
+            "backgroundColor": "#1d1209",
+            "fontStyle": "Georgia, Times New Roman, serif"
+        },
+        "effect": "lane_war",
+        "bg": "A dusk battlefield seen from the side: a dial-up desk on the left, a server tower on the right, two lines of trolls marching into each other in the middle.",
+        "stage": {
+            "label": "AGE OF TROLL / THE LANE AT DUSK",
+            "speed": 1,
+            "font": "Georgia, Times New Roman, serif",
+            "mode": "lanewar",
+            "description": "Two bases. One lane. Nobody remembers who started it."
+        },
+        "memes": [
+            "somewhere a flash game is loading at 56k and it is worth the wait",
+            "you have been on this loop for an hour and you just reached age 2",
+            "the sound of clicking the cheapest unit four hundred times",
+            "lunch break, 2008, the school computer lab, volume at one bar",
+            "the turret is not helping but you bought it and you will defend it",
+            "march. die. repeat. the economy depends on it"
+        ]
     }
 ]

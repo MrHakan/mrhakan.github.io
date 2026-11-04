@@ -547,6 +547,52 @@
                 text('COLOR BROADCAST', -52, 168, 13, b, 'Arial', 'center');
             });
             text('ЭДУАРД ХИЛЬ', 1000, 742, 24, rgba(c, 0.6), 'Georgia', 'center');
+        },
+        lanewar() {
+            gradient(0, 0, 1440, 660, '#25150f', '#8a4a1f');
+            glow(1000, 470, 300 + bass * 90, a, 0.5 + bass * 0.25);
+            ellipse(1000, 480, 92 + bass * 10, 92 + bass * 10, rgba(c, 0.85));
+            path([[560, 660], [700, 520], [820, 590], [960, 490], [1110, 590], [1240, 510], [1440, 640], [1440, 660]], '#3a2114');
+            rect(0, 640, 1440, 260, '#20140c');
+            rect(0, 640, 1440, 6, rgba(b, 0.55));
+            for (let i = 0; i < 14; i++) rect(600 + i * 62 - (t * 18 % 62), 690 + (i % 2) * 42, 30, 5, '#3a2616');
+            // the dial-up desk, and its modem, which is the whole army's morale
+            rect(628, 586, 150, 10, '#6c4d33'); rect(638, 596, 10, 44, '#4a3423'); rect(758, 596, 10, 44, '#4a3423');
+            rect(654, 526, 88, 60, '#c0c0c0'); rect(662, 533, 72, 44, '#0a1f12');
+            text('56K', 698, 561, 18, rgba(b, 0.5 + air * 0.5), 'monospace', 'center');
+            for (let i = 0; i < 3; i++) ellipse(760, 516, 8 + i * 12 + bass * 8, 8 + i * 12 + bass * 8, null, rgba(b, 0.4 - i * 0.1), 2);
+            // the server tower across the lane, blinking at nobody
+            rect(1296, 438, 78, 202, '#b8b8b8'); rect(1304, 448, 62, 30, '#70767d');
+            for (let i = 0; i < 5; i++) {
+                rect(1306, 490 + i * 26, 58, 16, '#8b9199');
+                rect(1352, 494 + i * 26, 8, 8, noise(i + Math.floor(t * 3)) > 0.5 - air * 0.4 ? '#ff5a3c' : '#4a1712');
+            }
+            // two lines of trolls who have never once discussed this
+            const clash = 1000 + Math.sin(t * 0.25) * 34;
+            for (let i = 0; i < 6; i++) {
+                const hop = Math.abs(Math.sin(t * 5 + i)) * (5 + bass * 16);
+                const ours = 790 + (t * 26 + i * 40) % Math.max(40, clash - 810);
+                ellipse(ours, 620 - hop, 17, 17, '#f4c430', '#5b3b0c', 3);
+                rect(ours - 7, 613 - hop, 5, 5, '#2a1b08'); rect(ours + 3, 613 - hop, 5, 5, '#2a1b08');
+                line([[ours - 8, 627 - hop], [ours, 631 - hop], [ours + 9, 625 - hop]], '#2a1b08', 2);
+                const theirs = 1280 - (t * 23 + i * 42) % Math.max(40, 1270 - clash);
+                ellipse(theirs, 620 - hop, 17, 17, '#d9533f', '#4e120a', 3);
+                rect(theirs - 8, 613 - hop, 5, 5, '#2a0b07'); rect(theirs + 2, 613 - hop, 5, 5, '#2a0b07');
+                line([[theirs - 8, 630 - hop], [theirs + 8, 630 - hop]], '#2a0b07', 2);
+            }
+            // where they meet
+            glow(clash, 610, 70 + bass * 90, c, 0.3 + bass * 0.5);
+            for (let i = 0; i < 5; i++) {
+                const spin = t * 2.4 + i * 1.3, reach = 18 + (noise(i) * 34) * (0.5 + bass);
+                star(clash + Math.cos(spin) * reach, 604 + Math.sin(spin) * reach, 7 + air * 15, c, spin);
+            }
+            // the arrows that have never hit anything
+            for (let i = 0; i < 6; i++) {
+                const go = (t * 0.4 + noise(i + 9)) % 1, x = 790 + go * (clash - 790);
+                const y = 600 - Math.sin(go * Math.PI) * (130 + air * 90);
+                line([[x - 12, y + 2], [x + 12, y - 2]], rgba(c, 0.75), 2);
+            }
+            text('DIAL-UP VS THE INTERNET', 900, 742, 24, rgba(c, 0.6), 'Georgia', 'center');
         }
     };
     window.MusicScenes = {

@@ -80,10 +80,10 @@ npm test           # the whole headless suite
 npm run css        # rewrite css/tailwind.css after using a new utility class
 ```
 
-Winamp's **enter concert mode** button opens the music room. All 21 tracks
+Winamp's **enter concert mode** button opens the music room. All 22 tracks
 have distinct sets and choreography: a rainy cathedral, bunny dancers,
 a robot factory, a walking line character, Persona's cut-paper poster,
-Portal's test chamber, Metin2's pagoda and a vintage television, among others.
+Portal's test chamber, Metin2's pagoda, a vintage television and a lane war at dusk, among others.
 Bass drives the set's lights and props through the existing audio analyser.
 Local Motion timelines reveal the titles with staggered spring transitions.
 Pause holds the stage, and **Esc** or **back to desktop** restores the

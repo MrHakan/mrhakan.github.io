@@ -100,6 +100,12 @@ test('every uploaded audio/video file is in the playlist exactly once', () => {
     assert.deepEqual(tracks.map(t => t.filename).sort(), media.sort());
     for (const song of tracks) assert.ok(song.memes.length && fs.existsSync('src/music/' + song.filename));
 });
+test('the setlist counts what is actually in the playlist', () => {
+    const total = tracks.length;
+    assert.ok(source.includes(`padStart(2, '0')} / ${total}`), 'SET nn / total in js/music-stage.js');
+    assert.ok(source.includes(`setlist / ${total} tracks`), 'the setlist button in js/music-stage.js');
+    assert.ok(fs.readFileSync('index.html', 'utf8').includes(`setlist / ${total} tracks`), 'the setlist button in index.html');
+});
 test('every scene reacts to audio levels through its own artwork', () => {
     const env = setup(); env.mount(tracks[0]);
     const context = env.container.children[0].getContext('2d');
@@ -114,9 +120,9 @@ test('every scene reacts to audio levels through its own artwork', () => {
         assert.notEqual(render(0), render(1), mode + ' should react to the music');
     }
 });
-test('all 21 songs have distinct, registered scenes and produce distinct artwork', () => {
+test('all 22 songs have distinct, registered scenes and produce distinct artwork', () => {
     const env = setup(), modes = new Set(), fingerprints = new Set();
-    assert.equal(tracks.length, 21);
+    assert.equal(tracks.length, 22);
     for (const song of tracks) {
         const profile = env.stage.profileFor(song);
         assert.ok(env.scenes.modes.includes(profile.mode));
@@ -134,7 +140,7 @@ test('all 21 songs have distinct, registered scenes and produce distinct artwork
         const art = JSON.stringify(env.drawingCommands.filter(cmd => cmd[0] !== 'fillText'));
         fingerprints.add(createHash('sha256').update(art).digest('hex'));
     }
-    assert.equal(modes.size, 21); assert.equal(fingerprints.size, 21);
+    assert.equal(modes.size, 22); assert.equal(fingerprints.size, 22);
 });
 test('slow devices draw in concert mode but rest behind the desktop', () => {
     const env = setup(); env.slow(true); env.mount(tracks[15]); env.play();
