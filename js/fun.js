@@ -87,6 +87,8 @@ const ACHIEVEMENTS = {
     'echoes-codex': { icon: '📖', name: 'read it all', desc: 'completed the codex of the Sunken Firmament' },
     'echoes-end': { icon: '🌅', name: 'the heart', desc: 'reached the Heart of the Sunken Beacon and decided' },
     'echoes-courier': { icon: '📮', name: 'the courier', desc: 'sent a Drowned Lord after somebody else, or took one they sent you' },
+    'aot-win': { icon: '🏰', name: 'wall breaker', desc: 'knocked down a wall in age of troll' },
+    'aot-hard': { icon: '🧌', name: 'problem?', desc: 'beat the hard bot in age of troll' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
@@ -566,6 +568,7 @@ const SHORTCUTS = [
     ['type: jokerz or balatro', 'the poker roguelike'],
     ['type: troll or orcs', 'sir, we have a troll problem'],
     ['type: wizardz or duel', 'draw spells at another wizard'],
+    ['type: ageoftroll', 'five ages, two walls, one lane'],
     ['type: bot', '1 v bot — pick an opponent'],
     ['type: lobby', 'the multiplayer lobby'],
     ['right-click desktop', 'context menu']
@@ -627,6 +630,7 @@ function initExtraSecrets() {
         wizardz: () => openWizardz(),
         duel: () => openWizardz(),
         bot: () => openWizardz('bot'),
+        ageoftroll: () => openAgeOfTroll(),
         lobby: () => openNetplay(),
         defrag: () => openDefrag(),
         roast: roastMe,

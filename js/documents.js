@@ -118,6 +118,21 @@
             }
         },
         {
+            id: 'ageoftroll',
+            name: 'age of troll',
+            icon: '🏰',
+            keys: ['mrhakan98-ageoftroll-save', 'mrhakan98-ageoftroll-meta', 'mrhakan98-ageoftroll-meta-pref'],
+            open: 'ageoftroll',
+            summary() {
+                const save = json('mrhakan98-ageoftroll-save'), meta = json('mrhakan98-ageoftroll-meta');
+                if (!save && !meta) return null;
+                const bits = [];
+                if (save && save.s) bits.push('a match in progress, age ' + (save.s.p[0].age + 1) + ' vs ' + save.diff);
+                if (meta) bits.push((meta.wins || 0) + ' won, ' + (meta.losses || 0) + ' lost');
+                return { line: bits.join(' · ') || 'a troll or two', when: save ? new Date(save.at).toLocaleDateString() : '' };
+            }
+        },
+        {
             id: 'wizardz',
             name: 'wizardz 98',
             icon: '🧙',

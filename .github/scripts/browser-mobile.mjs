@@ -179,6 +179,7 @@ try {
     await opens('troll problem', () => window.openTrollProblem(), { ready: '.tg-body .tg-btn', wait: 1400 });
     await opens('become user', () => window.openBecomeUser(), { ready: '.bu-body', wait: 1400 });
     await opens('wizardz', () => window.openWizardz(), { ready: '.wz-btn', wait: 1400 });
+    await opens('age of troll', () => window.openAgeOfTroll(), { ready: '.aot-btn', wait: 1400 });
 
     section('the troll problem aims before it builds');
     {

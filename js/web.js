@@ -50,6 +50,7 @@ const WEB = (function () {
     const ARROW_ROUTES = {
         openEchoes: 'echoes',
         openWizardz: 'wizardz',
+        openAgeOfTroll: 'ageoftroll',
         openNetplay: 'netplay',
         openNotepad: 'notepad'
     };
