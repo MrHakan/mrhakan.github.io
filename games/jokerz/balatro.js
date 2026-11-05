@@ -2408,7 +2408,18 @@ function balMultText(m) { const r = Math.round(m * 100) / 100; return Number.isI
 // ===================================================================
 // entry point
 // ===================================================================
+// the winning head is fetched now, not the moment it is needed: its drop
+// lasts a third of a second, and on a slow line an image requested at the
+// win arrives after the head has already landed and gone. kept referenced
+// so the browser holds the decoded picture for the img that bonk() makes
+let balWinHeadImg = null;
+function balPreloadWinHead() {
+    if (balWinHeadImg || typeof Image === 'undefined') return;
+    balWinHeadImg = new Image();
+    balWinHeadImg.src = BAL.WIN_HEAD;
+}
 function startBalatro() {
+    balPreloadWinHead();
     const { body, win } = createAppWindow('jokerz 98', { icon: 'casino', width: 780 });
     body.classList.add('bj-body');
     balWinBody = body;
