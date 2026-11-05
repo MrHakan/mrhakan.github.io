@@ -1357,8 +1357,10 @@ try {
             }, true);
         });
         const p = await open(ctx);
-        await p.evaluate(() => openWizardz('solo'));
-        await p.waitForSelector('.wz-bot', { timeout: 30000 });
+        await p.evaluate(() => openWizardz());
+        await p.waitForSelector('#wz-solo', { timeout: 30000 });
+        await p.click('#wz-solo');
+        await p.waitForSelector('.wz-bot', { timeout: 8000 });
         await p.click('.wz-bot[data-bot="bogwart"]');
         await live(p);
         const box = await (await p.$('#wz-canvas')).boundingBox();
