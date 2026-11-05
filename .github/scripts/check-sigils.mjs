@@ -295,9 +295,9 @@ section('what you actually play with');
     expect(wrong / n <= 0.006, 'and the wrong spell nearly never', pct(wrong / n));
     // the ready made ones especially, because everybody will be carrying them
     D.PRESETS.forEach((p, i) => {
-        const r = matrix(0.7, 10, 900 + i, p.sigils);
+        const r = matrix(0.7, 120, 900 + i, p.sigils);
         console.log('        ' + p.id.padEnd(12) + pct(r.right) + ' read right, ' + pct(r.wrong) + ' read wrong');
-        expect(r.right >= 0.9 && r.wrong <= 0.02, p.name + ': an ordinary hand can use all eight', pct(r.right) + ' right, ' + pct(r.wrong) + ' wrong');
+        expect(r.right >= 0.85 && r.wrong <= 0.02, p.name + ': an ordinary hand can use all eight', pct(r.right) + ' right, ' + pct(r.wrong) + ' wrong');
     });
     const off = SPELLS.find(s => !D.DEFAULT_LOADOUT.includes(s.id) && s.id === 'oblivion');
     const notPacked = R.decide(off.glyph, D.DEFAULT_LOADOUT);

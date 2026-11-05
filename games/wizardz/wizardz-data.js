@@ -1093,7 +1093,7 @@
     // Ten ready made. There are 80 slots and 50 sigils so they cannot all be different from
     // each other, but every sigil is in at least one, and no two share more than a few.
     const PRESETS = [
-        { id: 'arsonist', name: 'the arsonist', style: 'tie them down, set it on fire, walk through the fire', sigils: ['fireball', 'inferno', 'meteor', 'emberward', 'entangle', 'spark', 'overload', 'blink'] },
+        { id: 'arsonist', name: 'the arsonist', style: 'set it on fire, then walk through the fire', sigils: ['fireball', 'flamelance', 'inferno', 'emberward', 'curse', 'spark', 'overload', 'blink'] },
         { id: 'coldstorage', name: 'cold storage', style: 'slow them, stop them, then hit them at your leisure', sigils: ['frostbolt', 'hailstorm', 'deepfreeze', 'blizzard', 'icewall', 'magicmissile', 'manawell', 'mirror'] },
         { id: 'surge', name: 'power surge', style: 'cheap, quick and a lot of it, all at once', sigils: ['spark', 'chainlightning', 'thunderclap', 'staticfield', 'magicmissile', 'arcaneorb', 'frostbolt', 'smite'] },
         { id: 'gardener', name: 'the gardener', style: 'traps and roots. they come to you, and regret it', sigils: ['vinewhip', 'thornburst', 'entangle', 'pollenveil', 'regrowth', 'sanctuary', 'drainlife', 'stonespike'] },
