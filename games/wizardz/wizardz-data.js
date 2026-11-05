@@ -590,11 +590,11 @@
         qualityPower: [0.8, 1.2],// how much a scrappy and a clean sigil are worth
         cleanCharge: 0.75,       // quality that loads a bonus charge
 
-        // how a match ends
-        knockouts: 3,
-        ritual: 42,              // seconds alone on the altar
-        ritualKo: 0.25,          // share of your progress a knockout takes
-        altar: { r: 6.4, h: 1.5, ramp: 12.5 },
+        // how a match ends. Team size decides how far you have to go
+        modes: [1, 2, 3, 4],
+        knockouts: { 1: 3, 2: 6, 3: 9, 4: 12 },
+        ritual: 42,              // seconds with your side alone on the altar
+        ritualKo: 0.25,          // share of a team's progress a knockout takes, in 1v1
         respawn: 3, spawnSafe: 1.5,
         countdown: 3,
         fogAt: 150,              // seconds before the fog starts closing in
@@ -612,51 +612,193 @@
         maxOwned: { trap: 3, wall: 2, zone: 2, summon: 2 }
     };
 
-    // Every solid thing is a box standing on the floor, with nothing overhanging,
-    // so the whole arena is a height map and asking "is that a wall" costs one
-    // array lookup. Half of it is written here. makeLayout() turns it round by
-    // 180 degrees for the other half, so neither spawn is the good one.
-    //   [x, z, half width, half depth, height, look]
-    const HALF_ARENA = [
-        // the big four pillars round the altar
-        [15, 15, 1.4, 1.4, 6, 'pillar'],
-        [-15, 15, 1.4, 1.4, 6, 'pillar'],
-        // error dialogs the size of a bus. the good cover
-        [0, 22, 5, 0.6, 3.6, 'window'],
-        [24, 2, 0.6, 4.5, 3.6, 'window'],
-        // waist high: you can shoot over, and duck, and jump on
-        [9, 25, 3, 0.7, 1.25, 'low'],
-        [-9, 25, 3, 0.7, 1.25, 'low'],
-        [25, 13, 0.7, 2.6, 1.25, 'low'],
-        [-25, 9, 0.7, 3, 1.25, 'low'],
-        [17, 25, 1, 1, 2.1, 'crate'],
-        [-18, 22, 1.2, 1.2, 2.5, 'crate'],
-        [-22, 19.5, 1, 1, 1.4, 'crate'],
-        [20, -6, 1.1, 1.1, 2.4, 'crate'],
-        // broken columns out in the corners, for when somebody is coming
-        [27, 26, 1, 1, 3, 'pillar'],
-        [-27, 25, 1, 1, 2.2, 'pillar'],
-        [16, 6, 2.2, 0.6, 2, 'low']
+    // ---------------------------------------------------------------
+    // the maps
+    //
+    // Every solid thing is a box standing on the ground, with nothing overhanging, so
+    // a whole map is a height map and asking "is that a wall" costs one array lookup.
+    // ground(x, z) is the terrain under the boxes. Half of each map is written here, and
+    // makeLayout() turns it round by 180 degrees for the other half, so neither side
+    // is the good one. Only spawn points for the first team are listed, in seat order.
+    //   box: [x, z, half width, half depth, height, look]
+    // A box's height is measured from zero, so one standing on a terrace has to be
+    // taller than the terrace.
+    //
+    // They have to play differently, or they are one map in four coats of paint:
+    //   the temple       open middle, altar on a plinth, big cover round the edge
+    //   the recycle bin  a bowl. holding the altar means everyone is above you
+    //   defrag           a grid of tall blocks. no long shots, corners everywhere
+    //   the long wire    a causeway down the middle with the altar on it, lanes either side
+    // ---------------------------------------------------------------
+    function octagon(x, z) { return Math.max(Math.abs(x), Math.abs(z), (Math.abs(x) + Math.abs(z)) * 0.7071); }
+    const MAPS = [
+        {
+            id: 'temple', name: 'the temple',
+            blurb: 'open in the middle, big cover round the edge, the altar up a short ramp. the fair one.',
+            altar: { r: 6.4, h: 1.5 },
+            ground(x, z) {
+                if (octagon(x, z) <= 6.4) return 1.5;
+                const along = Math.max(Math.abs(x), Math.abs(z)), across = Math.min(Math.abs(x), Math.abs(z));
+                if (across <= 2 && along <= 12.5) return 1.5 * (12.5 - along) / (12.5 - 6.4);
+                return 0;
+            },
+            theme: { fog: [0.2, 0.4, 0.46], skyMid: [0.5, 0.74, 0.82], skyTop: [0.82, 0.95, 1.02], skyHigh: [0.72, 0.9, 1], floor: ['floor', 'floor2'], light: [1, 1, 1.04], raised: 'floor2', cliff: 'brick', wall: 'brick', moon: true },
+            boxes: [
+                [15, 15, 1.4, 1.4, 6, 'pillar'],
+                [-15, 15, 1.4, 1.4, 6, 'pillar'],
+                // error dialogs the size of a bus. the good cover
+                [0, 22, 5, 0.6, 3.6, 'window'],
+                [24, 2, 0.6, 4.5, 3.6, 'window'],
+                // waist high: you can shoot over, and duck, and jump on
+                [9, 25, 3, 0.7, 1.25, 'low'],
+                [-9, 25, 3, 0.7, 1.25, 'low'],
+                [25, 13, 0.7, 2.6, 1.25, 'low'],
+                [-25, 9, 0.7, 3, 1.25, 'low'],
+                [17, 25, 1, 1, 2.1, 'crate'],
+                [-18, 22, 1.2, 1.2, 2.5, 'crate'],
+                [-22, 19.5, 1, 1, 1.4, 'crate'],
+                [20, -6, 1.1, 1.1, 2.4, 'crate'],
+                [27, 26, 1, 1, 3, 'pillar'],
+                [-27, 25, 1, 1, 2.2, 'pillar'],
+                [16, 6, 2.2, 0.6, 2, 'low']
+            ],
+            spawns: [[-26, 28.5], [-20.5, 28.5], [-29, 21], [-13, 28.5]],
+            pickups: [
+                { kind: 'ink', x: 0, z: 27 }, { kind: 'ink', x: 27.5, z: 7 },
+                { kind: 'hp', x: -28, z: 3 },
+                { kind: 'turbo', x: 12, z: 20 }, { kind: 'clock', x: -9, z: 15 }
+            ]
+        },
+        {
+            id: 'bin', name: 'the recycle bin',
+            blurb: 'a bowl, three terraces deep, with the altar at the bottom. whoever holds it has everyone above them.',
+            altar: { r: 6.4, h: 0 },
+            ground(x, z) {
+                const ax = Math.abs(x), az = Math.abs(z), c = Math.max(ax, az);
+                // up from the bottom on the middle of each side
+                const across = Math.min(ax, az);
+                if (c > 13 && c <= 18 && across <= 2.5) return 1.5 * (c - 13) / 5;
+                // up to the rim further round, so you cannot run straight up and over
+                if (c > 22 && c <= 27 && across >= 9.5 && across <= 13.5) return 1.5 + 1.5 * (c - 22) / 5;
+                if (c <= 13) return 0;
+                if (c <= 22) return 1.5;
+                return 3;
+            },
+            theme: { fog: [0.34, 0.27, 0.3], skyMid: [0.66, 0.5, 0.5], skyTop: [0.86, 0.72, 0.66], skyHigh: [0.6, 0.55, 0.72], floor: ['floor', 'floor2'], light: [1.08, 0.98, 0.92], raised: 'brick', cliff: 'low', wall: 'brick', moon: true },
+            boxes: [
+                // four stubs at the bottom: not much, and that is the point
+                [9.5, 9.5, 0.9, 0.9, 1.3, 'crate'],
+                [-9.5, 9.5, 0.9, 0.9, 1.3, 'crate'],
+                // the middle terrace
+                [17.5, 15, 1.3, 1.3, 3.1, 'crate'],
+                [-17.5, 15, 1.3, 1.3, 3.1, 'crate'],
+                [8, 19, 2.6, 0.6, 2.75, 'low'],
+                [-8, 19, 2.6, 0.6, 2.75, 'low'],
+                // the rim: real cover, looking down
+                [0, 27, 4.5, 0.6, 5.4, 'window'],
+                [27, 0, 0.6, 4.5, 5.4, 'window'],
+                [17, 27, 2.6, 0.7, 4.25, 'low'],
+                [-22, 24, 0.7, 2, 4.25, 'low'],
+                [27, 20, 1.3, 1.3, 6.5, 'pillar']
+            ],
+            spawns: [[-27.5, 27.5], [-23, 28.5], [-28.5, 20], [-15, 29]],
+            pickups: [
+                { kind: 'ink', x: -17, z: 9 }, { kind: 'ink', x: 28, z: 8 },
+                { kind: 'hp', x: 10, z: -2 },
+                { kind: 'turbo', x: 19, z: 19 }, { kind: 'clock', x: 0, z: 10 }
+            ]
+        },
+        {
+            id: 'defrag', name: 'defrag',
+            blurb: 'a grid of tall disk clusters. no long shots, a corner every few metres, and whatever is homing is happy.',
+            altar: { r: 5, h: 0.7 },
+            ground(x, z) {
+                if (octagon(x, z) <= 5) return 0.7;
+                const along = Math.max(Math.abs(x), Math.abs(z)), across = Math.min(Math.abs(x), Math.abs(z));
+                if (across <= 1.6 && along <= 7.5) return 0.7 * (7.5 - along) / 2.5;
+                return 0;
+            },
+            theme: { fog: [0.04, 0.05, 0.16], skyMid: [0.06, 0.08, 0.26], skyTop: [0.1, 0.12, 0.34], skyHigh: [0.04, 0.05, 0.2], floor: ['chip', 'chip'], light: [0.86, 0.92, 1.12], raised: 'floor2', cliff: 'low', wall: 'chip', moon: false, near: 8, far: 26 },
+            boxes: (function () {
+                const out = [];
+                for (let z = 0; z <= 24; z += 8) {
+                    for (let x = -24; x <= 24; x += 8) {
+                        if (z === 0 && x <= 0) continue;           // the turn does the other half
+                        if (Math.max(Math.abs(x), Math.abs(z)) <= 8) continue;   // the room in the middle
+                        // some clusters are half height: you can see over those, and be seen
+                        const short = (Math.abs(x) + z * 3) % 40 === 0;
+                        out.push([x, z, 2.6, 2.6, short ? 1.3 : 4.2, 'disk']);
+                    }
+                }
+                return out;
+            })(),
+            spawns: [[-28, 28.5], [-20, 28.5], [-28.5, 20], [-12, 28.5]],
+            pickups: [
+                { kind: 'ink', x: 4, z: 20 }, { kind: 'ink', x: 20, z: 4 },
+                { kind: 'hp', x: -28, z: 4 },
+                { kind: 'turbo', x: 12, z: 12 }, { kind: 'clock', x: -4, z: 12 }
+            ]
+        },
+        {
+            id: 'wire', name: 'the long wire',
+            blurb: 'a long raised causeway with the altar on it, and lanes either side. the long shots are up there, and so is everybody\'s aim.',
+            altar: { r: 3.8, h: 2.5 },
+            ground(x, z) {
+                const ax = Math.abs(x), az = Math.abs(z);
+                if (ax <= 4 && az <= 24) return 2.5;
+                if (ax <= 4 && az <= 29) return 2.5 * (29 - az) / 5;
+                // up from the side, a third of the way along
+                if (ax <= 9.5 && az >= 9 && az <= 13) return 2.5 * (9.5 - ax) / 5.5;
+                return 0;
+            },
+            theme: { fog: [0.27, 0.4, 0.3], skyMid: [0.5, 0.72, 0.56], skyTop: [0.8, 0.94, 0.78], skyHigh: [0.62, 0.86, 0.72], floor: ['moss', 'floor2'], light: [0.96, 1.04, 0.92], raised: 'low', cliff: 'brick', wall: 'brick', moon: true, far: 38 },
+            boxes: [
+                // the walls between the lanes, with gaps in the middle and at the ends
+                [17.5, 14, 0.5, 8, 4, 'pillar'],
+                [-17.5, 14, 0.5, 8, 4, 'pillar'],
+                // on the causeway: two columns to duck behind
+                [-2.4, 17, 0.8, 0.8, 4.2, 'pillar'],
+                [2.4, 17, 0.8, 0.8, 4.2, 'pillar'],
+                // inner lanes
+                [11, 18, 2, 0.7, 1.25, 'low'],
+                [-11, 18, 2, 0.7, 1.25, 'low'],
+                [8, 4, 0.7, 2, 1.25, 'low'],
+                [-8, 4, 0.7, 2, 1.25, 'low'],
+                // outer lanes
+                [25, 15, 1.2, 1.2, 3, 'crate'],
+                [-25, 15, 1.2, 1.2, 3, 'crate'],
+                [24, 2, 2.5, 0.7, 1.25, 'low'],
+                [-24, 2, 2.5, 0.7, 1.25, 'low'],
+                [24, 26, 0.6, 2.6, 3.6, 'window'],
+                [-24, 26, 0.6, 2.6, 3.6, 'window']
+            ],
+            spawns: [[-11, 29], [11, 29], [-20, 29], [20, 29]],
+            pickups: [
+                { kind: 'ink', x: -28, z: 10 }, { kind: 'ink', x: 12, z: 26 },
+                { kind: 'hp', x: 28, z: 6 },
+                { kind: 'turbo', x: -12, z: 8 }, { kind: 'clock', x: 0, z: 21 }
+            ]
+        }
     ];
-    const SPAWNS = [[-26, 28.5], [26, -28.5]];
-    const PICKUPS = [
-        { kind: 'ink', x: 0, z: 27 }, { kind: 'ink', x: 27.5, z: 7 },
-        { kind: 'hp', x: -28, z: 3 },
-        { kind: 'turbo', x: 12, z: 20 }, { kind: 'clock', x: -9, z: 15 }
-    ];
-
-    function makeLayout() {
+    const mapById = id => MAPS.find(m => m.id === id) || MAPS[0];
+    function makeLayout(id) {
+        const m = mapById(id);
         const boxes = [];
-        HALF_ARENA.forEach(b => {
+        m.boxes.forEach(b => {
             boxes.push(b.slice());
             boxes.push([-b[0], -b[1], b[2], b[3], b[4], b[5]]);
         });
         const pickups = [];
-        PICKUPS.forEach(p => {
+        m.pickups.forEach(p => {
             pickups.push({ kind: p.kind, x: p.x, z: p.z });
             pickups.push({ kind: p.kind, x: -p.x, z: -p.z });
         });
-        return { boxes, pickups, spawns: SPAWNS.map(s => s.slice()) };
+        return {
+            id: m.id, boxes, pickups,
+            // spawns[team][seat in that team]
+            spawns: [m.spawns.map(p => p.slice()), m.spawns.map(p => [-p[0], -p[1]])],
+            ground: m.ground, altar: m.altar, theme: m.theme
+        };
     }
 
     // ---------------------------------------------------------------
@@ -847,11 +989,130 @@
     const DEFAULT_LOADOUT = ['spark', 'fireball', 'frostbolt', 'magicmissile', 'runeward', 'regrowth', 'smite', 'icewall'];
     const LOADOUT_SIZE = 8;
 
+    // ===============================================================
+    // loadout ids
+    // ===============================================================
+    // There is no server to look an id up on, so the id is the loadout. Twelve characters
+    // you can read down a phone: XXXX-XXXX-XXXX.
+    //
+    // A sigil's number is its place in this list, and that is a promise. An id somebody
+    // posted a year ago has to mean the same eight sigils. So: new sigils only ever go on
+    // the end, nothing moves, and a sigil that gets removed stays here so its number is
+    // never reused. check-wizardz.mjs holds a copy of this list and of some real ids.
+    const SIGIL_NUMBERS = [
+        'fireball', 'flamelance', 'inferno', 'emberward', 'meteor',
+        'frostbolt', 'icewall', 'blizzard', 'deepfreeze', 'hailstorm',
+        'spark', 'chainlightning', 'thunderclap', 'staticfield', 'overload',
+        'magicmissile', 'arcaneorb', 'manawell', 'runeward', 'blink',
+        'vinewhip', 'thornburst', 'regrowth', 'entangle', 'pollenveil',
+        'shadowbolt', 'curse', 'drainlife', 'nightfall', 'banish',
+        'smite', 'radiance', 'blessing', 'sanctuary', 'judgment',
+        'stonespike', 'boulder', 'quake', 'stoneskin', 'pillar',
+        'bloodlance', 'sacrifice', 'leech', 'hemorrhage', 'bloodpact',
+        'voidlance', 'singularity', 'rift', 'oblivion', 'mirror'
+    ];
+    // No I, L, O or U, so nobody has to work out which one that was. Those get read as the
+    // thing they look like, and it does not care about case or dashes.
+    const ID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    const ID_LENGTH = 12;
+    // Version 1 is two bits of version and six bits a sigil, which is ten characters, and two
+    // more of check. Past 64 sigils, version 2 gets wider numbers and version 1 still reads.
+    const ID_VERSION = 1, ID_SIGIL_BITS = 6;
+    const LOADOUT_WHY = {
+        junk: 'that is not a loadout id, bradar. they look like 8044-1NS8-WKEY',
+        short: 'too short. a loadout id is twelve letters and numbers',
+        long: 'too long. a loadout id is twelve letters and numbers',
+        chars: 'there is a letter in there no loadout id uses',
+        check: 'that id does not add up. something got typed wrong',
+        version: 'that id is from a newer wizardz than this one. reload the page',
+        unknown: 'that id has a sigil in it this wizardz does not have',
+        twice: 'that id has the same sigil in it twice',
+        size: 'a loadout is exactly eight sigils'
+    };
+    // Any single wrong character, and any two neighbours swapped, always changes this: 1021
+    // is prime, and neither 33 nor any difference between two characters divides it.
+    function idCheck(symbols) {
+        let h = 7;
+        for (const v of symbols) h = (h * 33 + v + 1) % 1021;
+        return [Math.floor(h / 32), h % 32];
+    }
+    // whether this is a legal eight. The one place that decides it, for the menu, the saved
+    // list and the host. null means fine. Nothing is locked in this game: every sigil is
+    // open from the start, and if that changes this is where it gets checked.
+    function loadoutProblem(list) {
+        if (!Array.isArray(list) || list.length !== LOADOUT_SIZE) return 'size';
+        const seen = {};
+        for (const id of list) {
+            if (typeof id !== 'string' || !SIGIL_NUMBERS.includes(id) || !SPELLS.some(s => s.id === id)) return 'unknown';
+            if (seen[id]) return 'twice';
+            seen[id] = 1;
+        }
+        return null;
+    }
+    function loadoutToId(list) {
+        if (loadoutProblem(list)) return null;
+        const bits = [(ID_VERSION >> 1) & 1, ID_VERSION & 1];
+        for (const id of list) {
+            const n = SIGIL_NUMBERS.indexOf(id);
+            for (let b = ID_SIGIL_BITS - 1; b >= 0; b--) bits.push((n >> b) & 1);
+        }
+        const symbols = [];
+        for (let i = 0; i < bits.length; i += 5) symbols.push(bits.slice(i, i + 5).reduce((a, b) => a * 2 + b, 0));
+        const text = symbols.concat(idCheck(symbols)).map(v => ID_ALPHABET[v]).join('');
+        return text.slice(0, 4) + '-' + text.slice(4, 8) + '-' + text.slice(8);
+    }
+    // what somebody typed, tidied. Keeps the junk in, so that it can be complained about
+    const cleanLoadoutId = text => String(text).toUpperCase().replace(/[\s\-_.]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+    // Takes anything at all, because a host is handed this by strangers, and never throws.
+    function loadoutFromId(text) {
+        const no = why => ({ ok: false, why, text: LOADOUT_WHY[why] });
+        if (typeof text !== 'string' || text.length > 40) return no('junk');
+        const clean = cleanLoadoutId(text);
+        if (!clean) return no('junk');
+        for (const c of clean) if (!ID_ALPHABET.includes(c)) return no('chars');
+        if (clean.length < ID_LENGTH) return no('short');
+        if (clean.length > ID_LENGTH) return no('long');
+        const symbols = Array.from(clean, c => ID_ALPHABET.indexOf(c));
+        const check = idCheck(symbols.slice(0, 10));
+        if (check[0] !== symbols[10] || check[1] !== symbols[11]) return no('check');
+        const bits = [];
+        for (const v of symbols.slice(0, 10)) for (let b = 4; b >= 0; b--) bits.push((v >> b) & 1);
+        if (bits[0] * 2 + bits[1] !== ID_VERSION) return no('version');
+        const list = [];
+        for (let i = 0; i < LOADOUT_SIZE; i++) {
+            let n = 0;
+            for (let b = 0; b < ID_SIGIL_BITS; b++) n = n * 2 + bits[2 + i * ID_SIGIL_BITS + b];
+            if (n >= SIGIL_NUMBERS.length) return no('unknown');
+            list.push(SIGIL_NUMBERS[n]);
+        }
+        const problem = loadoutProblem(list);
+        if (problem) return no(problem);
+        return { ok: true, list, id: loadoutToId(list) };
+    }
+
+    // Ten ready made. There are 80 slots and 50 sigils so they cannot all be different from
+    // each other, but every sigil is in at least one, and no two share more than a few.
+    const PRESETS = [
+        { id: 'arsonist', name: 'the arsonist', style: 'tie them down, set it on fire, walk through the fire', sigils: ['fireball', 'inferno', 'meteor', 'emberward', 'entangle', 'spark', 'overload', 'blink'] },
+        { id: 'coldstorage', name: 'cold storage', style: 'slow them, stop them, then hit them at your leisure', sigils: ['frostbolt', 'hailstorm', 'deepfreeze', 'blizzard', 'icewall', 'magicmissile', 'manawell', 'mirror'] },
+        { id: 'surge', name: 'power surge', style: 'cheap, quick and a lot of it, all at once', sigils: ['spark', 'chainlightning', 'thunderclap', 'staticfield', 'magicmissile', 'arcaneorb', 'frostbolt', 'smite'] },
+        { id: 'gardener', name: 'the gardener', style: 'traps and roots. they come to you, and regret it', sigils: ['vinewhip', 'thornburst', 'entangle', 'pollenveil', 'regrowth', 'sanctuary', 'drainlife', 'stonespike'] },
+        { id: 'nightshift', name: 'night shift', style: 'hexes on hexes. nothing big, all of it horrible', sigils: ['shadowbolt', 'curse', 'drainlife', 'nightfall', 'banish', 'hemorrhage', 'runeward', 'fireball'] },
+        { id: 'sermon', name: 'the sermon', style: 'hold the altar, heal through it and smite whoever objects', sigils: ['smite', 'radiance', 'blessing', 'sanctuary', 'judgment', 'runeward', 'frostbolt', 'stonespike'] },
+        { id: 'quarry', name: 'the quarry', style: 'slow heavy rocks from behind your own walls', sigils: ['stonespike', 'boulder', 'quake', 'stoneskin', 'pillar', 'arcaneorb', 'smite', 'regrowth'] },
+        { id: 'bloodmoney', name: 'blood money', style: 'pay in health for damage you could not otherwise afford', sigils: ['bloodlance', 'sacrifice', 'bloodpact', 'leech', 'hemorrhage', 'drainlife', 'regrowth', 'blink'] },
+        { id: 'abyss', name: 'the abyss', style: 'one enormous thing, then a long wait, then another one', sigils: ['voidlance', 'singularity', 'oblivion', 'rift', 'nightfall', 'manawell', 'curse', 'blink'] },
+        { id: 'longway', name: 'the long way off', style: 'sight lines and big hits from where they cannot reach you', sigils: ['flamelance', 'stonespike', 'voidlance', 'meteor', 'smite', 'icewall', 'shadowbolt', 'blink'] }
+    ];
+    PRESETS.forEach(p => { p.code = loadoutToId(p.sigils); });
+
     window.WZ = {
         EL, SPELLS, STATUS, ARENA, AVATAR,
         BOTS, BOT_DIFFICULTY,
         DEFAULT_LOADOUT, LOADOUT_SIZE,
-        randomAvatar, makeLayout,
+        SIGIL_NUMBERS, PRESETS, LOADOUT_WHY, ID_LENGTH,
+        loadoutProblem, loadoutToId, loadoutFromId, cleanLoadoutId,
+        randomAvatar, makeLayout, MAPS, mapById, octagon,
         byId: (id) => SPELLS.find(s => s.id === id) || null,
         botById: (id) => BOTS.find(b => b.id === id) || null,
         helpers: { LINE, PATH, CLOSED, ARC, CIRCLE, QUAD, POLY, PENTAGRAM, ZIG, WAVE, SPIRAL, LEMNISCATE, RAYS }

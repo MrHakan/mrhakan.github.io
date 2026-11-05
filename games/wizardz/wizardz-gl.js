@@ -129,7 +129,8 @@ void main() {
         dialog: 8, dialog2: 9, ice: 10, rock: 11, cloud: 12, cloth: 13, white: 14, moss: 15,
         face: 16, faceAngry: 17, faceTired: 18, faceGlow: 19, faceCyclops: 20, beard: 21, hair: 22, ring: 23,
         glow: 24, star: 25, halo: 26, smoke: 27, flare: 28, beam: 29, shard: 30, sigil: 31,
-        troll: 32, troll2: 34, labelInk: 36, labelHp: 37, turbo: 38, cpu: 39
+        troll: 32, troll2: 34, labelInk: 36, labelHp: 37, turbo: 38, cpu: 39,
+        disk: 48, chip: 49
     };
     const PAGE = 512, CELL = 64, PAD = 0.5 / PAGE;
     function tileUv(t) {
@@ -355,6 +356,25 @@ void main() {
             g.fillStyle = '#222'; g.fillRect(14, 14, 36, 36);
             g.fillStyle = '#ff67d3'; g.font = 'bold 11px sans-serif'; g.fillText('98', 24, 36);
         });
+        // a disk cluster, the colours a defragmenter uses
+        fill(TILE.disk, '#d8d8e8');
+        clip(TILE.disk, g => {
+            for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+                g.fillStyle = ['#2e6be8', '#2e6be8', '#d8d8e8', '#20c0e0', '#e04848', '#1a3a9a'][floor(rnd() * 6)];
+                g.fillRect(x * 8 + 1, y * 8 + 1, 6, 6);
+            }
+        });
+        // a circuit board, for walking about on
+        fill(TILE.chip, '#16264a');
+        clip(TILE.chip, g => {
+            g.strokeStyle = '#2a4a86'; g.lineWidth = 2;
+            for (let i = 0; i < 7; i++) {
+                const x = rnd() * 64, y = rnd() * 64;
+                g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18, y); g.lineTo(x + 18, y + 18); g.stroke();
+            }
+            g.fillStyle = '#00000055'; g.fillRect(0, 0, CELL, 2); g.fillRect(0, 0, 2, CELL);
+            g.fillStyle = '#6fd6ff'; for (let i = 0; i < 5; i++) g.fillRect(rnd() * 60, rnd() * 60, 2, 2);
+        });
         // a stand-in troll until the real one has loaded
         const stand = (t, col) => { const [x, y] = at(t); c.clearRect(x, y, CELL * 2, CELL * 2); c.fillStyle = col; c.beginPath(); c.arc(x + CELL, y + CELL, CELL - 8, 0, 7); c.fill(); c.fillStyle = '#000'; c.fillRect(x + 40, y + 42, 14, 14); c.fillRect(x + 74, y + 42, 14, 14); c.fillRect(x + 36, y + 80, 56, 8); };
         stand(TILE.troll, '#f0f0f0');
@@ -437,9 +457,16 @@ void main() {
     // the arena, baked
     // ---------------------------------------------------------------
     const FOG_COLOR = [0.2, 0.4, 0.46];
+    // Whichever map is in use, from its own height function, so a new map costs no new
+    // drawing code. Flat two metre squares where it can, one metre ones round any edge,
+    // and a skirt wherever one bit of ground stops higher than the next.
     function buildArena() {
         const B = new Builder();
         const A = D.ARENA, H = A.size / 2, h = S.heightAt;
+        const L = S.LAYOUT, T = L.theme, altar = L.altar;
+        const tileOf = name => TILE[name] === undefined ? TILE.floor : TILE[name];
+        const floorA = tileOf(T.floor[0]), floorB = tileOf(T.floor[1]), raised = tileOf(T.raised), cliff = tileOf(T.cliff), wallTile = tileOf(T.wall);
+        const lt = T.light;
         // how dark a corner of floor is: walls near it shut out the sky, and the altar glows
         const lightAt = (x, z, y) => {
             let occl = 0;
@@ -448,107 +475,110 @@ void main() {
             }
             const d = hypot(x, z);
             const glow = max(0, 1 - d / 16);
-            const k = (1 - occl * 0.085) * (0.8 + 0.08 * sin(x * 0.7) * cos(z * 0.53));
-            return [(0.92 + glow * 0.14) * k, (0.92 - glow * 0.14) * k, (1 + glow * 0.3) * k];
+            const k = (1 - occl * 0.085) * (0.8 + 0.08 * sin(x * 0.7) * cos(z * 0.53)) * (0.92 + min(y, 3) * 0.05);
+            return [(0.92 + glow * 0.14) * k * lt[0], (0.92 - glow * 0.14) * k * lt[1], (1 + glow * 0.3) * k * lt[2]];
         };
-        const step = 2;
-        for (let z = -H; z < H; z += step) for (let x = -H; x < H; x += step) {
-            if (h(x + 1, z + 1) >= 12) continue;
-            const t = (floor((x + H) / step) + floor((z + H) / step)) % 2 ? TILE.floor : TILE.floor2;
-            B.quad([x, 0, z + step], [x + step, 0, z + step], [x + step, 0, z], [x, 0, z], t,
-                lightAt(x, z + step, 0), lightAt(x + step, z + step, 0), lightAt(x + step, z, 0), lightAt(x, z, 0));
+        const g = (x, z) => L.ground(x, z);
+        const inset = 0.02;
+        const corners = (x, z, w) => [g(x + inset, z + w - inset), g(x + w - inset, z + w - inset), g(x + w - inset, z + inset), g(x + inset, z + inset)];
+        const flat = c => abs(c[0] - c[1]) < 0.001 && abs(c[1] - c[2]) < 0.001 && abs(c[2] - c[3]) < 0.001;
+        const tileFor = (x, z, w, c) => {
+            const mx = x + w / 2, mz = z + w / 2;
+            if (D.octagon(mx, mz) <= altar.r && abs(c[0] - altar.h) < 0.01 && flat(c)) return TILE.rune;
+            if (!flat(c)) return TILE.ramp;
+            if (c[0] > 0.01) return raised;
+            return (floor((mx + H) / 2) + floor((mz + H) / 2)) % 2 ? floorA : floorB;
+        };
+        const cell = (x, z, w) => {
+            const c = corners(x, z, w);
+            const t = tileFor(x, z, w, c);
+            const u = tileUv(t), du = u[2] - u[0], dv = u[3] - u[1];
+            // one tile every two metres, however the cell was cut
+            const sx = ((x + H) % 2) / 2, sz = ((z + H) % 2) / 2, sw = w / 2;
+            const uv = [u[0] + du * sx, u[1] + dv * sz, u[0] + du * (sx + sw), u[1] + dv * (sz + sw)];
+            B.quad([x, c[0], z + w], [x + w, c[1], z + w], [x + w, c[2], z], [x, c[3], z], t,
+                lightAt(x, z + w, c[0]), lightAt(x + w, z + w, c[1]), lightAt(x + w, z, c[2]), lightAt(x, z, c[3]), uv);
+        };
+        const edge = H - 1;
+        for (let z = -edge; z < edge; z += 2) for (let x = -edge; x < edge; x += 2) {
+            const c = corners(x, z, 2);
+            const uniform = flat(c) && abs(g(x + 1, z + 1) - c[0]) < 0.001 && abs(g(x + 1, z + inset) - c[0]) < 0.001 && abs(g(x + inset, z + 1) - c[0]) < 0.001 && abs(g(x + 2 - inset, z + 1) - c[0]) < 0.001 && abs(g(x + 1, z + 2 - inset) - c[0]) < 0.001;
+            if (uniform && (c[0] < 0.01 || D.octagon(x + 1, z + 1) > altar.r + 2)) cell(x, z, 2);
+            else for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) cell(x + i, z + j, 1);
+        }
+        // the skirts
+        const dim = (y0, y1, k) => [(0.4 + 0.1 * min(y1, 3)) * k * lt[0], (0.38 + 0.1 * min(y1, 3)) * k * lt[1], (0.52 + 0.1 * min(y1, 3)) * k * lt[2]];
+        for (let z = -edge; z < edge; z += 1) for (let x = -edge; x < edge; x += 1) {
+            const a0 = g(x + 1 - inset, z + inset), a1 = g(x + 1 - inset, z + 1 - inset);
+            const b0 = g(x + 1 + inset, z + inset), b1 = g(x + 1 + inset, z + 1 - inset);
+            if (x + 1 < edge && (abs(a0 - b0) > 0.05 || abs(a1 - b1) > 0.05)) {
+                const lo0 = min(a0, b0), hi0 = max(a0, b0), lo1 = min(a1, b1), hi1 = max(a1, b1);
+                const f = a0 + a1 > b0 + b1;   // the high side is on the left, so it faces +x
+                const P = (zz, y) => [x + 1, y, zz];
+                if (f) B.quad(P(z + 1, lo1), P(z, lo0), P(z, hi0), P(z + 1, hi1), cliff, dim(lo1, lo1, 0.8), dim(lo0, lo0, 0.8), dim(hi0, hi0, 1.5), dim(hi1, hi1, 1.5));
+                else B.quad(P(z, lo0), P(z + 1, lo1), P(z + 1, hi1), P(z, hi0), cliff, dim(lo0, lo0, 0.65), dim(lo1, lo1, 0.65), dim(hi1, hi1, 1.25), dim(hi0, hi0, 1.25));
+            }
+            const c0 = g(x + inset, z + 1 - inset), c1 = g(x + 1 - inset, z + 1 - inset);
+            const d0 = g(x + inset, z + 1 + inset), d1 = g(x + 1 - inset, z + 1 + inset);
+            if (z + 1 < edge && (abs(c0 - d0) > 0.05 || abs(c1 - d1) > 0.05)) {
+                const lo0 = min(c0, d0), hi0 = max(c0, d0), lo1 = min(c1, d1), hi1 = max(c1, d1);
+                const f = c0 + c1 > d0 + d1;   // the high side is behind, so it faces +z
+                const P = (xx, y) => [xx, y, z + 1];
+                if (f) B.quad(P(x, lo0), P(x + 1, lo1), P(x + 1, hi1), P(x, hi0), cliff, dim(lo0, lo0, 0.9), dim(lo1, lo1, 0.9), dim(hi1, hi1, 1.6), dim(hi0, hi0, 1.6));
+                else B.quad(P(x + 1, lo1), P(x, lo0), P(x, hi0), P(x + 1, hi1), cliff, dim(lo1, lo1, 0.6), dim(lo0, lo0, 0.6), dim(hi0, hi0, 1.15), dim(hi1, hi1, 1.15));
+            }
         }
         // the wall round the outside
         const wallH = 9;
-        const edge = H - 1;
         for (let t = -edge; t < edge; t += 4) {
             const n = min(t + 4, edge);
-            const dark = [0.5, 0.48, 0.62], lit2 = [0.82, 0.8, 0.95];
-            B.quad([t, 0, -edge], [n, 0, -edge], [n, wallH, -edge], [t, wallH, -edge], TILE.brick, dark, dark, lit2, lit2);
-            B.quad([n, 0, edge], [t, 0, edge], [t, wallH, edge], [n, wallH, edge], TILE.brick, dark, dark, lit2, lit2);
-            B.quad([edge, 0, t], [edge, 0, n], [edge, wallH, n], [edge, wallH, t], TILE.brick, dark, dark, lit2, lit2);
-            B.quad([-edge, 0, n], [-edge, 0, t], [-edge, wallH, t], [-edge, wallH, n], TILE.brick, dark, dark, lit2, lit2);
+            const dark = [0.5 * lt[0], 0.48 * lt[1], 0.62 * lt[2]], lit2 = [0.82 * lt[0], 0.8 * lt[1], 0.95 * lt[2]];
+            B.quad([t, 0, -edge], [n, 0, -edge], [n, wallH, -edge], [t, wallH, -edge], wallTile, dark, dark, lit2, lit2);
+            B.quad([n, 0, edge], [t, 0, edge], [t, wallH, edge], [n, wallH, edge], wallTile, dark, dark, lit2, lit2);
+            B.quad([edge, 0, t], [edge, 0, n], [edge, wallH, n], [edge, wallH, t], wallTile, dark, dark, lit2, lit2);
+            B.quad([-edge, 0, n], [-edge, 0, t], [-edge, wallH, t], [-edge, wallH, n], wallTile, dark, dark, lit2, lit2);
             // battlements, because silhouettes are cheap
-            const cr = [0.7, 0.68, 0.84];
-            B.box(t + 0.6, wallH, -edge - 0.4, t + 2.4, wallH + 1.2, -edge + 0.4, TILE.brick, cr);
-            B.box(t + 0.6, wallH, edge - 0.4, t + 2.4, wallH + 1.2, edge + 0.4, TILE.brick, cr);
-            B.box(edge - 0.4, wallH, t + 0.6, edge + 0.4, wallH + 1.2, t + 2.4, TILE.brick, cr);
-            B.box(-edge - 0.4, wallH, t + 0.6, -edge + 0.4, wallH + 1.2, t + 2.4, TILE.brick, cr);
+            const cr = [0.7 * lt[0], 0.68 * lt[1], 0.84 * lt[2]];
+            B.box(t + 0.6, wallH, -edge - 0.4, t + 2.4, wallH + 1.2, -edge + 0.4, wallTile, cr);
+            B.box(t + 0.6, wallH, edge - 0.4, t + 2.4, wallH + 1.2, edge + 0.4, wallTile, cr);
+            B.box(edge - 0.4, wallH, t + 0.6, edge + 0.4, wallH + 1.2, t + 2.4, wallTile, cr);
+            B.box(-edge - 0.4, wallH, t + 0.6, -edge + 0.4, wallH + 1.2, t + 2.4, wallTile, cr);
         }
-        // the altar: an octagon on a plinth, with four ramps
-        const a = A.altar, r = a.r / cos(PI / 8) * 0.998;
-        const oct = [];
-        for (let i = 0; i < 8; i++) { const an = i / 8 * PI * 2 + PI / 8; oct.push([sin(an) * r, cos(an) * r]); }
-        const glow = [0.95, 0.75, 1.15], side = [0.45, 0.35, 0.6], foot = [0.28, 0.22, 0.4];
-        for (let i = 0; i < 8; i++) {
-            const p = oct[i], q = oct[(i + 1) % 8];
-            B.quad([p[0], 0, p[1]], [q[0], 0, q[1]], [q[0], a.h, q[1]], [p[0], a.h, p[1]], TILE.brick, foot, foot, side, side);
-        }
-        const tileSize = 3.2;
-        for (let z = -r; z < r; z += tileSize) for (let x = -r; x < r; x += tileSize) {
-            // only the cells inside the octagon, which leaves stepped corners, which is correct for 1995
-            const cx = x + tileSize / 2, cz = z + tileSize / 2;
-            if (max(abs(cx), abs(cz), (abs(cx) + abs(cz)) * 0.7071) > a.r - 0.6) continue;
-            B.quad([x, a.h, z + tileSize], [x + tileSize, a.h, z + tileSize], [x + tileSize, a.h, z], [x, a.h, z], TILE.rune, glow);
-        }
-        // fill under the stepped corners with plain stone at the same height
-        for (let i = 0; i < 8; i++) {
-            const p = oct[i], q = oct[(i + 1) % 8];
-            const dim = [0.5, 0.42, 0.66];
-            B.quad([0, a.h - 0.02, 0], [q[0], a.h - 0.02, q[1]], [p[0], a.h - 0.02, p[1]], [0, a.h - 0.02, 0], TILE.floor2, dim);
-        }
-        const rampW = 2, lo = a.ramp, hi = a.r;
-        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz]) => {
-            const seg = 3;
-            for (let i = 0; i < seg; i++) {
-                const t0 = hi + (lo - hi) * i / seg, t1 = hi + (lo - hi) * (i + 1) / seg;
-                const y0 = a.h * (1 - i / seg), y1 = a.h * (1 - (i + 1) / seg);
-                const px = dz, pz = dx;
-                const c0 = [0.92 - i * 0.08, 0.9 - i * 0.08, 1.05 - i * 0.08], c1 = [0.84 - i * 0.08, 0.82 - i * 0.08, 0.97 - i * 0.08];
-                const P = (t, off, y) => [dx * t + px * off, y, dz * t + pz * off];
-                const flip = dx + dz > 0;
-                const q = flip
-                    ? [P(t1, -rampW, y1), P(t1, rampW, y1), P(t0, rampW, y0), P(t0, -rampW, y0)]
-                    : [P(t1, rampW, y1), P(t1, -rampW, y1), P(t0, -rampW, y0), P(t0, rampW, y0)];
-                B.quad(q[0], q[1], q[2], q[3], TILE.ramp, c1, c1, c0, c0);
-                // cheeks, so that you cannot see under it
-                B.quad(P(t1, rampW, 0), P(t0, rampW, 0), P(t0, rampW, y0), P(t1, rampW, y1), TILE.brick, foot, foot, side, side);
-                B.quad(P(t0, -rampW, 0), P(t1, -rampW, 0), P(t1, -rampW, y1), P(t0, -rampW, y0), TILE.brick, foot, foot, side, side);
-            }
-        });
         // everything solid
         const LOOK = {
             pillar: { tile: TILE.slab, col: [0.95, 0.95, 1.05] },
             low: { tile: TILE.low, col: [1, 1, 1] },
             crate: { tile: TILE.crate, col: [1, 0.98, 0.9] },
-            window: { tile: TILE.low, col: [1, 1, 1] }
+            window: { tile: TILE.low, col: [1, 1, 1] },
+            disk: { tile: TILE.disk, col: [1, 1, 1.05] }
         };
-        for (const b of S.LAYOUT.boxes) {
+        for (const b of L.boxes) {
             const l = LOOK[b[5]] || LOOK.pillar;
             const x0 = b[0] - b[2], x1 = b[0] + b[2], z0 = b[1] - b[3], z1 = b[1] + b[3], y1 = b[4];
+            const y0 = L.ground(b[0], b[1]);
             if (b[5] === 'window') {
                 // the two big sides are the dialog, stretched across two tiles
                 const dlg = tileUv(TILE.dialog), dlg2 = tileUv(TILE.dialog2);
                 const uv = [dlg[0], dlg[1], dlg2[2], dlg[3]];
-                const tall = [0.9, 0.9, 0.95], dim = [0.55, 0.55, 0.6];
+                const tall = [0.9, 0.9, 0.95], dm = [0.55, 0.55, 0.6];
                 if (b[2] > b[3]) {
-                    B.quad([x0, 0, z1], [x1, 0, z1], [x1, y1, z1], [x0, y1, z1], TILE.dialog, dim, dim, tall, tall, uv);
-                    B.quad([x1, 0, z0], [x0, 0, z0], [x0, y1, z0], [x1, y1, z0], TILE.dialog, dim, dim, tall, tall, uv);
-                    B.box(x0 - 0.02, 0, z0 + 0.01, x0, y1, z1 - 0.01, TILE.low, [0.7, 0.7, 0.72]);
-                    B.box(x1, 0, z0 + 0.01, x1 + 0.02, y1, z1 - 0.01, TILE.low, [0.7, 0.7, 0.72]);
+                    B.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], TILE.dialog, dm, dm, tall, tall, uv);
+                    B.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], TILE.dialog, dm, dm, tall, tall, uv);
+                    B.box(x0 - 0.02, y0, z0 + 0.01, x0, y1, z1 - 0.01, TILE.low, [0.7, 0.7, 0.72]);
+                    B.box(x1, y0, z0 + 0.01, x1 + 0.02, y1, z1 - 0.01, TILE.low, [0.7, 0.7, 0.72]);
                 } else {
-                    B.quad([x1, 0, z1], [x1, 0, z0], [x1, y1, z0], [x1, y1, z1], TILE.dialog, dim, dim, tall, tall, uv);
-                    B.quad([x0, 0, z0], [x0, 0, z1], [x0, y1, z1], [x0, y1, z0], TILE.dialog, dim, dim, tall, tall, uv);
-                    B.box(x0 + 0.01, 0, z0 - 0.02, x1 - 0.01, y1, z0, TILE.low, [0.7, 0.7, 0.72]);
-                    B.box(x0 + 0.01, 0, z1, x1 - 0.01, y1, z1 + 0.02, TILE.low, [0.7, 0.7, 0.72]);
+                    B.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], TILE.dialog, dm, dm, tall, tall, uv);
+                    B.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], TILE.dialog, dm, dm, tall, tall, uv);
+                    B.box(x0 + 0.01, y0, z0 - 0.02, x1 - 0.01, y1, z0, TILE.low, [0.7, 0.7, 0.72]);
+                    B.box(x0 + 0.01, y0, z1, x1 - 0.01, y1, z1 + 0.02, TILE.low, [0.7, 0.7, 0.72]);
                 }
                 B.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], TILE.low, [1, 1, 1]);
                 continue;
             }
             // tall things get cut into storeys, so the texture repeats rather than stretching
-            const seg = max(1, Math.round(y1 / 2.4));
+            const seg = max(1, Math.round((y1 - y0) / 2.4));
             for (let i = 0; i < seg; i++) {
-                const ya = y1 * i / seg, yb = y1 * (i + 1) / seg;
+                const ya = y0 + (y1 - y0) * i / seg, yb = y0 + (y1 - y0) * (i + 1) / seg;
                 const top = i === seg - 1;
                 const k = 0.55 + 0.45 * (i + 1) / seg;
                 const col = [l.col[0] * k, l.col[1] * k, l.col[2] * k];
@@ -560,12 +590,13 @@ void main() {
     }
     function buildSky() {
         const B = new Builder();
+        const T = S.LAYOUT.theme;
         // a tall can around everything: clouds up top, fog at the bottom
         const n = 28, R = 90;
         for (let i = 0; i < n; i++) {
             const a = i / n * PI * 2, b = (i + 1) / n * PI * 2;
             const P = (an, y, r) => [sin(an) * r, y, cos(an) * r];
-            const lo = FOG_COLOR, mid = [0.5, 0.74, 0.82], top = [0.82, 0.95, 1.02], high = [0.72, 0.9, 1];
+            const lo = T.fog, mid = T.skyMid, top = T.skyTop, high = T.skyHigh;
             B.quad(P(b, -2, R), P(a, -2, R), P(a, 16, R), P(b, 16, R), TILE.white, lo, lo, mid, mid);
             B.quad(P(b, 16, R), P(a, 16, R), P(a, 42, R * 0.84), P(b, 42, R * 0.84), TILE.cloud, mid, mid, top, top);
             B.quad(P(b, 42, R * 0.84), P(a, 42, R * 0.84), P(a, 62, R * 0.5), P(b, 62, R * 0.5), TILE.cloud, top, top, high, high);
@@ -1010,7 +1041,7 @@ void main() {
                 gl.uniform3f(U.uCam, cam.x, cam.y, cam.z);
                 const fog = view.fog || [12, 40];
                 gl.uniform2f(U.uFog, fog[0], fog[1]);
-                const fc = view.fogColor || FOG_COLOR;
+                const fc = view.fogColor || S.LAYOUT.theme.fog;
                 gl.uniform3f(U.uFogCol, fc[0], fc[1], fc[2]);
                 const tint = view.tint || [1, 1, 1];
                 gl.uniform3f(U.uTint, tint[0], tint[1], tint[2]);
@@ -1031,7 +1062,7 @@ void main() {
                 gl.uniform1f(U.uFogOn, 0);
                 const skyM = M4.trs(cam.x, 0, cam.z);
                 draw(M.sky, skyM);
-                if (view.moon !== false) {
+                if (S.LAYOUT.theme.moon) {
                     // a very large troll has been watching the whole time
                     gl.uniform1f(U.uTest, 0.5);
                     draw(M.moon, M4.trs(cam.x - 60, 44, cam.z - 40, 0.9, 0, 0, 13));
@@ -1045,9 +1076,10 @@ void main() {
                     draw(M.arena, IDENT);
                     // the idol over the altar, turning slowly
                     gl.disable(gl.CULL_FACE);
-                    draw(M.plinth, M4.trs(0, D.ARENA.altar.h, 0, view.t * 0.4));
+                    draw(M.plinth, M4.trs(0, S.LAYOUT.altar.h, 0, view.t * 0.4));
                     gl.uniform3f(U.uAdd, 0.1, 0.05, 0.15);
-                    draw(M.totem, M4.trs(0, D.ARENA.altar.h + 2.1 + sin(view.t * 1.3) * 0.12, 0, view.t * 0.6));
+                    // up out of the way, and gone altogether when you are stood under it
+                    if (hypot(cam.x, cam.z) > 6) draw(M.totem, M4.trs(0, S.LAYOUT.altar.h + 4 + sin(view.t * 1.3) * 0.12, 0, view.t * 0.6));
                     gl.uniform3f(U.uAdd, 0, 0, 0);
                     gl.enable(gl.CULL_FACE);
                 }

@@ -286,13 +286,19 @@ section('what you actually play with');
         for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
         return ids.slice(0, D.LOADOUT_SIZE);
     };
-    const pools = [D.DEFAULT_LOADOUT, ...D.BOTS.map(b => b.style.pool), ...Array.from({ length: 24 }, shuffle)];
+    const pools = [D.DEFAULT_LOADOUT, ...D.BOTS.map(b => b.style.pool), ...D.PRESETS.map(p => p.sigils), ...Array.from({ length: 24 }, shuffle)];
     for (const pool of pools) {
         const r = matrix(0.7, 10, 500 + n, pool);
         right += r.right * r.n; wrong += r.wrong * r.n; n += r.n;
     }
     expect(right / n >= 0.92, 'with eight in the book, an ordinary hand gets what it drew', pct(right / n) + ' over ' + pools.length + ' loadouts');
     expect(wrong / n <= 0.006, 'and the wrong spell nearly never', pct(wrong / n));
+    // the ready made ones especially, because everybody will be carrying them
+    D.PRESETS.forEach((p, i) => {
+        const r = matrix(0.7, 10, 900 + i, p.sigils);
+        console.log('        ' + p.id.padEnd(12) + pct(r.right) + ' read right, ' + pct(r.wrong) + ' read wrong');
+        expect(r.right >= 0.9 && r.wrong <= 0.02, p.name + ': an ordinary hand can use all eight', pct(r.right) + ' right, ' + pct(r.wrong) + ' wrong');
+    });
     const off = SPELLS.find(s => !D.DEFAULT_LOADOUT.includes(s.id) && s.id === 'oblivion');
     const notPacked = R.decide(off.glyph, D.DEFAULT_LOADOUT);
     expect(!notPacked.ok && notPacked.why === 'book' && notPacked.id === 'oblivion', 'a real symbol you did not pack is not cast as something else, and you are told', JSON.stringify({ why: notPacked.why, id: notPacked.id }));

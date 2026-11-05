@@ -7495,14 +7495,88 @@ body.disco-floor::after {
 }
 
 .wz-load-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
     gap: 4px;
     margin-bottom: 8px;
-    flex-wrap: wrap;
 }
 
 .wz-load-all {
-    max-height: 240px;
+    max-height: 200px;
+}
+
+.wz-load-head {
+    font-size: 11px;
+    color: #c8b9ff;
+    margin: 8px 0 4px;
+    text-transform: lowercase;
+}
+
+.wz-idrow {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.wz-idbox {
+    font-family: "Courier New", monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    width: 22ch;
+    max-width: 100%;
+    min-height: 28px;
+    box-sizing: border-box;
+}
+
+.wz-hint.wz-bad {
+    color: #ff8080;
+}
+
+.wz-presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 4px;
+    max-height: 210px;
+    overflow-y: auto;
+}
+
+.wz-preset {
+    display: grid;
+    gap: 2px;
+    text-align: left;
+    padding: 5px 6px;
+    background: #1a0f33;
+    color: #e8e2ff;
+    border: 2px outset #5b4a8c;
+    font-family: "Courier New", monospace;
+    cursor: pointer;
+}
+
+.wz-preset.on {
+    border-color: #ffd34d;
+    background: #2c1a52;
+}
+
+.wz-preset-name {
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.wz-preset-style {
+    font-size: 10px;
+    color: #9a8ec4;
+    line-height: 1.25;
+}
+
+.wz-preset-sigils {
+    display: flex;
+    gap: 1px;
+    flex-wrap: wrap;
+}
+
+.wz-preset-code {
+    font-size: 11px;
+    color: #7fe08a;
+    letter-spacing: 1px;
 }
 
 /* ---------- trainer ---------- */
@@ -10796,6 +10870,8 @@ html {
     .aot-input { min-height: 40px; font-size: 16px; }
 }
 
+.np-team0 { color: #0a7a2a; font-weight: bold; }
+.np-team1 { color: #a00020; font-weight: bold; }
 /* Wizardz in 3d. The canvas really is 240 lines tall, and css scales it up with no smoothing. */
 .wz-body.wz-playing { padding: 0; max-height: none; overflow: hidden; background: #000; }
 .app-window.fs-active .wz-body.wz-playing { padding: 0; }

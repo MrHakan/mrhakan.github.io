@@ -11,8 +11,13 @@
 // end of a wire, all come in through those same doors. command() is what a stranger
 // can reach, so it refuses nonsense rather than throwing.
 //
-// The arena is a height map with no overhangs, so "is that a wall" and "can they
-// see me" are array lookups, which is why a match costs a few milliseconds to run.
+// Up to eight seats. A seat's team is its number mod 2, so seat 0 and seat 1 are on
+// opposite sides however many people there are, and a 1v1 is the same game it was.
+// There is no friendly fire: a team's shots go through its own wizards and its own
+// walls, and splash and zones only hurt the other side.
+//
+// Each map is a height map with no overhangs, so "is that a wall" and "can they see me"
+// are array lookups, which is why a match costs a few milliseconds to run.
 // ===================================================================
 (function () {
     'use strict';
@@ -31,51 +36,82 @@
     const KIND_LOADED = { shot: 1, beam: 1, strike: 1, wall: 1, zone: 1, trap: 1, summon: 1 };
 
     // ===============================================================
-    // the ground
+    // the ground: a height map per map, built once, and one in use at a time
     // ===============================================================
     const CELLS = 4;          // height samples per metre
     const SIDE = A.size * CELLS + 1;
     const HALF = A.size / 2;
     const OUTER = 12;         // how tall the wall round the edge is
-    const LAYOUT = D.makeLayout();
-    const HEIGHT = new Float32Array(SIDE * SIDE);
-    function altarHeightAt(x, z) {
-        const a = A.altar;
-        // an octagon rather than a circle, because everything here is low poly
-        const oct = max(abs(x), abs(z), (abs(x) + abs(z)) * 0.7071);
-        if (oct <= a.r) return a.h;
-        // four ramps, along the axes
-        const along = max(abs(x), abs(z)), across = min(abs(x), abs(z));
-        if (across <= 2 && along <= a.ramp) return a.h * (a.ramp - along) / (a.ramp - a.r);
-        return 0;
-    }
-    (function buildHeights() {
+    const NAV = 1;            // metres a cell, for the bots
+    const NAV_SIDE = A.size / NAV;
+    const WORLDS = new Map();
+    let W = null;
+    function buildWorld(id) {
+        const layout = D.makeLayout(id);
+        const height = new Float32Array(SIDE * SIDE);
         for (let j = 0; j < SIDE; j++) for (let i = 0; i < SIDE; i++) {
             const x = i / CELLS - HALF, z = j / CELLS - HALF;
-            let h = altarHeightAt(x, z);
+            let h = layout.ground(x, z);
             if (abs(x) > HALF - 1 || abs(z) > HALF - 1) h = OUTER;
-            for (const b of LAYOUT.boxes) {
+            for (const b of layout.boxes) {
                 if (abs(x - b[0]) <= b[2] && abs(z - b[1]) <= b[3]) h = max(h, b[4]);
             }
-            HEIGHT[j * SIDE + i] = h;
+            height[j * SIDE + i] = h;
         }
-    })();
+        const at = (x, z) => {
+            const i = round((x + HALF) * CELLS), j = round((z + HALF) * CELLS);
+            if (i < 0 || j < 0 || i >= SIDE || j >= SIDE) return OUTER;
+            return height[j * SIDE + i];
+        };
+        // where a bot can walk. A cell with a drop or a wall inside its width is not one
+        const passable = new Uint8Array(NAV_SIDE * NAV_SIDE);
+        const navH = new Float32Array(NAV_SIDE * NAV_SIDE);
+        for (let j = 0; j < NAV_SIDE; j++) for (let i = 0; i < NAV_SIDE; i++) {
+            const x = (i + 0.5) * NAV - HALF, z = (j + 0.5) * NAV - HALF;
+            const h = at(x, z);
+            navH[j * NAV_SIDE + i] = h;
+            let ok = h < OUTER - 1;
+            for (const [dx, dz] of [[0.75, 0], [-0.75, 0], [0, 0.75], [0, -0.75], [0.6, 0.6], [-0.6, 0.6], [0.6, -0.6], [-0.6, -0.6]]) {
+                if (abs(at(x + dx, z + dz) - h) > 0.45) ok = false;
+            }
+            passable[j * NAV_SIDE + i] = ok ? 1 : 0;
+        }
+        // somewhere to stand with something in the way, for a bot that wants to draw
+        const cover = [];
+        layout.boxes.forEach(b => {
+            const m = 1.1;
+            [[b[0] + b[2] + m, b[1]], [b[0] - b[2] - m, b[1]], [b[0], b[1] + b[3] + m], [b[0], b[1] - b[3] - m]].forEach(p => {
+                if (abs(p[0]) >= HALF - 2 || abs(p[1]) >= HALF - 2) return;
+                const c = clamp(floor((p[1] + HALF) / NAV), 0, NAV_SIDE - 1) * NAV_SIDE + clamp(floor((p[0] + HALF) / NAV), 0, NAV_SIDE - 1);
+                if (passable[c] && at(p[0], p[1]) + 1.2 < b[4]) cover.push(p);
+            });
+        });
+        return { id: layout.id, layout, height, at, passable, navH, cover, flows: new Map() };
+    }
+    function useMap(id) {
+        const m = D.mapById(id);
+        let w = WORLDS.get(m.id);
+        if (!w) { w = buildWorld(m.id); WORLDS.set(m.id, w); }
+        W = w;
+        return w;
+    }
+    useMap(D.MAPS[0].id);
     function heightAt(x, z) {
         const i = round((x + HALF) * CELLS), j = round((z + HALF) * CELLS);
         if (i < 0 || j < 0 || i >= SIDE || j >= SIDE) return OUTER;
-        return HEIGHT[j * SIDE + i];
+        return W.height[j * SIDE + i];
     }
 
     // ===============================================================
     // a new match
     // ===============================================================
     function newWizard(i, player) {
-        const sp = LAYOUT.spawns[i];
+        const team = i % 2, sp = W.layout.spawns[team][floor(i / 2)];
         return {
-            i, id: player.id, name: player.name || 'wizard', avatar: player.avatar || null,
+            i, team, id: player.id, name: player.name || 'wizard', avatar: player.avatar || null,
             bot: !!player.bot,
             loadout: player.loadout || D.DEFAULT_LOADOUT.slice(),
-            x: sp[0], y: 0, z: sp[1], vy: 0,
+            x: sp[0], y: heightAt(sp[0], sp[1]), z: sp[1], vy: 0,
             mvx: 0, mvz: 0,          // what the legs are doing, which the renderer wants
             kx: 0, kz: 0,            // being shoved
             yaw: faceCentre(sp[0], sp[1]), pitch: 0,
@@ -94,24 +130,30 @@
 
     function newMatch(o) {
         o = o || {};
+        useMap(o.map);
+        const list = (o.players && o.players.length >= 2) ? o.players : [(o.players || [])[0] || { id: 'a' }, { id: 'b' }];
+        const mode = ceil(list.length / 2);
         const s = {
             seed: (o.seed >>> 0) || 1, rng: (o.seed >>> 0) || 1,
             tick: 0, t: 0, match: o.match || 1,
+            map: W.id, mode,
+            koGoal: A.knockouts[mode] || A.knockouts[4],
             phase: 'countdown', phaseT: A.countdown,
-            wiz: [newWizard(0, (o.players || [])[0] || { id: 'a' }), newWizard(1, (o.players || [])[1] || { id: 'b' })],
-            input: [blankInput(), blankInput()],
+            wiz: list.map((p, i) => newWizard(i, p)),
+            input: list.map(() => blankInput()),
             ents: [], nextId: 1,
             score: [0, 0],
             altar: [0, 0],
-            pickups: LAYOUT.pickups.map((p, i) => ({ i, kind: p.kind, x: p.x, z: p.z, y: heightAt(p.x, p.z), t: 0 })),
+            onAltar: -1,
+            pickups: W.layout.pickups.map((p, i) => ({ i, kind: p.kind, x: p.x, z: p.z, y: heightAt(p.x, p.z), t: 0 })),
             over: null, reason: null,
             fog: A.fogStart,
             ev: [],
             guessing: false,
+            guessMe: -1,
             stats: o.stats ? newStats() : null
         };
-        s.input[0].yaw = s.wiz[0].yaw;
-        s.input[1].yaw = s.wiz[1].yaw;
+        s.input.forEach((inp, i) => { inp.yaw = s.wiz[i].yaw; });
         return s;
     }
     function newStats() { return { casts: {}, dmg: {}, shots: 0, ko: [0, 0], ritual: 0, pickups: 0 }; }
@@ -122,6 +164,16 @@
     }
     function emit(s, ...e) { if (!s.guessing) s.ev.push(e); }
     const live = s => s.phase === 'live';
+    // the nearest somebody on the other side, by plain distance. dead ones do not count
+    function nearestEnemy(s, team, x, y, z) {
+        let best = null, far = 1e18;
+        for (const q of s.wiz) {
+            if (q.team === team || q.dead) continue;
+            const d = (q.x - x) * (q.x - x) + (q.y - y) * (q.y - y) + (q.z - z) * (q.z - z);
+            if (d < far) { far = d; best = q; }
+        }
+        return best;
+    }
 
     // ===============================================================
     // statuses and damage
@@ -152,6 +204,8 @@
         if (s.guessing) return 0;
         if (has(w, 'phase') && !src.dot) return 0;
         const attacker = src.from !== undefined && src.from !== null ? s.wiz[src.from] : null;
+        // nobody on your own side can hurt you, whatever they threw
+        if (attacker && attacker.team === w.team && src.from !== target) return 0;
         let dmg = amount;
         if (attacker && src.from !== target) dmg *= dealtBy(attacker);
         if (has(w, 'mark')) dmg *= 1.3;
@@ -173,12 +227,13 @@
         if (s.stats && src.spell && src.from !== target) s.stats.dmg[src.spell] = (s.stats.dmg[src.spell] || 0) + amount;
         if (dmg > 0) {
             w.hp = max(0, w.hp - dmg);
+            if (attacker && attacker !== w) { w.lastHit = attacker.i; w.lastHitT = s.t; }
             if (!src.dot) {
                 w.hitT = 0.25;
-                emit(s, 'hit', target, r1(dmg), src.spell ? SPELL_INDEX[src.spell] : ZAP);
+                emit(s, 'hit', target, r1(dmg), src.spell ? SPELL_INDEX[src.spell] : ZAP, attacker ? attacker.i : -1);
             } else {
                 w.dot += dmg;
-                if (w.dotT <= 0) { emit(s, 'hit', target, r1(w.dot), 254); w.dot = 0; w.dotT = 0.6; }
+                if (w.dotT <= 0) { emit(s, 'hit', target, r1(w.dot), 254, -1); w.dot = 0; w.dotT = 0.6; }
             }
         }
         if (attacker && src.lifesteal && !attacker.dead) heal(s, attacker.i, dmg * src.lifesteal);
@@ -198,12 +253,15 @@
         w.stance = false;
         w.st = {};
         w.ward = 0; w.wardT = 0; w.wardThorns = 0; w.wardZap = false;
-        s.altar[w.i] *= 1 - A.ritualKo;
-        const other = 1 - w.i;
+        // one of four going down should not cost as much as the only one going down
+        s.altar[w.team] *= 1 - A.ritualKo / s.mode;
+        const other = 1 - w.team;
         s.score[other]++;
         if (s.stats) s.stats.ko[other]++;
-        emit(s, 'ko', w.i, attacker ? attacker.i : -1);
-        if (s.score[other] >= A.knockouts) finish(s, other, 'ko');
+        // a burn or a fog gets the kill for whoever hit them last
+        const by = attacker && attacker.team !== w.team ? attacker.i : (s.t - (w.lastHitT || -99) < 8 ? w.lastHit : -1);
+        emit(s, 'ko', w.i, by === undefined ? -1 : by);
+        if (s.score[other] >= s.koGoal) finish(s, other, 'ko');
     }
     function finish(s, winner, reason) {
         if (s.over !== null && s.over !== undefined) return;
@@ -256,10 +314,11 @@
         out.z = w.z + rz * 0.42 + f.z * 0.55;
         return out;
     }
-    function insideWall(s, x, y, z, grow, onlyOwner) {
+    // a wall stops anything of the other side's, and lets its own team's through
+    function insideWall(s, x, y, z, grow, passTeam) {
         for (const e of s.ents) {
             if (e.k !== 'wall' || y >= e.h) continue;
-            if (onlyOwner !== undefined && e.o === onlyOwner) continue;
+            if (passTeam !== undefined && e.tm === passTeam) continue;
             if (inBox(e, x, z, grow)) return e;
         }
         return null;
@@ -269,9 +328,9 @@
         const lx = dx * c + dz * sn, lz = -dx * sn + dz * c;
         return abs(lx) <= e.hw + grow && abs(lz) <= e.hd + grow;
     }
-    // where the crosshair lands: the world, a wall, or them
+    // where the crosshair lands: the world, a wall, or one of them
     function aimPoint(s, i, range) {
-        const w = s.wiz[i], foe = s.wiz[1 - i];
+        const w = s.wiz[i];
         const c = camera(s, w);
         const rng = range || 64;
         const n = ceil(rng / 0.4);
@@ -281,8 +340,11 @@
             x = c.x + c.fx * d; y = c.y + c.fy * d; z = c.z + c.fz * d;
             if (d < 1) continue;
             if (y < heightAt(x, z)) return { x, y, z, hit: 'world', d };
-            if (insideWall(s, x, y, z, 0, i)) return { x, y, z, hit: 'wall', d };
-            if (!foe.dead && abs(x - foe.x) < 0.7 && abs(z - foe.z) < 0.7 && y > foe.y && y < foe.y + A.height + 0.1) return { x, y, z, hit: 'foe', d };
+            if (insideWall(s, x, y, z, 0, w.team)) return { x, y, z, hit: 'wall', d };
+            for (const q of s.wiz) {
+                if (q.team === w.team || q.dead) continue;
+                if (abs(x - q.x) < 0.7 && abs(z - q.z) < 0.7 && y > q.y && y < q.y + A.height + 0.1) return { x, y, z, hit: 'foe', d, who: q.i };
+            }
         }
         return { x, y, z, hit: null, d: rng };
     }
@@ -316,7 +378,7 @@
         return null;
     }
     function command(s, i, c) {
-        if (!c || typeof c !== 'object' || (i !== 0 && i !== 1)) return 'bad';
+        if (!c || typeof c !== 'object' || !Number.isInteger(i) || !s.wiz[i]) return 'bad';
         if (s.over !== null && s.over !== undefined) return 'over';
         const w = s.wiz[i];
         switch (c.c) {
@@ -333,7 +395,7 @@
                 w.castT = 0.35;
                 if (s.stats) s.stats.casts[sp.id] = (s.stats.casts[sp.id] || 0) + 1;
                 emit(s, 'cast', i, SPELL_INDEX[sp.id], round(q * 100));
-                const power = D.ARENA.qualityPower[0] + (D.ARENA.qualityPower[1] - D.ARENA.qualityPower[0]) * q;
+                const power = A.qualityPower[0] + (A.qualityPower[1] - A.qualityPower[0]) * q;
                 if (KIND_LOADED[sp.kind]) {
                     const base = sp.charges || 1;
                     w.chamber = { s: sp.id, n: base + (base > 1 && q >= A.cleanCharge ? 1 : 0), power };
@@ -372,7 +434,7 @@
                 return null;
             }
             case 'resign': {
-                finish(s, 1 - i, 'resign');
+                finish(s, 1 - w.team, 'resign');
                 return null;
             }
             default:
@@ -388,7 +450,7 @@
         o.aim = !!d.aim; o.jump = !!d.jump; o.dash = !!d.dash; o.ink = !!d.ink;
         return o;
     }
-    function setInput(s, i, d) { s.input[i] = sanitizeInput(d); }
+    function setInput(s, i, d) { if (s.input[i]) s.input[i] = sanitizeInput(d); }
 
     // ---------------------------------------------------------------
     // firing
@@ -416,9 +478,9 @@
         const v = jitter(s, w, { x: l.dx, y: l.dy, z: l.dz }, w.aim ? 0.2 : 1.1);
         if (s.stats) s.stats.shots++;
         s.ents.push({
-            id: s.nextId++, k: 'shot', s: null, si: ZAP, o: i, el: 'arcane',
+            id: s.nextId++, k: 'shot', s: null, si: ZAP, o: i, tm: w.team, el: 'arcane',
             x: l.m.x, y: l.m.y, z: l.m.z, vx: v.x * A.zap.speed, vy: v.y * A.zap.speed, vz: v.z * A.zap.speed,
-            r: A.zap.r, dmg: A.zap.dmg, life: A.zap.range / A.zap.speed, zap: true
+            r: A.zap.r, dmg: A.zap.dmg, life: A.zap.range / A.zap.speed, zap: true, hits: 0
         });
         emit(s, 'fire', i, ZAP);
     }
@@ -427,12 +489,14 @@
         const p = sp.p || {};
         emit(s, 'fire', i, SPELL_INDEX[sp.id]);
         if (s.stats) s.stats.shots++;
+        const base = { id: 0, s: sp.id, si: SPELL_INDEX[sp.id], o: i, tm: w.team, el: sp.el };
+        const make = o => { const e = Object.assign({}, base, o); e.id = s.nextId++; s.ents.push(e); return e; };
         switch (sp.kind) {
             case 'shot': return fireShot(s, i, sp, power);
             case 'beam': return fireBeam(s, i, sp, power);
             case 'strike': {
                 const t = groundTarget(s, i, p.range);
-                s.ents.push({ id: s.nextId++, k: 'strike', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el, x: t.x, y: t.y, z: t.z, r: p.r, t: p.delay, dmg: sp.dmg * power });
+                make({ k: 'strike', x: t.x, y: t.y, z: t.z, r: p.r, t: p.delay, dmg: sp.dmg * power });
                 return;
             }
             case 'wall': {
@@ -443,20 +507,20 @@
             case 'zone': {
                 const t = groundTarget(s, i, p.range);
                 limitOwned(s, i, 'zone');
-                s.ents.push({ id: s.nextId++, k: 'zone', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el, x: t.x, y: t.y, z: t.z, r: p.r, life: p.dur, power });
+                make({ k: 'zone', x: t.x, y: t.y, z: t.z, r: p.r, life: p.dur, power });
                 return;
             }
             case 'trap': {
                 const t = groundTarget(s, i, p.range);
                 limitOwned(s, i, 'trap');
-                s.ents.push({ id: s.nextId++, k: 'trap', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el, x: t.x, y: t.y, z: t.z, r: p.r, life: p.dur, arm: 0.6, dmg: sp.dmg * power });
+                make({ k: 'trap', x: t.x, y: t.y, z: t.z, r: p.r, life: p.dur, arm: 0.6, dmg: sp.dmg * power });
                 return;
             }
             case 'summon': {
                 const t = groundTarget(s, i, p.range);
                 limitOwned(s, i, 'summon');
                 const d = hypot(t.x - w.x, t.z - w.z) || 1;
-                s.ents.push({ id: s.nextId++, k: 'decoy', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el, x: w.x, y: w.y, z: w.z, gx: t.x, gz: t.z, vx: (t.x - w.x) / d * A.walk * 0.85, vz: (t.z - w.z) / d * A.walk * 0.85, yaw: atan2(t.x - w.x, -(t.z - w.z)), life: p.dur, hp: p.hp || 1 });
+                make({ k: 'decoy', x: w.x, y: w.y, z: w.z, gx: t.x, gz: t.z, vx: (t.x - w.x) / d * A.walk * 0.85, vz: (t.z - w.z) / d * A.walk * 0.85, yaw: atan2(t.x - w.x, -(t.z - w.z)), life: p.dur, hp: p.hp || 1 });
                 if (p.stealth) addStatus(w, 'stealth', p.stealth);
                 return;
             }
@@ -486,7 +550,7 @@
         limitOwned(s, i, 'wall');
         const yaw = atan2(t.x - w.x, -(t.z - w.z));
         const e = {
-            id: s.nextId++, k: 'wall', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el,
+            id: s.nextId++, k: 'wall', s: sp.id, si: SPELL_INDEX[sp.id], o: i, tm: w.team, el: sp.el,
             x: t.x, z: t.z, y: t.y, ang: yaw,
             // across your aim: the long side faces you
             ca: cos(yaw), sa: sin(yaw), hw: p.w / 2, hd: p.d / 2,
@@ -514,10 +578,10 @@
             const v = jitter(s, w, { x: l.dx, y: l.dy, z: l.dz }, sp2);
             const m = hypot(v.x, v.y, v.z) || 1;
             const e = {
-                id: s.nextId++, k: 'shot', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el,
+                id: s.nextId++, k: 'shot', s: sp.id, si: SPELL_INDEX[sp.id], o: i, tm: w.team, el: sp.el,
                 x: l.m.x, y: l.m.y, z: l.m.z,
                 vx: v.x / m * p.speed, vy: v.y / m * p.speed, vz: v.z / m * p.speed,
-                r: p.r, dmg: (sp.dmg || 0) * power, life: p.life || 3.2, bounce: p.bounce || 0
+                r: p.r, dmg: (sp.dmg || 0) * power, life: p.life || 3.2, bounce: p.bounce || 0, hits: 0
             };
             if (p.ground || p.roll) {
                 // these go along the floor, whatever the staff was pointing at
@@ -535,14 +599,14 @@
         const dx0 = aim.x - m.x, dy0 = aim.y - m.y, dz0 = aim.z - m.z, l0 = hypot(dx0, dy0, dz0) || 1;
         const ray = { x: m.x, y: m.y, z: m.z, dx: dx0 / l0, dy: dy0 / l0, dz: dz0 / l0 };
         if (p.delay) {
-            s.ents.push({ id: s.nextId++, k: 'pending', s: sp.id, si: SPELL_INDEX[sp.id], o: i, el: sp.el, x: m.x, y: m.y, z: m.z, dx: ray.dx, dy: ray.dy, dz: ray.dz, t: p.delay, power });
+            s.ents.push({ id: s.nextId++, k: 'pending', s: sp.id, si: SPELL_INDEX[sp.id], o: i, tm: w.team, el: sp.el, x: m.x, y: m.y, z: m.z, dx: ray.dx, dy: ray.dy, dz: ray.dz, t: p.delay, power });
             emit(s, 'line', r1(m.x), r1(m.y), r1(m.z), r1(m.x + ray.dx * p.range), r1(m.y + ray.dy * p.range), r1(m.z + ray.dz * p.range), sp.el);
             return;
         }
         resolveBeam(s, i, sp, ray, power);
     }
     function resolveBeam(s, i, sp, ray, power) {
-        const p = sp.p, foe = s.wiz[1 - i], me = s.wiz[i];
+        const p = sp.p, me = s.wiz[i];
         // how far it gets
         let reach = p.range;
         if (!p.through) {
@@ -551,23 +615,29 @@
                 const d = k * 0.4;
                 const x = ray.x + ray.dx * d, y = ray.y + ray.dy * d, z = ray.z + ray.dz * d;
                 if (y < heightAt(x, z)) { reach = d; break; }
-                const wall = insideWall(s, x, y, z, 0, i);
+                const wall = insideWall(s, x, y, z, 0, me.team);
                 if (wall) { wall.hp -= (sp.dmg || 0) * power; reach = d; break; }
             }
         }
         // decoys take it
         for (const e of s.ents) {
-            if (e.k !== 'decoy' || e.o === i) continue;
+            if (e.k !== 'decoy' || e.tm === me.team) continue;
             if (rayNear(ray, e.x, e.y + 0.9, e.z, reach) < (p.width || 0.8)) { e.hp = 0; reach = 0; emit(s, 'zap', r1(e.x), r1(e.y + 1), r1(e.z), 'shadow'); }
         }
-        let hit = false;
-        if (reach > 0 && !foe.dead && !has(foe, 'phase') && foe.safe <= 0) {
-            const off = rayNear(ray, foe.x, foe.y + 0.9, foe.z, reach);
-            if (off < (p.width || 0.8) + 0.25) hit = true;
+        // the first of them along the line
+        let foe = null, closest = 1e9;
+        if (reach > 0) {
+            for (const q of s.wiz) {
+                if (q.team === me.team || q.dead || has(q, 'phase') || q.safe > 0) continue;
+                const off = rayNear(ray, q.x, q.y + 0.9, q.z, reach);
+                if (off >= (p.width || 0.8) + 0.25) continue;
+                const along = (q.x - ray.x) * ray.dx + (q.y + 0.9 - ray.y) * ray.dy + (q.z - ray.z) * ray.dz;
+                if (along < closest) { closest = along; foe = q; }
+            }
         }
-        const ex = hit ? foe.x : ray.x + ray.dx * reach, ey = hit ? foe.y + 1 : ray.y + ray.dy * reach, ez = hit ? foe.z : ray.z + ray.dz * reach;
+        const ex = foe ? foe.x : ray.x + ray.dx * reach, ey = foe ? foe.y + 1 : ray.y + ray.dy * reach, ez = foe ? foe.z : ray.z + ray.dz * reach;
         emit(s, 'beam', r1(ray.x), r1(ray.y), r1(ray.z), r1(ex), r1(ey), r1(ez), sp.el);
-        if (!hit) return;
+        if (!foe) return;
         let dmg = (sp.dmg || 0) * power;
         if (p.execute) dmg += (A.maxHp - foe.hp) * p.execute;
         hurt(s, foe.i, dmg, { from: i, spell: sp.id, lifesteal: p.lifesteal });
@@ -608,13 +678,14 @@
     // spells that go off the moment the ink dries
     // ---------------------------------------------------------------
     function release(s, i, sp, power) {
-        const w = s.wiz[i], foe = s.wiz[1 - i], p = sp.p || {};
+        const w = s.wiz[i], p = sp.p || {};
         switch (sp.kind) {
             case 'nova': {
                 emit(s, 'nova', i, p.r, sp.el);
                 if (p.selfDispel) clearBad(w);
-                if (p.breaks) s.ents = s.ents.filter(e => !(e.k === 'trap' && e.o !== i && hypot(e.x - w.x, e.z - w.z) < p.r));
-                if (!foe.dead) {
+                if (p.breaks) s.ents = s.ents.filter(e => !(e.k === 'trap' && e.tm !== w.team && hypot(e.x - w.x, e.z - w.z) < p.r));
+                for (const foe of s.wiz) {
+                    if (foe.team === w.team || foe.dead) continue;
                     const d = hypot(foe.x - w.x, foe.z - w.z);
                     const airborne = foe.y - heightAt(foe.x, foe.z) > 0.6;
                     if (d < p.r && !(p.ground && airborne) && abs(foe.y - w.y) < p.r) {
@@ -695,7 +766,7 @@
             if (w.respawn <= 0 && !s.guessing) respawn(s, w);
             return;
         }
-        // a guest has no idea what the other one is pressing: they carry on as they were
+        // a guest has no idea what anyone else is pressing: they carry on as they were
         if (s.guessing && i !== s.guessMe) {
             const nx = w.x + w.mvx * DT, nz = w.z + w.mvz * DT;
             if (!blockedAt(s, w, nx, w.z)) w.x = nx;
@@ -817,30 +888,39 @@
         if (w.grounded && w.vy <= 0 && w.y - ground < 0.5) { w.y = ground; w.vy = 0; }
     }
     function respawn(s, w) {
-        const foe = s.wiz[1 - w.i];
-        let best = LAYOUT.spawns[0], far = -1;
-        for (const sp of LAYOUT.spawns) {
-            const d = foe.dead ? rnd(s) : hypot(sp[0] - foe.x, sp[1] - foe.z);
-            if (d > far) { far = d; best = sp; }
+        // of your side's spawn points, whichever is furthest from the nearest of them
+        const spots = W.layout.spawns[w.team];
+        let best = spots[0], far = -1;
+        for (const sp of spots) {
+            let near = 1e9;
+            for (const q of s.wiz) {
+                if (q.team === w.team || q.dead) continue;
+                near = min(near, hypot(sp[0] - q.x, sp[1] - q.z));
+            }
+            const score = near + rnd(s) * 3;
+            if (score > far) { far = score; best = sp; }
         }
         w.x = best[0]; w.z = best[1]; w.y = heightAt(best[0], best[1]);
         w.dead = false; w.hp = A.maxHp; w.ink = max(w.ink, A.startInk * 0.7);
         w.safe = A.spawnSafe; w.kx = w.kz = 0; w.vy = 0; w.dashT = 0;
         w.yaw = faceCentre(best[0], best[1]);
+        w.lastHit = undefined;
         emit(s, 'spawn', w.i, r1(w.x), r1(w.z));
     }
 
     function stepShot(s, e, keep) {
-        const foe = s.wiz[1 - e.o];
         const sp = e.s ? D.byId(e.s) : null, p = sp ? sp.p : {};
         // a wizard mid-sigil has a bubble of slow time round them. This is a rule of the
         // world rather than a screen effect, so it works the same online.
         let slow = 1;
-        if (foe.stance && hypot(e.x - foe.x, e.y - foe.y, e.z - foe.z) < A.stance.slowR) slow = A.stance.slowBy;
+        for (const q of s.wiz) {
+            if (q.team !== e.tm && q.stance && hypot(e.x - q.x, e.y - q.y, e.z - q.z) < A.stance.slowR) { slow = A.stance.slowBy; break; }
+        }
         if (p.homing) {
-            const dec = s.ents.find(o => o.k === 'decoy' && o.o !== e.o);
-            const tx = dec ? dec.x : foe.x, ty = dec ? dec.y + 1 : foe.y + 1, tz = dec ? dec.z : foe.z;
-            if (dec || !foe.dead) {
+            const dec = s.ents.find(o => o.k === 'decoy' && o.tm !== e.tm);
+            const foe = dec ? null : nearestEnemy(s, e.tm, e.x, e.y, e.z);
+            if (dec || foe) {
+                const tx = dec ? dec.x : foe.x, ty = dec ? dec.y + 1 : foe.y + 1, tz = dec ? dec.z : foe.z;
                 const dx = tx - e.x, dy = ty - e.y, dz = tz - e.z, l = hypot(dx, dy, dz) || 1;
                 const speed = hypot(e.vx, e.vy, e.vz) || p.speed;
                 const turn = p.homing * DT;
@@ -865,8 +945,8 @@
                 e.x = nx; e.z = nz; e.y = h + 0.2;
             } else if (p.roll) {
                 const h = heightAt(nx, nz);
-                const blockX = heightAt(nx, e.z) > e.y + 0.4 || !!insideWall(s, nx, e.y, e.z, e.r, e.o);
-                const blockZ = heightAt(e.x, nz) > e.y + 0.4 || !!insideWall(s, e.x, e.y, nz, e.r, e.o);
+                const blockX = heightAt(nx, e.z) > e.y + 0.4 || !!insideWall(s, nx, e.y, e.z, e.r, e.tm);
+                const blockZ = heightAt(e.x, nz) > e.y + 0.4 || !!insideWall(s, e.x, e.y, nz, e.r, e.tm);
                 if (blockX || blockZ) {
                     if (e.bounce <= 0) { spark(s, e); return; }
                     e.bounce--;
@@ -883,7 +963,7 @@
                         if (p.aoe) boom(s, e, sp, -1); else spark(s, e);
                         return;
                     }
-                    const wall = insideWall(s, e.x, e.y, e.z, e.r * 0.5, e.o);
+                    const wall = insideWall(s, e.x, e.y, e.z, e.r * 0.5, e.tm);
                     if (wall && e.hitWall !== wall.id) {
                         if (!s.guessing) wall.hp -= e.dmg;
                         e.hitWall = wall.id;
@@ -896,46 +976,47 @@
             }
             // things that eat shots
             for (const z of s.ents) {
-                if (z.k !== 'zone' || z.o === e.o) continue;
+                if (z.k !== 'zone' || z.tm === e.tm) continue;
                 const zp = D.byId(z.s).p;
                 if (!zp.eats && !zp.blocks) continue;
                 if (hypot(e.x - z.x, e.z - z.z) < z.r && e.y < z.y + z.r + 1) { spark(s, e); return; }
             }
-            // a static field swats anything small
-            if (foe.wardZap && foe.ward > 0 && e.dmg <= 15 && !p.aoe && !foe.dead && hypot(e.x - foe.x, e.y - foe.y - 1, e.z - foe.z) < 2.4) {
-                if (!s.guessing) foe.ward = max(0, foe.ward - e.dmg * 0.5);
-                spark(s, e);
-                return;
-            }
             // decoys
-            const decoy = s.ents.find(o => o.k === 'decoy' && o.o !== e.o && hypot(o.x - e.x, o.y + 0.9 - e.y, o.z - e.z) < e.r + 0.7);
+            const decoy = s.ents.find(o => o.k === 'decoy' && o.tm !== e.tm && hypot(o.x - e.x, o.y + 0.9 - e.y, o.z - e.z) < e.r + 0.7);
             if (decoy) {
                 decoy.hp -= 1;
                 spark(s, e);
                 return;
             }
-            // the wizard
-            if (!foe.dead && !e.hitFoe && !has(foe, 'phase') && foe.safe <= 0) {
+            // anybody on the other side
+            for (const foe of s.wiz) {
+                if (foe.team === e.tm || foe.dead) continue;
+                // a static field swats anything small
+                if (foe.wardZap && foe.ward > 0 && e.dmg <= 15 && !p.aoe && hypot(e.x - foe.x, e.y - foe.y - 1, e.z - foe.z) < 2.4) {
+                    if (!s.guessing) foe.ward = max(0, foe.ward - e.dmg * 0.5);
+                    spark(s, e);
+                    return;
+                }
+                if (e.hits & (1 << foe.i) || has(foe, 'phase') || foe.safe > 0) continue;
                 const rr = e.r + A.radius;
                 const dy = e.y < foe.y ? foe.y - e.y : e.y > foe.y + A.height ? e.y - foe.y - A.height : 0;
-                if ((e.x - foe.x) ** 2 + (e.z - foe.z) ** 2 + dy * dy < rr * rr) {
-                    if (p.ground && foe.y - heightAt(foe.x, foe.z) > 0.55) continue;
-                    if (has(foe, 'mirror') && !e.zap) {
-                        delete foe.st.mirror;
-                        e.o = foe.i; e.vx = -e.vx; e.vz = -e.vz; e.vy = -e.vy;
-                        e.hitFoe = false; e.hitWall = null;
-                        emit(s, 'mirror', foe.i);
-                        keep.push(e);
-                        return;
-                    }
-                    if (!s.guessing) shotHits(s, e, sp, foe);
-                    if (!p.pierce) {
-                        if (p.aoe) boom(s, e, sp, foe.i);
-                        spark(s, e);
-                        return;
-                    }
-                    e.hitFoe = true;
+                if ((e.x - foe.x) ** 2 + (e.z - foe.z) ** 2 + dy * dy >= rr * rr) continue;
+                if (p.ground && foe.y - heightAt(foe.x, foe.z) > 0.55) continue;
+                if (has(foe, 'mirror') && !e.zap) {
+                    delete foe.st.mirror;
+                    e.o = foe.i; e.tm = foe.team; e.vx = -e.vx; e.vz = -e.vz; e.vy = -e.vy;
+                    e.hits = 0; e.hitWall = null;
+                    emit(s, 'mirror', foe.i);
+                    keep.push(e);
+                    return;
                 }
+                if (!s.guessing) shotHits(s, e, sp, foe);
+                if (!p.pierce) {
+                    if (p.aoe) boom(s, e, sp, foe.i);
+                    spark(s, e);
+                    return;
+                }
+                e.hits |= 1 << foe.i;
             }
         }
         if (abs(e.x) > HALF + 4 || abs(e.z) > HALF + 4 || e.y > 30) return;
@@ -967,18 +1048,21 @@
         emit(s, 'boom', r1(e.x), r1(e.y), r1(e.z), p.aoe, e.el);
         if (s.guessing) return;
         if (p.dispel) {
+            // this can run in the middle of stepEntities, which rebuilds the list, so mark rather than remove
             for (const o of s.ents) {
-                if (o.o === e.o || hypot(o.x - e.x, o.z - e.z) >= p.aoe) continue;
+                if (o.tm === e.tm || hypot(o.x - e.x, o.z - e.z) >= p.aoe) continue;
                 if (o.k === 'wall' || o.k === 'trap' || o.k === 'zone') o.life = 0;
                 if (o.k === 'decoy') o.hp = 0;
             }
         }
-        const foe = s.wiz[1 - e.o];
-        if (foe.i === skip || foe.dead || !p.splash) return;
-        const d = hypot(foe.x - e.x, foe.y + 0.9 - e.y, foe.z - e.z);
-        if (d < p.aoe) {
-            hurt(s, foe.i, e.dmg * p.splash * (1 - d / p.aoe * 0.5), { from: e.o, spell: e.s });
-            if (p.burn && !foe.dead) addStatus(foe, 'burn', p.burn.dur, { dps: p.burn.dps });
+        if (!p.splash) return;
+        for (const foe of s.wiz) {
+            if (foe.team === e.tm || foe.i === skip || foe.dead) continue;
+            const d = hypot(foe.x - e.x, foe.y + 0.9 - e.y, foe.z - e.z);
+            if (d < p.aoe) {
+                hurt(s, foe.i, e.dmg * p.splash * (1 - d / p.aoe * 0.5), { from: e.o, spell: e.s });
+                if (p.burn && !foe.dead) addStatus(foe, 'burn', p.burn.dur, { dps: p.burn.dps });
+            }
         }
     }
 
@@ -1004,9 +1088,11 @@
                     if (e.t > 0) { keep.push(e); break; }
                     if (s.guessing) break;
                     {
-                        const sp = D.byId(e.s), p = sp.p, foe = s.wiz[1 - e.o];
+                        const sp = D.byId(e.s), p = sp.p;
                         emit(s, 'boom', r1(e.x), r1(e.y), r1(e.z), p.r, e.el);
-                        if (!foe.dead && hypot(foe.x - e.x, foe.z - e.z) < p.r + A.radius) {
+                        for (const foe of s.wiz) {
+                            if (foe.team === e.tm || foe.dead) continue;
+                            if (hypot(foe.x - e.x, foe.z - e.z) >= p.r + A.radius) continue;
                             let dmg = e.dmg;
                             if (p.punish && foe.hp < A.maxHp * 0.6) dmg *= p.punish;
                             hurt(s, foe.i, dmg, { from: e.o, spell: e.s });
@@ -1025,17 +1111,18 @@
                         if (!me.dead && hypot(me.x - e.x, me.z - e.z) < e.r && p.inkPerSec) me.ink = min(A.maxInk, me.ink + p.inkPerSec * DT);
                         break;
                     }
-                    const foe = s.wiz[1 - e.o];
-                    if (foe.dead) break;
-                    const d = hypot(foe.x - e.x, foe.z - e.z);
-                    if (d >= e.r) break;
-                    if (p.dps) hurt(s, foe.i, p.dps * e.power * DT, { from: e.o, dot: true, spell: e.s });
-                    if (foe.dead) break;
-                    if (p.burn) addStatus(foe, 'burn', p.burn.dur, { dps: p.burn.dps });
-                    if (p.status) addStatus(foe, p.status.k, p.status.dur);
-                    if (p.pull && d > 0.5) {
-                        foe.kx += (e.x - foe.x) / d * p.pull * DT * 7;
-                        foe.kz += (e.z - foe.z) / d * p.pull * DT * 7;
+                    for (const foe of s.wiz) {
+                        if (foe.team === e.tm || foe.dead) continue;
+                        const d = hypot(foe.x - e.x, foe.z - e.z);
+                        if (d >= e.r) continue;
+                        if (p.dps) hurt(s, foe.i, p.dps * e.power * DT, { from: e.o, dot: true, spell: e.s });
+                        if (foe.dead) continue;
+                        if (p.burn) addStatus(foe, 'burn', p.burn.dur, { dps: p.burn.dps });
+                        if (p.status) addStatus(foe, p.status.k, p.status.dur);
+                        if (p.pull && d > 0.5) {
+                            foe.kx += (e.x - foe.x) / d * p.pull * DT * 7;
+                            foe.kz += (e.z - foe.z) / d * p.pull * DT * 7;
+                        }
                     }
                     break;
                 }
@@ -1043,15 +1130,20 @@
                     e.life -= DT;
                     e.arm -= DT;
                     if (e.life <= 0) break;
-                    const foe = s.wiz[1 - e.o];
-                    if (e.arm <= 0 && !foe.dead && !s.guessing && hypot(foe.x - e.x, foe.z - e.z) < e.r && foe.y - e.y < 1.2) {
-                        const sp = D.byId(e.s);
-                        emit(s, 'boom', r1(e.x), r1(e.y + 0.3), r1(e.z), sp.p.aoe, e.el);
-                        hurt(s, foe.i, e.dmg, { from: e.o, spell: e.s });
-                        if (!foe.dead && sp.p.status) applyStatus(s, foe, sp.p.status, e.o, 1);
-                        break;
+                    let sprung = false;
+                    if (e.arm <= 0 && !s.guessing) {
+                        for (const foe of s.wiz) {
+                            if (foe.team === e.tm || foe.dead) continue;
+                            if (hypot(foe.x - e.x, foe.z - e.z) >= e.r || foe.y - e.y >= 1.2) continue;
+                            const sp = D.byId(e.s);
+                            emit(s, 'boom', r1(e.x), r1(e.y + 0.3), r1(e.z), sp.p.aoe, e.el);
+                            hurt(s, foe.i, e.dmg, { from: e.o, spell: e.s });
+                            if (!foe.dead && sp.p.status) applyStatus(s, foe, sp.p.status, e.o, 1);
+                            sprung = true;
+                            break;
+                        }
                     }
-                    keep.push(e);
+                    if (!sprung) keep.push(e);
                     break;
                 }
                 case 'decoy': {
@@ -1074,13 +1166,13 @@
         s.ents = keep;
     }
 
+    function onAltarNow(w) {
+        const a = W.layout.altar;
+        return !w.dead && D.octagon(w.x, w.z) <= a.r + 0.3 && w.y >= a.h - 0.4;
+    }
     function stepAltar(s) {
         const on = [false, false];
-        for (const w of s.wiz) {
-            if (w.dead) continue;
-            const oct = max(abs(w.x), abs(w.z), (abs(w.x) + abs(w.z)) * 0.7071);
-            on[w.i] = oct <= A.altar.r + 0.3 && w.y >= A.altar.h - 0.4;
-        }
+        for (const w of s.wiz) if (onAltarNow(w)) on[w.team] = true;
         s.onAltar = on[0] && on[1] ? 2 : on[0] ? 0 : on[1] ? 1 : -1;
         if (s.guessing || s.onAltar < 0 || s.onAltar === 2) return;
         s.altar[s.onAltar] += DT;
@@ -1109,10 +1201,10 @@
             return;
         }
         if (s.phase !== 'live') return;
-        stepWizard(s, 0);
-        if (s.phase !== 'live') return;
-        stepWizard(s, 1);
-        if (s.phase !== 'live') return;
+        for (let i = 0; i < s.wiz.length; i++) {
+            stepWizard(s, i);
+            if (s.phase !== 'live') return;
+        }
         stepEntities(s);
         if (s.phase !== 'live') return;
         stepAltar(s);
@@ -1125,8 +1217,10 @@
             let w;
             if (a !== b) w = a > b ? 0 : 1;
             else if (abs(s.altar[0] - s.altar[1]) > 0.01) w = s.altar[0] > s.altar[1] ? 0 : 1;
-            else if (abs(s.wiz[0].hp - s.wiz[1].hp) > 0.01) w = s.wiz[0].hp > s.wiz[1].hp ? 0 : 1;
-            else w = -1;
+            else {
+                const left = t => s.wiz.reduce((sum, q) => sum + (q.team === t ? q.hp : 0), 0);
+                w = abs(left(0) - left(1)) > 0.01 ? (left(0) > left(1) ? 0 : 1) : -1;
+            }
             finish(s, w, 'time');
         }
     }
@@ -1135,23 +1229,40 @@
     // the wire
     //
     // Arrays and short numbers, because over the relays this goes through a signed
-    // nostr event five times a second. The guest runs the same step() between
-    // snapshots, so this only has to say what changed its mind.
+    // nostr event five times a second, and with eight seats it has to fit eight of
+    // everything. So where everybody is goes every time, and what they have (health,
+    // statuses) only when it changes, a few times over since relays drop things, with one
+    // seat round in turn in case. What is in somebody's chamber is only sent for a seat a
+    // person is in, since a bot's is nobody's business. The guest runs the same step()
+    // between snapshots, so this only has to say what changed its mind.
     // ===============================================================
     const r1 = v => round(v * 10) / 10;
     const r2 = v => round(v * 100) / 100;
     const PHASES = ['countdown', 'live', 'matchover'];
-    function packWizard(w, full) {
-        const flags = (w.dead ? 1 : 0) | (w.stance ? 2 : 0) | (w.aim ? 4 : 0) | (w.grounded ? 8 : 0) | (w.wardZap ? 16 : 0) | (w.safe > 0 ? 32 : 0);
+    function packFast(w) {
+        const flags = (w.dead ? 1 : 0) | (w.stance ? 2 : 0) | (w.aim ? 4 : 0) | (w.grounded ? 8 : 0) | (w.wardZap ? 16 : 0) | (w.safe > 0 ? 32 : 0) | (w.fireT > 0 ? 64 : 0);
+        return [r1(w.x), r1(w.y), r1(w.z), r2(w.yaw), r1(w.pitch), r1(w.mvx), r1(w.mvz), r1(w.vy), flags];
+    }
+    function packSlow(w, human) {
         const st = [];
         for (const k in w.st) st.push(STATUS_INDEX[k], r1(w.st[k].t));
-        const out = [r1(w.x), r1(w.y), r1(w.z), r2(w.yaw), r2(w.pitch), r1(w.mvx), r1(w.mvz), r1(w.vy), round(w.hp * 2) / 2, round(w.ink), round(w.ward), flags, w.chamber ? SPELL_INDEX[w.chamber.s] : -1, w.chamber ? w.chamber.n : 0, r1(w.respawn), st];
-        if (full) {
+        const out = [w.i, round(w.hp * 2) / 2, round(w.ward), r1(w.respawn), st];
+        if (human) {
             const cd = [];
             for (const k in w.cd) cd.push(SPELL_INDEX[k], r1(w.cd[k]));
-            out.push(cd, r1(w.fireCd), r1(w.dashCd));
+            out.push(round(w.ink), w.chamber ? SPELL_INDEX[w.chamber.s] : -1, w.chamber ? w.chamber.n : 0, cd, r1(w.fireCd), r1(w.dashCd));
         }
         return out;
+    }
+    // the same if nothing has happened that a guest's own guess would not work out for itself
+    function slowKey(w, human) {
+        let k = round(w.hp * 2) + ',' + round(w.ward) + ',' + ceil(w.respawn) + ',';
+        for (const n in w.st) k += STATUS_INDEX[n] + ':' + ceil(w.st[n].t) + ';';
+        if (human) {
+            k += '|' + round(w.ink / 6) + ',' + (w.chamber ? w.chamber.s + w.chamber.n : '');
+            for (const n in w.cd) k += SPELL_INDEX[n] + ':' + ceil(w.cd[n]) + ';';
+        }
+        return k;
     }
     function packEntity(e) {
         switch (e.k) {
@@ -1165,13 +1276,15 @@
         }
         return null;
     }
-    function unpackEntity(a, was) {
+    function unpackEntity(s, a, was) {
         const sp = a[2] === ZAP ? null : D.SPELLS[a[2]];
-        const base = { id: a[0], si: a[2], s: sp ? sp.id : null, el: sp ? sp.el : 'arcane', o: a[3], x: a[4], y: a[5], z: a[6] };
+        const owner = s.wiz[a[3]];
+        if (!owner || (a[2] !== ZAP && !sp)) return null;
+        const base = { id: a[0], si: a[2], s: sp ? sp.id : null, el: sp ? sp.el : 'arcane', o: a[3], tm: owner.team, x: a[4], y: a[5], z: a[6] };
         switch (a[1]) {
             case 0: return Object.assign(base, {
                 k: 'shot', vx: a[7], vy: a[8], vz: a[9], r: sp ? sp.p.r : A.zap.r, dmg: sp ? sp.dmg : A.zap.dmg,
-                life: was ? was.life : (sp ? sp.p.life || 3.2 : 1), bounce: sp ? sp.p.bounce || 0 : 0, zap: !sp
+                life: was ? was.life : (sp ? sp.p.life || 3.2 : 1), bounce: sp ? sp.p.bounce || 0 : 0, zap: !sp, hits: was ? was.hits : 0
             });
             case 1: return Object.assign(base, {
                 k: 'wall', ang: a[7], ca: cos(a[7]), sa: sin(a[7]), hw: sp.p.w / 2, hd: sp.p.d / 2, h: a[5] + sp.p.h,
@@ -1185,36 +1298,61 @@
         }
         return null;
     }
-    // me is the guest's own seat: its cooldowns are the only ones anybody needs
-    function snapshot(s, extra, me) {
+    // humans: the seats somebody is sitting in, whose chambers and cooldowns are needed.
+    // full: everything, for a new match or a resync.
+    function snapshot(s, extra, humans, full) {
+        const hum = humans || [];
+        const wire = s._wire || (s._wire = { key: [], left: [], rr: 0 });
+        const v = [];
+        s.wiz.forEach((w, i) => {
+            const human = hum.includes(i);
+            const key = slowKey(w, human);
+            if (key !== wire.key[i]) { wire.key[i] = key; wire.left[i] = 3; }
+        });
+        wire.rr = (wire.rr + 1) % s.wiz.length;
+        s.wiz.forEach((w, i) => {
+            if (full || wire.left[i] > 0 || i === wire.rr) {
+                v.push(packSlow(w, hum.includes(i)));
+                if (wire.left[i] > 0) wire.left[i]--;
+            }
+        });
         const d = {
             k: s.tick, m: s.match, ph: PHASES.indexOf(s.phase), pt: r1(s.phaseT), t: r1(s.t),
             sc: s.score, al: [r1(s.altar[0]), r1(s.altar[1])],
             pk: s.pickups.reduce((acc, p, i) => acc | (p.t <= 0 ? 1 << i : 0), 0),
-            w: s.wiz.map((w, i) => packWizard(w, i === me)),
+            w: s.wiz.map(packFast),
+            v,
             e: s.ents.map(packEntity)
         };
         if (s.over !== null && s.over !== undefined) { d.ov = s.over; d.rs = s.reason; }
         if (extra) Object.assign(d, extra);
         return d;
     }
-    function applyWizard(w, a) {
+    function applyFast(w, a) {
+        if (a[0] === undefined || a[8] === undefined) return;
         w.x = a[0]; w.y = a[1]; w.z = a[2]; w.yaw = a[3]; w.pitch = a[4]; w.mvx = a[5]; w.mvz = a[6]; w.vy = a[7];
-        w.hp = a[8]; w.ink = a[9]; w.ward = a[10];
-        const f = a[11];
+        const f = a[8];
         w.dead = !!(f & 1); w.stance = !!(f & 2); w.aim = !!(f & 4); w.grounded = !!(f & 8); w.wardZap = !!(f & 16); w.safe = f & 32 ? 0.5 : 0;
-        w.chamber = a[12] >= 0 && D.SPELLS[a[12]] ? { s: D.SPELLS[a[12]].id, n: a[13], power: 1 } : null;
-        w.respawn = a[14];
+        if (f & 64) w.fireT = max(w.fireT || 0, 0.1);
+    }
+    function applySlow(s, a) {
+        if (!Array.isArray(a)) return;
+        const w = s.wiz[a[0]];
+        if (!w) return;
+        w.hp = a[1]; w.ward = a[2]; w.respawn = a[3];
         const st = {};
-        const list = a[15] || [];
+        const list = a[4] || [];
         for (let i = 0; i + 1 < list.length; i += 2) if (STATUS_KEYS[list[i]]) st[STATUS_KEYS[list[i]]] = { t: list[i + 1] };
         w.st = st;
-        if (a[16]) {
+        if (a.length > 5) {
+            w.ink = a[5];
+            w.chamber = a[6] >= 0 && D.SPELLS[a[6]] ? { s: D.SPELLS[a[6]].id, n: a[7], power: 1 } : null;
             const cd = {};
-            for (let i = 0; i + 1 < a[16].length; i += 2) if (D.SPELLS[a[16][i]]) cd[D.SPELLS[a[16][i]].id] = a[16][i + 1];
+            const c = a[8] || [];
+            for (let i = 0; i + 1 < c.length; i += 2) if (D.SPELLS[c[i]]) cd[D.SPELLS[c[i]].id] = c[i + 1];
             w.cd = cd;
-            w.fireCd = a[17] || 0;
-            w.dashCd = a[18] || 0;
+            w.fireCd = a[9] || 0;
+            w.dashCd = a[10] || 0;
         }
     }
     function applySnapshot(s, d) {
@@ -1225,14 +1363,13 @@
         s.score = d.sc || s.score;
         s.altar = d.al || s.altar;
         s.pickups.forEach((p, i) => { p.t = d.pk & (1 << i) ? 0 : 1; });
-        d.w.forEach((a, i) => { if (s.wiz[i] && Array.isArray(a)) applyWizard(s.wiz[i], a); });
+        d.w.forEach((a, i) => { if (s.wiz[i] && Array.isArray(a)) applyFast(s.wiz[i], a); });
+        if (Array.isArray(d.v)) d.v.forEach(a => applySlow(s, a));
         const was = {};
         s.ents.forEach(e => { was[e.id] = e; });
         s.ents = d.e.map(a => {
             if (!Array.isArray(a)) return null;
-            const e = unpackEntity(a, was[a[0]]);
-            if (e && was[a[0]]) e.hitFoe = was[a[0]].hitFoe;
-            return e;
+            return unpackEntity(s, a, was[a[0]]);
         }).filter(Boolean);
         s.over = d.ov === undefined ? null : d.ov;
         s.reason = d.rs || null;
@@ -1244,42 +1381,18 @@
     //
     // Same input, same commands, same stance. It has a crosshair that has to get to
     // you, drawing takes it time, and it stands there exposed while it does.
-    // ===============================================================
-    const COVER = (function () {
-        const out = [];
-        LAYOUT.boxes.forEach(b => {
-            if (b[4] < 1.2) return;
-            const m = 1.1;
-            out.push([b[0] + b[2] + m, b[1]], [b[0] - b[2] - m, b[1]], [b[0], b[1] + b[3] + m], [b[0], b[1] - b[3] - m]);
-        });
-        return out.filter(p => heightAt(p[0], p[1]) < 0.5 && abs(p[0]) < HALF - 2 && abs(p[1]) < HALF - 2);
-    })();
-    // A flow field on a coarse grid, one per goal, kept for ever since the arena does
+    //
+    // A flow field on a coarse grid, one per goal per map, kept for ever since a map does
     // not change. That turns "how do I get to the altar" into a table lookup.
-    const NAV = 1;            // metres a cell
-    const NAV_SIDE = A.size / NAV;
-    const passable = new Uint8Array(NAV_SIDE * NAV_SIDE);
-    const navH = new Float32Array(NAV_SIDE * NAV_SIDE);
-    (function buildNav() {
-        for (let j = 0; j < NAV_SIDE; j++) for (let i = 0; i < NAV_SIDE; i++) {
-            const x = (i + 0.5) * NAV - HALF, z = (j + 0.5) * NAV - HALF;
-            const h = heightAt(x, z);
-            navH[j * NAV_SIDE + i] = h;
-            let ok = h < 2;
-            for (const [dx, dz] of [[0.75, 0], [-0.75, 0], [0, 0.75], [0, -0.75], [0.6, 0.6], [-0.6, 0.6], [0.6, -0.6], [-0.6, -0.6]]) {
-                if (abs(heightAt(x + dx, z + dz) - h) > 0.45) ok = false;
-            }
-            passable[j * NAV_SIDE + i] = ok ? 1 : 0;
-        }
-    })();
+    // ===============================================================
     const navCell = (x, z) => {
         const i = clamp(floor((x + HALF) / NAV), 0, NAV_SIDE - 1), j = clamp(floor((z + HALF) / NAV), 0, NAV_SIDE - 1);
         return j * NAV_SIDE + i;
     };
-    const FLOWS = new Map();
     function flowTo(cell) {
-        let f = FLOWS.get(cell);
+        let f = W.flows.get(cell);
         if (f) return f;
+        const passable = W.passable, navH = W.navH;
         f = new Int32Array(NAV_SIDE * NAV_SIDE).fill(-1);
         const queue = [cell];
         f[cell] = cell;
@@ -1297,10 +1410,11 @@
                 queue.push(n);
             }
         }
-        FLOWS.set(cell, f);
+        W.flows.set(cell, f);
         return f;
     }
     function nearestPassable(cell) {
+        const passable = W.passable;
         if (passable[cell]) return cell;
         const i = cell % NAV_SIDE, j = (cell - i) / NAV_SIDE;
         for (let r = 1; r < 8; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
@@ -1322,6 +1436,12 @@
         const i = c % NAV_SIDE, j = (c - i) / NAV_SIDE;
         return { x: (i + 0.5) * NAV - HALF, z: (j + 0.5) * NAV - HALF };
     }
+    // can this be walked to from there? the check that a map is any good
+    function canWalkBetween(ax, az, bx, bz) {
+        const from = nearestPassable(navCell(ax, az)), goal = nearestPassable(navCell(bx, bz));
+        const f = flowTo(goal);
+        return from === goal || (f[from] !== -1 && f[from] !== undefined);
+    }
 
     function botSkill(def, difficulty) {
         const d = D.BOT_DIFFICULTY[difficulty] || D.BOT_DIFFICULTY.normal, k = def.skill;
@@ -1339,6 +1459,7 @@
             def, skill: botSkill(def, difficulty), style: def.style || {},
             loadout: (loadout || (def.style && def.style.pool) || D.DEFAULT_LOADOUT).map(id => D.byId(id)).filter(Boolean),
             rng: (seed >>> 0) || 7,
+            target: -1, targetT: 0,
             ring: [], lastSeen: null, seeT: 0, sees: false,
             yaw: null, pitch: 0, errYaw: 0, errPitch: 0, errT: 0,
             plan: null, planT: 0, strafe: 1, strafeT: 0, jumpT: 0,
@@ -1359,12 +1480,13 @@
     // What would be useful right now. A score for every spell it can afford, a little
     // noise, and the best one wins. This is where the bots' opinions live.
     function spellValue(s, i, b, sp, sense) {
-        const w = s.wiz[i], foe = s.wiz[1 - i], p = sp.p || {};
+        const w = s.wiz[i], foe = sense.foe, p = sp.p || {};
         const style = b.style;
         const att = style.aggression === undefined ? 1 : style.aggression;
         const def = style.defence === undefined ? 1 : style.defence;
         const hex = style.hexes === undefined ? 1 : style.hexes;
         const d = sense.dist;
+        const foeOnAltar = s.onAltar === foe.team;
         let v = 0;
         switch (sp.kind) {
             case 'shot': {
@@ -1397,7 +1519,7 @@
             case 'strike': {
                 v = 18 + (sp.dmg || 0) * 0.55 * att;
                 if (has(foe, 'root') || has(foe, 'freeze') || has(foe, 'stun') || foe.stance) v += 24;
-                if (s.onAltar === foe.i) v += 16;
+                if (foeOnAltar) v += 16;
                 if (p.punish && foe.hp < 60) v += 12;
                 if (d > (p.range || 40)) v -= 20;
                 break;
@@ -1414,7 +1536,7 @@
                 } else {
                     v = 18 + (p.dps || 0) * 1.6 * att;
                     if (has(foe, 'root') || has(foe, 'freeze') || has(foe, 'stun') || foe.stance) v += 18;
-                    if (s.onAltar === foe.i) v += 26;
+                    if (foeOnAltar) v += 26;
                     if (d > (p.range || 26)) v -= 16;
                     if (s.ents.some(e => e.k === 'zone' && e.o === i && e.s === sp.id)) v -= 30;
                 }
@@ -1495,7 +1617,7 @@
         const w = s.wiz[i];
         let hit = null, soon = 0.9;
         for (const e of s.ents) {
-            if (e.k !== 'shot' || e.o === i) continue;
+            if (e.k !== 'shot' || e.tm === w.team) continue;
             const dx = w.x - e.x, dz = w.z - e.z;
             const sp2 = e.vx * e.vx + e.vz * e.vz;
             if (sp2 < 1) continue;
@@ -1512,8 +1634,31 @@
         while (d < -PI) d += 2 * PI;
         return d;
     }
+    // who it is looking at: somebody it can see before somebody it cannot, nearest first,
+    // and it does not change its mind every tick
+    function pickTarget(s, i, b) {
+        const w = s.wiz[i];
+        const cur = s.wiz[b.target];
+        b.targetT -= DT;
+        if (cur && !cur.dead && cur.team !== w.team && b.targetT > 0) return cur;
+        b.targetT = 0.7 + brnd(b) * 0.8;
+        let best = null, score = 1e18;
+        const eyeY = w.y + 1.6;
+        for (const q of s.wiz) {
+            if (q.team === w.team || q.dead) continue;
+            let v = hypot(q.x - w.x, q.z - w.z);
+            if (!clearLine(s, w.x, eyeY, w.z, q.x, q.y + 1.2, q.z)) v += 22;
+            if (onAltarNow(q)) v -= 12;
+            if (has(q, 'stealth')) v += 30;
+            if (q === cur) v -= 5;
+            if (v < score) { score = v; best = q; }
+        }
+        if (best && best !== cur) { b.ring.length = 0; b.lastSeen = null; }
+        b.target = best ? best.i : -1;
+        return best;
+    }
     function think(s, i, b) {
-        const w = s.wiz[i], foe = s.wiz[1 - i];
+        const w = s.wiz[i];
         if (s.phase !== 'live' || w.dead) {
             s.input[i] = Object.assign(blankInput(), { yaw: w.yaw, pitch: w.pitch });
             b.drawing = null;
@@ -1521,6 +1666,9 @@
         }
         if (b.yaw === null) { b.yaw = w.yaw; b.pitch = w.pitch; }
         const k = b.skill;
+        // with everyone on the other side dead there is nobody to look at, and that is
+        // what the altar is for
+        const foe = pickTarget(s, i, b) || s.wiz.find(q => q.team !== w.team);
 
         // ---- what it can see, a beat late ----
         b.thinkT -= DT;
@@ -1530,9 +1678,8 @@
             b.thinkT = 0.1;
             b.sees = !foe.dead && !stealthed && !has(w, 'blind') && clearLine(s, w.x, eyeY, w.z, foe.x, foeEye, foe.z);
             if (b.sees) {
-                const zones = s.ents;
-                for (const e of zones) {
-                    if (e.k === 'zone' && e.s && D.byId(e.s).p.obscure && e.o !== i && hypot(foe.x - e.x, foe.z - e.z) < e.r) { b.sees = false; break; }
+                for (const e of s.ents) {
+                    if (e.k === 'zone' && e.s && D.byId(e.s).p.obscure && e.tm !== w.team && hypot(foe.x - e.x, foe.z - e.z) < e.r) { b.sees = false; break; }
                 }
             }
         }
@@ -1544,13 +1691,13 @@
         const memory = b.lastSeen || { x: foe.x, y: foe.y, z: foe.z, vx: 0, vz: 0 };
         // a decoy works on a machine exactly as it should
         let target = memory;
-        const decoy = s.ents.find(e => e.k === 'decoy' && e.o !== i);
+        const decoy = s.ents.find(e => e.k === 'decoy' && e.tm !== w.team);
         if (decoy && brnd(b) < 0.9 && (!b.sees || stealthed)) target = { x: decoy.x, y: decoy.y, z: decoy.z, vx: decoy.vx, vz: decoy.vz };
 
         const dist = hypot(target.x - w.x, target.z - w.z);
         const inc = incomingShot(s, i);
         const foeAir = foe.y - heightAt(foe.x, foe.z) > 0.6;
-        const sense = { dist, seesFoe: b.sees, incoming: !!inc, foeAir };
+        const sense = { dist, seesFoe: b.sees, incoming: !!inc, foeAir, foe };
 
         // ---- planning where to go ----
         b.planT -= DT;
@@ -1654,7 +1801,7 @@
         }
 
         // ---- legs ----
-        let gx = plan.x, gz = plan.z;
+        const gx = plan.x, gz = plan.z;
         const n = nextStep(w.x, w.z, gx, gz);
         let wx = n.x - w.x, wz = n.z - w.z;
         const wl = hypot(wx, wz);
@@ -1671,8 +1818,9 @@
         if (inc && b.dodgeT < -0.2 && brnd(b) < k.dodge * DT * 7) {
             b.dodgeT = 0.34;
             const l = hypot(inc.vx, inc.vz) || 1;
-            b.dodgeX = -inc.vz / l * (brnd(b) < 0.5 ? -1 : 1);
-            b.dodgeZ = inc.vx / l * (b.dodgeX ? 1 : 1);
+            const side = brnd(b) < 0.5 ? -1 : 1;
+            b.dodgeX = -inc.vz / l * side;
+            b.dodgeZ = inc.vx / l * side;
             if (brnd(b) < 0.35) inp.dash = true;
             else if (brnd(b) < 0.3) inp.jump = true;
         }
@@ -1693,11 +1841,11 @@
         s.input[i] = inp;
     }
     function choosePlan(s, i, b, target, sense) {
-        const w = s.wiz[i], foe = s.wiz[1 - i];
+        const w = s.wiz[i], foe = sense.foe;
         const style = b.style;
         const def = style.defence === undefined ? 1 : style.defence;
         const att = style.aggression === undefined ? 1 : style.aggression;
-        const altar = { x: 0, z: 0, loose: 3.5 };
+        const altar = { x: 0, z: 0, loose: W.layout.altar.r * 0.55 };
         // the fog is the boss now
         if (s.fog < A.fogStart && hypot(w.x, w.z) > s.fog - 4) return altar;
         if (s.t > A.fogAt - 10 && hypot(w.x, w.z) > 26) return altar;
@@ -1710,17 +1858,24 @@
             if (pow && pow.d < 14) return { x: pow.p.x, z: pow.p.z };
         }
         // somebody has to stop the ritual, and if nobody is home it is free
-        if (s.onAltar === foe.i) return { x: foe.x, z: foe.z, fight: true, loose: 11 };
-        const free = foe.dead || (!b.sees && s.t - b.seeT > 3);
-        const myRit = s.altar[i], theirRit = s.altar[1 - i];
-        if (free || myRit > A.ritual * 0.6 || (s.t > 40 && theirRit > myRit + 8)) return altar;
+        if (s.onAltar === foe.team) return { x: 0, z: 0, fight: true, loose: 11 };
+        const allyOn = s.wiz.some(q => q.team === w.team && q !== w && onAltarNow(q));
+        const allDead = s.wiz.every(q => q.team === w.team || q.dead);
+        const free = allDead || (!b.sees && s.t - b.seeT > 3);
+        const myRit = s.altar[w.team], theirRit = s.altar[1 - w.team];
+        // a team does not all need to stand on it. the nearest goes, and the rest fight
+        if (!allyOn && (free || s.mode > 1 || myRit > A.ritual * 0.6 || (s.t > 40 && theirRit > myRit + 8))) {
+            const myD = hypot(w.x, w.z);
+            const closer = s.wiz.some(q => q.team === w.team && q !== w && !q.dead && hypot(q.x, q.z) < myD - 2);
+            if (!closer || s.mode === 1) return altar;
+        }
         // wants to draw, and somebody can see it: get behind something
         if (b.sees && !w.chamber && w.ink > 16 && def > 0.6 && brnd(b) < 0.5 * def) {
             let bestC = null, bestD = 30;
-            for (const c of COVER) {
+            for (const c of W.cover) {
                 const d = hypot(c[0] - w.x, c[1] - w.z);
                 if (d >= bestD) continue;
-                if (clearLine(s, c[0], 1.5, c[1], foe.x, foe.y + 1.2, foe.z)) continue;
+                if (clearLine(s, c[0], heightAt(c[0], c[1]) + 1.5, c[1], foe.x, foe.y + 1.2, foe.z)) continue;
                 bestD = d; bestC = c;
             }
             if (bestC) return { x: bestC[0], z: bestC[1] };
@@ -1738,10 +1893,11 @@
     window.WZ_SIM = {
         newMatch, step, command, setInput, sanitizeInput, blankInput,
         snapshot, applySnapshot,
-        heightAt, altarHeightAt, camera, muzzle, aimPoint, forward, clearLine, moveWizard, inBox,
+        useMap, heightAt, camera, muzzle, aimPoint, forward, clearLine, moveWizard, inBox, onAltarNow,
         canInscribe, inscribeCosts, has, canAct, canWalk,
-        newBrain, think, botSkill,
-        LAYOUT, HZ, DT, ZAP, KIND_LOADED, SPELL_INDEX, STATUS_KEYS,
-        navPassable: passable, NAV_SIDE
+        newBrain, think, botSkill, canWalkBetween,
+        HZ, DT, ZAP, KIND_LOADED, SPELL_INDEX, STATUS_KEYS, NAV_SIDE,
+        get LAYOUT() { return W.layout; },
+        get navPassable() { return W.passable; }
     };
 })();

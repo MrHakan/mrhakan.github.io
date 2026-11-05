@@ -901,6 +901,7 @@
         s.id = transport ? (transport.id || randId()) : randId();
         s.players = [];             // [{id,name,avatar,ready,host,ping,me}]
         s.gameId = null;
+        s.gameOptions = {};         // whatever the host picked, for games that offer a choice
         s.state = 'lobby';          // lobby | playing | closed
         s.alive = true;
         s._handlers = {};
@@ -1018,6 +1019,16 @@
                 this.emit('game-pick', this.gameId);
                 return;
             }
+            case 'np:opts': {
+                this.gameOptions = (env.d && typeof env.d === 'object') ? env.d : {};
+                this.emit('options', this.gameOptions);
+                return;
+            }
+            case 'np:team': {
+                const p = this.players.find(x => x.id === env.f);
+                if (p && this.isHost) { p.team = env.d && env.d.team === 1 ? 1 : 0; this.broadcastRoster(); this.emit('roster', this.players); }
+                return;
+            }
             case 'np:start': return this._onStart(env.d);
             case 'np:ping': { this.send('np:pong', { t: env.d && env.d.t }, env.f); return; }
             case 'np:pong': {
@@ -1056,6 +1067,7 @@
             }
             this.broadcastRoster();
             if (this.gameId) this.send('np:game', { gameId: this.gameId });
+            this.send('np:opts', this.gameOptions);
         }
         this.emit('roster', this.players);
     };
@@ -1085,7 +1097,7 @@
     };
     Session.prototype.broadcastRoster = function () {
         if (!this.isHost) return;
-        const list = this.players.map(p => ({ id: p.id, name: p.name, avatar: p.avatar, ready: p.ready, host: !!p.host, ping: p.ping || 0 }));
+        const list = this.players.map(p => ({ id: p.id, name: p.name, avatar: p.avatar, ready: p.ready, host: !!p.host, ping: p.ping || 0, team: p.team }));
         this.send('np:roster', list);
     };
     Session.prototype.chat = function (text) {
@@ -1106,12 +1118,32 @@
         this.send('np:game', { gameId });
         this.emit('game-pick', gameId);
     };
+    // the host's choice of map and the like, which every guest hears
+    Session.prototype.setOption = function (key, value) {
+        if (!this.isHost) return;
+        this.gameOptions = Object.assign({}, this.gameOptions, { [key]: value });
+        this.send('np:opts', this.gameOptions);
+        this.emit('options', this.gameOptions);
+    };
+    // which side somebody is on, until they say otherwise: every other seat
+    Session.prototype.teamOf = function (p) {
+        if (p.team === 0 || p.team === 1) return p.team;
+        return Math.max(0, this.players.indexOf(p)) % 2;
+    };
+    Session.prototype.setTeam = function (team) {
+        this.me.team = team === 1 ? 1 : 0;
+        if (this.isHost) this.broadcastRoster();
+        else this.send('np:team', { team: this.me.team }, (this.players.find(p => p.host) || {}).id);
+        this.emit('roster', this.players);
+    };
     Session.prototype.startGame = function () {
         if (!this.isHost) return;
         const g = NP.byId(this.gameId);
         if (!g) return;
         const slots = this.players.map(p => p.id);
         const d = { gameId: this.gameId, seed: Math.floor(Math.random() * 1e9), slots, at: Date.now() };
+        if (g.options) d.options = this.gameOptions;
+        if (g.teams) { d.teams = {}; this.players.forEach(p => { d.teams[p.id] = this.teamOf(p); }); }
         this.send('np:start', d);
         this._onStart(d);
     };
@@ -1188,8 +1220,14 @@
             id: 'wizardz',
             name: 'wizardz 98',
             icon: 'auto_fix_high',
-            min: 2, max: 2,
-            blurb: 'a low poly shooter: draw sigils to load your staff, then go and hit another wizard',
+            min: 2, max: 8,
+            blurb: 'a low poly shooter: draw sigils to load your staff, then go and hit somebody. up to 4 v 4, and bots fill the seats',
+            teams: true,
+            loadouts: true,
+            options: [
+                { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2'], ['3', '3 v 3'], ['4', '4 v 4']] },
+                { key: 'map', label: 'map', values: [['temple', 'the temple'], ['bin', 'the recycle bin'], ['defrag', 'defrag'], ['wire', 'the long wire']] }
+            ],
             scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js']
         },
         {
@@ -1336,6 +1374,7 @@
                     <label class="np-label">you are</label>
                     <input id="np-name" class="np-input" maxlength="16" value="${esc(NP.profile().name)}">
                     <button id="np-avatar" class="np-btn np-small" data-always="1">edit wizard</button>
+                    ${(NP.byId(gameId) || {}).loadouts ? '<button id="np-loadout" class="np-btn np-small" data-always="1">your eight spells</button>' : ''}
                 </div>
                 <div class="np-row">
                     <label class="np-label">game</label>
@@ -1387,6 +1426,10 @@
             };
             const relayInput = body.querySelector('#np-relay');
             if (relayInput) relayInput.addEventListener('change', e => NP.setRelayUrl(e.target.value.trim()));
+            const loadoutBtn = body.querySelector('#np-loadout');
+            if (loadoutBtn) loadoutBtn.onclick = () => {
+                NP.loadGame(gameId).then(g => { if (g.editLoadout) g.editLoadout(); }).catch(e => toast('netplay', e.message));
+            };
             body.querySelector('#np-avatar').onclick = () => {
                 NP.loadGame(gameId).then(g => {
                     if (g.editAvatar) g.editAvatar();
@@ -1449,6 +1492,7 @@
                         ${NP.CATALOG.map(g => `<option value="${esc(g.id)}" ${g.id === s.gameId ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}
                     </select>
                 </div>` : ''}
+                <div id="np-options"></div>
                 <div class="np-chat" id="np-chat"></div>
                 <div class="np-chatrow">
                     <input id="np-chatin" class="np-input" maxlength="200" placeholder="say something">
@@ -1481,7 +1525,29 @@
             chatin.addEventListener('keydown', e => { if (e.key === 'Enter') { e.stopPropagation(); send(); } });
             paintLink();
             drawPlayers();
+            drawOptions();
             drawChat();
+        }
+
+        // anything the game lets the host pick, and which side you are on
+        function drawOptions() {
+            const box = body.querySelector('#np-options');
+            if (!box || !session) return;
+            const s = session;
+            const game = NP.byId(s.gameId) || {};
+            const label = (o, v) => ((o.values.find(x => x[0] === v) || o.values[0])[1]);
+            const opts = game.options || [];
+            box.innerHTML = opts.map(o => {
+                const cur = s.gameOptions[o.key] || o.values[0][0];
+                return `<div class="np-row"><label class="np-label">${esc(o.label)}</label>${s.isHost
+                    ? `<select class="np-input" data-opt="${esc(o.key)}">${o.values.map(v => `<option value="${esc(v[0])}" ${v[0] === cur ? 'selected' : ''}>${esc(v[1])}</option>`).join('')}</select>`
+                    : `<b data-optshow="${esc(o.key)}">${esc(label(o, cur))}</b>`}</div>`;
+            }).join('') + (game.teams ? `<div class="np-row"><button id="np-team" class="np-btn np-small" data-always="1">switch sides</button>${game.loadouts ? '<button id="np-loadout2" class="np-btn np-small" data-always="1">your eight spells</button>' : ''}<span class="np-dim">bots fill the empty seats</span></div>` : '');
+            const lo2 = box.querySelector('#np-loadout2');
+            if (lo2) lo2.onclick = () => { NP.loadGame(s.gameId).then(g => { if (g.editLoadout) g.editLoadout(); }).catch(e => toast('netplay', e.message)); };
+            box.querySelectorAll('[data-opt]').forEach(sel => { sel.onchange = () => s.setOption(sel.dataset.opt, sel.value); });
+            const t = box.querySelector('#np-team');
+            if (t) t.onclick = () => { s.setTeam(1 - s.teamOf(s.me)); drawPlayers(); };
         }
 
         function drawPlayers() {
@@ -1499,7 +1565,7 @@
                 <div class="np-player ${p.ready ? 'np-ok' : ''}">
                     <canvas class="np-avatar" width="64" height="64" data-pid="${esc(p.id)}"></canvas>
                     <div class="np-pname">${esc(p.name)}${p.host ? ' <span class="np-tag">host</span>' : ''}${p.me ? ' <span class="np-tag np-you">you</span>' : ''}</div>
-                    <div class="np-pstate">${p.ready ? 'ready' : 'waiting'}${p.ping ? ' · ' + p.ping + 'ms' : ''}</div>
+                    <div class="np-pstate">${(NP.byId(session.gameId) || {}).teams ? '<span class="np-team' + session.teamOf(p) + '">side ' + (session.teamOf(p) ? 'b' : 'a') + '</span> · ' : ''}${p.ready ? 'ready' : 'waiting'}${p.ping ? ' · ' + p.ping + 'ms' : ''}</div>
                 </div>`).join('') +
                 (session.players.length < 2
                     ? `<div class="np-player np-empty">
@@ -1563,6 +1629,7 @@
                 drawPlayers();
             }));
             unsubs.push(s.on('game-pick', () => renderLobby()));
+            unsubs.push(s.on('options', () => drawOptions()));
             unsubs.push(s.on('net:status', m => { say(m); paintLink(); }));
             unsubs.push(s.on('net:error', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = 'trouble: ' + m; }));
             unsubs.push(s.on('net:down', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = m; }));

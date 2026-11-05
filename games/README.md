@@ -19,7 +19,7 @@ staff. Five files, split the way age of troll is:
 
 | file | what it is |
 | --- | --- |
-| `wizardz-data.js` | every number, the fifty symbols, the arena layout, the bots |
+| `wizardz-data.js` | every number, the fifty symbols, the four maps, the bots |
 | `wizardz-sigil.js` | reads a drawing. no page in it |
 | `wizardz-sim.js` | the rules and the bots' brains. no page in it |
 | `wizardz-gl.js` | the renderer: hand written WebGL1, no library |
@@ -45,10 +45,83 @@ staff. Five files, split the way age of troll is:
 
 ### winning
 
-Three knockouts, or the ritual: 42 seconds in total alone on the altar in the middle,
-and being knocked out costs you a quarter of your progress. At 2:30 the fog starts
-closing in on the altar and hurts anyone outside it, so nothing stalls. At 5:00 the
-clock decides, on knockouts, then ritual, then health.
+Three knockouts per seat on a side (3, 6, 9 or 12), or the ritual: 42 seconds in total
+with your side alone on the altar in the middle. Anyone on the other side standing on
+it stops the clock. Being knocked out costs your side a quarter of its progress in a
+1 v 1, and a quarter of that divided by the team size in a bigger match. At 2:30 the fog
+starts closing in on the altar and hurts anyone outside it, so nothing stalls. At 5:00
+the clock decides, on knockouts, then ritual, then health.
+
+### loadouts
+
+There is no server to look an id up on, so the id is the loadout: twelve characters, like
+`8044-1NS8-WKEY`, and the order of the slots is part of it. In the box it loads the moment it
+is whole, with nothing to press, and case, dashes, O for 0 and I or l for 1 do not matter.
+
+| part | size |
+| --- | --- |
+| version | 2 bits, and it is 1 |
+| eight sigil numbers | 6 bits each |
+| check | 2 characters |
+
+A sigil's number is its place in `SIGIL_NUMBERS` in `wizardz-data.js`, and that is a promise
+to everyone who has posted an id: new sigils go on the end, nothing moves, and a sigil that gets
+removed stays in the list so nothing else inherits its number. An id naming it is then refused
+rather than turning into something else. `check-wizardz.mjs` holds its own copy of the list and
+some real ids, so moving one fails the build. Past 64 sigils it is time for version 2, and
+version 1 keeps reading. The check always catches one wrong character or two the wrong way round.
+
+There are ten ready made in `PRESETS`. Eighty slots do not go into fifty sigils, so they cannot
+all be different from each other, but between them they carry every sigil and no two share more
+than three. Bots that fill a seat bring one half the time, or their own taste the rest.
+
+Online, a guest's eight used to stay on the guest, and the host would cast anything a guest
+asked for. Now a guest puts its id in its input until the host answers, and:
+
+- `loadoutFromId` takes anything, never throws, and says why not. It is the one place that
+  decides what is legal, along with `loadoutProblem`. **Nothing is locked in this game**, so
+  legal means eight, all real, none twice.
+- The first thing a seat says in a match is what it gets, so nobody swaps after seeing what the
+  other side has. Rubbish gets the standard eight and a message saying why.
+- A cast outside your eight is refused by the host, whatever your own screen thinks.
+
+**The host is not checked by anyone**, because it runs the match. The same goes for everything
+else a host does.
+
+### teams
+
+1 v 1, 2 v 2, 3 v 3 or 4 v 4, against bots or with people. Seats go a, b, a, b, so
+`team = seat % 2` and a 1 v 1 is the same thing it always was. Every seat nobody is in
+gets a bot, which comes from the match seed, so all the screens agree who it is without
+sending it. Bots run on the host only, and they play with the skill of whichever bot you
+picked. Online the host picks the size and the map, and anyone can press "switch sides".
+If one side has more people than the size allows the rest spill over to the other side,
+and if there are more people than seats the size goes up to fit them.
+
+There is no friendly fire at all. Shots go through your own side, splash and zones ignore
+it, and your own side's walls let your side's shots through.
+
+If a guest drops out of a team match a bot sits down at once and the match carries on.
+If they come back they get their seat back. In a 1 v 1 it freezes first, because the
+other side may only have gone through a tunnel, and a bot sits down after 10 seconds.
+**The host leaving ends the match.** There is no host migration, and the guests are told.
+
+### maps
+
+They are not skins. They are different height maps, and that changes what is good:
+
+| map | what it is | what it does |
+| --- | --- | --- |
+| the temple | altar on a plinth, open middle, pillars | the even one |
+| the recycle bin | a bowl with the altar at the bottom | whoever holds the altar can be seen from every rim |
+| defrag | a dense grid of tall disks | no long sight lines, so beams and strikes suffer |
+| the long wire | one raised causeway through the middle, lanes either side | long sight lines, and the high ground is the altar |
+
+A map is an entry in `MAPS` in `wizardz-data.js`: `ground(x, z)`, `boxes`, four spawns a
+side, pickups and a theme. The renderer builds its mesh from that, so a new map needs
+no code. `check-wizardz.mjs` checks that every spawn and pickup on every map can be
+reached on foot by both sides, that the two halves are mirror images, and then plays
+matches on every map at every size.
 
 ### controls
 
@@ -84,9 +157,9 @@ javascript a frame, and on a software renderer with no GPU at all about 40fps.
 
 Every solid thing is a box standing on the floor with nothing overhanging, so "is that a
 wall" and "can they see me" are array lookups, and bots can have a flow field per goal.
-That is why `check-wizardz.mjs` can play a match in about 40ms. Half of it is written
+That is why `check-wizardz.mjs` can play a match in about 40ms. Half of each map is written
 in `wizardz-data.js` and the other half is that turned round by 180 degrees, so neither
-spawn is the good one.
+side has the good spawn.
 
 ### balance
 
@@ -94,7 +167,41 @@ Tune in `wizardz-data.js` and run `WZ_TABLE=1 node .github/scripts/check-wizardz
 Two average bots with random books play a thousand matches, and a spell's number is how
 often the side carrying it won, counting only matches where the other side did not carry
 it too. The bots are the instrument, so a spell they use badly reads as weak. That is the
-measurement's limit: nothing here has been played by a crowd of people.
+measurement's limit: nothing here has been played by a crowd of people. The same run plays
+every map at every team size and holds side a's win rate, the length of a match and how
+often the clock decides to their targets. `WZ_TEAM_MATCHES` is how many of each. The ten ready
+made loadouts play each other and pairs of them play random books on every map, and
+`WZ_PRESET_MATCHES` is how many of those. The bots hardly cast novas, because they do not like
+getting that close, so a loadout with one reads a little worse than it plays.
+
+### what goes over the wire
+
+Eight seats in the old format would have been eight times the bytes, which the relays
+would not take. So a snapshot is now:
+
+- `w`, every seat's position and look, always. That is nine short numbers a seat.
+- `v`, health, ward, statuses, and for seats a person is in their ink and chamber, only
+  when one of them changed, three times over in case one gets lost, and one seat at a
+  time on a loop so that nothing stays wrong for long.
+- `ev`, what happened. On relays the purely cosmetic events are left out, and no more than ten
+  go in one snapshot.
+
+Measured with real sockets against the stand-in relay and multiplied by the four relays
+in the list:
+
+| | host, MB a minute up | guest, MB a minute up | events a second |
+| --- | --- | --- | --- |
+| 1 v 1 | 0.99 | 0.75 | 4.8 |
+| 4 v 4, two people and six bots | 1.51 | 0.70 | 5.0 |
+
+| 4 v 4, eight people | 1.56 | 0.72 | 4.5 and 4.8 |
+
+Over a relay everybody in the room receives everybody's messages, whoever they are for, and
+each of the four relays sends its own copy. So with eight people a guest downloads about 1.5MB a
+minute per relay, about 6MB a minute over four. That is under a megabit a second, which a
+phone can do, but it is **the limit, and it has only been measured on the stand-in relay**, from
+eight tabs on one machine (\`WZ_EIGHT=1\`). Whether a public relay puts up with eight clients
+for a whole match has not been tried. Two people and six bots is far lighter.
 
 ## age of troll
 
@@ -123,12 +230,18 @@ NP.CATALOG = [
         id: 'wizardz',
         name: 'wizardz 98',
         icon: 'auto_fix_high',
-        min: 2, max: 2,
+        min: 2, max: 8,
+        teams: true,            // the lobby offers "switch sides"
+        options: [              // the lobby offers these to the host, and shows the guests
+            { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2']] }
+        ],
         blurb: 'a low poly shooter: draw sigils to load your staff',
         scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz.js']
     }
 ];
 ```
+
+`teams` and `options` are optional and a game that has no use for them leaves them out.
 
 ### 2. register when your script loads
 
@@ -144,8 +257,9 @@ window.Netplay.registerGame({
 ```
 
 `start()` is called on **every** player once the host presses start, with
-the same `opts` — `{ gameId, seed, slots, at }`. `slots` is the player
-order, so both sides agree on who is on the left without asking.
+the same `opts` — `{ gameId, seed, slots, at, options, teams }`. `slots` is the player
+order, so both sides agree on who is on the left without asking. `options` is what the
+host picked, and `teams` says which side each player chose.
 
 ### 3. talk over the session
 
@@ -171,8 +285,9 @@ Session events worth listening to: `roster`, `chat`, `player-join`,
 `wizardz` is **host authoritative**, which is the least painful option
 and the one to copy:
 
-- the host runs the simulation and sends a snapshot 20 times a second, as
-  arrays of short numbers
+- the host runs the simulation and sends a snapshot 20 times a second (5 over
+  relays), as arrays of short numbers, and sends what rarely changes only when it
+  changes
 - guests send only intents — what they are holding, and "I cast fireball",
   numbered — and the host validates them (ink, cooldowns, whether you are
   frozen). Every input message carries everything not yet acknowledged, so a
@@ -297,7 +412,8 @@ enough to get past the limits and says who is still delivering. Trust that
 over a quick check, because several accept everything and then quietly stop
 delivering after a few hundred events. A wizardz match over relays costs the host
 about a megabyte a minute and the guest less, measured in `browser-wizardz.mjs` against
-the stand-in relay and multiplied by the four in the list.
+the stand-in relay and multiplied by the four in the list, and a 4 v 4 with six bots about
+one and a half.
 
 It is slower than `peer` — a relay hop is roughly 150ms each way instead
 of a direct connection — so a game should ease off when it sees it:
@@ -335,7 +451,9 @@ recogniser to their targets;
 `.github/scripts/browser-check.mjs` opens the real site in chromium,
 draws a sigil with the mouse and runs a two-tab lobby;
 `browser-wizardz.mjs` plays a match to the end with a real mouse, a phone with
-real touches, and two browsers direct and over the relays;
+real touches, every map, a 4 v 4 with bots to the end, a 2 v 2 with two browsers and bots
+including somebody walking out, loadout ids typed in and refused, a guest trying to cast what
+it does not carry, and two browsers direct and over the relays;
 `.github/scripts/check-netplay.mjs` and `browser-netplay.mjs` hold the ways
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one

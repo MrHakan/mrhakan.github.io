@@ -83,7 +83,9 @@
         loadout: 'mrhakan98-wizardz-loadout',
         diff: 'mrhakan98-wizardz-difficulty',
         manual: 'mrhakan98-wizardz-manual-cast',
-        settings: 'mrhakan98-wizardz-settings'
+        settings: 'mrhakan98-wizardz-settings',
+        mode: 'mrhakan98-wizardz-mode',
+        map: 'mrhakan98-wizardz-map'
     };
     function preference(key, fallback) {
         try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
@@ -105,10 +107,21 @@
     }
     function myLoadout() {
         const l = readJson(LS.loadout);
-        if (!Array.isArray(l) || l.length !== D.LOADOUT_SIZE || l.some(id => !D.byId(id)) || new Set(l).size !== l.length) return D.DEFAULT_LOADOUT.slice();
+        if (D.loadoutProblem(l)) return D.DEFAULT_LOADOUT.slice();
         return l;
     }
     function saveLoadout(l) { savePreference(LS.loadout, JSON.stringify(l)); }
+    // Against a bot it counts at once if the shooting has not started. Online the host has
+    // already been told for this match, so it is the next one.
+    function useLoadout(l) {
+        saveLoadout(l);
+        if (!G || !G.s) return true;
+        const finished = G.s.over !== null && G.s.over !== undefined;
+        if (G.solo && G.s.phase !== 'live' && !finished) { G.loadout = l.slice(); G.s.wiz[G.me].loadout = l.slice(); return true; }
+        return finished;
+    }
+    const chosenMode = () => { const m = Number(preference(LS.mode, '1')); return A.modes.includes(m) ? m : 1; };
+    const chosenMap = () => D.mapById(preference(LS.map, D.MAPS[0].id)).id;
     const difficulty = () => { const d = preference(LS.diff, 'normal'); return D.BOT_DIFFICULTY[d] ? d : 'normal'; };
     function settings() {
         const s = readJson(LS.settings);
@@ -195,34 +208,78 @@
         try { return !!(window.matchMedia && matchMedia('(pointer: coarse)').matches); } catch (e) { return false; }
     };
 
-    function orderPlayers(session, opts) {
-        const list = (opts && opts.slots ? opts.slots.map(id => session.player(id)).filter(Boolean) : session.players.slice());
-        const host = list.find(p => p.host) || list[0];
-        const other = list.find(p => p !== host) || { id: 'ghost', name: 'nobody' };
-        return [host, other];
-    }
     const randomBot = () => D.BOTS[floor(Math.random() * D.BOTS.length)];
+    function seededRandom(seed) {
+        let h = (seed >>> 0) || 1;
+        return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+    }
+    // Who sits where. Every screen works this out from the same seed and the same list, so
+    // they agree without asking. Seat numbers go side a, side b, side a, so a seat's team
+    // is its number mod 2. Whoever does not fit their side moves to the other one, and bots
+    // fill what is left.
+    function seatsFor(session, opts, solo, lead) {
+        opts = opts || {};
+        const o = opts.options || {};
+        const rnd = seededRandom(opts.seed ^ 0x9e3779b9);
+        const humans = solo
+            ? [{ id: 'me', name: (window.Netplay ? Netplay.profile().name : 'you'), avatar: myAvatar(), loadout: myLoadout() }]
+            : (opts.slots ? opts.slots.map(id => session.player(id)).filter(Boolean) : session.players.slice());
+        let mode = Number(opts.mode || o.mode) || 1;
+        mode = clamp(Math.max(mode, Math.ceil(humans.length / 2)), 1, 4);
+        const sides = [[], []];
+        humans.forEach((p, i) => {
+            const want = opts.teams && (opts.teams[p.id] === 0 || opts.teams[p.id] === 1) ? opts.teams[p.id] : i % 2;
+            const t = sides[want].length < mode ? want : 1 - want;
+            sides[t].push(p);
+        });
+        // Everyone in the roster gets a turn before anybody plays twice. They bring their own
+        // face and their own taste in spells, and borrow one pair of hands, or whichever side
+        // drew the two hard bots would just win.
+        const hands = lead ? lead.skill : D.botById('cinder').skill;
+        const bag = D.BOTS.filter(b => b !== lead);
+        let bagAt = 0;
+        for (let i = bag.length - 1; i > 0; i--) { const j = floor(rnd() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+        const used = {};
+        // The one you picked brings their own eight. The ones who just turned up to make the
+        // numbers either do that too or bring one of the ready made ones.
+        const presets = D.PRESETS.slice();
+        for (let i = presets.length - 1; i > 0; i--) { const j = floor(rnd() * (i + 1)); [presets[i], presets[j]] = [presets[j], presets[i]]; }
+        let presetAt = 0;
+        const seat = (who, skill, filler) => {
+            const book = filler && rnd() < 0.5 ? presets[presetAt++ % presets.length].sigils : (who.style.pool || D.DEFAULT_LOADOUT);
+            used[who.id] = (used[who.id] || 0) + 1;
+            return { id: 'bot-' + who.id + '-' + used[who.id], name: who.name + (used[who.id] > 1 ? ' ' + used[who.id] : ''), avatar: who.avatar, bot: true, def: Object.assign({}, who, { skill }), loadout: book.slice(0, D.LOADOUT_SIZE) };
+        };
+        if (lead) sides[1].unshift(seat(lead, lead.skill));
+        [0, 1].forEach(t => { while (sides[t].length < mode) sides[t].push(seat(bag[bagAt++ % bag.length], hands, true)); });
+        const seats = [];
+        for (let i = 0; i < mode; i++) { seats.push(sides[0][i], sides[1][i]); }
+        return { seats, mode };
+    }
 
     function makeGame(session, opts) {
-        const solo = !!(opts && opts.solo) || !!(session && session.solo);
-        const bot = solo ? (D.botById(opts && opts.botId) || randomBot()) : null;
-        const players = solo
-            ? [{ id: 'me', name: (window.Netplay ? Netplay.profile().name : 'you'), avatar: myAvatar(), loadout: myLoadout() },
-            { id: 'bot', name: bot.name, avatar: bot.avatar, bot: true, loadout: (bot.style.pool || D.DEFAULT_LOADOUT).slice(0, D.LOADOUT_SIZE) }]
-            : orderPlayers(session, opts);
-        const seed = (opts && opts.seed) || floor(Math.random() * 1e9) + 1;
+        opts = opts || {};
+        const solo = !!opts.solo || !!(session && session.solo);
+        const seed = opts.seed || floor(Math.random() * 1e9) + 1;
+        const bot = solo ? (D.botById(opts.botId) || randomBot()) : null;
+        const o = opts.options || {};
+        const map = D.mapById(opts.map || o.map || (solo ? chosenMap() : D.MAPS[0].id)).id;
+        const { seats, mode } = seatsFor(session, Object.assign({}, opts, { seed, mode: opts.mode || (solo ? chosenMode() : o.mode) }), solo, bot);
         const s = S.newMatch({
-            seed,
-            players: players.map(p => ({
+            seed, map,
+            players: seats.map(p => ({
                 id: p.id, name: p.name || 'wizard', bot: !!p.bot, loadout: p.loadout,
                 avatar: normAvatar(p.avatar || seededAvatar(p.id))
             }))
         });
-        const me = solo ? 0 : (players[0].id === session.id ? 0 : 1);
+        const me = solo ? seats.findIndex(p => p.id === 'me') : seats.findIndex(p => p.id === session.id);
+        const isHost = solo ? true : !!session.isHost;
+        const n = seats.length;
         const g = {
-            session, solo, bot, s, me, seed,
-            isHost: solo ? true : !!session.isHost,
-            brain: solo ? S.newBrain(bot, difficulty(), seed ^ 0x5bd1e995, players[1].loadout) : null,
+            session, solo, bot, s, me, seed, seats, mode, map,
+            myTeam: me % 2,
+            isHost,
+            brains: {},
             yaw: s.wiz[me].yaw, pitch: -0.02,
             keys: {}, wantFire: false, wantAim: false, touchAim: false, jumpQ: false, dashQ: false,
             stick: { x: 0, y: 0, id: null, ox: 0, oy: 0, cx: 0, cy: 0 }, lookId: null, lookX: 0, lookY: 0, fireId: null,
@@ -230,12 +287,14 @@
             manualCast: preference(LS.manual, 'false') === 'true',
             loadout: myLoadout(), settings: settings(),
             acc: 0, snapAcc: 0, inputAcc: 0, netDown: 0, paused: false, pauseWhy: null,
-            pending: [], seq: 0, ack: 0, inSeq: 0, inAck: 0, seen: new Set(), seenTo: 0, outbox: [], history: [], snapTick: -1,
+            pending: [], seq: 0, ack: 0, inAck: 0, outbox: [], history: [], snapTick: -1,
+            // on the host, what it has heard from each guest
+            ears: {},
             fireClock: 0,
-            fx: [], floats: [], beams: [], rings: [],
+            fx: [], floats: [], beams: [], rings: [], feed: [],
             shake: 0, vignette: 0, hitMark: 0, errX: 0, errY: 0, errZ: 0,
             hint: null, hintT: 0, banner: null, bannerT: 0,
-            camT: 1, fovNow: 1.15, walkA: [0, 0], fall: [0, 0], raise: [0, 0], ended: false,
+            camT: 1, fovNow: 1.15, walkA: new Array(n).fill(0), fall: new Array(n).fill(0), raise: new Array(n).fill(0), rv: new Array(n).fill(null), seen: new Array(n).fill(false), ended: false,
             frames: 0, frameMs: 0, frameMax: 0, lastFps: 0, fpsT: 0,
             speed: 1, trafficOut: 0, trafficIn: 0,
             // the names a test, or a console, wants to ask about
@@ -244,10 +303,16 @@
             get phase() { return this.s.phase; },
             get over() { return this.s.over; },
             get reason() { return this.s.reason; },
-            get wins() { return this.s.score; }
+            get wins() { return this.s.score; },
+            get brain() { return this.brains[seats.findIndex((p, i) => p.bot && i % 2 !== me % 2)] || null; },
+            set brain(v) { if (!v) this.brains = {}; }
         };
-        if (!solo) s.guessing = !g.isHost;
+        if (isHost) {
+            seats.forEach((p, i) => { if (p.bot) g.brains[i] = S.newBrain(p.def, difficulty(), (seed ^ (0x5bd1e995 + i * 7919)) >>> 0, p.loadout); });
+        }
+        if (!solo) s.guessing = !isHost;
         s.guessMe = me;
+        s.wiz[me].loadout = g.loadout.slice();
         return g;
     }
     function say(g, text, kind, t) {
@@ -265,7 +330,8 @@
     function denyText(why) {
         return ({
             ink: 'not enough ink', health: 'not enough health', cooling: 'still cooling down',
-            inactive: 'wait for it', frozen: 'you cannot do that right now', dead: 'you are dead bradar', stance: 'you are drawing'
+            inactive: 'wait for it', frozen: 'you cannot do that right now', dead: 'you are dead bradar', stance: 'you are drawing',
+            notcarried: 'that is not one of your eight'
         })[why] || 'no';
     }
     function issue(g, c) {
@@ -305,6 +371,7 @@
         if (!g.session || g.solo || !g.session.alive) return;
         g.session.send(type, data, to);
     }
+    const QUIET_EVENTS = { zap: 1, fire: 1, dash: 1, stance: 1, spawn: 1, go: 1 };
     function sendSnapshot(g, dt) {
         g.snapAcc += dt;
         // read every time: a direct link that dies moves to the relays mid-match. A
@@ -314,10 +381,18 @@
         if (g.snapAcc < 1 / hz) return;
         g.snapAcc = 0;
         if (finished) { g.overSent = (g.overSent || 0) + 1; if (g.overSent > 30) return; } else g.overSent = 0;
-        const extra = { a: g.seenTo, ai: g.inSeq };
+        const relays = onRelays(g);
+        const ears = Object.keys(g.ears);
+        const extra = {};
+        if (ears.length) extra.a = ears.map(i => [+i, g.ears[i].seenTo, g.ears[i].inSeq]);
         if (g.netDown) extra.d = 1;
-        if (g.outbox.length) { extra.ev = g.outbox.slice(-16); g.outbox = []; }
-        netSend(g, 'wz:s', S.snapshot(g.s, extra, 1 - g.me));
+        if (g.outbox.length) {
+            // over the relays, only what somebody would miss. A spark nobody saw is no loss
+            const keep = relays ? g.outbox.filter(e => !QUIET_EVENTS[e[0]]) : g.outbox;
+            if (keep.length) extra.ev = keep.slice(relays ? -10 : -24);
+            g.outbox = [];
+        }
+        netSend(g, 'wz:s', S.snapshot(g.s, extra, g.humanSeats));
     }
     function onSnapshot(g, d) {
         if (!d || !Array.isArray(d.w)) return;
@@ -328,6 +403,8 @@
             g.seq = 0; g.ack = 0; g.inAck = 0; g.pending = []; g.history = []; g.ended = false; g.wantRematch = false;
             g.fx = []; g.floats = []; g.beams = []; g.rings = [];
             g.loadout = myLoadout();
+            s.wiz[g.me].loadout = g.loadout.slice();
+            g.loadoutHeard = false;
             clearStance(g);
             s.match = d.m;
             g.freshMatch = true;
@@ -338,15 +415,16 @@
         if (!S.applySnapshot(s, d)) return;
         g.snapTick = d.k;
         g.lastSnap = performance.now();
-        if (typeof d.a === 'number' && d.a > g.ack) {
-            g.ack = d.a;
+        const mine = Array.isArray(d.a) ? d.a.find(x => Array.isArray(x) && x[0] === g.me) : null;
+        if (mine && mine[1] > g.ack) {
+            g.ack = mine[1];
             g.pending = g.pending.filter(c => c.n > g.ack);
         }
         if (Array.isArray(d.ev)) d.ev.forEach(ev => s.ev.push(ev));
         // own seat: what the host says, then the inputs it has not seen yet, again
         me.yaw = g.yaw; me.pitch = g.pitch;
         if (!me.dead) {
-            const seenInput = typeof d.ai === 'number' ? d.ai : 0;
+            const seenInput = mine ? mine[2] : 0;
             g.history = g.history.filter(h => h.q >= seenInput);
             if (g.history.length) { me.vy = ownVy; me.grounded = ownGrounded; }
             for (const h of g.history) S.moveWizard(s, me, h.inp);
@@ -367,11 +445,14 @@
     function hostInput(g, d, from) {
         if (!d || typeof d !== 'object') return;
         const i = g.s.wiz.findIndex(w => w.id === (from && from.id));
-        if (i < 0 || i === g.me) return;
+        if (i < 0 || i === g.me || g.seats[i].bot) return;
         if (g.netDown) comeBack(g);
+        if (g.brains[i]) seatBack(g, i);
         if (typeof d.m === 'number' && d.m !== g.s.match) return;
-        if (typeof d.q === 'number' && d.q > g.inSeq) {
-            g.inSeq = d.q;
+        const ear = g.ears[i] || (g.ears[i] = { inSeq: 0, seen: new Set(), seenTo: 0 });
+        if (d.l !== undefined) hearLoadout(g, i, ear, d.l, from);
+        if (typeof d.q === 'number' && d.q > ear.inSeq) {
+            ear.inSeq = d.q;
             const fl = d.f | 0;
             S.setInput(g.s, i, { mx: (d.x | 0) / 100, mz: (d.z | 0) / 100, yaw: d.y, pitch: d.p, aim: !!(fl & 1), ink: !!(fl & 2), jump: !!(fl & 4), dash: !!(fl & 8) });
         }
@@ -380,15 +461,40 @@
                 if (!Array.isArray(a) || typeof a[0] !== 'number') continue;
                 const n = a[0];
                 // the same command twice, because an ack got lost, is still one command
-                if (n <= g.seenTo || g.seen.has(n)) continue;
-                g.seen.add(n);
-                while (g.seen.has(g.seenTo + 1)) { g.seenTo++; g.seen.delete(g.seenTo); }
+                if (n <= ear.seenTo || ear.seen.has(n)) continue;
+                ear.seen.add(n);
+                while (ear.seen.has(ear.seenTo + 1)) { ear.seenTo++; ear.seen.delete(ear.seenTo); }
                 const cmd = unpackCommand(a);
                 if (!cmd) continue;
-                const why = S.command(g.s, i, cmd);
+                // the guest's recogniser only reads their eight, but nobody has to use it
+                const why = cmd.c === 'cast' && !g.s.wiz[i].loadout.includes(cmd.s) ? 'notcarried' : S.command(g.s, i, cmd);
                 if (why && cmd.c === 'cast') netSend(g, 'wz:deny', { why, s: cmd.s }, from.id);
             }
         }
+    }
+    // A guest says which eight they brought, as an id, with every input until the host answers.
+    // The first thing a seat says in a match is what it gets: no swapping once you have seen
+    // what they are carrying. Anything that does not read leaves them the standard eight, and
+    // they get told why.
+    function hearLoadout(g, i, ear, text, from) {
+        if (ear.loadout === undefined) {
+            const r = D.loadoutFromId(text);
+            ear.loadout = r.ok ? r.id : null;
+            ear.loadoutWhy = r.ok ? '' : r.why;
+            if (r.ok) g.s.wiz[i].loadout = r.list;
+            else g.s.wiz[i].loadout = D.DEFAULT_LOADOUT.slice();
+        }
+        const now = performance.now();
+        if (now - (ear.loadoutAt || -1e9) < 400) return;
+        ear.loadoutAt = now;
+        netSend(g, 'wz:lo', { m: g.s.match, id: D.loadoutToId(g.s.wiz[i].loadout), why: ear.loadoutWhy || undefined }, from.id);
+    }
+    function heardLoadout(g, d) {
+        if (!d || d.m !== g.s.match || g.loadoutHeard) return;
+        g.loadoutHeard = true;
+        const r = D.loadoutFromId(d.id);
+        if (r.ok) { g.loadout = r.list; g.s.wiz[g.me].loadout = r.list.slice(); }
+        if (d.why) say(g, 'the host would not take your eight: ' + (D.LOADOUT_WHY[d.why] || 'no reason given') + '. you have the standard ones', 'bad', 4);
     }
     function sendInput(g, dt) {
         g.inputAcc += dt;
@@ -400,9 +506,29 @@
         g.jumpSent = false; g.dashSent = false;
         const msg = { q: ++g.inAck, m: g.s.match, x: round(inp.mx * 100), z: round(inp.mz * 100), y: round(g.yaw * 100) / 100, p: round(g.pitch * 100) / 100, f };
         if (g.pending.length) msg.c = g.pending.slice(0, 12).map(packCommand);
+        if (!g.loadoutHeard) msg.l = D.loadoutToId(g.loadout);
         if (g.session && g.session.alive) g.session.sendToHost('wz:i', msg);
     }
     function freeMouse(g) { if (isLocked(g) && document.exitPointerLock) { g.hadLock = false; document.exitPointerLock(); } }
+    // A person gone from a seat. In a team game a bot sits down at once and it carries on.
+    // In a 1v1 there is nobody left to play, so it waits a bit to see if they come back.
+    const VACANT_MS = 10000;
+    function seatLeft(g, id) {
+        const i = g.s.wiz.findIndex(w => w.id === id);
+        if (i < 0 || i === g.me || g.brains[i]) return;
+        if (g.s.over !== null && g.s.over !== undefined) return;
+        if (g.mode === 1) { g.vacant = i; goneAway(g); return; }
+        putBotIn(g, i);
+    }
+    function putBotIn(g, i) {
+        const def = D.BOTS[(i * 3 + g.seed) % D.BOTS.length];
+        g.brains[i] = S.newBrain(def, 'normal', (g.seed + i * 104729) >>> 0, g.s.wiz[i].loadout);
+        g.s.ev.push(['sub', i, 1]);
+    }
+    function seatBack(g, i) {
+        delete g.brains[i];
+        g.s.ev.push(['sub', i, 0]);
+    }
     function goneAway(g) {
         if (g.s.over !== null && g.s.over !== undefined) return;
         g.netDown = 1;
@@ -421,13 +547,19 @@
         if (!g.session || g.solo) return;
         const s = g.session, offs = [];
         if (g.isHost) {
-            const other = s.players.find(p => !p.me);
-            g.guestId = other ? other.id : null;
+            g.humanSeats = g.seats.map((p, i) => (!p.bot && i !== g.me ? i : -1)).filter(i => i >= 0);
             offs.push(s.on('wz:i', (d, from) => hostInput(g, d, from)));
             offs.push(s.on('wz:rematch', () => { g.theyWantRematch = true; if (g.ended) paintOverlay(g); }));
-            offs.push(s.on('player-join', p => { if (p.id === g.guestId) comeBack(g); }));
+            offs.push(s.on('player-join', p => {
+                const i = g.s.wiz.findIndex(w => w.id === p.id);
+                if (i < 0) return;
+                comeBack(g);
+                if (g.brains[i] && !g.seats[i].bot) seatBack(g, i);
+            }));
+            offs.push(s.on('player-leave', p => seatLeft(g, p.id)));
         } else {
             offs.push(s.on('wz:s', d => onSnapshot(g, d)));
+            offs.push(s.on('wz:lo', d => heardLoadout(g, d)));
             offs.push(s.on('wz:deny', d => {
                 if (!d) return;
                 const sp = D.byId(d.s);
@@ -435,8 +567,8 @@
                 SFX.fizzle();
             }));
         }
-        // somebody who walked out cannot lose, so the match freezes where it stands
-        offs.push(s.on('player-leave', p => { if (g.s.wiz.some(w => w.id === p.id)) goneAway(g); }));
+        // a host going is the end of it: the game was on their machine. Guests are told
+        if (!g.isHost) offs.push(s.on('player-leave', p => { if (p.host) goneAway(g); }));
         offs.push(s.on('net:down', () => goneAway(g)));
         offs.push(s.on('closed', () => goneAway(g)));
         offs.push(s.on('net:up', () => {
@@ -448,7 +580,7 @@
     function restartMatch(g) {
         const s = g.s;
         const next = S.newMatch({
-            seed: (g.seed = (g.seed * 31 + 17) >>> 0), match: s.match + 1,
+            seed: (g.seed = (g.seed * 31 + 17) >>> 0), match: s.match + 1, map: s.map,
             players: s.wiz.map(w => ({ id: w.id, name: w.name, bot: w.bot, avatar: w.avatar, loadout: w.loadout }))
         });
         next.guessing = !g.isHost;
@@ -457,14 +589,18 @@
         g.yaw = next.wiz[g.me].yaw; g.pitch = -0.02;
         g.ended = false; g.theyWantRematch = false; g.wantRematch = false;
         g.loadout = myLoadout();
-        g.seen = new Set(); g.seenTo = 0; g.inSeq = 0; g.outbox = [];
+        next.wiz[g.me].loadout = g.loadout.slice();
+        g.ears = {}; g.outbox = [];
         g.acc = 0;
-        g.fx = []; g.floats = []; g.beams = []; g.rings = [];
-        if (g.brain) g.brain = S.newBrain(g.bot, difficulty(), g.seed ^ 0x5bd1e995, next.wiz[1].loadout);
+        g.fx = []; g.floats = []; g.beams = []; g.rings = []; g.feed = [];
+        // a seat somebody walked out of stays a bot until they come back
+        const oldBrains = g.brains;
+        g.brains = {};
+        Object.keys(oldBrains).forEach(i => { g.brains[i] = S.newBrain(oldBrains[i].def, difficulty(), (g.seed ^ (0x5bd1e995 + i * 7919)) >>> 0, next.wiz[i].loadout); });
         clearStance(g);
         paintOverlay(g);
         focusGame(g);
-        if (g.isHost) netSend(g, 'wz:s', S.snapshot(next, { a: 0, ai: 0 }, 1 - g.me));
+        if (g.isHost) netSend(g, 'wz:s', S.snapshot(next, {}, g.humanSeats, true));
     }
 
     // ===============================================================
@@ -881,7 +1017,7 @@
             g.history.push({ q: g.inAck, inp: S.sanitizeInput(inp) });
             if (g.history.length > 120) g.history.shift();
         }
-        if (g.brain) S.think(s, 1, g.brain);
+        for (const i in g.brains) S.think(s, +i, g.brains[i]);
         S.step(s);
         if (g.stance && (!S.canAct(s.wiz[g.me]) || s.wiz[g.me].dead || s.phase !== 'live')) clearStance(g);
     }
@@ -910,6 +1046,12 @@
         }
         if (g.isHost && !g.solo) sendSnapshot(g, dt);
         if (!g.isHost && !g.solo && !g.netDown) sendInput(g, dt);
+        // nobody came back to a 1v1: a bot takes the seat, and the one left gets their game
+        if (g.isHost && g.netDown && g.vacant !== undefined && performance.now() - g.downAt > VACANT_MS) {
+            putBotIn(g, g.vacant);
+            g.vacant = undefined;
+            comeBack(g);
+        }
         if (!g.ended && g.s.phase === 'matchover') endMatch(g);
         render(g, g.paused ? 0 : dt);
 
@@ -971,12 +1113,13 @@
             case 'hit': {
                 const i = e[1], amount = e[2];
                 const w = s.wiz[i];
-                const si = e[3];
+                const si = e[3], by = e[4];
+                const mineToo = i === me || by === me || (si === 254 && hypot(w.x - s.wiz[me].x, w.z - s.wiz[me].z) < 20);
                 const col = i === me ? '#ff6b6b' : si === S.ZAP ? '#0df259' : '#ffe14d';
-                addFloat(g, w, 2.1, '-' + max(1, round(amount)), col);
+                if (mineToo) addFloat(g, w, 2.1, '-' + max(1, round(amount)), col);
                 if (si !== 254) {
                     if (i === me) { g.vignette = min(1, g.vignette + 0.45); g.shake = min(0.5, g.shake + amount * 0.015); SFX.hurt(); }
-                    else { g.hitMark = 0.22; SFX.hit(); }
+                    else if (by === me) { g.hitMark = 0.22; SFX.hit(); }
                     burst(g, w.x, w.y + 1.1, w.z, 6, [1, 0.3, 0.3], 3, 0.16, 0.4);
                 }
                 break;
@@ -1060,9 +1203,18 @@
                 SFX.ko();
                 const w = s.wiz[vic];
                 burst(g, w.x, w.y + 1, w.z, 30, [1, 0.25, 0.3], 7, 0.26, 0.9);
+                const by = e[2];
                 if (vic === me) banner(g, 'knocked out', '#ff6b6b', 2.2);
-                else { banner(g, s.wiz[vic].name + ' is down', '#0df259', 1.8); }
-                if (g.solo && g.bot) botLine(g, vic === 0 ? 'win' : 'lose');
+                else if (by === me) banner(g, s.wiz[vic].name + ' is down', '#0df259', 1.8);
+                else if (g.mode === 1) banner(g, s.wiz[vic].name + ' is down', '#0df259', 1.8);
+                g.feed.push({ text: (by >= 0 && s.wiz[by] ? s.wiz[by].name + ' got ' : '') + s.wiz[vic].name, good: s.wiz[vic].team !== g.myTeam, t: 5 });
+                if (g.feed.length > 4) g.feed.shift();
+                if (g.solo && g.bot && g.mode === 1) botLine(g, vic === 0 ? 'win' : 'lose');
+                break;
+            }
+            case 'sub': {
+                const w = s.wiz[e[1]];
+                if (w) say(g, e[2] ? w.name + ' left. a bot took the seat' : w.name + ' is back', 'bot', 2.4);
                 break;
             }
             case 'spawn': break;
@@ -1094,7 +1246,7 @@
     function buildWizards(g, dt, alpha) {
         const out = [];
         const s = g.s;
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < s.wiz.length; i++) {
             const w = s.wiz[i];
             const mine = i === g.me;
             let x = w.px === undefined ? w.x : lerp(w.px, w.x, alpha), y = w.py === undefined ? w.y : lerp(w.py, w.y, alpha), z = w.pz === undefined ? w.z : lerp(w.pz, w.z, alpha);
@@ -1106,10 +1258,11 @@
             if (!mine && !g.isHost && !g.solo) {
                 // their last known place, eased, so that five snapshots a second does not stutter
                 const k = 1 - Math.pow(0.0004, dt);
-                g.rvX = g.rvX === undefined ? x : lerp(g.rvX, x, k);
-                g.rvY = g.rvY === undefined ? y : lerp(g.rvY, y, k);
-                g.rvZ = g.rvZ === undefined ? z : lerp(g.rvZ, z, k);
-                x = g.rvX; y = g.rvY; z = g.rvZ;
+                const rv = g.rv[i] || (g.rv[i] = { x, y, z });
+                // a respawn is a jump, and nobody wants to watch them slide there
+                if (hypot(x - rv.x, z - rv.z) > 12) { rv.x = x; rv.y = y; rv.z = z; }
+                rv.x = lerp(rv.x, x, k); rv.y = lerp(rv.y, y, k); rv.z = lerp(rv.z, z, k);
+                x = rv.x; y = rv.y; z = rv.z;
             }
             const speed = hypot(w.mvx || 0, w.mvz || 0);
             g.walkA[i] += speed * dt * 1.5;
@@ -1122,7 +1275,7 @@
             const dist = hypot(x - s.wiz[g.me].x, z - s.wiz[g.me].z);
             let alphaOut;
             if (S.has(w, 'phase')) alphaOut = 0.4;
-            if (S.has(w, 'stealth')) alphaOut = mine ? 0.45 : (dist <= 4.5 ? 0.28 : 0);
+            if (S.has(w, 'stealth')) alphaOut = mine || w.team === g.myTeam ? 0.45 : (dist <= 4.5 ? 0.28 : 0);
             if (w.safe > 0 && floor(s.t * 10) % 2) alphaOut = 0.5;
             if (w.dead && g.fall[i] > 0.9 && w.respawn < 0.8) alphaOut = max(0, w.respawn);
             out.push({
@@ -1133,7 +1286,7 @@
                 raise: g.raise[i], kneel: w.stance ? 1 : 0, fall: g.fall[i],
                 alpha: alphaOut, hidden: alphaOut === 0 || (mine && g.camT < 0.22),
                 flash: w.hitT > 0 ? 0.7 * w.hitT / 0.25 : 0,
-                xray: !mine && S.has(w, 'mark') && !w.dead, stance: w.stance, i, w
+                xray: w.team !== g.myTeam && S.has(w, 'mark') && !w.dead, stance: w.stance, i, w
             });
         }
         return out;
@@ -1159,7 +1312,8 @@
         g.fovNow = lerp(g.fovNow, wantFov, min(1, dt * 12));
 
         // the draw distance is short anyway, and the closing fog takes it down further
-        const near = S.has(me, 'blind') ? 2 : 9, far = S.has(me, 'blind') ? 9 : 30;
+        const theme = S.LAYOUT.theme;
+        const near = S.has(me, 'blind') ? 2 : (theme.near || 9), far = S.has(me, 'blind') ? 9 : (theme.far || 30);
         const shrink = s.fog < A.fogStart ? clamp(s.fog / 24 + 0.35, 0.38, 1) : 1;
         const inCloud = s.ents.some(e => e.k === 'zone' && e.s && D.byId(e.s).p.obscure && hypot(e.x - me.x, e.z - me.z) < e.r);
         const fog = [near * shrink * (inCloud ? 0.4 : 1), far * shrink * (inCloud ? 0.45 : 1)];
@@ -1237,7 +1391,7 @@
                 }
                 case 'trap': {
                     // yours shows. Theirs is a glint until you are nearly on it
-                    const mine = e.o === g.me;
+                    const mine = e.tm === g.myTeam;
                     const d = hypot(e.x - s.wiz[g.me].x, e.z - s.wiz[g.me].z);
                     if (mine || d < 6.5) {
                         const col = elCol(e.el);
@@ -1270,6 +1424,8 @@
             const av = w.avatar;
             const q = w.w;
             if (w.hidden || q.dead) continue;
+            // whose side they are on, at their feet, when there are sides to speak of
+            if (g.mode > 1 && w.i !== g.me) b.disc(w.x, w.groundY + 0.05, w.z, 0.85, T.halo, q.team === g.myTeam ? [0.05, 0.8, 0.3] : [0.9, 0.12, 0.15], 0);
             if (av.aura && av.aura !== 'none') {
                 const col = { sparks: [1, 0.9, 0.3], flames: [1, 0.45, 0.15], frost: [0.45, 0.85, 1], shadow: [0.6, 0.45, 0.85], holy: [1, 1, 0.85] }[av.aura];
                 for (let k = 0; k < 4; k++) {
@@ -1312,9 +1468,10 @@
         }
         const on = s.onAltar;
         const owner = on === 0 || on === 1;
-        const aCol = owner ? (on === g.me ? [0.05, 0.9, 0.35] : [0.95, 0.25, 0.3]) : on === 2 ? [1, 0.9, 0.2] : [0.55, 0.3, 0.9];
-        b.disc(0, A.altar.h + 0.05, 0, A.altar.r, T.ring, aCol, s.t * 0.25);
-        b.sprite(0, A.altar.h + 3.8, 0, 3.4, T.glow, [aCol[0] * 0.5, aCol[1] * 0.5, aCol[2] * 0.5], 0);
+        const altar = S.LAYOUT.altar;
+        const aCol = owner ? (on === g.myTeam ? [0.05, 0.9, 0.35] : [0.95, 0.25, 0.3]) : on === 2 ? [1, 0.9, 0.2] : [0.55, 0.3, 0.9];
+        b.disc(0, altar.h + 0.05, 0, altar.r, T.ring, aCol, s.t * 0.25);
+        b.sprite(0, altar.h + 3.8, 0, 3.4, T.glow, [aCol[0] * 0.5, aCol[1] * 0.5, aCol[2] * 0.5], 0);
         // ---- particles ----
         const keep = [];
         for (const f of g.fx) {
@@ -1391,7 +1548,8 @@
     }
     function drawHud(g, dt, wiz) {
         const c = g.hctx, W = HUD_W, H = g.hudH, s = g.s;
-        const me = s.wiz[g.me], foe = s.wiz[1 - g.me];
+        const me = s.wiz[g.me], team = g.myTeam;
+        const enemies = s.wiz.filter(q => q.team !== team), allies = s.wiz.filter(q => q.team === team && q !== me);
         c.clearRect(0, 0, W, H);
         c.imageSmoothingEnabled = false;
         g.hintT = max(0, g.hintT - dt);
@@ -1433,58 +1591,87 @@
         }
         g.floats = keep;
 
-        // ---- a name over them ----
-        if (!foe.dead && !wiz[1 - g.me].hidden) {
-            const f = wiz[1 - g.me];
+        // ---- a name over everybody ----
+        // one line of sight a frame, because eight every frame is what the bots are for
+        g.seeI = ((g.seeI || 0) + 1) % s.wiz.length;
+        const looked = s.wiz[g.seeI];
+        g.seen[g.seeI] = S.clearLine(s, me.x, me.y + 1.7, me.z, looked.x, looked.y + 1.5, looked.z);
+        wiz.forEach(f => {
+            const q = f.w;
+            if (!q || q === me || q.dead || f.hidden) return;
+            const ally = q.team === team;
+            if (!ally && !g.seen[q.i]) return;
             const p = g.R.project(f.x, f.y + 2.25, f.z);
-            g.seeT = (g.seeT || 0) - dt;
-            if (g.seeT <= 0) {
-                g.seeT = 0.15;
-                g.camSees = S.clearLine(s, me.x, me.y + 1.7, me.z, foe.x, foe.y + 1.5, foe.z);
-            }
-            if (p && p.d < 36 && g.camSees) {
-                const bw = 44;
-                bar(c, p.x * W - bw / 2, p.y * H, bw, 3, foe.hp / A.maxHp, '#e4485f', '#3a0f18');
-                if (foe.ward > 0) { c.fillStyle = '#bfe8ff'; c.fillRect(p.x * W - bw / 2, p.y * H - 2, min(1, foe.ward / 40) * bw, 1); }
-            }
-        }
+            if (!p || p.d > (ally ? 60 : 36)) return;
+            const bw = 44;
+            if (ally) text(c, q.name, p.x * W, p.y * H - 2, g.seen[q.i] ? '#7dffa8' : '#3f9f66', 8, 'center');
+            bar(c, p.x * W - bw / 2, p.y * H, bw, 3, q.hp / A.maxHp, ally ? '#0df259' : '#e4485f', ally ? '#0a3018' : '#3a0f18');
+            if (q.ward > 0) { c.fillStyle = '#bfe8ff'; c.fillRect(p.x * W - bw / 2, p.y * H - 2, min(1, q.ward / 40) * bw, 1); }
+        });
 
         // ---- the top: who is winning ----
         const cx = W / 2;
         bevelBox(c, cx - 98, 3, 196, 25, '#c0c0c0');
-        const pips = (i, x, dir) => {
-            for (let k = 0; k < A.knockouts; k++) {
-                const px = x + dir * k * 11;
-                c.fillStyle = '#404040'; c.fillRect(px, 8, 9, 9);
-                c.fillStyle = k < s.score[i] ? (i === g.me ? '#0df259' : '#e4485f') : '#808080';
-                c.fillRect(px + 1, 9, 7, 7);
-            }
-        };
-        pips(g.me, cx - 92, 1);
-        pips(1 - g.me, cx + 83, -1);
+        if (s.koGoal <= 3) {
+            const pips = (t, x, dir) => {
+                for (let k = 0; k < s.koGoal; k++) {
+                    const px = x + dir * k * 11;
+                    c.fillStyle = '#404040'; c.fillRect(px, 8, 9, 9);
+                    c.fillStyle = k < s.score[t] ? (t === team ? '#0df259' : '#e4485f') : '#808080';
+                    c.fillRect(px + 1, 9, 7, 7);
+                }
+            };
+            pips(team, cx - 92, 1);
+            pips(1 - team, cx + 83, -1);
+        } else {
+            text(c, s.score[team] + '/' + s.koGoal, cx - 92, 16, '#006020', 11, 'left', false);
+            text(c, s.score[1 - team] + '/' + s.koGoal, cx + 92, 16, '#a00020', 11, 'right', false);
+        }
         const fogIn = A.fogAt - s.t;
         const timeLabel = s.phase === 'live' ? (fogIn > 0 ? clock(fogIn) : 'FOG') : '';
         text(c, timeLabel, cx, 16, fogIn > 0 ? '#000' : '#a00000', 11, 'center', false);
         // the ritual
-        const rit = (i, x, dir) => {
-            const f = s.altar[i] / A.ritual;
+        const rit = (t, x, dir) => {
+            const f = s.altar[t] / A.ritual;
             c.fillStyle = '#404040'; c.fillRect(x, 20, dir * 86, 5);
-            c.fillStyle = i === g.me ? '#0df259' : '#e4485f';
+            c.fillStyle = t === team ? '#0df259' : '#e4485f';
             c.fillRect(x, 21, dir * 86 * f, 3);
         };
-        rit(g.me, cx - 2, -1);
-        rit(1 - g.me, cx + 2, 1);
-        if (s.onAltar === g.me) text(c, 'the ritual is going. hold the altar', cx, 40, '#0df259', 10, 'center');
-        else if (s.onAltar === 1 - g.me) text(c, foe.name + ' is doing the ritual! get them off', cx, 40, '#ff6b6b', 10, 'center');
+        rit(team, cx - 2, -1);
+        rit(1 - team, cx + 2, 1);
+        if (s.onAltar === team) text(c, g.mode > 1 ? 'your side is doing the ritual. hold the altar' : 'the ritual is going. hold the altar', cx, 40, '#0df259', 10, 'center');
+        else if (s.onAltar === 1 - team) text(c, (g.mode > 1 ? 'they are' : enemies[0].name + ' is') + ' doing the ritual! get them off', cx, 40, '#ff6b6b', 10, 'center');
         else if (s.onAltar === 2) text(c, 'the altar is contested', cx, 40, '#ffe14d', 10, 'center');
         else if (s.fog < A.fogStart) text(c, 'the fog is closing. get to the altar', cx, 40, '#ffe14d', 10, 'center');
 
         // ---- them, top right ----
-        const fw = 150, fx = W - fw - 8;
-        text(c, foe.name, W - 8, 13, '#ff9aa8', 10, 'right');
-        bar(c, fx, 17, fw, 6, foe.hp / A.maxHp, '#e4485f', '#3a0f18', true);
-        if (foe.ward > 0) { c.fillStyle = '#bfe8ff'; const ww = min(1, foe.ward / 40) * fw; c.fillRect(fx + fw - ww, 17, ww, 2); }
-        statusRow(c, foe, W - 8, 34, -1);
+        if (enemies.length === 1) {
+            const foe = enemies[0];
+            const fw = 150, fx = W - fw - 8;
+            text(c, foe.name, W - 8, 13, '#ff9aa8', 10, 'right');
+            bar(c, fx, 17, fw, 6, foe.hp / A.maxHp, '#e4485f', '#3a0f18', true);
+            if (foe.ward > 0) { c.fillStyle = '#bfe8ff'; const ww = min(1, foe.ward / 40) * fw; c.fillRect(fx + fw - ww, 17, ww, 2); }
+            statusRow(c, foe, W - 8, 34, -1);
+        } else {
+            enemies.forEach((q, n) => {
+                const y = 11 + n * 14;
+                text(c, q.name.slice(0, 16), W - 8, y, q.dead ? '#806060' : '#ff9aa8', 8, 'right');
+                bar(c, W - 78, y + 2, 70, 3, q.hp / A.maxHp, '#e4485f', '#3a0f18', true);
+            });
+        }
+        // ---- your side, top left ----
+        allies.forEach((q, n) => {
+            const y = (g.touch ? 74 : 40) + n * 14;   // the menu button is up there on a phone
+            text(c, q.name.slice(0, 16), 6, y, q.dead ? '#608060' : '#7dffa8', 8);
+            bar(c, 6, y + 2, 70, 3, q.hp / A.maxHp, '#0df259', '#0a3018');
+        });
+        // ---- who got whom ----
+        g.feed = g.feed.filter(e => (e.t -= dt) > 0);
+        g.feed.forEach((e, n) => {
+            c.globalAlpha = min(1, e.t);
+            text(c, e.text, cx, 52 + n * 11, e.good ? '#7dffa8' : '#ff9aa8', 9, 'center');
+            c.globalAlpha = 1;
+        });
 
         // ---- you, bottom left ----
         const bx = 8, by = H - 34, bw2 = 150;
@@ -1513,7 +1700,7 @@
         const per = g.aspect < 1 ? 4 : 8;
         const sz = g.aspect < 1 ? 26 : 26, gap = 2;
         const stripW = per * (sz + gap);
-        const sx0 = W - stripW - 6, sy0 = g.aspect < 1 || g.touch ? 46 : H - sz - 6;
+        const sx0 = W - stripW - 6, sy0 = g.aspect < 1 || g.touch ? max(46, 14 + enemies.length * 14) : H - sz - 6;
         g.loadout.forEach((id, i) => {
             const sp = D.byId(id);
             const row = floor(i / per), x = sx0 + (i % per) * (sz + gap), y = sy0 + row * (sz + gap);
@@ -1565,6 +1752,7 @@
             const n = Math.ceil(s.phaseT);
             text(c, n > 0 ? String(n) : 'DUEL', cx, H / 2 - 20, '#ffe14d', 54, 'center');
             text(c, g.touch ? 'left thumb walks. right thumb looks. the ink button draws.' : 'wasd walks. mouse looks. E draws a sigil, click fires it.', cx, H / 2 + 10, '#fff', 12, 'center');
+            text(c, g.mode + ' v ' + g.mode + ' on ' + D.mapById(g.map).name + '. first to ' + s.koGoal + ' knockouts, or hold the altar', cx, H / 2 + 26, '#ffe14d', 10, 'center');
         }
         if (me.dead && s.phase === 'live') {
             text(c, 'back in ' + max(1, Math.ceil(me.respawn)), cx, H / 2 + 6, '#fff', 22, 'center');
@@ -1781,7 +1969,7 @@
         g.wantFire = false;
         if (isLocked(g) && document.exitPointerLock) document.exitPointerLock();
         const s = g.s;
-        if (s.over === g.me) {
+        if (s.over === g.myTeam) {
             SFX.win();
             if (typeof unlockAchievement === 'function') unlockAchievement('wizardz_win');
             if (g.solo) botLine(g, 'lose');
@@ -1791,20 +1979,24 @@
     function renderEnd(g) {
         const s = g.s, o = g.overlay;
         if (!o) return;
-        const won = s.over === g.me;
+        const won = s.over === g.myTeam;
+        const duel = g.mode === 1;
         const how = {
-            ko: won ? 'three knockouts, bradar' : 'three knockouts, against',
-            ritual: won ? 'you finished the ritual' : s.wiz[s.over].name + ' finished the ritual',
+            ko: (won ? '' : 'against: ') + s.koGoal + ' knockouts' + (won ? ', bradar' : ''),
+            ritual: won ? (duel ? 'you' : 'your side') + ' finished the ritual' : (duel ? s.wiz[1 - g.me].name : 'they') + ' finished the ritual',
             time: 'the fog ended it. most knockouts wins',
             resign: won ? 'they gave up' : 'you gave up'
         }[s.reason] || '';
+        const line = duel
+            ? escapeHtml(s.wiz[0].name) + ' ' + s.score[0] + ' - ' + s.score[1] + ' ' + escapeHtml(s.wiz[1].name)
+            : 'your side ' + s.score[g.myTeam] + ' - ' + s.score[1 - g.myTeam] + ' their side';
         const title = s.over < 0 ? 'nobody wins' : won ? 'YOU WIN' : 'YOU LOSE';
         const canAgain = g.isHost;
         o.style.display = '';
         o.innerHTML = `<div class="wz-dialog wz-end">
             <div class="wz-dialog-title">${title}</div>
             <p>${escapeHtml(how)}</p>
-            <p>${escapeHtml(s.wiz[0].name)} ${s.score[0]} - ${s.score[1]} ${escapeHtml(s.wiz[1].name)}</p>
+            <p>${line}</p>
             ${g.theyWantRematch && !g.solo ? '<p>they want another one.</p>' : ''}
             ${canAgain
                 ? '<button class="wz-btn wz-go wz-wide" id="wz-rematch">rematch</button>'
@@ -2015,10 +2207,18 @@
                         <button class="wz-btn wz-wide" id="wz-edit">customise wizard</button>
                     </div>
                     <div class="wz-menu-main">
-                        <button class="wz-btn wz-go wz-wide" id="wz-mp">1 v 1 — play someone (invite code)</button>
-                        <button class="wz-btn wz-go wz-wide" id="wz-solo">1 v bot — pick an opponent</button>
-                        <button class="wz-btn wz-wide" id="wz-quick">quick match vs a random bot</button>
+                        <button class="wz-btn wz-go wz-wide" id="wz-mp">play people — invite code</button>
+                        <button class="wz-btn wz-go wz-wide" id="wz-solo">play bots — pick an opponent</button>
+                        <button class="wz-btn wz-wide" id="wz-quick">quick match against random bots</button>
                         <div class="wz-row">
+                            <label for="wz-modepick">teams</label>
+                            <select id="wz-modepick" class="wz-input">
+                                ${A.modes.map(m => '<option value="' + m + '">' + m + ' v ' + m + '</option>').join('')}
+                            </select>
+                            <label for="wz-mappick">map</label>
+                            <select id="wz-mappick" class="wz-input">
+                                ${D.MAPS.map(m => '<option value="' + m.id + '">' + escapeHtml(m.name) + '</option>').join('')}
+                            </select>
                             <label for="wz-diff">difficulty</label>
                             <select id="wz-diff" class="wz-input">
                                 <option value="easy">easy</option>
@@ -2026,7 +2226,13 @@
                                 <option value="hard">hard</option>
                             </select>
                         </div>
-                        <button class="wz-btn wz-wide" id="wz-load2">your eight spells</button>
+                        <div class="wz-hint" id="wz-mapnote"></div>
+                        <button class="wz-btn wz-wide" id="wz-load2">your eight spells — and ready made ones</button>
+                        <div class="wz-row wz-idrow">
+                            <label for="wz-loid">loadout id</label>
+                            <input id="wz-loid" class="wz-input wz-idbox" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="wz-lomsg">
+                        </div>
+                        <div class="wz-hint" id="wz-lomsg" aria-live="polite"></div>
                         <button class="wz-btn wz-wide" id="wz-book2">grimoire — all 50 sigils</button>
                         <button class="wz-btn wz-wide" id="wz-help">how to play</button>
                         <button class="wz-btn wz-wide" id="wz-set">settings</button>
@@ -2040,11 +2246,23 @@
         nameEl.textContent = prof.name + ' — ' + (av.title || 'apprentice');
         spinPortrait(meCv, av, { bg: [0, 0.5, 0.5] });
         const strip = root.querySelector('#wz-mini-strip');
-        strip.innerHTML = lo.map(id => `<canvas width="34" height="34" title="${escapeHtml(D.byId(id).name)}" data-sigil="${id}"></canvas>`).join('');
-        strip.querySelectorAll('canvas').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
+        const paintStrip = l => {
+            strip.innerHTML = l.map(id => `<canvas width="34" height="34" title="${escapeHtml(D.byId(id).name)}" data-sigil="${id}"></canvas>`).join('');
+            strip.querySelectorAll('canvas').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
+        };
+        paintStrip(lo);
+        const idBox = wireLoadoutBox(root.querySelector('#wz-loid'), root.querySelector('#wz-lomsg'), l => { paintStrip(l); if (windowLoadout) windowLoadout(l); });
+        menuLoadout = l => { idBox.show(l); paintStrip(l); };
         const diff = root.querySelector('#wz-diff');
         diff.value = difficulty();
         diff.onchange = () => savePreference(LS.diff, diff.value);
+        const modePick = root.querySelector('#wz-modepick'), mapPick = root.querySelector('#wz-mappick'), note = root.querySelector('#wz-mapnote');
+        modePick.value = String(chosenMode());
+        mapPick.value = chosenMap();
+        const paintNote = () => { note.textContent = D.mapById(mapPick.value).blurb; };
+        paintNote();
+        modePick.onchange = () => savePreference(LS.mode, modePick.value);
+        mapPick.onchange = () => { savePreference(LS.map, mapPick.value); paintNote(); };
         root.querySelector('#wz-edit').onclick = () => openAvatarEditor();
         root.querySelector('#wz-book2').onclick = () => openGrimoire();
         root.querySelector('#wz-load2').onclick = () => openLoadout();
@@ -2057,10 +2275,10 @@
             else showToast('wizardz', 'netplay is not loaded');
         };
     }
-    function startBotDuel(botId) {
+    function startBotDuel(botId, extra) {
         const s = window.Netplay ? Netplay.soloSession('wizardz') : null;
         ensureWindow('wizardz 98');
-        startDuel(s, { solo: true, botId });
+        startDuel(s, Object.assign({ solo: true, botId }, extra || {}));
     }
     function openBotPicker() {
         ensureWindow('wizardz 98');
@@ -2124,7 +2342,7 @@
             <p>while you draw you can only shuffle, you cannot shoot, and you take a fifth more damage.
             but anything of theirs that flies near you slows right down. duck behind something first, bradar.</p>
             <h3>winning</h3>
-            <p><b>three knockouts</b>, or <b>the ritual</b>: stand on the altar in the middle, alone, for ${A.ritual} seconds in total.
+            <p><b>knockouts</b> (three in a 1 v 1, twelve in a 4 v 4), or <b>the ritual</b>: your side alone on the altar in the middle for ${A.ritual} seconds in total.
             after ${A.fogAt} seconds the fog closes in on the altar and hurts anyone outside it.</p>
             <h3>the mouse and the keys</h3>
             <table class="wz-keys">
@@ -2140,6 +2358,9 @@
             </table>
             <h3>on a phone</h3>
             <p>left thumb walks, right thumb looks. the ink button starts a drawing and your right thumb is the pen, while your left one keeps walking.</p>
+            <h3>teams and maps</h3>
+            <p>up to four a side, and bots fill any seat nobody is in. nothing of yours can hurt your own side, and your shots go through their walls too.
+            if somebody drops out, a bot takes the seat. each map plays differently: pick one on the menu, or in the lobby if you are hosting.</p>
             <h3>the sigils</h3>
             <p>stroke order, direction, size and angle do not matter. upside down is fine. draw it big, and clean ones hit harder.
             you carry eight into a match, and only those can be cast.</p>
@@ -2274,19 +2495,90 @@
         body.querySelector('#wz-clear').onclick = clear;
         win._cleanup = () => { clearTimeout(timer); };
     }
+    // A box you type or paste an id into. There is no button: the moment it is a whole id it is
+    // loaded, and until then it is only complained at if it can already never be one.
+    let menuLoadout = null, windowLoadout = null;
+    function wireLoadoutBox(input, msg, loaded) {
+        const tell = (text, bad) => { msg.textContent = text; msg.classList.toggle('wz-bad', !!bad); };
+        const show = l => { input.value = D.loadoutToId(l) || ''; };
+        const read = final => {
+            const clean = D.cleanLoadoutId(input.value);
+            if (!clean) { tell(final ? '' : 'type or paste one, and it loads as soon as it is whole'); return; }
+            const r = D.loadoutFromId(input.value);
+            if (r.ok) {
+                const now = useLoadout(r.list);
+                input.value = r.id;
+                const known = D.PRESETS.find(p => p.code === r.id);
+                tell((known ? known.name + ' ' : '') + 'loaded. ' + (now ? 'it is what you are carrying.' : 'the next match uses it.'));
+                loaded(r.list.slice());
+            } else if (r.why === 'short' && !final) {
+                tell(clean.length + ' of ' + D.ID_LENGTH);
+            } else {
+                tell(r.text, true);
+            }
+        };
+        input.addEventListener('input', () => read(false));
+        input.addEventListener('blur', () => { if (D.cleanLoadoutId(input.value) !== D.cleanLoadoutId(D.loadoutToId(myLoadout()) || '')) read(true); });
+        input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') read(true); });
+        show(myLoadout());
+        return { show, tell };
+    }
     function openLoadout() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('your eight spells', { icon: 'bookmark', width: 540 });
+        const { body } = createAppWindow('your eight spells', { icon: 'bookmark', width: 560 });
         body.classList.add('wz-book');
         const elColor = el => (D.EL[el] || {}).color || '#fff';
         let loadout = myLoadout();
         let slot = 0;
+        body.innerHTML = `
+            <div class="wz-load-top">you carry eight sigils into a match, and only those can be cast. pick a slot, then a spell,
+            or take a ready made eight, or type somebody's id. the next match uses them.</div>
+            <div class="wz-row wz-idrow">
+                <label for="wz-load-id">loadout id</label>
+                <input id="wz-load-id" class="wz-input wz-idbox" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="wz-load-msg">
+                <button class="wz-btn" id="wz-load-copy">copy</button>
+            </div>
+            <div class="wz-hint" id="wz-load-msg" aria-live="polite"></div>
+            <div class="wz-load-row" id="wz-chosen"></div>
+            <div class="wz-load-head">ready made</div>
+            <div class="wz-presets" id="wz-presets"></div>
+            <div class="wz-load-head">all fifty</div>
+            <div class="wz-book-list wz-load-all" id="wz-all"></div>`;
+        const idBox = wireLoadoutBox(body.querySelector('#wz-load-id'), body.querySelector('#wz-load-msg'), l => { loadout = l; slot = 0; draw(); });
+        // whichever of the two windows you changed it in, the other one catches up
+        const changed = () => {
+            useLoadout(loadout);
+            if (menuLoadout && root && root.querySelector('#wz-loid')) menuLoadout(loadout);
+            idBox.show(loadout);
+        };
+        body.querySelector('#wz-load-copy').onclick = () => {
+            const id = D.loadoutToId(loadout);
+            const done = () => idBox.tell('copied ' + id + '. anyone who types that gets these eight.');
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, () => idBox.tell('your browser will not let me copy. it is ' + id));
+            else idBox.tell('your browser will not let me copy. it is ' + id);
+        };
+        windowLoadout = l => { loadout = l.slice(); slot = 0; idBox.show(l); draw(); };
+        const presets = body.querySelector('#wz-presets');
+        presets.innerHTML = D.PRESETS.map(p => `<button class="wz-preset" data-preset="${p.id}">
+            <span class="wz-preset-name">${escapeHtml(p.name)}</span>
+            <span class="wz-preset-style">${escapeHtml(p.style)}</span>
+            <span class="wz-preset-sigils">${p.sigils.map(id => `<canvas width="24" height="24" title="${escapeHtml(D.byId(id).name)}" data-sigil="${id}"></canvas>`).join('')}</span>
+            <span class="wz-preset-code">${p.code}</span></button>`).join('');
+        presets.querySelectorAll('canvas[data-sigil]').forEach(c => paintSigil(c, D.byId(c.dataset.sigil), { width: 8 }));
+        presets.querySelectorAll('[data-preset]').forEach(b => {
+            b.onclick = () => {
+                const p = D.PRESETS.find(x => x.id === b.dataset.preset);
+                loadout = p.sigils.slice();
+                slot = 0;
+                changed();
+                idBox.tell(p.name + ' loaded.');
+                draw();
+            };
+        });
         function draw() {
-            body.innerHTML = `
-                <div class="wz-load-top">you carry eight sigils into a match, and only those can be cast. pick a slot, then a spell.
-                the next match uses them.</div>
-                <div class="wz-load-row" id="wz-chosen"></div>
-                <div class="wz-book-list wz-load-all" id="wz-all"></div>`;
+            const code = D.loadoutToId(loadout);
+            presets.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', D.PRESETS.find(x => x.id === b.dataset.preset).code === code));
+            if (menuLoadout && root && root.querySelector('#wz-loid')) menuLoadout(loadout);
             const chosen = body.querySelector('#wz-chosen');
             chosen.innerHTML = loadout.map((id, i) => {
                 const s = D.byId(id);
@@ -2307,8 +2599,8 @@
                     if (already >= 0) { loadout[already] = loadout[slot]; }
                     loadout[slot] = id;
                     slot = (slot + 1) % D.LOADOUT_SIZE;
-                    saveLoadout(loadout);
-                    if (G && G.s && G.s.phase !== 'live') G.loadout = myLoadout();
+                    changed();
+                    idBox.tell('');
                     draw();
                 };
             });
@@ -2399,19 +2691,22 @@
             name: 'wizardz 98',
             start: (session, opts) => startDuel(session, opts),
             startSolo: () => openBotPicker(),
-            soloLabel: '1 v bot — pick an opponent',
+            soloLabel: 'play bots — pick an opponent',
             paintAvatar,
-            editAvatar: openAvatarEditor
+            editAvatar: openAvatarEditor,
+            editLoadout: openLoadout
         });
     }
-    window.startWizardz = function (mode, botId) {
-        if (mode === 'solo') { startBotDuel(botId); return; }
+    // extra: { mode: 1..4, map: id } if you do not want what the menu has saved
+    window.startWizardz = function (mode, botId, extra) {
+        if (mode === 'solo') { startBotDuel(botId, extra); return; }
         if (mode === 'bot' || mode === 'bots') { openBotPicker(); return; }
         openMenu();
     };
     window.wizardzGrimoire = openGrimoire;
     window.wizardzAvatar = openAvatarEditor;
     window.wizardzBots = openBotPicker;
+    window.wizardzLoadout = openLoadout;
     // handy for the console, and for the browser tests. state() hands out the live match
     window.WZ_ENGINE = {
         recognize: R.recognize, decide: R.decide, featuresOf: R.featuresOf, templates: R.templates,

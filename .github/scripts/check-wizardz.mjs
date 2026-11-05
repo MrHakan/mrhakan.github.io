@@ -35,6 +35,7 @@ vm.runInContext(read('games/wizardz/wizardz-gl.js'), ctx);
 const D = window.WZ, S = window.WZ_SIM, A = D.ARENA;
 const HZ = S.HZ;
 const SPELLS = D.SPELLS;
+const TEMPLE = D.mapById('temple');
 
 const fresh = (seed = 7) => {
     const s = S.newMatch({ seed, stats: true, players: [{ id: 'a', name: 'a' }, { id: 'b', name: 'b' }] });
@@ -233,20 +234,20 @@ section('how a match ends');
     expect(!s.wiz[1].dead && s.wiz[1].hp === A.maxHp, 'they come back', 'at ' + Math.round(s.wiz[1].x) + ',' + Math.round(s.wiz[1].z));
     expect(s.wiz[1].safe > 0, 'and cannot be hit straight away');
     s.wiz[1].safe = 0;
-    s.score = [A.knockouts - 1, 0];
+    s.score = [s.koGoal - 1, 0];
     s.wiz[1].hp = 1;
     faceOff(s);
     fire(s, 0, aimAt(s, 0, 1));
     S.setInput(s, 0, { yaw: s.wiz[0].yaw, pitch: s.wiz[0].pitch });
     stepFor(s, 0.7);
-    expect(s.over === 0 && s.reason === 'ko', 'three of them is the match', String(s.reason));
+    expect(s.koGoal === 3 && s.over === 0 && s.reason === 'ko', 'three of them is the match', String(s.reason));
 
     s = fresh();
-    s.wiz[0].x = 0; s.wiz[0].z = 0; s.wiz[0].y = A.altar.h;
+    s.wiz[0].x = 0; s.wiz[0].z = 0; s.wiz[0].y = TEMPLE.altar.h;
     s.wiz[1].x = 20; s.wiz[1].z = 20;
     stepFor(s, 3);
     expect(s.altar[0] > 2.8 && s.altar[0] < 3.2 && s.onAltar === 0, 'standing alone on the altar does the ritual', s.altar[0].toFixed(1) + 's');
-    s.wiz[1].x = 1; s.wiz[1].z = 1; s.wiz[1].y = A.altar.h;
+    s.wiz[1].x = 1; s.wiz[1].z = 1; s.wiz[1].y = TEMPLE.altar.h;
     const held = s.altar[0];
     stepFor(s, 2);
     expect(Math.abs(s.altar[0] - held) < 0.01 && s.altar[1] === 0 && s.onAltar === 2, 'two on it and it stops');
@@ -261,7 +262,7 @@ section('how a match ends');
     stepFor(s, 0.3);
     expect(Math.abs(s.altar[0] - 20 * (1 - A.ritualKo)) < 0.6, 'being knocked out costs you a quarter of it', s.altar[0].toFixed(1));
     s = fresh();
-    s.wiz[0].x = 0; s.wiz[0].z = 0; s.wiz[0].y = A.altar.h;
+    s.wiz[0].x = 0; s.wiz[0].z = 0; s.wiz[0].y = TEMPLE.altar.h;
     s.wiz[1].x = 20; s.wiz[1].z = 20;
     s.altar[0] = A.ritual - 0.1;
     stepFor(s, 0.5);
@@ -270,7 +271,7 @@ section('how a match ends');
     s = fresh();
     s.t = A.fogAt - 1;
     s.wiz[0].x = -28; s.wiz[0].z = 28;
-    s.wiz[1].x = 0; s.wiz[1].z = 0; s.wiz[1].y = A.altar.h;
+    s.wiz[1].x = 0; s.wiz[1].z = 0; s.wiz[1].y = TEMPLE.altar.h;
     stepFor(s, 1.2);
     const hp0 = s.wiz[0].hp;
     expect(hp0 >= A.maxHp, 'the fog does not start until it starts', hp0.toFixed(0));
@@ -283,7 +284,7 @@ section('how a match ends');
     s = fresh();
     s.t = A.hardCap - 0.5;
     s.score = [1, 0];
-    s.wiz[0].x = s.wiz[1].x = 0; s.wiz[0].z = s.wiz[1].z = 1; s.wiz[0].y = s.wiz[1].y = A.altar.h;
+    s.wiz[0].x = s.wiz[1].x = 0; s.wiz[0].z = s.wiz[1].z = 1; s.wiz[0].y = s.wiz[1].y = TEMPLE.altar.h;
     stepFor(s, 1);
     expect(s.over === 0 && s.reason === 'time', 'and a match that runs out of clock goes to the one ahead', String(s.reason));
 }
@@ -292,6 +293,7 @@ section('how a match ends');
 section('the arena');
 // ===================================================================
 {
+    S.useMap('temple');
     const L = S.LAYOUT;
     const bad = [];
     L.boxes.forEach(b => {
@@ -301,7 +303,7 @@ section('the arena');
         if (!L.pickups.some(o => o.x === -p.x && o.z === -p.z && o.kind === p.kind)) bad.push('pickup at ' + p.x + ',' + p.z);
     });
     expect(!bad.length, 'it is the same from either side, so neither spawn is the good one', bad.join(', '));
-    expect(L.spawns[0][0] === -L.spawns[1][0] && L.spawns[0][1] === -L.spawns[1][1], 'and the spawns are opposite');
+    expect(L.spawns[0][0][0] === -L.spawns[1][0][0] && L.spawns[0][0][1] === -L.spawns[1][0][1], 'and the spawns are opposite');
     for (let k = 0; k < 400; k++) {
         const x = -32 + (k * 37 % 64), z = -32 + (k * 53 % 64);
         if (S.heightAt(x, z) !== S.heightAt(-x, -z)) { bad.push(x + ',' + z); break; }
@@ -312,7 +314,7 @@ section('the arena');
     const P = S.navPassable, N = S.NAV_SIDE;
     const cell = (x, z) => Math.floor(z + 32) * N + Math.floor(x + 32);
     const seen = new Uint8Array(N * N);
-    const start = cell(L.spawns[0][0], L.spawns[0][1]);
+    const start = cell(L.spawns[0][0][0], L.spawns[0][0][1]);
     const queue = [start];
     seen[start] = 1;
     for (let h = 0; h < queue.length; h++) {
@@ -329,7 +331,7 @@ section('the arena');
     const nearest = (x, z) => { for (let r = 0; r < 4; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) if (seen[cell(x + dx, z + dz)]) return true; return false; };
     const stranded = L.pickups.filter(p => !nearest(p.x, p.z)).map(p => p.kind + ' ' + p.x + ',' + p.z);
     expect(!stranded.length, 'every pickup can be walked to', stranded.join(', '));
-    expect(nearest(0, 0) && nearest(L.spawns[1][0], L.spawns[1][1]), 'and the altar, and the other spawn');
+    expect(nearest(0, 0) && nearest(L.spawns[1][0][0], L.spawns[1][0][1]), 'and the altar, and the other spawn');
     expect(L.pickups.every(p => S.heightAt(p.x, p.z) < 2), 'nothing is inside a wall');
 
     // walking
@@ -342,10 +344,10 @@ section('the arena');
     expect(w.z > b[1] + b[3] && Math.abs(w.y) < 0.01, 'you cannot walk through a pillar', 'stopped at ' + w.z.toFixed(1));
     s = fresh();
     const ww = s.wiz[0];
-    ww.x = 0; ww.z = A.altar.ramp + 1; ww.yaw = 0; ww.y = 0;
+    ww.x = 0; ww.z = 13.5; ww.yaw = 0; ww.y = 0;
     S.setInput(s, 0, { mz: 1 });
     stepFor(s, 2);
-    expect(ww.y > A.altar.h * 0.9, 'you can walk up a ramp', 'at height ' + ww.y.toFixed(2));
+    expect(ww.y > TEMPLE.altar.h * 0.9, 'you can walk up a ramp', 'at height ' + ww.y.toFixed(2));
     s = fresh();
     const j = s.wiz[0];
     j.x = -6; j.z = 11; j.yaw = 0;
@@ -516,7 +518,7 @@ section('the wire');
     fire(s, 1, aimAt(s, 1, 0));
     s.wiz[0].st.burn = { t: 2, dps: 3 };
     s.wiz[1].cd = { spark: 1.2 };
-    const d = JSON.parse(JSON.stringify(S.snapshot(s, { a: 3, ai: 9 }, 1)));
+    const d = JSON.parse(JSON.stringify(S.snapshot(s, { a: [[1, 3, 9]] }, [1])));
     const g = S.newMatch({ seed: 9, players: [{ id: 'a' }, { id: 'b' }] });
     g.guessing = true; g.guessMe = 1;
     expect(S.applySnapshot(g, d), 'a snapshot applies');
@@ -535,7 +537,7 @@ section('the wire');
     fire(h, 0, a2);
     const guess = S.newMatch({ seed: 4, players: [{ id: 'a' }, { id: 'b' }] });
     guess.guessing = true; guess.guessMe = 1;
-    S.applySnapshot(guess, JSON.parse(JSON.stringify(S.snapshot(h, {}, 1))));
+    S.applySnapshot(guess, JSON.parse(JSON.stringify(S.snapshot(h, {}, [1]))));
     const hp = guess.wiz[1].hp;
     for (let i = 0; i < 40; i++) S.step(guess);
     expect(guess.wiz[1].hp === hp && guess.score[0] === 0 && !guess.ev.length, 'a guest\'s guess moves things, and decides nothing');
@@ -547,18 +549,269 @@ section('the wire');
     while (t0.over === null && tick < HZ * 150) {
         S.think(t0, 0, b0); S.think(t0, 1, b1); S.step(t0);
         t0.ev.length = 0;
-        if (t0.phase === 'live' && tick % 6 === 0) sizes.push(JSON.stringify(S.snapshot(t0, { a: tick, ai: tick }, 1)).length);
+        if (t0.phase === 'live' && tick % 6 === 0) sizes.push(JSON.stringify(S.snapshot(t0, { a: [[1, tick, tick]] }, [1])).length);
         tick++;
     }
     sizes.sort((x, y) => x - y);
     const med = sizes[sizes.length >> 1], p99 = sizes[Math.floor(sizes.length * 0.99)];
-    expect(med <= 340, 'a snapshot is small', med + ' bytes typically');
+    expect(med <= 300, 'a snapshot is small', med + ' bytes typically');
     expect(p99 <= 700, 'even in a busy fight', p99 + ' bytes');
     // public relays charge by the event and pad it with a signature and a pubkey
     const envelope = 480;
     const mbPerMin = n => ((n * 1.37 + envelope) * A.relayHz * 60 / 1048576);
     console.log('        over one relay: about ' + mbPerMin(med).toFixed(2) + 'MB a minute, so ' + (mbPerMin(med) * 4).toFixed(2) + 'MB over four');
     expect(mbPerMin(med) * 4 <= 2, 'a match over four relays stays under what the guide says one costs', (mbPerMin(med) * 4).toFixed(2) + 'MB a minute');
+
+    // and with all eight seats, which is what the format has to survive
+    const sizes4 = [], big = sizes4;
+    const t4 = S.newMatch({ seed: 22, map: 'temple', players: Array.from({ length: 8 }, (_, i) => ({ id: 'p' + i, bot: true, loadout: D.BOTS[i % 6].style.pool })) });
+    const brains = t4.wiz.map((w, i) => S.newBrain(D.BOTS[i % 6], 'normal', 31 + i, D.BOTS[i % 6].style.pool));
+    tick = 0;
+    while (t4.over === null && tick < HZ * 200) {
+        brains.forEach((b, i) => S.think(t4, i, b));
+        S.step(t4);
+        t4.ev.length = 0;
+        // one person in it with the host, which is the usual
+        if (t4.phase === 'live' && tick % 6 === 0) big.push(JSON.stringify(S.snapshot(t4, { a: [[1, tick, tick]] }, [1])).length);
+        tick++;
+    }
+    big.sort((x, y) => x - y);
+    const m4 = big[big.length >> 1], p4 = big[Math.floor(big.length * 0.99)];
+    console.log('        4 v 4: ' + m4 + ' bytes typically, ' + p4 + ' in the worst of it, so ' + (mbPerMin(m4) * 4).toFixed(2) + 'MB a minute over four relays');
+    expect(m4 <= med * 3, 'a 4 v 4 snapshot is not four times one', m4 + ' bytes against ' + med);
+    expect(mbPerMin(m4) * 4 <= 3, 'and a 4 v 4 over four relays fits', (mbPerMin(m4) * 4).toFixed(2) + 'MB a minute');
+    // what a thing that only changes sometimes costs: it should stop going out
+    const q4 = S.newMatch({ seed: 5, players: Array.from({ length: 8 }, (_, i) => ({ id: 'p' + i })) });
+    q4.phase = 'live';
+    S.snapshot(q4, {}, [1, 2]);
+    for (let i = 0; i < 4; i++) S.snapshot(q4, {}, [1, 2]);
+    const calm = S.snapshot(q4, {}, [1, 2]);
+    expect(calm.v.length <= 1, 'with nothing happening, only one seat at a time is repeated', calm.v.length + ' of 8');
+    q4.wiz[3].hp = 50;
+    const hurt1 = S.snapshot(q4, {}, [1, 2]);
+    expect(hurt1.v.some(a => a[0] === 3 && a[1] === 50), 'and somebody being hurt goes straight out');
+    expect(calm.v.every(a => a.length <= 5 || [1, 2].includes(a[0])), 'and a bot\'s chamber is nobody\'s business');
+    // the snapshot a guest misses does not lose them the news
+    const full = JSON.parse(JSON.stringify(S.snapshot(q4, {}, [1, 2], true)));
+    expect(full.v.length === 8, 'a full one is everything, for a new match');
+}
+
+// ===================================================================
+section('teams');
+// ===================================================================
+{
+    const team = (n, map) => {
+        const q = S.newMatch({ seed: 9, map: map || 'temple', stats: true, players: Array.from({ length: n * 2 }, (_, i) => ({ id: 'p' + i, name: 'p' + i })) });
+        q.phase = 'live';
+        return q;
+    };
+    for (const [n, goal] of [[1, 3], [2, 6], [3, 9], [4, 12]]) {
+        const q = team(n);
+        expect(q.wiz.length === n * 2 && q.koGoal === goal && q.wiz.every((w, i) => w.team === i % 2), n + ' v ' + n + ' is ' + n * 2 + ' seats, odd against even, first to ' + goal);
+    }
+    let s = team(2);
+    const line = (who, x, z) => { who.x = x; who.z = z; who.y = 0; who.safe = 0; };
+    // an ally stands in the way, and an enemy behind them
+    const [a, b, c, d] = s.wiz;
+    line(a, 11, -8); line(c, 11, -13); line(b, 11, -18); line(d, 11, -21);
+    const shoot = (q, i, j) => { const aim = aimAt(q, i, j); q.wiz[i].fireCd = 0; S.command(q, i, { c: 'fire', y: aim.y, p: aim.p }); S.setInput(q, i, { yaw: aim.y, pitch: aim.p }); };
+    s.wiz[0].chamber = { s: 'flamelance', n: 1, power: 1 };
+    shoot(s, 0, 1);
+    s.wiz.forEach((w, i) => { if (i) S.setInput(s, i, { yaw: w.yaw }); });
+    stepFor(s, 1);
+    expect(s.wiz[2].hp === A.maxHp, 'a shot goes straight through your own side', s.wiz[2].hp.toFixed(0));
+    expect(s.wiz[1].hp < A.maxHp && s.wiz[3].hp < A.maxHp, 'and a piercing one hits every one of them behind', s.wiz[1].hp.toFixed(0) + ', ' + s.wiz[3].hp.toFixed(0));
+    expect(s.stats.ko[0] === 0 && s.wiz[1].hp > 0, 'once each', s.wiz[1].hp.toFixed(0));
+    // splash, zones, strikes and novas
+    for (const [id, kind] of [['fireball', 'splash'], ['inferno', 'zone'], ['smite', 'strike']]) {
+        s = team(2);
+        const [p, q, r, t] = s.wiz;
+        line(p, 11, -8); line(q, 11, -16); line(r, 11, -16.5); line(t, 24, -24);
+        p.chamber = { s: id, n: 1, power: 1 };
+        shoot(s, 0, 1);
+        s.wiz.forEach((w, i) => { if (i) S.setInput(s, i, { yaw: w.yaw }); });
+        stepFor(s, 2.5);
+        expect(r.hp === A.maxHp && q.hp < A.maxHp, kind + ' hurts them and not your own', 'them ' + q.hp.toFixed(0) + ', yours ' + r.hp.toFixed(0));
+    }
+    s = team(2);
+    const [n0, n1, n2] = s.wiz;
+    line(n0, 11, -8); line(n1, 11, -11); line(n2, 11, -5); line(s.wiz[3], 24, -24);
+    S.command(s, 0, { c: 'cast', s: 'thunderclap', q: 1 });
+    expect(n1.hp < A.maxHp && n2.hp === A.maxHp, 'a nova as well');
+    // your side's wall is your side's
+    s = team(2);
+    const [w0, w1, w2] = s.wiz;
+    line(w0, 11, -8); line(w1, 11, -20); line(w2, 11, -6); line(s.wiz[3], 24, -24);
+    w0.chamber = { s: 'icewall', n: 1, power: 1 };
+    shoot(s, 0, 1);
+    shoot(s, 2, 1);
+    s.wiz.forEach((w, i) => { if (i !== 2) S.setInput(s, i, { yaw: w.yaw }); });
+    stepFor(s, 1);
+    expect(w1.hp < A.maxHp, 'a team mate\'s wall lets your shots through', w1.hp.toFixed(0));
+    shoot(s, 1, 0);
+    S.setInput(s, 0, { yaw: w0.yaw }); S.setInput(s, 2, { yaw: w2.yaw });
+    const hp0 = w0.hp;
+    stepFor(s, 1);
+    expect(w0.hp === hp0, 'and stops theirs', w0.hp.toFixed(0));
+    // a knockout goes to the team
+    s = team(2);
+    const [k0, k1, k2] = s.wiz;
+    line(k0, 11, -8); line(k1, 11, -14); line(k2, 20, -2); line(s.wiz[3], 24, -24);
+    k1.hp = 1;
+    shoot(s, 2, 1);
+    s.wiz.forEach((w, i) => { if (i !== 2) S.setInput(s, i, { yaw: w.yaw }); });
+    stepFor(s, 1);
+    expect(s.score[0] === 1 && s.score[1] === 0 && k1.dead, 'a knockout is the team\'s', s.score.join('-'));
+    stepFor(s, A.respawn + 0.2);
+    const sp = S.LAYOUT.spawns[1];
+    expect(!k1.dead && sp.some(p => Math.abs(p[0] - k1.x) < 1 && Math.abs(p[1] - k1.z) < 1), 'and they come back on their own side', Math.round(k1.x) + ',' + Math.round(k1.z));
+    // the ritual
+    s = team(2);
+    const away = (w, x) => line(w, x, -24);
+    away(s.wiz[1], 20); away(s.wiz[3], 24); away(s.wiz[2], 16);
+    s.wiz[0].x = 0; s.wiz[0].z = 0; s.wiz[0].y = TEMPLE.altar.h;
+    stepFor(s, 2);
+    expect(s.onAltar === 0 && s.altar[0] > 1.8, 'anyone on a side doing the ritual counts for the side');
+    s.wiz[2].x = 1; s.wiz[2].z = 1; s.wiz[2].y = TEMPLE.altar.h;
+    const r2 = s.altar[0];
+    stepFor(s, 1);
+    expect(s.altar[0] < r2 + 1.2, 'two of them is no faster');
+    s.wiz[1].x = -1; s.wiz[1].z = 1; s.wiz[1].y = TEMPLE.altar.h;
+    const r3 = s.altar[0];
+    stepFor(s, 1);
+    expect(Math.abs(s.altar[0] - r3) < 0.01 && s.onAltar === 2, 'and one of theirs stops it');
+    s.altar[1] = 20;
+    s.wiz[1].hp = 0.5;
+    s.wiz[1].st.burn = { t: 2, dps: 50 };
+    stepFor(s, 0.2);
+    expect(Math.abs(s.altar[1] - 20 * (1 - A.ritualKo / 2)) < 0.6, 'and a knockout costs a side less, the more of them there are', s.altar[1].toFixed(1));
+    // a mirror turns a shot over to the other side
+    s = team(2);
+    const [m0, m1, m2] = s.wiz;
+    line(m0, 11, -8); line(m1, 11, -14); line(m2, 11, -6); line(s.wiz[3], 24, -24);
+    m1.st.mirror = { t: 5 };
+    m0.chamber = { s: 'flamelance', n: 1, power: 1 };
+    shoot(s, 0, 1);
+    s.wiz.forEach((w, i) => { if (i) S.setInput(s, i, { yaw: w.yaw }); });
+    stepFor(s, 1);
+    expect(m0.hp < A.maxHp && m1.hp === A.maxHp, 'a mirrored shot belongs to whoever sent it back', m0.hp.toFixed(0));
+    // resigning, and junk seats
+    s = team(4);
+    expect(S.command(s, 8, { c: 'fire' }) === 'bad' && S.command(s, 1.5, { c: 'fire' }) === 'bad', 'a seat that is not there is not there');
+    S.command(s, 5, { c: 'resign' });
+    expect(s.over === 0, 'seat five giving up hands it to the other side');
+    // bots pick on the other side only
+    const q = team(4);
+    const brains = q.wiz.map((w, i) => S.newBrain(D.BOTS[i % 6], 'normal', 100 + i, D.BOTS[i % 6].style.pool));
+    let friendly = 0;
+    const before = S.command;
+    for (let i = 0; i < HZ * 30 && q.over === null; i++) {
+        brains.forEach((b, j) => {
+            S.think(q, j, b);
+            if (b.target >= 0 && q.wiz[b.target] && q.wiz[b.target].team === q.wiz[j].team) friendly++;
+        });
+        S.step(q);
+        q.ev.length = 0;
+    }
+    expect(friendly === 0 && before === S.command, 'a bot only ever looks at the other side');
+}
+
+// ===================================================================
+section('the maps');
+// ===================================================================
+{
+    const lineOfSight = (map) => {
+        S.useMap(map);
+        const s = S.newMatch({ map, players: [{ id: 'a' }, { id: 'b' }] });
+        let clear = 0, n = 0, longest = 0;
+        for (let i = 0; i < 400; i++) {
+            const ax = -28 + (i * 37 % 57), az = -28 + (i * 53 % 57), bx = -28 + (i * 71 % 57), bz = -28 + (i * 29 % 57);
+            if (!S.canWalkBetween(ax, az, 0, 0) || S.heightAt(ax, az) > 4 || S.heightAt(bx, bz) > 4) continue;
+            n++;
+            if (S.clearLine(s, ax, S.heightAt(ax, az) + 1.6, az, bx, S.heightAt(bx, bz) + 1.6, bz)) { clear++; longest = Math.max(longest, Math.hypot(ax - bx, az - bz)); }
+        }
+        return { clear: clear / n, longest };
+    };
+    const feel = {};
+    expect(D.MAPS.length >= 4, 'there are several', D.MAPS.map(m => m.name).join(', '));
+    for (const m of D.MAPS) {
+        S.useMap(m.id);
+        const L = S.LAYOUT;
+        const bad = [];
+        L.boxes.forEach(b => { if (!L.boxes.some(o => o[0] === -b[0] && o[1] === -b[1] && o[4] === b[4])) bad.push('box ' + b[0] + ',' + b[1]); });
+        L.pickups.forEach(p => { if (!L.pickups.some(o => o.x === -p.x && o.z === -p.z && o.kind === p.kind)) bad.push('pickup ' + p.x + ',' + p.z); });
+        for (let k = 0; k < 900; k++) {
+            const x = -32 + (k * 37 % 64), z = -32 + (k * 53 % 64);
+            if (S.heightAt(x, z) !== S.heightAt(-x, -z)) { bad.push('ground ' + x + ',' + z); break; }
+        }
+        expect(!bad.length, m.name + ': the same from either side', bad.slice(0, 4).join(', '));
+        expect(L.spawns[0].length === 4 && L.spawns[1].length === 4, m.name + ': a spawn for each of four');
+        // every spawn on open ground, apart from each other, and able to get everywhere
+        const blocked = [], lost = [], close = [], seen = [];
+        L.spawns.flat().forEach((p, i, all) => {
+            if (S.heightAt(p[0], p[1]) > 3.2 || !S.navPassable[Math.floor(p[1] + 32) * S.NAV_SIDE + Math.floor(p[0] + 32)]) blocked.push(p.join(','));
+            all.forEach((q, j) => { if (j > i && Math.hypot(p[0] - q[0], p[1] - q[1]) < 2.5) close.push(p.join(',') + ' & ' + q.join(',')); });
+            if (!S.canWalkBetween(p[0], p[1], 0, 0)) lost.push(p.join(',') + ' to the altar');
+            L.pickups.forEach(q => { if (!S.canWalkBetween(p[0], p[1], q.x, q.z)) lost.push(p.join(',') + ' to ' + q.kind + ' ' + q.x + ',' + q.z); });
+            L.spawns[1].forEach(q => { if (!S.canWalkBetween(p[0], p[1], q[0], q[1])) lost.push(p.join(',') + ' to ' + q.join(',')); });
+        });
+        expect(!blocked.length, m.name + ': the spawns are on open ground', blocked.join(' '));
+        expect(!close.length, m.name + ': and not on top of each other', close.join(' '));
+        expect(!lost.length, m.name + ': a bot can walk from every spawn to the altar, every pickup and the other side', lost.slice(0, 5).join('; '));
+        const q0 = S.newMatch({ map: m.id, players: [{ id: 'a' }, { id: 'b' }] });
+        L.spawns[0].forEach(p => L.spawns[1].forEach(q => {
+            if (S.clearLine(q0, p[0], S.heightAt(p[0], p[1]) + 1.6, p[1], q[0], S.heightAt(q[0], q[1]) + 1.6, q[1]) && Math.hypot(p[0] - q[0], p[1] - q[1]) < 30) seen.push(p.join(',') + ' sees ' + q.join(','));
+        }));
+        expect(!seen.length, m.name + ': you do not spawn in somebody\'s sights', seen.slice(0, 3).join('; '));
+        const pick = L.pickups.filter(p => S.heightAt(p.x, p.z) > 3.3);
+        expect(!pick.length, m.name + ': nothing is on top of a wall', pick.map(p => p.kind).join(','));
+        // and does a bot actually get there? a person standing still on the far side
+        const walk = S.newMatch({ map: m.id, seed: 3, players: [{ id: 'a', bot: true, loadout: D.BOTS[0].style.pool }, { id: 'b' }] });
+        walk.phase = 'live';
+        walk.wiz[1].safe = 1e9;
+        walk.wiz[1].x = L.spawns[1][1][0]; walk.wiz[1].z = L.spawns[1][1][1];
+        const walker = S.newBrain(D.BOTS[3], 'normal', 5, D.BOTS[3].style.pool);
+        let reached = null;
+        for (let i = 0; i < HZ * 45 && reached === null; i++) {
+            walk.altar[1] = 0;
+            walk.wiz[0].ink = 0;
+            S.think(walk, 0, walker);
+            walk.wiz[0].chamber = null;
+            S.step(walk);
+            walk.ev.length = 0;
+            const close2 = Math.hypot(walk.wiz[0].x - walk.wiz[1].x, walk.wiz[0].z - walk.wiz[1].z) < 24 || S.onAltarNow(walk.wiz[0]);
+            if (close2) reached = walk.t;
+        }
+        expect(reached !== null, m.name + ': a bot does get somewhere useful', reached === null ? Math.round(walk.wiz[0].x) + ',' + Math.round(walk.wiz[0].z) : Math.round(reached) + 's');
+        feel[m.id] = lineOfSight(m.id);
+        // the camera has to behave on this map too
+        const s = S.newMatch({ map: m.id, players: [{ id: 'a' }, { id: 'b' }] });
+        const q = s.wiz[0];
+        let inside = 0;
+        for (let k = 0; k < 400; k++) {
+            q.x = -30 + (k * 73 % 60); q.z = -30 + (k * 41 % 60);
+            q.y = S.heightAt(q.x, q.z);
+            if (q.y > 3.2) continue;
+            q.yaw = k * 0.37; q.pitch = -0.6 + (k % 12) * 0.1;
+            const c = S.camera(s, q);
+            if (c.y < S.heightAt(c.x, c.z) + 0.05) inside++;
+        }
+        expect(inside === 0, m.name + ': the camera stays out of the walls', inside + ' times');
+    }
+    // and they have to be different games, which comes down to what you can see and from where
+    console.log('        how much of each map can see the rest: ' + D.MAPS.map(m => m.id + ' ' + pct(feel[m.id].clear)).join(', '));
+    expect(feel.defrag.clear < feel.temple.clear * 0.75, 'defrag has far fewer long shots than the temple', pct(feel.defrag.clear) + ' against ' + pct(feel.temple.clear));
+    S.useMap('wire');
+    const along = S.newMatch({ map: 'wire', players: [{ id: 'a' }, { id: 'b' }] });
+    expect(S.clearLine(along, 0, 4.1, -23, 0, 4.1, 23), 'the long wire has a shot the whole length of the causeway');
+    S.useMap('bin');
+    expect(S.heightAt(0, 0) === 0 && S.heightAt(26, 8) === 3, 'the recycle bin is a bowl, with the altar at the bottom');
+    S.useMap('wire');
+    expect(S.heightAt(0, 0) === 2.5 && S.heightAt(12, 0) === 0, 'and the long wire has the altar up on a causeway');
+    S.useMap('temple');
+    const np = read('games/netplay.js');
+    const fromLobby = [...np.matchAll(/\['(temple|bin|defrag|wire)', '([^']+)'\]/g)].map(x => x[1] + ':' + x[2]);
+    expect(D.MAPS.every(m => fromLobby.includes(m.id + ':' + m.name)), 'the lobby lists the maps there are, by the names they have', fromLobby.join(', '));
 }
 
 // ===================================================================
@@ -663,6 +916,290 @@ section('how long a match is, and how it ends');
     expect(draws / allGames.length <= 0.01, 'and somebody wins', draws + ' draws');
     const fogged = allGames.filter(g => g.t > A.fogAt).length / allGames.length;
     expect(fogged >= 0.1, 'the fog is something you actually see', pct(fogged) + ' of matches get that far');
+}
+
+// ===================================================================
+section('every map, every team size');
+//
+// Average bots on both sides, so the only thing that can favour a side is the map.
+// ===================================================================
+{
+    const PER = Number(process.env.WZ_TEAM_MATCHES || 12);
+    const ids = SPELLS.map(x => x.id);
+    const rnd = mulberry(777);
+    const book = () => {
+        const a = ids.slice();
+        for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+        return a.slice(0, D.LOADOUT_SIZE);
+    };
+    const byMap = {}, byMode = {};
+    const all = [];
+    for (const m of D.MAPS) for (const mode of A.modes) {
+        for (let k = 0; k < PER; k++) {
+            const players = [], brains = [];
+            const seed = 9000 + all.length;
+            for (let i = 0; i < mode * 2; i++) {
+                const l = book();
+                players.push({ id: 'p' + i, bot: true, loadout: l });
+                brains.push(S.newBrain(AVERAGE, 'normal', seed * 3 + i * 11 + 1, l));
+            }
+            const s = S.newMatch({ seed, map: m.id, stats: true, players });
+            let cap = HZ * (A.hardCap + 30);
+            while (s.over === null && cap-- > 0) {
+                for (let i = 0; i < brains.length; i++) S.think(s, i, brains[i]);
+                S.step(s);
+                s.ev.length = 0;
+            }
+            const r = { map: m.id, mode, over: s.over, reason: s.reason, t: s.t, ko: s.score[0] + s.score[1] };
+            all.push(r);
+            (byMap[m.id] = byMap[m.id] || []).push(r);
+            (byMode[mode] = byMode[mode] || []).push(r);
+        }
+    }
+    const median = l => { const x = l.map(r => r.t).sort((a, b) => a - b); return x[x.length >> 1]; };
+    const leftShare = l => { const w = l.filter(r => r.over === 0).length, b = l.filter(r => r.over === 1).length; return w / (w + b); };
+    const mm = x => Math.floor(x / 60) + 'm' + String(Math.round(x % 60)).padStart(2, '0');
+    for (const m of D.MAPS) {
+        const l = byMap[m.id];
+        const left = leftShare(l);
+        console.log('        ' + m.id.padEnd(7) + ' side a wins ' + pct(left) + ', median ' + mm(median(l)) + ', ' + l.filter(r => r.reason === 'ritual').length + ' rituals, ' + l.filter(r => r.reason === 'time').length + ' on the clock of ' + l.length);
+        expect(left >= 0.3 && left <= 0.7, m.name + ': neither side has it', pct(left) + ' of ' + l.length);
+        expect(median(l) >= 70 && median(l) <= 260, m.name + ': a real match, not a massacre or a stalemate', mm(median(l)));
+        expect(l.every(r => r.over !== null), m.name + ': they all end');
+        expect(l.filter(r => r.reason === 'time').length / l.length <= 0.2, m.name + ': and the clock does not usually decide', l.filter(r => r.reason === 'time').length + ' of ' + l.length);
+    }
+    for (const mode of A.modes) {
+        const l = byMode[mode];
+        const left = leftShare(l);
+        console.log('        ' + mode + ' v ' + mode + ' side a wins ' + pct(left) + ', median ' + mm(median(l)) + ', fastest ' + mm(Math.min(...l.map(r => r.t))) + ', ' + (l.reduce((n, r) => n + r.ko, 0) / l.length).toFixed(1) + ' knockouts');
+        expect(left >= 0.3 && left <= 0.7, mode + ' v ' + mode + ': neither side has it', pct(left) + ' of ' + l.length);
+        expect(median(l) >= 70 && median(l) <= 260, mode + ' v ' + mode + ': about as long as any other', mm(median(l)));
+    }
+    const m1 = median(byMode[1]), m4 = median(byMode[4]);
+    expect(Math.abs(m1 - m4) <= 110, 'and 4 v 4 is not a different length of game from 1 v 1', mm(m1) + ' against ' + mm(m4));
+    expect(all.filter(r => r.reason === 'ritual').length >= 1, 'the ritual still happens', all.filter(r => r.reason === 'ritual').length + ' of ' + all.length);
+    expect(all.filter(r => r.over < 0).length / all.length <= 0.02, 'and somebody wins');
+    // what a match costs to run, which is what a host pays
+    const brains = [], players = [];
+    for (let i = 0; i < 8; i++) { const l = book(); players.push({ id: 'p' + i, bot: true, loadout: l }); brains.push(S.newBrain(AVERAGE, 'normal', 40 + i, l)); }
+    const s = S.newMatch({ seed: 55, map: 'defrag', players });
+    const t0 = performance.now();
+    let ticks = 0;
+    while (s.over === null && ticks < HZ * 120) {
+        for (let i = 0; i < 8; i++) S.think(s, i, brains[i]);
+        S.step(s);
+        s.ev.length = 0;
+        ticks++;
+    }
+    const ms = (performance.now() - t0) / ticks;
+    console.log('        a host runs 8 bots in ' + ms.toFixed(3) + 'ms a tick, in the slowest way node can be asked to');
+    expect(ms < 2, 'eight bots cost a host next to nothing', ms.toFixed(2) + 'ms a tick, out of 33ms');
+}
+
+// ===================================================================
+section('loadout ids');
+// ===================================================================
+{
+    // These are promises to whoever already posted one. If this section fails because you
+    // moved a sigil, the fix is to put the sigil back, not to change this copy.
+    const NUMBERS = ['fireball', 'flamelance', 'inferno', 'emberward', 'meteor', 'frostbolt', 'icewall', 'blizzard', 'deepfreeze', 'hailstorm',
+        'spark', 'chainlightning', 'thunderclap', 'staticfield', 'overload', 'magicmissile', 'arcaneorb', 'manawell', 'runeward', 'blink',
+        'vinewhip', 'thornburst', 'regrowth', 'entangle', 'pollenveil', 'shadowbolt', 'curse', 'drainlife', 'nightfall', 'banish',
+        'smite', 'radiance', 'blessing', 'sanctuary', 'judgment', 'stonespike', 'boulder', 'quake', 'stoneskin', 'pillar',
+        'bloodlance', 'sacrifice', 'leech', 'hemorrhage', 'bloodpact', 'voidlance', 'singularity', 'rift', 'oblivion', 'mirror'];
+    const FROZEN = {
+        '8044-1NS8-WKEY': ['fireball', 'inferno', 'meteor', 'emberward', 'entangle', 'spark', 'overload', 'blink'],
+        '8MJ8-3HHX-3HW4': ['frostbolt', 'hailstorm', 'deepfreeze', 'blizzard', 'icewall', 'magicmissile', 'manawell', 'mirror'],
+        'DPXG-QQ25-MKKT': ['voidlance', 'singularity', 'oblivion', 'rift', 'nightfall', 'manawell', 'curse', 'blink'],
+        // and one nobody curated: the order is part of it
+        '867D-27GS-JKB7': ['flamelance', 'stonespike', 'voidlance', 'meteor', 'smite', 'icewall', 'shadowbolt', 'blink']
+    };
+    expect(NUMBERS.every((id, i) => D.SIGIL_NUMBERS[i] === id), 'no sigil has moved its number', D.SIGIL_NUMBERS.findIndex((id, i) => NUMBERS[i] !== id) + '');
+    expect(new Set(D.SIGIL_NUMBERS).size === D.SIGIL_NUMBERS.length, 'and none has two');
+    expect(SPELLS.every(x => D.SIGIL_NUMBERS.includes(x.id)), 'every sigil there is has a number');
+    expect(D.SIGIL_NUMBERS.length <= 64, 'version 1 has room for all of them, or it is time for version 2', String(D.SIGIL_NUMBERS.length));
+    expect(Object.keys(FROZEN).every(id => { const r = D.loadoutFromId(id); return r.ok && r.list.join() === FROZEN[id].join() && D.loadoutToId(FROZEN[id]) === id; }), 'an id from before still means the same eight');
+
+    // ---- there and back ----
+    const ids = SPELLS.map(x => x.id);
+    const rnd = mulberry(4242);
+    const book = () => { const a = ids.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, D.LOADOUT_SIZE); };
+    let wrong = 0, ugly = 0;
+    const samples = [];
+    for (let n = 0; n < 4000; n++) {
+        const l = book(), id = D.loadoutToId(l), r = D.loadoutFromId(id);
+        if (!r.ok || r.list.join() !== l.join() || r.id !== id) wrong++;
+        if (!/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(id)) ugly++;
+        if (n < 200) samples.push(id);
+    }
+    expect(wrong === 0, 'an id comes back as the eight that went in, in the same order', wrong + ' of 4000 did not');
+    expect(ugly === 0, 'and it is always twelve characters you can read out', ugly + ' were not');
+    const reordered = D.loadoutToId(FROZEN['8044-1NS8-WKEY'].slice().reverse());
+    expect(reordered && reordered !== '8044-1NS8-WKEY', 'the order of the slots is part of it');
+
+    // ---- the ways people actually type one ----
+    const code = '867D-27GS-JKB7', want = FROZEN[code].join();
+    for (const [typed, what] of [['867d-27gs-jkb7', 'in lower case'], ['867D27GSJKB7', 'with no dashes'], ['  867D 27GS JKB7 ', 'with spaces']]) {
+        const r = D.loadoutFromId(typed);
+        expect(r.ok && r.list.join() === want, 'it still reads ' + what, typed);
+    }
+
+    {
+        const zero = D.loadoutToId(FROZEN['8MJ8-3HHX-3HW4']);
+        const r = D.loadoutFromId(zero.replace(/0/g, 'O').replace(/1/g, 'I'));
+        const a = D.loadoutFromId('8O44-iNS8-WKEY'), b = D.loadoutFromId('8044-lNS8-WKEY');
+        expect(r.ok && a.ok && b.ok && a.id === '8044-1NS8-WKEY' && b.id === '8044-1NS8-WKEY', 'and with O for 0, and I or l for 1');
+    }
+
+    // ---- every way of getting one wrong by one ----
+    const ALPHA = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    let slipped = 0, tried = 0, swapped = 0, swaps = 0;
+    for (const id of samples) {
+        const c = id.replace(/-/g, '');
+        for (let i = 0; i < c.length; i++) {
+            for (const other of ALPHA) {
+                if (other === c[i]) continue;
+                tried++;
+                if (D.loadoutFromId(c.slice(0, i) + other + c.slice(i + 1)).ok) slipped++;
+            }
+            if (i + 1 < c.length && c[i] !== c[i + 1]) {
+                swaps++;
+                if (D.loadoutFromId(c.slice(0, i) + c[i + 1] + c[i] + c.slice(i + 2)).ok) swapped++;
+            }
+        }
+    }
+    expect(slipped === 0, 'one wrong character never loads somebody else\'s eight', slipped + ' of ' + tried);
+    expect(swapped === 0, 'and neither do two the wrong way round', swapped + ' of ' + swaps);
+
+    // ---- rubbish, handed over by a stranger ----
+    const rubbish = [undefined, null, 0, 12, NaN, true, {}, [], ['8044-1NS8-WKEY'], { toString() { throw new Error('gotcha'); } }, () => 1, '', '   ', '-', 'nope', '8044', '8044-1NS8-WKE', '8044-1NS8-WKEYY',
+        '8044-1NS8-WKE0', 'UUUU-UUUU-UUUU', '!!!!-!!!!-!!!!', '<script>alert(1)</script>', 'x'.repeat(100000), '__proto__', 'constructor', '🧙🧙🧙🧙🧙🧙🧙🧙🧙🧙🧙🧙', '0000-0000-0000', 'ZZZZ-ZZZZ-ZZZZ'];
+    let threw = 0, took = 0, silent = 0;
+    for (const x of rubbish) {
+        try {
+            const r = D.loadoutFromId(x);
+            if (r.ok) took++;
+            if (!r.ok && !(typeof r.text === 'string' && r.text.length > 10)) silent++;
+        } catch (e) { threw++; }
+    }
+    expect(threw === 0, 'it never throws, whatever it is given', threw + ' threw');
+    expect(took === 0, 'and never takes any of that', took + ' taken');
+    expect(silent === 0, 'and always says what is wrong', silent + ' said nothing');
+
+    // ---- an id whose check adds up but which says something it should not ----
+    const forge = (version, nums) => {
+        const bits = [(version >> 1) & 1, version & 1];
+        for (const n of nums) for (let b = 5; b >= 0; b--) bits.push((n >> b) & 1);
+        const sym = [];
+        for (let i = 0; i < bits.length; i += 5) sym.push(bits.slice(i, i + 5).reduce((a, b) => a * 2 + b, 0));
+        let h = 7;
+        for (const v of sym) h = (h * 33 + v + 1) % 1021;
+        return sym.concat([Math.floor(h / 32), h % 32]).map(v => ALPHA[v]).join('');
+    };
+    expect(D.loadoutFromId(forge(1, [0, 1, 2, 3, 4, 5, 6, 7])).ok, 'the forger works, or the next few mean nothing');
+    expect(D.loadoutFromId(forge(1, [0, 0, 2, 3, 4, 5, 6, 7])).why === 'twice', 'the same sigil twice is refused');
+    expect(D.loadoutFromId(forge(1, [0, 1, 2, 3, 4, 5, 6, 63])).why === 'unknown', 'a number nothing has is refused');
+    expect(D.loadoutFromId(forge(2, [0, 1, 2, 3, 4, 5, 6, 7])).why === 'version', 'an id from a later version says so', D.loadoutFromId(forge(2, [0, 1, 2, 3, 4, 5, 6, 7])).text);
+    expect(D.loadoutFromId(forge(0, [0, 1, 2, 3, 4, 5, 6, 7])).why === 'version', 'and so does version nothing');
+    // a sigil somebody took out later keeps its number but cannot be carried
+    const gone = D.SPELLS.findIndex(x => x.id === 'oblivion');
+    const kept = D.SPELLS.splice(gone, 1)[0];
+    const asked = D.loadoutFromId(forge(1, [48, 1, 2, 3, 4, 5, 6, 7]));
+    D.SPELLS.splice(gone, 0, kept);
+    expect(asked.why === 'unknown', 'an id with a sigil that has since been removed is refused, and does not turn into a different one', asked.why);
+
+    // ---- what counts as a legal eight ----
+    const fine = D.DEFAULT_LOADOUT;
+    expect(D.loadoutProblem(fine) === null, 'the standard eight are legal');
+    expect(D.loadoutProblem(fine.slice(0, 7)) === 'size' && D.loadoutProblem(fine.concat('blink')) === 'size' && D.loadoutProblem('fireball') === 'size' && D.loadoutProblem(null) === 'size', 'seven or nine are not');
+    expect(D.loadoutProblem(fine.slice(0, 7).concat('nonsense')) === 'unknown' && D.loadoutProblem(fine.slice(0, 7).concat(7)) === 'unknown' && D.loadoutProblem(fine.slice(0, 7).concat('__proto__')) === 'unknown', 'or one that does not exist');
+    expect(D.loadoutProblem(fine.slice(0, 7).concat(fine[0])) === 'twice', 'or the same one twice');
+
+    // ---- the ten ----
+    const P = D.PRESETS;
+    expect(P.length === 10, 'there are ten ready made', String(P.length));
+    expect(new Set(P.map(p => p.id)).size === 10 && new Set(P.map(p => p.name)).size === 10 && new Set(P.map(p => p.code)).size === 10, 'all different');
+    expect(P.every(p => p.style && p.style === p.style.toLowerCase()), 'and each says how it plays, in lower case');
+    expect(P.every(p => { const r = D.loadoutFromId(p.code); return r.ok && r.list.join() === p.sigils.join() && !D.loadoutProblem(p.sigils); }), 'every one of their ids loads, as those eight');
+    const carried = new Set(P.flatMap(p => p.sigils));
+    expect(carried.size === SPELLS.length, 'between them they use every sigil there is', SPELLS.filter(x => !carried.has(x.id)).map(x => x.id).join(', '));
+    let most = 0, pairOf = '';
+    P.forEach(a => P.forEach(b => { if (a !== b) { const n = a.sigils.filter(x => b.sigils.includes(x)).length; if (n > most) { most = n; pairOf = a.id + ' & ' + b.id; } } }));
+    expect(most <= 3, 'and no two share more than three', most + ', ' + pairOf);
+    const kindsOf = p => new Set(p.sigils.map(id => D.byId(id).kind));
+    expect(P.every(p => kindsOf(p).size >= 3), 'and each has more than one thing to do', P.filter(p => kindsOf(p).size < 3).map(p => p.id).join(', '));
+    expect(P.every(p => p.sigils.some(id => ['shot', 'beam', 'strike'].includes(D.byId(id).kind))), 'and something to hit people with');
+}
+
+// ===================================================================
+section('the ten ready made, against each other');
+//
+// Average bots, so all that differs is the eight. They are built to play differently, so
+// they do not all have to come out at fifty, only to all be worth picking.
+// ===================================================================
+{
+    const P = D.PRESETS, PER = Number(process.env.WZ_PRESET_MATCHES || 8);
+    const row = {};
+    P.forEach(p => { row[p.id] = { w: 0, n: 0, casts: {}, vs: {} }; });
+    let seed = 90000;
+    for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+        for (let k = 0; k < PER * 2; k++) {
+            const a = k % 2 ? P[j] : P[i], b = k % 2 ? P[i] : P[j];
+            const s = play(++seed, AVERAGE, AVERAGE, { la: a.sigils, lb: b.sigils });
+            row[a.id].n++; row[b.id].n++;
+            if (s.over === 0) row[a.id].w++;
+            if (s.over === 1) row[b.id].w++;
+            const pv = v => { const m = row[v.me.id].vs[v.foe.id] = row[v.me.id].vs[v.foe.id] || [0, 0]; m[1]++; if (s.over === v.side) m[0]++; };
+            pv({ me: a, foe: b, side: 0 }); pv({ me: b, foe: a, side: 1 });
+            for (const id in s.stats.casts) { if (a.sigils.includes(id)) row[a.id].casts[id] = (row[a.id].casts[id] || 0) + s.stats.casts[id]; if (b.sigils.includes(id)) row[b.id].casts[id] = (row[b.id].casts[id] || 0) + s.stats.casts[id]; }
+        }
+    }
+    const rows = P.map(p => ({ p, wr: row[p.id].w / row[p.id].n, r: row[p.id] })).sort((a, b) => b.wr - a.wr);
+    for (const x of rows) {
+        const dead = x.p.sigils.filter(id => (x.r.casts[id] || 0) / x.r.n < 0.15);
+        const worst = Object.entries(x.r.vs).map(([k, v]) => [k, v[0] / v[1]]).sort((a, b) => a[1] - b[1]);
+        console.log('        ' + x.p.id.padEnd(12) + pct(x.wr).padStart(4) + ' of ' + x.r.n + '  best into ' + worst[worst.length - 1][0] + ' ' + pct(worst[worst.length - 1][1]) + ', worst into ' + worst[0][0] + ' ' + pct(worst[0][1]) + (dead.length ? '  hardly casts: ' + dead.join(', ') : ''));
+    }
+    expect(rows[0].wr <= 0.67, 'none of them walks it', rows[0].p.name + ' ' + pct(rows[0].wr));
+    expect(rows[rows.length - 1].wr >= 0.33, 'and none of them is a mistake', rows[rows.length - 1].p.name + ' ' + pct(rows[rows.length - 1].wr));
+    const lazy = rows.flatMap(x => x.p.sigils.filter(id => (x.r.casts[id] || 0) / x.r.n < 0.15).map(id => x.p.id + ' ' + id));
+    expect(lazy.length <= 3, 'and a bot carrying one uses what is in it', lazy.join(', ') || 'all of it');
+
+    // against books picked at random, on every map, two a side, so the map gets a say
+    const ids = SPELLS.map(x => x.id);
+    const rnd = mulberry(1010);
+    const book = () => { const a = ids.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, D.LOADOUT_SIZE); };
+    const field = {};
+    let ended = 0, total = 0;
+    for (const p of P) {
+        field[p.id] = { w: 0, n: 0, m: {} };
+        for (const m of D.MAPS) {
+            for (let k = 0; k < PER; k++) {
+                const side = k % 2;
+                const players = [], brains = [];
+                for (let i = 0; i < 4; i++) {
+                    const l = i % 2 === side ? p.sigils : book();
+                    players.push({ id: 'p' + i, bot: true, loadout: l });
+                    brains.push(S.newBrain(AVERAGE, 'normal', ++seed * 3 + i, l));
+                }
+                const s = S.newMatch({ seed: ++seed, map: m.id, stats: true, players });
+                let cap = HZ * (A.hardCap + 30);
+                while (s.over === null && cap-- > 0) { brains.forEach((b, i) => S.think(s, i, b)); S.step(s); s.ev.length = 0; }
+                total++;
+                if (s.over !== null) ended++;
+                field[p.id].n++;
+                field[p.id].m[m.id] = field[p.id].m[m.id] || [0, 0];
+                field[p.id].m[m.id][1]++;
+                if (s.over === side) { field[p.id].w++; field[p.id].m[m.id][0]++; }
+            }
+        }
+    }
+    S.useMap('temple');
+    expect(ended === total, 'they all finish, on every map', ended + ' of ' + total);
+    const fr = P.map(p => ({ p, wr: field[p.id].w / field[p.id].n, f: field[p.id] })).sort((a, b) => b.wr - a.wr);
+    for (const x of fr) console.log('        ' + x.p.id.padEnd(12) + pct(x.wr).padStart(4) + ' as a pair against random books  ' + D.MAPS.map(m => m.id + ' ' + x.f.m[m.id][0] + '/' + x.f.m[m.id][1]).join(', '));
+    expect(fr[0].wr <= 0.8, 'as a pair, none of them walks it either', fr[0].p.name + ' ' + pct(fr[0].wr));
+    expect(fr[fr.length - 1].wr >= 0.25, 'and none of them loses to anything at all', fr[fr.length - 1].p.name + ' ' + pct(fr[fr.length - 1].wr));
 }
 
 // ===================================================================

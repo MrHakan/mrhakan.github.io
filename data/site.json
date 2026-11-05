@@ -164,6 +164,18 @@
     ],
     "changelog": [
         {
+            "version": "10.1",
+            "date": "2026-11-05",
+            "changes": [
+                "wizardz 98 does teams: 2 v 2, 3 v 3 and 4 v 4. bots sit in every seat nobody is in, so 4 v 4 does not need eight friends. you cannot hurt your own side, your side's score is what counts, and it is three knockouts a seat",
+                "three new maps with different ground rather than different paint. the recycle bin is a bowl with the altar at the bottom, defrag is a maze of tall disks with nowhere to see down, and the long wire is one raised causeway with the altar on top. the temple is still there",
+                "if somebody leaves a team match a bot sits down and it carries on, and they get the seat back if they come back. if the host leaves it ends, because nothing else on the internet knows the score",
+                "a 4 v 4 over relays costs the host about a megabyte and a half a minute, about what a 1 v 1 used to, because a snapshot now only says what changed",
+                "loadouts get ids. twelve characters, and the id is the loadout, because there is no server to ask. type one and you are carrying it, no button. and ten ready made ones, which between them use all fifty sigils",
+                "and online your eight now actually mean something. the host used to cast whatever a guest asked for, all fifty. now it knows your eight and refuses the rest"
+            ]
+        },
+        {
             "version": "10.0",
             "date": "2026-11-05",
             "changes": [

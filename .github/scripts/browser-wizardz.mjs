@@ -136,7 +136,8 @@ const PLAY = `(function () {
         const g = WZ_ENGINE.state();
         if (!g || g.ended || g.paused) return;
         const S = WZ_SIM, D = WZ;
-        const me = g.wiz[g.me], foe = g.wiz[1 - g.me];
+        const me = g.wiz[g.me];
+        const foe = g.wiz.filter(w => w.team !== me.team && !w.dead).sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0] || g.wiz[1 - g.me];
         const p = { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false };
         for (let k = 0; k < 3; k++) {
             const c = S.camera(g.s, p);
@@ -585,6 +586,37 @@ try {
         await p.tap('#wz-t-menu');
         await p.waitForSelector('#wz-resume', { timeout: 2000 });
         expect(true, 'and the menu button gets you out');
+
+        // the loadout window, on a thumb
+        await p.evaluate(() => { startWizardz(); window.wizardzLoadout(); });
+        await p.waitForSelector('.wz-preset', { timeout: 5000 });
+        const lw = await p.evaluate(() => {
+            const w = document.querySelector('.wz-book').closest('.app-window').getBoundingClientRect(), b = document.querySelector('#wz-load-id').getBoundingClientRect();
+            return { left: w.left, right: w.right, boxh: b.height, vw: document.documentElement.clientWidth, sw: document.documentElement.scrollWidth };
+        });
+        expect(lw.right <= lw.vw + 1 && lw.left >= -1 && lw.sw <= lw.vw + 1, 'the loadout window fits a phone', JSON.stringify(lw));
+        await p.screenshot({ path: SHOTS + '/wz-phone-loadouts.png' });
+        await p.locator('.wz-preset').nth(4).tap();
+        expect(await p.evaluate(() => WZ_ENGINE.myLoadout().join() === WZ.PRESETS[4].sigils.join()), 'and a thumb can pick one');
+        await p.evaluate(() => { document.querySelector('.wz-book').closest('.app-window').querySelector('.ie-titlebar-btn[title="close"]').click(); });
+
+        // the front door, with its two new boxes, and eight wizards on a small screen
+        await p.evaluate(() => startWizardz());
+        await p.waitForSelector('#wz-mappick', { timeout: 5000 });
+        await p.locator('#wz-mappick').scrollIntoViewIfNeeded();
+        const picks = await p.evaluate(() => {
+            const b = q => { const r = document.querySelector(q).getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, h: r.height }; };
+            return { mode: b('#wz-modepick'), map: b('#wz-mappick'), note: b('#wz-mapnote'), vw: document.documentElement.clientWidth, vh: document.documentElement.clientHeight, sw: document.documentElement.scrollWidth };
+        });
+        expect(picks.map.r <= picks.vw + 1 && picks.map.b <= picks.vh + 1 && picks.map.t >= 0 && picks.sw <= picks.vw + 1, 'the map box can be got at on a phone', JSON.stringify(picks.map));
+        expect(picks.mode.h >= 28 && picks.map.h >= 28, 'and they are big enough for a thumb', picks.mode.h + ' and ' + picks.map.h);
+        await p.screenshot({ path: SHOTS + '/wz-phone-menu.png' });
+        await p.evaluate(() => startWizardz('solo', 'cinder', { mode: 4, map: 'bin' }));
+        await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g && g.wiz.length === 8 && g.phase === 'live'; }, null, { timeout: 15000 });
+        await p.waitForTimeout(2500);
+        const small = await state(p, g => ({ n: g.wiz.length, t: g.s.t, tris: g.R.stats().triangles, fps: g.lastFps }));
+        expect(small.n === 8, 'a 4 v 4 plays on a phone', JSON.stringify(small));
+        await p.screenshot({ path: SHOTS + '/wz-phone-4v4.png' });
         await p.close();
         await ctx.close();
 
@@ -604,6 +636,211 @@ try {
         await u.screenshot({ path: SHOTS + '/wz-phone-upright.png' });
         await u.close();
         await ctx2.close();
+    }
+
+    // ===================================================================
+    section('loadout ids');
+    // ===================================================================
+    {
+        const ctx = await context({ viewport: { width: 1280, height: 860 } });
+        const p = await open(ctx);
+        await p.evaluate(() => { localStorage.removeItem('mrhakan98-wizardz-loadout'); openWizardz(); });
+        await p.waitForSelector('#wz-loid', { timeout: 30000 });
+        const presets = await p.evaluate(() => WZ.PRESETS.map(x => ({ id: x.id, name: x.name, code: x.code, sigils: x.sigils })));
+        const carrying = () => p.evaluate(() => WZ_ENGINE.myLoadout().join());
+        const strip = () => p.evaluate(() => Array.from(document.querySelectorAll('#wz-mini-strip canvas')).map(c => c.dataset.sigil).join());
+        const standard = await p.evaluate(() => WZ.DEFAULT_LOADOUT.join());
+        expect(await p.inputValue('#wz-loid') === await p.evaluate(() => WZ.loadoutToId(WZ.DEFAULT_LOADOUT)), 'the menu shows the id of what you are carrying');
+
+        // typed by a person: nothing happens, nothing happens, then it has happened
+        const typed = presets[3];
+        await p.click('#wz-loid');
+        await p.keyboard.press('Control+A');
+        await p.keyboard.type(typed.code.replace(/-/g, '').slice(0, 11).toLowerCase());
+        expect(await carrying() === standard, 'eleven characters in, nothing has changed', await p.textContent('#wz-lomsg'));
+        expect(!(await p.getAttribute('#wz-lomsg', 'class')).includes('wz-bad'), 'and nobody is being told off for typing');
+        await p.keyboard.type(typed.code.slice(-1).toLowerCase());
+        expect(await carrying() === typed.sigils.join(), 'the twelfth character loads it, with nothing else pressed', await p.textContent('#wz-lomsg'));
+        expect(await strip() === typed.sigils.join(), 'and the sigils on the menu change with it');
+        expect(await p.inputValue('#wz-loid') === typed.code, 'and it tidies what you typed', await p.inputValue('#wz-loid'));
+        expect((await p.textContent('#wz-lomsg')).includes(typed.name), 'and says which one that was', await p.textContent('#wz-lomsg'));
+
+        // all ten
+        const failed = [];
+        for (const x of presets) {
+            await p.fill('#wz-loid', x.code);
+            if (await carrying() !== x.sigils.join() || await strip() !== x.sigils.join()) failed.push(x.id);
+        }
+        expect(!failed.length, 'all ten ids load, each as its own eight', failed.join(', '));
+        expect(new Set(presets.map(x => x.sigils.join())).size === 10, 'and they are ten different eights');
+
+        // and what is not an id
+        const held = presets[0];
+        await p.fill('#wz-loid', held.code);
+        const bad = [['nope', 'chars-or-short'], ['8044-1NS8-WKE0', 'check'], ['8044-1NS8-WKEYY', 'long'], ['UUUU-UUUU-UUUU', 'chars'], ['<b>!</b>', 'chars']];
+        for (const [x] of bad) {
+            await p.fill('#wz-loid', x);
+            await p.keyboard.press('Enter');
+            const msg = await p.textContent('#wz-lomsg');
+            expect(await carrying() === held.sigils.join() && msg.length > 10 && (await p.getAttribute('#wz-lomsg', 'class')).includes('wz-bad'), 'a bad id leaves you with what you had, and says why: ' + x, msg);
+        }
+        await p.fill('#wz-loid', '8044');
+        await p.keyboard.press('Tab');
+        expect(/too short/.test(await p.textContent('#wz-lomsg')), 'half an id gets told so when you leave it', await p.textContent('#wz-lomsg'));
+        expect(await p.evaluate(() => document.querySelector('#wz-lomsg').children.length === 0), 'nothing typed in there ends up as markup');
+
+        // the window with the choosing in it
+        await p.click('#wz-load2');
+        await p.waitForSelector('.wz-preset', { timeout: 4000 });
+        expect(await p.locator('.wz-preset').count() === 10, 'the loadout window offers the ten');
+        const shown = await p.evaluate(() => Array.from(document.querySelectorAll('.wz-preset')).every(b => b.querySelectorAll('canvas').length === 8 && /[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}/.test(b.textContent)));
+        expect(shown, 'each with its sigils and its id');
+        await p.screenshot({ path: SHOTS + '/wz-loadouts.png' });
+        await p.click('[data-preset="' + presets[5].id + '"]');
+        expect(await carrying() === presets[5].sigils.join(), 'clicking one loads it, no questions');
+        expect(await p.inputValue('#wz-load-id') === presets[5].code, 'and its id is in the box');
+        expect(await p.inputValue('#wz-loid') === presets[5].code, 'and on the menu behind it');
+        // building your own: slot one, then a spell nobody in that preset has
+        const swap = await p.evaluate(p5 => WZ.SPELLS.find(s => !p5.includes(s.id)).id, presets[5].sigils);
+        await p.click('[data-slot="0"]');
+        await p.click('#wz-all [data-id="' + swap + '"]');
+        const own = await p.evaluate(() => WZ_ENGINE.myLoadout());
+        expect(own[0] === swap && own.length === 8 && new Set(own).size === 8, 'you can still build your own', own.join(', '));
+        const ownId = await p.inputValue('#wz-load-id');
+        expect(ownId !== presets[5].code && await p.evaluate(([id, l]) => WZ.loadoutFromId(id).list.join() === l.join(), [ownId, own]), 'and it gets an id of its own', ownId);
+        await p.evaluate(() => { navigator.clipboard = undefined; });
+        await p.click('#wz-load-copy');
+        expect((await p.textContent('#wz-load-msg')).includes(ownId), 'and there is a way of getting it out', await p.textContent('#wz-load-msg'));
+        await p.fill('#wz-load-id', presets[8].code);
+        expect(await carrying() === presets[8].sigils.join(), 'and an id typed in this window loads at once too');
+        expect(await p.evaluate(c => document.querySelector('.wz-preset.on .wz-preset-code').textContent === c, presets[8].code), 'and lights up the one it is');
+        await p.reload({ waitUntil: 'load' });
+        expect(await p.evaluate(() => JSON.parse(localStorage.getItem('mrhakan98-wizardz-loadout')).length === 8), 'it is saved the way loadouts always were');
+
+        // what you loaded is what you play with
+        await p.evaluate(() => openWizardz('solo'));
+        await p.waitForFunction(() => window.WZ_ENGINE && WZ_ENGINE.state(), null, { timeout: 30000 });
+        await p.evaluate(() => startWizardz('solo', 'cinder', { mode: 4, map: 'temple' }));
+        await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g && g.wiz.length === 8; }, null, { timeout: 8000 });
+        await live(p);
+        const inMatch = await state(p, g => ({ book: g.loadout.join(), seat: g.wiz[g.me].loadout.join(), bots: g.seats.filter(x => x.bot).map(x => x.loadout.join()) }));
+        expect(inMatch.book === presets[8].sigils.join() && inMatch.seat === inMatch.book, 'the match gives you what you loaded');
+        const legal = await p.evaluate(ls => ls.every(l => !WZ.loadoutProblem(l.split(','))), inMatch.bots);
+        expect(legal, 'and every bot is carrying a legal eight');
+        const botsOnPresets = await p.evaluate(() => {
+            let seen = 0;
+            for (let k = 0; k < 8; k++) {
+                startWizardz('solo', 'cinder', { mode: 4, map: 'temple' });
+                const g = WZ_ENGINE.state();
+                seen += g.seats.filter(x => x.bot && WZ.PRESETS.some(q => q.sigils.join() === x.loadout.join())).length;
+            }
+            return seen;
+        });
+        expect(botsOnPresets >= 8, 'and the bots do turn up with the ready made ones', botsOnPresets + ' of 56 seats');
+        await live(p);
+        const inBrain = await state(p, g => Object.keys(g.brains).every(i => g.brains[i].loadout.map(x => x.id).join() === g.wiz[i].loadout.join()));
+        expect(inBrain, 'and that is what they actually think with');
+
+        // changing it in the middle of a match waits for the next one
+        const before = await state(p, g => g.loadout.join());
+        await p.evaluate(() => { window.wizardzLoadout(); });
+        await p.waitForSelector('#wz-load-id', { timeout: 4000 });
+        await p.fill('#wz-load-id', presets[1].code);
+        expect(/next match/.test(await p.textContent('#wz-load-msg')), 'loading one mid match says when it counts', await p.textContent('#wz-load-msg'));
+        expect(await state(p, g => g.loadout.join()) === before, 'and the match you are in does not change');
+        await p.evaluate(() => { document.querySelector('.wz-book').closest('.app-window').querySelector('.ie-titlebar-btn[title="close"]').click(); });
+        await p.evaluate(() => { const g = WZ_ENGINE.state(); g.paused = false; WZ_SIM.command(g.s, g.me, { c: 'resign' }); });
+        await p.waitForSelector('#wz-rematch', { timeout: 8000 });
+        await p.click('#wz-rematch');
+        await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return !g.ended && g.s.over === null; }, null, { timeout: 4000 });
+        expect(await state(p, g => g.loadout.join() === g.wiz[g.me].loadout.join() && g.loadout.join()) === presets[1].sigils.join(), 'the rematch does');
+        await p.close();
+        await ctx.close();
+    }
+
+    // ===================================================================
+    section('every map');
+    // ===================================================================
+    {
+        const ctx = await context({ viewport: { width: 1280, height: 860 } });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz());
+        await p.waitForSelector('#wz-mappick', { timeout: 30000 });
+        const maps = await p.evaluate(() => WZ.MAPS.map(m => m.id));
+        expect(maps.length >= 4, 'the menu has maps to pick from', maps.join(', '));
+        for (const map of maps) {
+            await p.evaluate(() => startWizardz());
+            await p.waitForSelector('#wz-mappick', { timeout: 5000 });
+            await p.selectOption('#wz-modepick', '2');
+            await p.selectOption('#wz-mappick', map);
+            expect((await p.textContent('#wz-mapnote')).length > 20, map + ': the menu says what it is like');
+            await p.click('#wz-quick');
+            await p.waitForSelector('#wz-canvas', { timeout: 10000 });
+            await live(p);
+            const start = await state(p, g => ({ map: g.map, s: g.s.map, seats: g.wiz.length, at: g.wiz.map(w => [w.x, w.z]), st: g.R.stats(), mode: g.mode }));
+            expect(start.map === map && start.seats === 4 && start.mode === 2, map + ': the menu got you the map and the size you asked for', JSON.stringify({ map: start.map, seats: start.seats }));
+            expect(start.st.triangles > 800 && start.st.triangles < 16000, map + ': it draws', start.st.triangles + ' triangles');
+            await p.evaluate(() => { WZ_ENGINE.state().speed = 4; });
+            await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g.s.t > 9 && (g.ents.length > 0 || g.wiz.some(w => w.hp < 100) || g.s.t > 25); }, null, { timeout: 30000 });
+            await p.evaluate(() => { WZ_ENGINE.state().speed = 1; });
+            const later = await state(p, g => ({ at: g.wiz.map(w => [w.x, w.z]), t: g.s.t, hurt: g.wiz.filter(w => w.hp < 100).length }));
+            const moved = later.at.filter((q, i) => i !== 0 && Math.hypot(q[0] - start.at[i][0], q[1] - start.at[i][1]) > 2).length;
+            expect(moved >= 2, map + ': the bots get moving', moved + ' of 3 moved in ' + Math.round(later.t) + 's');
+            await takeMouse(p);
+            await p.keyboard.down('w');
+            await p.waitForTimeout(300);
+            await p.keyboard.up('w');
+            await inkDraw(p, TRIANGLE);
+            expect(await state(p, g => { const c = g.wiz[g.me].chamber; return !!(c && c.s === 'fireball') || g.wiz[g.me].dead; }), map + ': and you can walk about and draw');
+            await p.screenshot({ path: SHOTS + '/wz-map-' + map + '.png' });
+        }
+        await p.close();
+        await ctx.close();
+    }
+
+    // ===================================================================
+    section('4 v 4 against bots, to the end');
+    // ===================================================================
+    {
+        const ctx = await context({ viewport: { width: 1280, height: 860 } });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz('solo'));
+        await p.waitForFunction(() => window.WZ_ENGINE && WZ_ENGINE.state(), null, { timeout: 30000 });
+        await p.evaluate(() => startWizardz('solo', 'cinder', { mode: 4, map: 'temple' }));
+        await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g && g.wiz.length === 8; }, null, { timeout: 8000 });
+        await live(p);
+        const seats = await state(p, g => ({
+            n: g.wiz.length, teams: g.wiz.map(w => w.team).join(''), me: g.me, bots: g.wiz.filter(w => w.bot).length,
+            brains: Object.keys(g.brains).length, names: new Set(g.wiz.map(w => w.name)).size, goal: g.s.koGoal
+        }));
+        expect(seats.n === 8 && seats.teams === '01010101', 'eight seats, four a side', JSON.stringify(seats));
+        expect(seats.bots === 7 && seats.brains === 7, 'and bots in all of them but yours', seats.bots + ' bots');
+        expect(seats.names === 8, 'none of them with the same name', seats.names + ' names');
+        expect(seats.goal === 12, 'first to twelve', String(seats.goal));
+        // what eight of them cost, at the speed a person plays
+        await p.waitForTimeout(4000);
+        const cost = await state(p, g => ({ ms: g.lastMs, max: g.lastMax, st: g.R.stats(), fps: g.lastFps }));
+        console.log('        4 v 4 here: ' + Math.round(cost.fps) + 'fps, ' + cost.ms.toFixed(2) + 'ms of javascript a frame, ' + cost.max.toFixed(1) + 'ms at worst, ' + cost.st.drawCalls + ' draw calls, ' + cost.st.triangles + ' triangles');
+        expect(cost.ms < 6, 'eight wizards do not hurt the frame rate', cost.ms.toFixed(2) + 'ms of javascript a frame');
+        expect(cost.st.drawCalls < 200, 'or the draw calls', String(cost.st.drawCalls));
+        await p.screenshot({ path: SHOTS + '/wz-4v4.png' });
+        await p.evaluate(() => { WZ_ENGINE.state().speed = 6; });
+        await p.evaluate(PLAY);
+        await p.waitForFunction(() => WZ_ENGINE.state().ended, null, { timeout: 200000, polling: 500 });
+        await p.evaluate(() => clearInterval(window.__autoT));
+        const end = await state(p, g => ({ over: g.over, reason: g.reason, score: g.wins, t: g.s.t, team: g.myTeam, feed: g.feed.length }));
+        expect(end.over === 0 || end.over === 1, 'it gets to an end', JSON.stringify(end));
+        expect(end.reason !== 'ko' || Math.max(...end.score) === 12, 'and a knockout win took twelve', end.score.join('-'));
+        console.log('        ' + (end.over === end.team ? 'won ' : 'lost ') + end.score.join('-') + ' in ' + Math.round(end.t) + 's of game time, by ' + end.reason);
+        await p.waitForSelector('.wz-end', { timeout: 4000 });
+        expect(/your side \d+ - \d+ their side/.test(await p.textContent('.wz-end')), 'and the end says how the sides did');
+        await p.screenshot({ path: SHOTS + '/wz-4v4-end.png' });
+        await p.click('#wz-rematch');
+        await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g.phase === 'countdown' && !g.ended; }, null, { timeout: 4000 });
+        const again = await state(p, g => ({ n: g.wiz.length, brains: Object.keys(g.brains).length, map: g.s.map, score: g.wins }));
+        expect(again.n === 8 && again.brains === 7 && again.map === 'temple' && again.score[0] === 0, 'a rematch is the same match again', JSON.stringify(again));
+        await p.close();
+        await ctx.close();
     }
 
     // ===================================================================
@@ -744,6 +981,206 @@ try {
     }
 
     // ===================================================================
+    section('2 v 2: two people, and bots in the other seats');
+    // ===================================================================
+    {
+        const host = await open(ctx);
+        const code = await hostLobby(host);
+        const guest = await open(ctx);
+        await joinLobby(guest, code);
+        await host.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
+        // the host picks. The guest gets told
+        await host.waitForSelector('[data-opt="mode"]', { timeout: 8000 });
+        await host.selectOption('[data-opt="mode"]', '2');
+        await host.selectOption('[data-opt="map"]', 'wire');
+        await guest.waitForFunction(() => { const b = document.querySelector('[data-optshow="map"]'); return b && /long wire/.test(b.textContent); }, null, { timeout: 8000 });
+        expect(/2 v 2/.test(await guest.textContent('[data-optshow="mode"]')), 'the host picks the size and the map, and the guest sees it');
+        expect(await guest.locator('[data-opt="map"]').count() === 0, 'and only the host can');
+        await guest.waitForSelector('.np-team1', { timeout: 4000 });
+        await host.screenshot({ path: SHOTS + '/wz-lobby.png' });
+        await startMatch(host, guest);
+        const seats = p => state(p, g => g.wiz.map(w => w.name + ':' + w.team + ':' + (w.bot ? 'b' : 'h')).join(','));
+        const [ha, ga] = [await seats(host), await seats(guest)];
+        expect(ha === ga, 'both screens agree who is sitting where', ha);
+        const hs = await state(host, g => ({ n: g.wiz.length, map: g.s.map, me: g.me, team: g.myTeam, brains: Object.keys(g.brains).length }));
+        const gs = await state(guest, g => ({ n: g.wiz.length, map: g.s.map, me: g.me, team: g.myTeam, brains: Object.keys(g.brains).length }));
+        expect(hs.n === 4 && gs.n === 4 && hs.map === 'wire' && gs.map === 'wire', 'four seats, on the map the host picked', JSON.stringify([hs, gs]));
+        expect(hs.team !== gs.team, 'on opposite sides, until somebody says otherwise');
+        expect(hs.brains === 2 && gs.brains === 0, 'and the bots only run on the host', hs.brains + ' and ' + gs.brains);
+        // the bots' shots, walking about, all of it arrives
+        const before = await state(guest, g => g.wiz.filter(w => w.bot).map(w => [w.x, w.z]));
+        await guest.waitForTimeout(2500);
+        const after = await state(guest, g => g.wiz.filter(w => w.bot).map(w => [w.x, w.z]));
+        expect(after.some((q, i) => Math.hypot(q[0] - before[i][0], q[1] - before[i][1]) > 2), 'a guest sees the bots moving');
+        // stop the bots to hear ourselves think, and see whose shots hurt whom
+        await host.evaluate(() => {
+            const g = WZ_ENGINE.state(), L = WZ_SIM.LAYOUT;
+            g.brains = {};
+            g.wiz.slice(2).forEach(w => { const q = L.spawns[w.team][3]; w.x = q[0]; w.z = q[1]; w.y = WZ_SIM.heightAt(q[0], q[1]); });
+        });
+        await crossFire(host, guest, 'in a 2 v 2');
+        await host.screenshot({ path: SHOTS + '/wz-2v2-host.png' });
+        await guest.screenshot({ path: SHOTS + '/wz-2v2-guest.png' });
+        // somebody walks out
+        await guest.close();
+        const taken = await host.waitForFunction(() => Object.keys(WZ_ENGINE.state().brains).length === 1, null, { timeout: 20000 }).then(() => true, () => false);
+        expect(taken, 'when a guest walks out, a bot sits down in their seat');
+        const seat = await state(host, g => ({ down: g.netDown, seat: +Object.keys(g.brains)[0], hint: g.hint && g.hint.text, t: g.s.tick }));
+        expect(!seat.down, 'and the match does not stop for it', JSON.stringify(seat));
+        await host.waitForTimeout(1500);
+        expect(await tick(host) > seat.t + 15, 'it carries on');
+        const walked = await state(host, (g, seat) => g.s.input[seat].mx || g.s.input[seat].mz || 0, seat.seat);
+        expect(walked !== 0, 'with the bot actually playing');
+        await host.close();
+    }
+
+    // ===================================================================
+    section('loadouts, online');
+    // ===================================================================
+    {
+        const host = await open(ctx);
+        const code = await hostLobby(host);
+        const guest = await open(ctx);
+        await joinLobby(guest, code);
+        await host.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
+        // both tabs share a save, so the host's sees the standard eight whatever the guest picks
+        await host.evaluate(() => {
+            const real = Storage.prototype.getItem;
+            Storage.prototype.getItem = function (k) { return k === 'mrhakan98-wizardz-loadout' ? null : real.call(this, k); };
+        });
+        await guest.waitForSelector('#np-loadout2', { timeout: 8000 });
+        await guest.click('#np-loadout2');
+        await guest.waitForSelector('#wz-load-id', { timeout: 8000 });
+        const quarry = await guest.evaluate(() => WZ.PRESETS.find(p => p.id === 'quarry'));
+        await guest.fill('#wz-load-id', quarry.code);
+        expect(await guest.evaluate(() => WZ_ENGINE.myLoadout().join()) === quarry.sigils.join(), 'a guest can type an id from the lobby');
+        await guest.evaluate(() => { document.querySelector('.wz-book').closest('.app-window').querySelector('.ie-titlebar-btn[title="close"]').click(); });
+        await startMatch(host, guest);
+        await guest.waitForFunction(() => WZ_ENGINE.state().loadoutHeard, null, { timeout: 8000 });
+        const told = await state(host, g => ({ held: g.wiz[1].loadout.join(), mine: g.wiz[0].loadout.join() }));
+        expect(told.held === quarry.sigils.join(), 'the host ends up holding the eight the guest brought', told.held);
+        expect(told.mine === await host.evaluate(() => WZ.DEFAULT_LOADOUT.join()), 'and keeps its own');
+        expect(await state(guest, g => g.loadout.join()) === quarry.sigils.join(), 'and the guest draws from them');
+
+        // ---- a guest with their own idea of the rules: send what a cheat would send ----
+        await faceOff(host, [guest]);
+        await host.evaluate(() => { WZ_ENGINE.state().brains = {}; });
+        const cast = (spell, n) => guest.evaluate(([spell, n]) => {
+            const g = WZ_ENGINE.state();
+            g.session.sendToHost('wz:i', { q: 0, m: g.s.match, c: [[n, 0, WZ.SPELLS.findIndex(s => s.id === spell), 0.95]] });
+        }, [spell, n]);
+        const foreign = await guest.evaluate(q => WZ.SPELLS.find(s => !q.includes(s.id) && s.kind === 'shot').id, quarry.sigils);
+        const inkBefore = await state(host, g => g.wiz[1].ink);
+        await cast(foreign, 90001);
+        const denied = await guest.waitForFunction(() => { const h = WZ_ENGINE.state().hint; return h && /not one of your eight/.test(h.text); }, null, { timeout: 8000 }).then(() => true, () => false);
+        expect(denied, 'casting a sigil that is not in your eight gets refused, and you get told');
+        const after = await state(host, g => ({ c: g.wiz[1].chamber, ink: g.wiz[1].ink, k: g.s.tick }));
+        expect(!(after.c && after.c.s === foreign) && after.ink >= inkBefore - 0.01, 'and nothing happens on the host', JSON.stringify(after));
+        await cast('boulder', 90002);
+        const carried = await host.waitForFunction(() => { const c = WZ_ENGINE.state().wiz[1].chamber; return c && c.s === 'boulder'; }, null, { timeout: 8000 }).then(() => true, () => false);
+        expect(carried, 'while one that is in it goes through the same way');
+
+        // a change of heart mid match, a list, a lie, and things that are not even ids
+        await guest.evaluate(() => {
+            const g = WZ_ENGINE.state(), other = WZ.PRESETS.find(p => p.id === 'abyss').code;
+            for (const l of [other, WZ.SPELLS.map(s => s.id), 'nope', 12, null, { a: 1 }, 'x'.repeat(5000), ['fireball']]) g.session.sendToHost('wz:i', { q: 0, m: g.s.match, l });
+        });
+        await host.waitForTimeout(800);
+        expect(await state(host, g => g.wiz[1].loadout.join()) === quarry.sigils.join(), 'a second loadout in the same match is not listened to');
+
+        // what the host does with rubbish as the first thing it hears, by the handful
+        const fuzz = await host.evaluate(() => {
+            const g = WZ_ENGINE.state(), from = { id: g.wiz[1].id };
+            const out = { threw: 0, illegal: 0, took: 0 };
+            const rubbish = [undefined, null, 0, 1, true, {}, [], ['a'], { toString: 1 }, '', ' ', 'nope', '8044-1NS8-WKE0', 'UUUU-UUUU-UUUU', 'x'.repeat(100000), '0000-0000-0000', '__proto__', '🧙'.repeat(12)];
+            const fakes = [{ m: g.s.match }, { m: g.s.match, c: 'x' }, { m: g.s.match, c: [[1e9, 0, 999, 1]] }, { m: g.s.match, c: [[1e9 + 1, 0, -1, 1]] }, { m: g.s.match, c: [['a']] }, 'text', 7, null];
+            for (const l of rubbish) {
+                if (g.ears[1]) delete g.ears[1].loadout;
+                try {
+                    WZ_ENGINE.hostInput(g, { m: g.s.match, l: l === undefined ? 'x' : l }, from);
+                    if (WZ.loadoutProblem(g.wiz[1].loadout)) out.illegal++;
+                    if (g.wiz[1].loadout.join() !== WZ.DEFAULT_LOADOUT.join()) out.took++;
+                } catch (e) { out.threw++; }
+            }
+            for (const d of fakes) { try { WZ_ENGINE.hostInput(g, d, from); WZ_ENGINE.hostInput(g, d, { id: 'nobody' }); WZ_ENGINE.hostInput(g, d, null); } catch (e) { out.threw++; } }
+            return out;
+        });
+        expect(fuzz.threw === 0, 'rubbish never knocks the host over', JSON.stringify(fuzz));
+        expect(fuzz.took === 0 && fuzz.illegal === 0, 'and the seat gets the standard eight, never the rubbish', JSON.stringify(fuzz));
+        const tickA = await tick(host);
+        await host.waitForTimeout(800);
+        expect(await tick(host) > tickA + 8, 'and the match is still going');
+        await host.close();
+        await guest.close();
+
+        // a guest whose very first word is nonsense
+        const h2 = await open(ctx);
+        const code2 = await hostLobby(h2);
+        const g2 = await open(ctx);
+        await joinLobby(g2, code2);
+        await h2.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
+        await g2.evaluate(() => {
+            const real = Storage.prototype.getItem;
+            Storage.prototype.getItem = function (k) { return k === 'mrhakan98-wizardz-loadout' ? JSON.stringify(window.WZ_WANT) : real.call(this, k); };
+            window.WZ_WANT = ['oblivion', 'meteor', 'bloodlance', 'boulder', 'flamelance', 'arcaneorb', 'singularity', 'inferno'];
+        });
+        await g2.waitForFunction(() => window.WZ && window.WZ_ENGINE, null, { timeout: 30000 });
+        await g2.evaluate(() => { WZ.loadoutToId = () => '!!NOT-AN-ID!!'; });
+        await startMatch(h2, g2);
+        const heard = await g2.waitForFunction(() => WZ_ENGINE.state().loadoutHeard, null, { timeout: 10000 }).then(() => true, () => false);
+        expect(heard, 'a guest with a broken id still hears back');
+        const std = await h2.evaluate(() => WZ.DEFAULT_LOADOUT.join());
+        expect(await state(h2, g => g.wiz[1].loadout.join()) === std, 'the host gives that seat the standard eight');
+        const after2 = await state(g2, g => ({ book: g.loadout.join(), hint: g.hint && g.hint.text }));
+        expect(after2.book === std, 'and so does the guest\'s own screen, so it draws what it can actually cast', after2.book);
+        expect(/host would not take/.test(after2.hint || ''), 'and the guest gets told why', after2.hint);
+        const tickB = await tick(h2);
+        await h2.waitForTimeout(600);
+        expect(await tick(h2) > tickB + 5, 'and the match goes ahead anyway');
+        // the tabs share a save, and the rest of this file draws from the standard eight
+        await h2.evaluate(() => localStorage.removeItem('mrhakan98-wizardz-loadout'));
+        await h2.close();
+        await g2.close();
+    }
+
+    // ===================================================================
+    section('2 v 2 on the same side, against bots');
+    // ===================================================================
+    {
+        const host = await open(ctx);
+        const code = await hostLobby(host);
+        const guest = await open(ctx);
+        await joinLobby(guest, code);
+        await host.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
+        await guest.waitForSelector('#np-team', { timeout: 8000 });
+        await guest.click('#np-team');
+        await host.waitForFunction(() => document.querySelectorAll('.np-team0').length === 2, null, { timeout: 8000 });
+        expect(true, 'switching sides reaches the host');
+        await host.selectOption('[data-opt="mode"]', '2');
+        await startMatch(host, guest);
+        const [ht, gt] = [await state(host, g => g.myTeam), await state(guest, g => g.myTeam)];
+        expect(ht === 0 && gt === 0, 'and the two of them start on one side', ht + ' and ' + gt);
+        // no friendly fire across the wire either
+        await host.evaluate(() => { const g = WZ_ENGINE.state(); g.brains = {}; const [a, , c] = g.wiz; a.x = 11; a.z = -8; a.y = 0; c.x = 11; c.z = -16; c.y = 0; a.safe = c.safe = 0; });
+        await guest.waitForFunction(() => { const g = WZ_ENGINE.state(); return Math.abs(g.wiz[g.me].z + 16) < 3; }, null, { timeout: 15000 }).catch(() => { });
+        await takeMouse(guest);
+        await guest.evaluate(() => {
+            const g = WZ_ENGINE.state(), S = WZ_SIM, me = g.wiz[g.me], ally = g.wiz.find(w => w.team === me.team && w !== me);
+            const p = { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false };
+            for (let k = 0; k < 6; k++) { const c = S.camera(g.s, p); p.yaw = Math.atan2(ally.x - c.x, -(ally.z - c.z)); p.pitch = Math.atan2(ally.y + 1 - c.y, Math.hypot(ally.x - c.x, ally.z - c.z)); }
+            g.yaw = p.yaw; g.pitch = p.pitch;
+        });
+        await guest.mouse.down();
+        await guest.waitForTimeout(700);
+        await guest.mouse.up();
+        await host.waitForTimeout(1000);
+        const shots = await state(host, g => g.wiz[0].hp);
+        expect(shots === 100, 'shooting your own side does nothing', String(shots));
+        await host.close();
+        await guest.close();
+    }
+
+    // ===================================================================
     section('a direct link dying mid-match');
     // ===================================================================
     {
@@ -770,6 +1207,9 @@ try {
         const frozenAt = await tick(host);
         await host.waitForTimeout(400);
         expect(await tick(host) === frozenAt, 'and it freezes rather than beating an empty seat');
+        await host.evaluate(() => { WZ_ENGINE.state().downAt -= 60000; });
+        await host.waitForFunction(t => WZ_ENGINE.state().s.tick > t + 10, frozenAt, { timeout: 8000 });
+        expect(await state(host, g => Object.keys(g.brains).length === 1 && !g.netDown), 'until a while later, when a bot sits down and you get your game');
         await host.close();
     }
 
@@ -800,13 +1240,13 @@ try {
         const busy = `(function () {
             window.__busy = setInterval(() => {
                 const g = WZ_ENGINE.state(), S = WZ_SIM;
-                const me = g.wiz[g.me], foe = g.wiz[1 - g.me];
+                const me = g.wiz[g.me], foe = g.wiz.find(w => w.team !== me.team);
                 const p = { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false };
                 for (let k = 0; k < 3; k++) { const c = S.camera(g.s, p); p.yaw = Math.atan2(foe.x - c.x, -(foe.z - c.z)); p.pitch = Math.atan2(foe.y + 1 - c.y, Math.hypot(foe.x - c.x, foe.z - c.z)); }
                 g.yaw = p.yaw; g.pitch = p.pitch;
                 g.keys = { w: Math.sin(g.s.t) > 0, s: Math.sin(g.s.t) <= 0, d: Math.cos(g.s.t * 1.3) > 0, a: Math.cos(g.s.t * 1.3) <= 0 };
                 g.wantFire = true;
-                me.hp = 100; foe.hp = 100;
+                g.wiz.forEach(w => { w.hp = 100; });
             }, 100);
         })()`;
         await host.evaluate(busy);
@@ -825,9 +1265,67 @@ try {
         expect(hostFour <= 3, 'a fight over the relays costs the host what the guide says', hostFour.toFixed(2) + 'MB a minute over four');
         expect(guestFour <= 2.5, 'and the guest', guestFour.toFixed(2) + 'MB a minute over four');
         expect(hm.frames / seconds <= 12 && gm.frames / seconds <= 12, 'and neither of them is rude to the relay', (hm.frames / seconds).toFixed(1) + ' and ' + (gm.frames / seconds).toFixed(1) + ' events a second');
-        await guest.evaluate(() => localStorage.removeItem('test-direct'));
         await host.close();
         await guest.close();
+
+        // and with all eight seats. Six bots and two people, which is the usual 4 v 4
+        {
+            const h4 = await open(ctx);
+            const code4 = await hostLobby(h4);
+            const g4 = await open(ctx);
+            await joinLobby(g4, code4);
+            await h4.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
+            await h4.selectOption('[data-opt="mode"]', '4');
+            await startMatch(h4, g4);
+            expect(await kind(h4) === 'bus' && await state(h4, g => g.wiz.length) === 8, 'a 4 v 4 starts on the relays');
+            const hm4 = await meter(h4), gm4 = await meter(g4);
+            await h4.waitForTimeout(6000);
+            hm4.on = gm4.on = true;
+            await h4.waitForTimeout(seconds * 1000);
+            hm4.on = gm4.on = false;
+            const hf = perMin(hm4.sent) * 4, gf = perMin(gm4.sent) * 4;
+            console.log('        4 v 4 over one relay: host ' + perMin(hm4.sent).toFixed(2) + 'MB a minute, guest ' + perMin(gm4.sent).toFixed(2) + 'MB, in ' + hm4.frames + ' and ' + gm4.frames + ' frames in ' + seconds + 's. down: host ' + perMin(hm4.got).toFixed(2) + ', guest ' + perMin(gm4.got).toFixed(2));
+            expect(hf <= 3, 'a 4 v 4 over the relays still costs the host what the guide says', hf.toFixed(2) + 'MB a minute over four');
+            expect(gf <= 2.5, 'and the guest', gf.toFixed(2) + 'MB a minute over four');
+            expect(hm4.frames / seconds <= 12, 'and it is not rude to the relay', (hm4.frames / seconds).toFixed(1) + ' events a second');
+            expect(await state(g4, g => g.loadoutHeard), 'and the loadout got through the relays');
+            const fresh = await g4.evaluate(() => { const g = WZ_ENGINE.state(); return { n: g.wiz.length, hp: g.wiz.map(w => Math.round(w.hp)), age: performance.now() - g.lastSnap }; });
+            expect(fresh.age < 3000, 'and the guest is still hearing about it', Math.round(fresh.age) + 'ms since the last one');
+            const [ah, ag] = [await hpOf(h4), await hpOf(g4)];
+            expect(ah.filter((v, i) => Math.abs(v - ag[i]) <= 35).length >= 7, 'with both screens roughly agreeing', JSON.stringify([ah, ag]));
+            await h4.close();
+            await g4.close();
+        }
+
+        // Every seat a person, which nobody can do in CI: WZ_EIGHT=1 opens eight browsers
+        if (process.env.WZ_EIGHT) {
+            const pages = [await open(ctx)];
+            const c8 = await hostLobby(pages[0]);
+            for (let i = 1; i < 8; i++) { const q = await open(ctx); await joinLobby(q, c8); pages.push(q); }
+            await pages[0].waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 8, null, { timeout: 60000 });
+            await pages[0].selectOption('[data-opt="mode"]', '4');
+            for (let i = 1; i < 8; i++) await pages[i].click('#np-ready');
+            await pages[0].waitForTimeout(800);
+            await pages[0].click('#np-ready');
+            await pages[0].waitForTimeout(300);
+            await pages[0].click('#np-start');
+            await Promise.all(pages.map(p => p.waitForSelector('#wz-canvas', { timeout: 60000 })));
+            await Promise.all(pages.map(p => live(p)));
+            expect(await kind(pages[1]) === 'bus', 'eight people, on the relays');
+            const ms = await Promise.all(pages.slice(0, 2).map(meter));
+            for (const p of pages) await p.evaluate(busy);
+            await pages[0].waitForTimeout(3000);
+            ms.forEach(m => { m.on = true; });
+            await pages[0].waitForTimeout(seconds * 1000);
+            ms.forEach(m => { m.on = false; });
+            const ages = await Promise.all(pages.slice(1).map(p => p.evaluate(() => Math.round(performance.now() - WZ_ENGINE.state().lastSnap))));
+            console.log('        8 people over one relay: host up ' + perMin(ms[0].sent).toFixed(2) + ' down ' + perMin(ms[0].got).toFixed(2) + 'MB a minute, a guest up ' + perMin(ms[1].sent).toFixed(2) + ' down ' + perMin(ms[1].got).toFixed(2) + 'MB. up events a second: host ' + (ms[0].frames / seconds).toFixed(1) + ', guest ' + (ms[1].frames / seconds).toFixed(1) + '. last snapshot ages ' + ages.join(','));
+            expect(ages.every(a => a < 3000), 'and all seven guests are still hearing about it', ages.join(','));
+            for (const p of pages) await p.close();
+        }
+        const tidy = await open(ctx);
+        await tidy.evaluate(() => localStorage.removeItem('test-direct'));
+        await tidy.close();
     }
     await ctx.close();
 

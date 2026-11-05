@@ -76,7 +76,8 @@ export async function inkDraw(page, strokes, opts) {
 export function aimAtFoe(page) {
     return page.evaluate(() => {
         const g = WZ_ENGINE.state(), S = WZ_SIM;
-        const me = g.wiz[g.me], foe = g.wiz[1 - g.me];
+        const me = g.wiz[g.me];
+        const foe = g.wiz.filter(w => w.team !== me.team && !w.dead).sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0] || g.wiz[1 - g.me];
         const p = { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false };
         for (let k = 0; k < 6; k++) {
             const c = S.camera(g.s, p);

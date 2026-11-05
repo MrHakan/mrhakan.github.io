@@ -909,7 +909,7 @@ function siteSearchIndex() {
         ['jokerz 98', 'game', () => openBalatro(), 'balatro poker roguelike deckbuilder jokers blinds antes shop tarot planet spectral voucher'],
         ['sir, we have a troll problem', 'game', () => openTrollProblem(), 'tower defense td orcs trolls waves towers maze path lives upgrade crystals strategy'],
         ['become user', 'game', () => openBecomeUser(), 'interactive drama story branching choices adventure narrative visual novel qte flowchart endings 1999 y2k androids'],
-        ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire 3d shooter tps third person ps1 playstation low poly'],
+        ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 2v2 3v3 4v4 teams maps loadout id preset spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire 3d shooter tps third person ps1 playstation low poly'],
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
