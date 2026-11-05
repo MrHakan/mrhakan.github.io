@@ -1716,7 +1716,7 @@ function balRender() {
     if (changed && g.screen === 'cashout') {
         setTimeout(() => {
             const face = balWinBody && balWinBody.querySelector('.bj-victim .bj-face');
-            if (face) { BJFX.bonk(face, BAL.WIN_HEAD); balSfx('bonk'); }
+            if (face) BJFX.bonk(face, BAL.WIN_HEAD, () => balSfx('bonk'));
         }, 260);
     }
 }
