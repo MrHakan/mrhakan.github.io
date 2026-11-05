@@ -2095,6 +2095,15 @@
         root = winRef.body;
         return winRef;
     }
+    // the grimoire, the loadout, settings and help are windows of their own. With the
+    // match taking the screen they opened underneath it, where nobody could see them,
+    // so while it does they go on top. A tap on a window raises it with an inline
+    // z-index, which is why the css for this is !important.
+    function subWindow(title, opts) {
+        const w = createAppWindow(title, opts);
+        if (winRef && winRef.win.classList.contains('fs-active')) w.win.classList.add('wz-over-fs');
+        return w;
+    }
     function tearDown() {
         stopLoop();
         if (G) {
@@ -2397,7 +2406,7 @@
     };
     function openHelp() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('how to play wizardz', { icon: 'auto_stories', width: 480 });
+        const { body } = subWindow('how to play wizardz', { icon: 'auto_stories', width: 480 });
         body.classList.add('wz-book');
         body.innerHTML = `<div class="wz-help">
             <h3>the idea</h3>
@@ -2432,7 +2441,7 @@
     }
     function openSettings() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('wizardz settings', { icon: 'settings', width: 340 });
+        const { body } = subWindow('wizardz settings', { icon: 'settings', width: 340 });
         body.classList.add('wz-book');
         const cur = settings();
         const manual = preference(LS.manual, 'false') === 'true';
@@ -2453,7 +2462,7 @@
     }
     function openGrimoire() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('grimoire — 50 sigils', { icon: 'auto_stories', width: 560 });
+        const { body } = subWindow('grimoire — 50 sigils', { icon: 'auto_stories', width: 560 });
         body.classList.add('wz-book');
         const elColor = el => (D.EL[el] || {}).color || '#fff';
         let filter = 'all';
@@ -2500,7 +2509,7 @@
     }
     // draw it, get scored on it. also the honest way to find out whether your circle is a circle
     function openTrainer(spell) {
-        const { body, win } = createAppWindow('practise: ' + spell.name, { icon: 'draw', width: 400 });
+        const { body, win } = subWindow('practise: ' + spell.name, { icon: 'draw', width: 400 });
         body.classList.add('wz-train');
         body.innerHTML = `
             <div class="wz-train-row">
@@ -2589,7 +2598,7 @@
     }
     function openLoadout() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('your eight spells', { icon: 'bookmark', width: 560 });
+        const { body } = subWindow('your eight spells', { icon: 'bookmark', width: 560 });
         body.classList.add('wz-book');
         const elColor = el => (D.EL[el] || {}).color || '#fff';
         let loadout = myLoadout();
