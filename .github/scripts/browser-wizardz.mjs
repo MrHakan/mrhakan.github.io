@@ -1329,6 +1329,113 @@ try {
     }
     await ctx.close();
 
+    // ===================================================================
+    section('esc, and getting the mouse back');
+    // ===================================================================
+    // Esc lets go of the mouse, and for about a second after that Chrome refuses to
+    // hand it back: exactly when a player clicks carry on. That refusal was taken to
+    // mean this browser has no pointer lock, and the rest of the match had no aim
+    // and a pen that would not follow the mouse. The runners have no real pointer
+    // lock to give, so this is a stand-in that behaves the way Chrome does.
+    {
+        const ctx = await context({ viewport: { width: 1280, height: 860 } });
+        await ctx.addInitScript(() => {
+            let el = null, exitedAt = -1e9;
+            const fire = t => document.dispatchEvent(new Event(t));
+            Object.defineProperty(Document.prototype, 'pointerLockElement', { get() { return el; }, configurable: true });
+            Element.prototype.requestPointerLock = function () {
+                if (performance.now() - exitedAt < 1000) {
+                    setTimeout(() => fire('pointerlockerror'), 0);
+                    return Promise.reject(new DOMException('The user has exited the lock before this request was completed.', 'SecurityError'));
+                }
+                el = this; setTimeout(() => fire('pointerlockchange'), 0); return Promise.resolve();
+            };
+            Document.prototype.exitPointerLock = function () { if (el) { el = null; setTimeout(() => fire('pointerlockchange'), 0); } };
+            // the browser keeps the esc that lets go of the mouse for itself
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && el) { el = null; exitedAt = performance.now(); setTimeout(() => fire('pointerlockchange'), 0); e.stopImmediatePropagation(); }
+            }, true);
+        });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz('solo'));
+        await p.waitForSelector('.wz-bot', { timeout: 30000 });
+        await p.click('.wz-bot[data-bot="bogwart"]');
+        await live(p);
+        const box = await (await p.$('#wz-canvas')).boundingBox();
+        await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        await p.waitForTimeout(150);
+        const mine = () => state(p, g => ({ locked: !!document.pointerLockElement, noLock: !!g.noLock, paused: !!g.paused, ask: !!document.querySelector('#wz-click') }));
+        expect((await mine()).locked, 'a click takes the mouse');
+        await p.keyboard.press('Escape');
+        await p.waitForSelector('#wz-resume', { timeout: 3000 });
+        expect(true, 'esc lets go of it and pauses');
+        await p.click('#wz-resume');
+        await p.waitForTimeout(150);
+        const refused = await mine();
+        expect(!refused.noLock && refused.ask, 'carry on, too soon for the browser: it asks for the mouse again rather than giving up on it', JSON.stringify(refused));
+        await p.waitForTimeout(1000);
+        await p.click('#wz-click');
+        await p.waitForTimeout(150);
+        const back = await mine();
+        expect(back.locked && !back.noLock && !back.paused, 'and the next click has it back', JSON.stringify(back));
+        const after = await p.evaluate(async () => {
+            const g = WZ_ENGINE.state(), y0 = g.yaw;
+            const mv = (dx, dy) => window.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', movementX: dx, movementY: dy, bubbles: true }));
+            for (let i = 0; i < 6; i++) mv(20, 0);
+            const turned = g.yaw - y0;
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }));
+            await new Promise(r => setTimeout(r, 50));
+            const x0 = g.pen.x;
+            g.cv.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'mouse', button: 0, buttons: 1, bubbles: true, cancelable: true }));
+            for (let i = 0; i < 6; i++) mv(15, 0);
+            const out = { turned: +turned.toFixed(2), stance: g.stance, pen: Math.round(g.pen.x - x0) };
+            window.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'mouse', button: 0, buttons: 0, bubbles: true }));
+            return out;
+        });
+        expect(after.turned > 0.1, 'the mouse turns the camera again', JSON.stringify(after));
+        expect(after.stance && after.pen > 20, 'and the pen follows it in the ink stance', JSON.stringify(after));
+        await ctx.close();
+    }
+
+    // ===================================================================
+    section('a tablet on its side');
+    // ===================================================================
+    {
+        const tab = devices['Galaxy Tab S4 landscape'];
+        const ctx = await context({ ...tab });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz('solo'));
+        await p.waitForFunction(() => window.WZ_ENGINE && WZ_ENGINE.state(), null, { timeout: 30000 });
+        await live(p);
+        await p.waitForTimeout(500);
+        const look = () => p.evaluate(() => {
+            const st = document.querySelector('#wz-stage').getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+            const off = [...document.querySelectorAll('.wz-touch [id^="wz-t-"]')].filter(e => e.offsetParent)
+                .filter(e => { const r = e.getBoundingClientRect(); return r.left < -1 || r.top < -1 || r.right > vw + 1 || r.bottom > vh + 1; }).map(e => e.id);
+            return { fs: document.querySelector('.app-window:has(.wz-body)').classList.contains('fs-active'), share: +(st.width * st.height / (vw * vh)).toFixed(2), off };
+        });
+        const turn = async (w, h) => { await p.setViewportSize({ width: w, height: h }); await p.waitForTimeout(700); };
+        const { width: W, height: H } = tab.viewport;
+        let r = await look();
+        expect(r.fs && r.share > 0.85 && !r.off.length, 'held sideways, the match takes the whole screen', JSON.stringify(r));
+        await p.screenshot({ path: SHOTS + '/wz-tablet.png' });
+        await turn(H, W);
+        r = await look();
+        expect(!r.fs && !r.off.length, 'held upright it goes back in its window, with every thumb button on the screen', JSON.stringify(r));
+        await turn(W, H);
+        r = await look();
+        expect(r.fs, 'and turned back it takes the screen again', JSON.stringify(r));
+        await p.tap('.app-window:has(.wz-body) .fs-btn');
+        await p.waitForTimeout(900);
+        expect(!(await look()).fs, 'leave it with the button and it stays left');
+        await turn(H, W); await turn(W, H);
+        expect((await look()).fs, 'until the screen turns again');
+        await p.evaluate(() => closeAppWindow(document.querySelector('.app-window:has(.wz-body)').id));
+        await p.waitForTimeout(300);
+        expect(await p.evaluate(() => !document.documentElement.classList.contains('fs-locked')), 'and closing the game gives the page back');
+        await ctx.close();
+    }
+
     section('page errors');
     expect(!errors.length, 'nothing threw the whole way through', [...new Set(errors)].slice(0, 6).join('\n        '));
 } catch (e) {
