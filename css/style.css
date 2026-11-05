@@ -9820,6 +9820,11 @@ mark.find-hit.on {
     background: #c0c0c0;
 }
 
+/* a game's own windows, opened while it has the screen: above it, not lost under it */
+.app-window.wz-over-fs {
+    z-index: 9750 !important;
+}
+
 /* 100vh on a phone is the viewport with the url bar counted in, so a
    fullscreen game hung a bar's worth of itself below the fold and the
    controls at the bottom went with it. dvh is the one that shrinks and

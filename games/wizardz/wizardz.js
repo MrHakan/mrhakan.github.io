@@ -718,13 +718,27 @@
         g.yaw += dx * k;
         g.pitch = clamp(g.pitch - dy * k * (g.settings.invert ? -1 : 1), -1.2, 1.2);
     }
+    // whether this browser has ever handed over the mouse: a fact about the browser,
+    // so it outlives the match it was learned in
+    let lockEverGiven = false;
     function isLocked(g) { return !!document.pointerLockElement && document.pointerLockElement === g.cv; }
     function askLock(g) {
         if (g.noLock || !g.cv.requestPointerLock) { g.noLock = true; return; }
         try {
             const p = g.cv.requestPointerLock();
-            if (p && p.catch) p.catch(() => { g.noLock = true; paintOverlay(g); });
-        } catch (e) { g.noLock = true; }
+            if (p && p.catch) p.catch(() => lockRefused(g));
+        } catch (e) { lockRefused(g); }
+    }
+    // A browser that has never given the mouse is one that will not: from then on
+    // you hold a button and drag. One that has given it already is only saying
+    // "not yet". Chrome refuses for about a second after esc lets go, which is
+    // exactly when a player clicks carry on, and treating that as "never" left the
+    // rest of the match with no aim and a pen that would not follow the mouse.
+    // So it stays the locked game, and the click to take the mouse asks again.
+    function lockRefused(g) {
+        if (isLocked(g)) return;
+        if (!lockEverGiven) g.noLock = true;
+        paintOverlay(g);
     }
 
     function bindInput(g) {
@@ -803,8 +817,9 @@
         // the right button aims in here: neither the browser nor the desktop gets a say
         stage.addEventListener('contextmenu', noMenu);
         const lockChange = () => {
-            if (isLocked(g)) { g.hadLock = true; paintOverlay(g); return; }
+            if (isLocked(g)) { g.hadLock = true; lockEverGiven = true; paintOverlay(g); return; }
             // esc, or the browser taking it back
+            g.lockLostAt = performance.now();
             g.wantFire = false; g.wantAim = false; penUp(g);
             if (g.hadLock && !g.ended) {
                 g.hadLock = false;
@@ -812,7 +827,7 @@
                 paintOverlay(g);
             }
         };
-        const lockError = () => { g.noLock = true; paintOverlay(g); };
+        const lockError = () => lockRefused(g);
         document.addEventListener('pointerlockchange', lockChange);
         document.addEventListener('pointerlockerror', lockError);
 
@@ -826,6 +841,9 @@
                 // the desktop would close the window: here it opens the menu
                 e.stopPropagation();
                 e.preventDefault();
+                // the same press that let go of the mouse: that was all it was for, and
+                // taking the pause straight back off would ask for the mouse too soon
+                if (performance.now() - (g.lockLostAt || -1e9) < 300) return;
                 if (!g.ended) { if (g.paused) pause(g, false); else if (g.solo) pause(g, true, 'menu'); else toggleMenu(g); }
                 return;
             }
@@ -1833,10 +1851,50 @@
     // sizing: low resolution on purpose, whatever the window is
     // ===============================================================
     const LINES = 240;
+    // A tablet or a phone held sideways is a handheld console, not a desktop: the
+    // match takes the whole screen, with no title bar, taskbar or desktop around
+    // it. Held upright again, it goes back in its window. The site's own css
+    // fullscreen does it, since the real one needs a tap and a rotation is not one.
+    // Leave it with the button and it stays left, until the next turn of the screen.
+    // What it knows lives on the window, so it carries from one match to the next.
+    function sideways() {
+        const win = winRef && winRef.win;
+        if (!win || typeof enterFauxFullscreen !== 'function') return;
+        const land = window.innerWidth > window.innerHeight;
+        const touchy = G ? G.touch : IS_TOUCH();
+        const ours = typeof fauxFullscreenWin !== 'undefined' && fauxFullscreenWin === win;
+        if (win._wzLand !== land) { win._wzLand = land; win._wzDeclined = false; }
+        // it was put there by turning the screen, and somebody took it back out
+        if (win._wzAutoFs && !win.classList.contains('fs-active')) { win._wzAutoFs = false; win._wzDeclined = true; }
+        if (land && touchy && G && !win._wzDeclined && !win.classList.contains('fs-active')
+            && !(typeof fullscreenWindow === 'function' && fullscreenWindow())) {
+            enterFauxFullscreen(win);
+            win._wzAutoFs = true;
+            if (G) { G.fitAt = 0; G.stageW = 0; }
+        } else if (!land && win._wzAutoFs && ours) {
+            win._wzAutoFs = false;
+            exitFauxFullscreen();
+            if (G) { G.fitAt = 0; G.stageW = 0; }
+        }
+        if (touchy) keepOnScreen(win);
+    }
+    // a window placed for the screen sideways is too far right for it upright: fire
+    // and jump hung off the edge after a turn. Narrower if it has to be, then back in.
+    function keepOnScreen(win) {
+        if (win.classList.contains('fs-active') || win.classList.contains('maximized')) return;
+        const vw = document.documentElement.clientWidth || window.innerWidth;
+        const r = win.getBoundingClientRect();
+        if (r.right <= vw + 1 && r.left >= -1) return;
+        const w = Math.min(r.width, vw - 20);
+        win.style.width = w + 'px';
+        win.style.left = Math.max(10, Math.min(r.left, vw - w - 10)) + 'px';
+        if (G) { G.fitAt = 0; G.stageW = 0; }
+    }
     function fit(g) {
         const now = performance.now();
         if (g.fitAt && now - g.fitAt < 200) return;
         g.fitAt = now;
+        sideways();
         const body = root, stage = g.stage;
         const rect = body.getBoundingClientRect();
         const vh = document.documentElement.clientHeight || window.innerHeight || 700;
@@ -2024,12 +2082,27 @@
         winRef.body.classList.add('wz-body');
         if (document.documentElement.clientHeight < 500) winRef.win.style.top = '0px';
         else if (document.documentElement.clientHeight < 900) winRef.win.style.top = '44px';
+        // a rotation can land on a menu as well as on a match
+        const turned = () => setTimeout(sideways, 150);
+        window.addEventListener('resize', turned);
+        window.addEventListener('orientationchange', turned);
         winRef.win._cleanup = () => {
+            window.removeEventListener('resize', turned);
+            window.removeEventListener('orientationchange', turned);
             tearDown();
             root = null; winRef = null;
         };
         root = winRef.body;
         return winRef;
+    }
+    // the grimoire, the loadout, settings and help are windows of their own. With the
+    // match taking the screen they opened underneath it, where nobody could see them,
+    // so while it does they go on top. A tap on a window raises it with an inline
+    // z-index, which is why the css for this is !important.
+    function subWindow(title, opts) {
+        const w = createAppWindow(title, opts);
+        if (winRef && winRef.win.classList.contains('fs-active')) w.win.classList.add('wz-over-fs');
+        return w;
     }
     function tearDown() {
         stopLoop();
@@ -2333,7 +2406,7 @@
     };
     function openHelp() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('how to play wizardz', { icon: 'auto_stories', width: 480 });
+        const { body } = subWindow('how to play wizardz', { icon: 'auto_stories', width: 480 });
         body.classList.add('wz-book');
         body.innerHTML = `<div class="wz-help">
             <h3>the idea</h3>
@@ -2368,7 +2441,7 @@
     }
     function openSettings() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('wizardz settings', { icon: 'settings', width: 340 });
+        const { body } = subWindow('wizardz settings', { icon: 'settings', width: 340 });
         body.classList.add('wz-book');
         const cur = settings();
         const manual = preference(LS.manual, 'false') === 'true';
@@ -2389,7 +2462,7 @@
     }
     function openGrimoire() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('grimoire — 50 sigils', { icon: 'auto_stories', width: 560 });
+        const { body } = subWindow('grimoire — 50 sigils', { icon: 'auto_stories', width: 560 });
         body.classList.add('wz-book');
         const elColor = el => (D.EL[el] || {}).color || '#fff';
         let filter = 'all';
@@ -2436,7 +2509,7 @@
     }
     // draw it, get scored on it. also the honest way to find out whether your circle is a circle
     function openTrainer(spell) {
-        const { body, win } = createAppWindow('practise: ' + spell.name, { icon: 'draw', width: 400 });
+        const { body, win } = subWindow('practise: ' + spell.name, { icon: 'draw', width: 400 });
         body.classList.add('wz-train');
         body.innerHTML = `
             <div class="wz-train-row">
@@ -2525,7 +2598,7 @@
     }
     function openLoadout() {
         pause(G, true, 'menu');
-        const { body } = createAppWindow('your eight spells', { icon: 'bookmark', width: 560 });
+        const { body } = subWindow('your eight spells', { icon: 'bookmark', width: 560 });
         body.classList.add('wz-book');
         const elColor = el => (D.EL[el] || {}).color || '#fff';
         let loadout = myLoadout();
