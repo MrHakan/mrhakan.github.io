@@ -302,7 +302,7 @@ section('jokerz 98');
         'every button on the table acknowledges the click');
     expect(/g\.pendingDeal/.test(game) && /BJFX\.dealIn/.test(game), 'drawn cards are dealt in');
     expect(/hitTheBlind/.test(game) && /BJFX\.damage/.test(game), 'the blind visibly takes the hit');
-    expect(/BJFX\.bonk\(face, BAL\.WIN_HEAD\)/.test(game), 'and something lands on their head when they lose');
+    expect(/BJFX\.bonk\(face, BAL\.WIN_HEAD[,)]/.test(game), 'and something lands on their head when they lose');
     expect(/balFaceHtml/.test(game) && /bj-victim/.test(game), 'the opponent has a face to land it on');
     // the readout used to fall back to the last hand's numbers when
     // nothing was selected, which read as the game failing to

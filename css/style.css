@@ -10998,6 +10998,9 @@ html {
 .news-copy h3 { font-size: 14px; font-weight: 700; line-height: 1.25; }
 .news-copy time { margin-left: 8px; font-size: 10px; font-weight: 400; color: #555; white-space: nowrap; }
 .news-copy p { margin-top: 2px; font-size: 11px; line-height: 1.35; color: #222; }
+/* two lines at most: the panel is a preview, the changelog has the rest, and a
+   long line must not push the panel below the window on a big screen */
+.news-copy p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .news-new { margin-left: 6px; padding: 0 3px; font: 700 10px 'Courier New', monospace; color: #ff0; background: #c00; vertical-align: 1px; }
 .news-btn { flex: none; display: inline-block; padding: 3px 10px; font-size: 13px; font-weight: 700; color: #000; background: #c0c0c0; white-space: nowrap; }
 .news-btn:hover { background: #d4d4d4; }
@@ -11009,6 +11012,8 @@ html {
     .news-item { flex-wrap: wrap; }
     .news-copy { flex-basis: calc(100% - 44px); }
     .news-item > .news-btn { margin-left: 44px; }
+    /* a phone scrolls anyway, and has no hover to read the rest */
+    .news-copy p { display: block; -webkit-line-clamp: none; line-clamp: none; overflow: visible; }
 }
 @media (pointer: coarse) {
     .news-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; font-size: 15px; }

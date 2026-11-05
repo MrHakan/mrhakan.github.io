@@ -183,18 +183,29 @@
     // hit at the moment of contact — squashed, then wobbling — which is
     // the whole joke, so the two animations are timed against each
     // other rather than just played at once.
-    function bonk(targetEl, src) {
+    // a head with no picture in it yet is a drop nobody sees, and the drop is
+    // a third of a second: so the picture is decoded first, and only then
+    // does the head appear and fall. a second is as long as the joke waits;
+    // after that it drops whatever has arrived
+    const BONK_WAIT = 1000;
+    function bonk(targetEl, src, onDrop) {
         if (!targetEl || !on() || !targetEl.parentElement) return Promise.resolve();
+        const head = document.createElement('img');
+        head.className = 'bj-bonk';
+        head.alt = '';
+        head.src = src;
+        const ready = typeof head.decode === 'function' ? head.decode().catch(() => { }) : Promise.resolve();
+        return Promise.race([ready, new Promise(r => setTimeout(r, BONK_WAIT))])
+            .then(() => (targetEl.isConnected && on() ? drop(targetEl, head, onDrop) : undefined));
+    }
+    function drop(targetEl, head, onDrop) {
         const host = targetEl.closest('.bj-body') || targetEl.parentElement;
+        if (!host) return;
         const t = rect(targetEl), h = rect(host);
         // it has to come to rest *on their head*, not over their face —
         // slightly smaller than the victim and sitting three quarters
         // above them, so at the moment of impact you can see both
         const size = Math.max(40, t.width * 0.88);
-        const head = document.createElement('img');
-        head.className = 'bj-bonk';
-        head.src = src;
-        head.alt = '';
         head.style.width = size + 'px';
         head.style.left = (t.left - h.left + t.width / 2 - size / 2) + 'px';
         // half the size, not three quarters: these pngs carry a lot of
@@ -226,6 +237,7 @@
             // then off the side and out of the window
             { transform: `translate(${size * 0.55}px, ${h.height}px) rotate(120deg)`, opacity: 0.9, offset: 1 }
         ], { duration: TOTAL, easing: 'linear' });
+        if (typeof onDrop === 'function') onDrop();
 
         // the impact, on the frame the head lands
         setTimeout(() => {

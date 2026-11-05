@@ -415,7 +415,7 @@ function newsItem(item) {
         <span class="news-icon bevel-in" aria-hidden="true">${escapeHtml(item.icon || '')}</span>
         <div class="news-copy">
             <h3 class="font-header">${escapeHtml(item.title)}${fresh}<time class="font-pixel" datetime="${escapeHtml(item.date)}">${escapeHtml(item.date)}</time></h3>
-            <p class="font-pixel">${escapeHtml(item.text)}</p>
+            <p class="font-pixel" title="${escapeHtml(item.text).replace(/"/g, '&quot;')}">${escapeHtml(item.text)}</p>
         </div>
         ${go}
     </li>`;
