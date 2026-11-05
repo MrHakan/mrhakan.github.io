@@ -125,10 +125,11 @@
     const difficulty = () => { const d = preference(LS.diff, 'normal'); return D.BOT_DIFFICULTY[d] ? d : 'normal'; };
     function settings() {
         const s = readJson(LS.settings);
-        const out = { sens: 1, invert: false };
+        const out = { sens: 1, invert: false, assist: true };
         if (s && typeof s === 'object') {
             if (typeof s.sens === 'number' && s.sens >= 0.2 && s.sens <= 3) out.sens = s.sens;
             out.invert = !!s.invert;
+            if (s.assist === false) out.assist = false;
         }
         return out;
     }
@@ -609,6 +610,12 @@
     const INK_PAUSE = 480;      // ms of the pen off the paper that ends a sigil
     const INK_PAUSE_MAX = 1050; // and how long it waits for a pen that is on its way somewhere
     const HUD_W = 640;
+    // The hud is drawn on a canvas this many units across, stretched over the arena. On
+    // a phone held upright that stretch was 0.6: seven pixel writing for hp, ink and the
+    // spell you have loaded. Narrow touch screens get a narrower canvas, so it is drawn
+    // nearer its real size. Everything that reads the pen goes through this as well.
+    const hudW = g => g.hudW || HUD_W;
+    function wantHudW(g, w) { return g.touch && w < 560 ? clamp(round(w / 0.85), 440, HUD_W) : HUD_W; }
     function clearInk(g) { g.strokes = []; g.stroke = null; g.penDown = false; }
     function enterStance(g) {
         const me = g.s.wiz[g.me];
@@ -616,7 +623,7 @@
         g.stance = true;
         clearInk(g);
         g.wantFire = false;
-        g.pen.x = HUD_W / 2; g.pen.y = g.hudH ? g.hudH / 2 : 180;
+        g.pen.x = hudW(g) / 2; g.pen.y = g.hudH ? g.hudH / 2 : 180;
         SFX.tick();
         paintTouch(g);
     }
@@ -629,7 +636,7 @@
     function toggleStance(g) { if (g.stance) clearStance(g); else enterStance(g); }
 
     function strokePoint(g, x, y) {
-        g.pen.x = clamp(x, 0, HUD_W); g.pen.y = clamp(y, 0, g.hudH || 360);
+        g.pen.x = clamp(x, 0, hudW(g)); g.pen.y = clamp(y, 0, g.hudH || 360);
         g.penMovedAt = performance.now();
         if (!g.stroke) return;
         const last = g.stroke[g.stroke.length - 1];
@@ -709,12 +716,13 @@
     function canvasRect(g) { return g.cv.getBoundingClientRect(); }
     function toHud(g, clientX, clientY) {
         const r = canvasRect(g);
-        return { x: (clientX - r.left) / r.width * HUD_W, y: (clientY - r.top) / r.height * g.hudH };
+        return { x: (clientX - r.left) / r.width * hudW(g), y: (clientY - r.top) / r.height * g.hudH };
     }
     function focusGame(g) { if (g.cv && g.cv.focus) g.cv.focus({ preventScroll: true }); }
 
     function look(g, dx, dy) {
-        const k = 0.0026 * g.settings.sens * (g.wantAim || g.touchAim ? 0.6 : 1);
+        // over somebody, a thumb slows down a little, so it stays on them
+        const k = 0.0026 * g.settings.sens * (g.wantAim || g.touchAim ? 0.6 : 1) * (g.assist && g.lookId !== null ? ASSIST.slow : 1);
         g.yaw += dx * k;
         g.pitch = clamp(g.pitch - dy * k * (g.settings.invert ? -1 : 1), -1.2, 1.2);
     }
@@ -784,7 +792,7 @@
                     for (const e of parts) { sx += e.movementX || 0; sy += e.movementY || 0; }
                     // some browsers leave these empty, and then the total is all there is
                     const trust = abs(sx - mx) <= 2 && abs(sy - my) <= 2 ? parts : [ev];
-                    for (const e of trust) strokePoint(g, g.pen.x + (e.movementX || 0) / r.width * HUD_W, g.pen.y + (e.movementY || 0) / r.height * g.hudH);
+                    for (const e of trust) strokePoint(g, g.pen.x + (e.movementX || 0) / r.width * hudW(g), g.pen.y + (e.movementY || 0) / r.height * g.hudH);
                 } else look(g, mx, my);
                 return;
             }
@@ -1310,6 +1318,55 @@
         return out;
     }
 
+    // ---------- a light hand on the aim, for thumbs ----------
+    // A thumb on glass is a worse mouse, so on a touch screen the crosshair leans a little
+    // towards an opponent who is already nearly under it: within about a metre of them,
+    // and only while you are doing something (looking, walking, aiming or firing), so it
+    // never swings the camera round by itself. It is light, it slows the thumb a little on
+    // them, it does not see through walls or invisibility, and it can be switched off in
+    // settings. Only the yaw and pitch this side sends are touched, so online it is the
+    // same as having aimed that way.
+    const ASSIST = { metres: 1.05, range: 34, pull: 1.6, aimPull: 2.4, slow: 0.7 };
+    function assistAim(g, dt, wiz, cam) {
+        g.assist = null;
+        const s = g.s, me = s.wiz[g.me];
+        if (!g.touch || !g.settings.assist || g.stance || g.paused || g.ended || me.dead || s.phase !== 'live') return;
+        let best = null;
+        for (const f of wiz) {
+            const q = f.w;
+            if (!q || q.team === g.myTeam || q.dead || f.hidden || (typeof f.alpha === 'number' && f.alpha < 0.3)) continue;
+            const tx = f.x, ty = f.y + 1.1, tz = f.z;
+            const dx = tx - cam.x, dy = ty - cam.y, dz = tz - cam.z, flat = hypot(dx, dz), d = hypot(flat, dy);
+            if (d > ASSIST.range || d < 1.5) continue;
+            let ey = atan2(dx, -dz) - g.yaw;
+            ey = atan2(sin(ey), cos(ey));
+            const ep = atan2(dy, flat) - g.pitch;
+            const err = hypot(ey * cos(g.pitch), ep), cone = Math.atan(ASSIST.metres / d) + 0.015;
+            if (err > cone || (best && err >= best.err)) continue;
+            if (!lineToThem(s, cam, tx, ty, tz, d, g.myTeam)) continue;
+            best = { ey, ep, err, cone, who: q.i };
+        }
+        if (!best) return;
+        g.assist = best;
+        const busy = g.lookId !== null || g.stick.id !== null || g.wantFire || g.touchAim;
+        if (!busy) return;
+        const k = min(1, (g.touchAim ? ASSIST.aimPull : ASSIST.pull) * dt) * (1 - best.err / best.cone);
+        g.yaw += best.ey * k;
+        g.pitch = clamp(g.pitch + best.ep * k, -1.2, 1.2);
+    }
+    // the ground, and walls that would stop your shot (your own side's let it through)
+    function lineToThem(s, cam, tx, ty, tz, d, team) {
+        if (!S.clearLine(s, cam.x, cam.y, cam.z, tx, ty, tz)) return false;
+        const n = Math.ceil(d / 0.5);
+        for (const e of s.ents) {
+            if (e.k !== 'wall' || e.tm === team) continue;
+            for (let k = 1; k < n; k++) {
+                const u = k / n, x = cam.x + (tx - cam.x) * u, y = cam.y + (ty - cam.y) * u, z = cam.z + (tz - cam.z) * u;
+                if (y < e.h && S.inBox(e, x, z, 0)) return false;
+            }
+        }
+        return true;
+    }
     function render(g, dt) {
         const s = g.s, me = s.wiz[g.me], renderer = g.R;
         fit(g);
@@ -1320,13 +1377,19 @@
         const proxy = { x: mine.x, y: mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch, aim: (g.wantAim || g.touchAim) && !g.stance };
         const cam = S.camera(s, proxy);
         g.camT = cam.t;
+        assistAim(g, dt, wiz, cam);
         g.shake = max(0, g.shake - dt * 1.4);
         const shake = g.shake > 0 ? g.shake * 0.25 : 0;
         const camV = {
             x: cam.x + (shake ? (Math.random() - 0.5) * shake : 0), y: cam.y + (shake ? (Math.random() - 0.5) * shake : 0), z: cam.z,
             fx: cam.fx, fy: cam.fy, fz: cam.fz
         };
-        const wantFov = (proxy.aim ? 0.78 : 1.12) * (g.aspect < 1 ? 1.25 : 1);
+        // fov is vertical, so a screen taller than wide saw a slice 47 degrees across, and
+        // most of that was your own back. Upright it aims for about 70 across instead, as
+        // far as 100 degrees of height allows. Only the picture: the crosshair is the
+        // middle of the screen whatever the lens, so this is nothing to the sim.
+        const hipFov = g.aspect < 1 ? min(1.75, 2 * Math.atan(Math.tan(0.61) / g.aspect)) : 1.12;
+        const wantFov = proxy.aim ? hipFov * 0.7 : hipFov;
         g.fovNow = lerp(g.fovNow, wantFov, min(1, dt * 12));
 
         // the draw distance is short anyway, and the closing fog takes it down further
@@ -1565,7 +1628,7 @@
         return floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
     }
     function drawHud(g, dt, wiz) {
-        const c = g.hctx, W = HUD_W, H = g.hudH, s = g.s;
+        const c = g.hctx, W = hudW(g), H = g.hudH, s = g.s;
         const me = s.wiz[g.me], team = g.myTeam;
         const enemies = s.wiz.filter(q => q.team !== team), allies = s.wiz.filter(q => q.team === team && q !== me);
         c.clearRect(0, 0, W, H);
@@ -1665,7 +1728,7 @@
         // ---- them, top right ----
         if (enemies.length === 1) {
             const foe = enemies[0];
-            const fw = 150, fx = W - fw - 8;
+            const fw = clamp(W - (cx + 98) - 16, 90, 150), fx = W - fw - 8;
             text(c, foe.name, W - 8, 13, '#ff9aa8', 10, 'right');
             bar(c, fx, 17, fw, 6, foe.hp / A.maxHp, '#e4485f', '#3a0f18', true);
             if (foe.ward > 0) { c.fillStyle = '#bfe8ff'; const ww = min(1, foe.ward / 40) * fw; c.fillRect(fx + fw - ww, 17, ww, 2); }
@@ -1702,7 +1765,9 @@
         if (me.dashCd > 0) { c.fillStyle = '#fff'; c.fillRect(bx, by + 24, bw2 * (1 - me.dashCd / A.dash.cd), 1); }
 
         // ---- the chamber, bottom middle ----
-        const chX = cx - 56, chY = H - 42;
+        // on a narrow phone the thumb buttons sit where this goes: it moves up over your hp
+        const underThumbs = g.padLeft !== null && g.padLeft !== undefined && cx + 56 > g.padLeft - 4;
+        const chX = underThumbs ? bx : cx - 56, chY = underThumbs ? by - 64 : H - 42;
         bevelBox(c, chX, chY, 112, 36, '#000040');
         if (me.chamber) {
             const sp = D.byId(me.chamber.s);
@@ -1758,7 +1823,10 @@
         if (g.hintT > 0 && g.hint) {
             c.globalAlpha = min(1, g.hintT * 2.5);
             const col = g.hint.kind === 'bad' ? '#ff9aa8' : g.hint.kind === 'bot' ? '#ffe14d' : g.hint.kind === 'pick' ? '#9fe0ff' : '#0df259';
-            text(c, g.hint.text, cx, H - 52, col, 12, 'center');
+            // a long line under the thumbs is a line nobody reads: it goes above them
+            const wide = g.hint.text.length * 7.2 / 2;
+            const hy = g.padLeft !== null && g.padLeft !== undefined && cx + wide > g.padLeft - 4 ? min(H - 52, g.padTop - 10) : H - 52;
+            text(c, g.hint.text, cx, hy, col, 12, 'center');
             c.globalAlpha = 1;
         }
         if (g.bannerT > 0 && g.banner) {
@@ -1913,7 +1981,7 @@
             if (w < 520 && vh > w) h = clamp(w * 1.25, 120, room);
         }
         h = floor(h);
-        if (g.stageW === w && g.stageH === h && g.cv.style.width === w + 'px' && g.cv.style.height === h + 'px' && g.hud.style.width === w + 'px' && g.hud.style.height === h + 'px') return;
+        if (g.stageW === w && g.stageH === h && g.hudW === wantHudW(g, w) && g.cv.style.width === w + 'px' && g.cv.style.height === h + 'px' && g.hud.style.width === w + 'px' && g.hud.style.height === h + 'px') return;
         g.stageW = w; g.stageH = h;
         stage.style.height = h + 'px';
         stage.style.width = w + 'px';
@@ -1925,12 +1993,15 @@
         g.R.resize(rw, rh);
         g.cv.style.width = w + 'px';
         g.cv.style.height = h + 'px';
-        g.hudH = round(HUD_W / aspect);
-        g.hud.width = HUD_W;
+        g.hudW = wantHudW(g, w);
+        g.hudH = round(g.hudW / aspect);
+        g.hud.width = g.hudW;
         g.hud.height = g.hudH;
         g.hud.style.width = w + 'px';
         g.hud.style.height = h + 'px';
         g.pen.y = min(g.pen.y, g.hudH);
+        g.pen.x = min(g.pen.x, g.hudW);
+        measurePad(g);
         // maximize and fullscreen are buttons on this window, and they keep the keyboard
         const active = document.activeElement;
         if (winRef && !root.contains(active) && (active === document.body || winRef.win.contains(active))) focusGame(g);
@@ -1939,10 +2010,27 @@
     // ===============================================================
     // what sits on top: touch buttons and the paper dialogs
     // ===============================================================
+    // where the thumb buttons are, in hud units, so the hud can keep out from under them
+    function measurePad(g) {
+        g.padTop = null; g.padLeft = null;
+        if (!g.touch || !g.touchEl || !g.stage) return;
+        const st = g.stage.getBoundingClientRect();
+        if (!st.width || !st.height) return;
+        let top = Infinity, left = Infinity;
+        g.touchEl.querySelectorAll('.wz-t:not(.wz-t-menu)').forEach(b => {
+            const r = b.getBoundingClientRect();
+            if (!r.width) return;
+            top = min(top, r.top - st.top); left = min(left, r.left - st.left);
+        });
+        if (top === Infinity) return;
+        g.padTop = top * g.hudH / st.height;
+        g.padLeft = left * hudW(g) / st.width;
+    }
     function paintTouch(g) {
         const el = g && g.touchEl;
         if (!el) return;
         el.style.display = g.touch ? '' : 'none';
+        if (g.touch !== g.padFor) { g.padFor = g.touch; g.stageW = 0; }
         const small = g.stage && g.stage.querySelector('#wz-menubtn');
         if (small) small.style.display = g.touch ? 'none' : '';
         const ink = el.querySelector('#wz-t-ink');
@@ -2448,11 +2536,12 @@
         body.innerHTML = `<div class="wz-help">
             <label class="wz-row" for="wz-sens">mouse speed <input id="wz-sens" type="range" min="0.2" max="3" step="0.05" value="${cur.sens}"></label>
             <label class="wz-row"><input id="wz-inv" type="checkbox" ${cur.invert ? 'checked' : ''}> invert up and down</label>
+            <label class="wz-row"><input id="wz-assist" type="checkbox" ${cur.assist ? 'checked' : ''}> aim assist with thumbs: a light pull towards whoever is near the crosshair</label>
             <label class="wz-row"><input id="wz-man" type="checkbox" ${manual ? 'checked' : ''}> manual cast: wait for enter instead of reading the ink when you stop</label>
             <label class="wz-row"><input id="wz-fps" type="checkbox" ${G && G.showFps ? 'checked' : ''}> show frames per second</label>
         </div>`;
         const save = () => {
-            const s = { sens: Number(body.querySelector('#wz-sens').value), invert: body.querySelector('#wz-inv').checked };
+            const s = { sens: Number(body.querySelector('#wz-sens').value), invert: body.querySelector('#wz-inv').checked, assist: body.querySelector('#wz-assist').checked };
             savePreference(LS.settings, JSON.stringify(s));
             const m = body.querySelector('#wz-man').checked;
             savePreference(LS.manual, String(m));

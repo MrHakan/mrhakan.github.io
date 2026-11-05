@@ -1438,6 +1438,90 @@ try {
         await ctx.close();
     }
 
+    // ===================================================================
+    section('a phone held upright, and aim assist for thumbs');
+    // ===================================================================
+    {
+        const ctx = await context({ ...devices['Pixel 7'] });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz());
+        await p.waitForSelector('#wz-solo', { timeout: 30000 });
+        await p.tap('#wz-solo');
+        await p.waitForSelector('.wz-bot', { timeout: 8000 });
+        await p.tap('.wz-bot[data-bot="bogwart"]');
+        await live(p);
+        // the way the screenshot that started this was taken: fullscreen, held upright
+        await p.tap('.app-window:has(.wz-body) .fs-btn');
+        await p.waitForTimeout(900);
+        const up = await state(p, g => {
+            const st = g.stage.getBoundingClientRect();
+            const across = 2 * Math.atan(Math.tan(g.fovNow / 2) * g.aspect);
+            return { scale: +(st.width / g.hud.width).toFixed(2), across: Math.round(across * 180 / Math.PI), aspect: +g.aspect.toFixed(2), padLeft: g.padLeft, cx: g.hud.width / 2 };
+        });
+        // it was 0.6: seven pixel writing for hp, ink and the loaded spell
+        expect(up.scale >= 0.8, 'the hud is drawn near its real size on an upright phone', JSON.stringify(up));
+        // vertical fov 1.4 at this shape saw 47 degrees across, most of it your own back
+        expect(up.aspect < 0.6 && up.across >= 58, 'and the lens is wider, so you see past yourself', JSON.stringify(up));
+        expect(typeof up.padLeft === 'number' && up.padLeft < up.cx + 56, 'it knows the thumb buttons are where the spell box was, and moves it', JSON.stringify(up));
+        await p.screenshot({ path: SHOTS + '/wz-phone-upright.png' });
+
+        // the foe stands still ten metres off, and the crosshair starts `off` to the side of them
+        const trial = (off, busy) => p.evaluate(async ([off, busy]) => {
+            const g = WZ_ENGINE.state(), S = WZ_SIM, s = g.s, me = s.wiz[g.me], fi = 1 - g.me, foe = s.wiz[fi];
+            // the bot stops thinking, and lets go of whatever it was holding down
+            g.brains = {}; g.keys = {}; g.wantFire = false; s.input[fi] = S.blankInput();
+            foe.x = me.x + Math.sin(g.yaw) * 10; foe.z = me.z - Math.cos(g.yaw) * 10;
+            s.ents = s.ents.filter(e => e.k !== 'wall');
+            await new Promise(r => setTimeout(r, 250));
+            const onThem = () => { const t = { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false };
+                for (let k = 0; k < 4; k++) { const c = S.camera(s, t); t.yaw = Math.atan2(foe.x - c.x, -(foe.z - c.z)); t.pitch = Math.atan2(foe.y + 1.1 - c.y, Math.hypot(foe.x - c.x, foe.z - c.z)); }
+                return t; };
+            const t0 = onThem();
+            g.yaw = t0.yaw + off; g.pitch = t0.pitch;
+            if (busy) g.stick.id = 999;
+            const y0 = g.yaw, f0 = [foe.x, foe.z];
+            await new Promise(r => setTimeout(r, 600));
+            g.stick.id = null;
+            const want = onThem().yaw, miss = Math.atan2(Math.sin(g.yaw - want), Math.cos(g.yaw - want));
+            return { off, left: +miss.toFixed(4), turned: +(g.yaw - y0).toFixed(4), foeMoved: +Math.hypot(foe.x - f0[0], foe.z - f0[1]).toFixed(2) };
+        }, [off, busy]);
+        let r = await trial(0.05, true);
+        expect(r.foeMoved < 0.05, 'the one being aimed at stands still for this', JSON.stringify(r));
+        // light: closer, and not on them in a snap
+        expect(r.left < r.off * 0.85 && r.left > r.off * 0.15, 'a little off them, with a thumb down: it leans onto them, lightly', JSON.stringify(r));
+        r = await trial(0.05, false);
+        expect(Math.abs(r.turned) < 0.0005, 'with no thumb on the glass it leaves the camera alone', JSON.stringify(r));
+        r = await trial(0.3, true);
+        expect(Math.abs(r.turned) < 0.0005, 'well off them it does nothing', JSON.stringify(r));
+        await p.evaluate(() => { WZ_ENGINE.state().settings.assist = false; });
+        r = await trial(0.05, true);
+        expect(Math.abs(r.turned) < 0.0005, 'and switched off in settings, it is off', JSON.stringify(r));
+        await ctx.close();
+    }
+    {
+        const ctx = await context({ viewport: { width: 1280, height: 860 } });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz());
+        await p.waitForSelector('#wz-solo', { timeout: 30000 });
+        await p.click('#wz-solo');
+        await p.waitForSelector('.wz-bot', { timeout: 8000 });
+        await p.click('.wz-bot[data-bot="bogwart"]');
+        await live(p);
+        const r = await p.evaluate(async () => {
+            const g = WZ_ENGINE.state(), s = g.s, me = s.wiz[g.me], foe = s.wiz[1 - g.me];
+            g.brains = {}; s.input[1 - g.me] = WZ_SIM.blankInput();
+            foe.x = me.x + Math.sin(g.yaw) * 10; foe.z = me.z - Math.cos(g.yaw) * 10;
+            await new Promise(r => setTimeout(r, 250));
+            g.yaw += 0.03; g.stick.id = 999; g.wantFire = true;
+            const y0 = g.yaw;
+            await new Promise(r => setTimeout(r, 500));
+            g.stick.id = null; g.wantFire = false;
+            return { turned: +(g.yaw - y0).toFixed(4), touch: g.touch };
+        });
+        expect(!r.touch && Math.abs(r.turned) < 0.0005, 'a mouse gets no help', JSON.stringify(r));
+        await ctx.close();
+    }
+
     section('page errors');
     expect(!errors.length, 'nothing threw the whole way through', [...new Set(errors)].slice(0, 6).join('\n        '));
 } catch (e) {
