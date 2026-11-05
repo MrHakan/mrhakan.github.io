@@ -1,5 +1,40 @@
 [
   {
+    "name": "Lights Out 98",
+    "type": "game",
+    "date": "2026-11-05",
+    "url": "/games/lights-out/",
+    "description": "Offline 5×5 light-switch puzzle with seeded daily boards, shortest-solution hints, undo and keyboard/touch controls.",
+    "icon": "💡",
+    "tags": [
+      "lights-out",
+      "logic",
+      "daily",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Voyage ETA 98",
+    "type": "app",
+    "date": "2026-11-05",
+    "url": "/apps/voyage-eta/",
+    "description": "Private nautical ETA planner with UTC departure, speed, distance, delays, local arrival offset and speed scenarios.",
+    "icon": "🚢",
+    "tags": [
+      "maritime",
+      "navigation",
+      "eta",
+      "speed",
+      "voyage",
+      "planning",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Flood Tiles 98",
     "type": "game",
     "date": "2026-11-04",
