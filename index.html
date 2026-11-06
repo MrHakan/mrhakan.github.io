@@ -197,7 +197,8 @@
           </nav>
         </div>
       </div>
-      <div class="bg-black border-2 border-[#404040] p-2 flex flex-col items-center gap-1">
+      <div id="counter-panel" class="counter-panel bg-black border-2 border-[#404040] p-2">
+        <div class="counter-col">
         <span class="text-[#0df259] text-xs font-header uppercase">visitors:</span>
         <div id="visitor-box"
           class="bg-black border border-[#222] px-2 py-1 flex items-center justify-center min-h-[30px]">
@@ -209,6 +210,17 @@
             src="https://komarev.com/ghpvc/?username=MrHakan&amp;color=0df259&amp;style=flat-square&amp;label=">
           <span id="visitor-count"
             class="hidden text-red-600 font-pixel font-bold tracking-[4px] text-xl shadow-[0_0_10px_rgba(220,38,38,0.8)]">...</span>
+        </div>
+        </div>
+        <!-- whos.amung.us, for who is here right now. js/index.js loads it once the
+             page has settled, and this stays hidden until it has drawn something,
+             so a blocked script leaves the visitor counter on its own, centred. -->
+        <div id="online-col" class="counter-col" hidden>
+          <span class="text-[#0df259] text-xs font-header uppercase">online:</span>
+          <div id="online-box"
+            class="bg-black border border-[#222] px-2 py-1 flex items-center justify-center min-h-[30px]">
+            <span id="_wau98m"></span>
+          </div>
         </div>
       </div>
 
