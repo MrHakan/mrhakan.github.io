@@ -83,7 +83,7 @@
         },
         {
             id: 'meteor', name: 'meteor', kind: 'strike', el: 'fire', cd: 9,
-            r: [{ dmg: 70, aoe: 3.4 }, { dmg: 96, aoe: 3.8 }, { dmg: 126, aoe: 4.2 }],
+            r: [{ dmg: 60, aoe: 3.4 }, { dmg: 82, aoe: 3.8 }, { dmg: 108, aoe: 4.2 }],
             range: 20, delay: 0.9,
             blurb: 'a rock, where the crosshair meets the floor, a moment later'
         },
@@ -94,18 +94,18 @@
             blurb: 'everything round you gets hit, shoved and stunned'
         },
         {
-            id: 'runeward', name: 'rune ward', kind: 'ward', el: 'arcane', cd: 13,
-            r: [{ shield: 34, aoe: 9, dur: 6 }, { shield: 48, aoe: 10, dur: 7 }, { shield: 64, aoe: 11, dur: 8 }],
+            id: 'runeward', name: 'rune ward', kind: 'ward', el: 'arcane', cd: 11,
+            r: [{ shield: 55, aoe: 10, dur: 7 }, { shield: 75, aoe: 11, dur: 8 }, { shield: 100, aoe: 12, dur: 9 }],
             blurb: 'a shield on you and everybody near you'
         },
         {
             id: 'regrowth', name: 'regrowth', kind: 'heal', el: 'nature', cd: 13,
-            r: [{ heal: 40, aoe: 9, dur: 5 }, { heal: 56, aoe: 10, dur: 5 }, { heal: 76, aoe: 11, dur: 5 }],
+            r: [{ heal: 50, aoe: 10, dur: 5 }, { heal: 70, aoe: 11, dur: 5 }, { heal: 95, aoe: 12, dur: 5 }],
             blurb: 'health back over five seconds, for you and everybody near'
         },
         {
             id: 'blink', name: 'blink', kind: 'blink', el: 'arcane', cd: 6,
-            r: [{ dist: 8, dmg: 20, aoe: 2.6, cdr: 0 }, { dist: 9, dmg: 32, aoe: 3, cdr: 1 }, { dist: 10, dmg: 46, aoe: 3.4, cdr: 2 }],
+            r: [{ dist: 8, dmg: 45, aoe: 3.2, cdr: 0 }, { dist: 9, dmg: 65, aoe: 3.6, cdr: 1 }, { dist: 10, dmg: 90, aoe: 4, cdr: 2 }],
             safe: 0.45,
             blurb: 'eight metres that way, and a bang where you land'
         },
@@ -244,7 +244,7 @@
             ]
         },
         bsod: {
-            name: 'the blue screen', hp: 30000, r: 2.2, h: 5.6, speed: 2.4, xp: 0,
+            name: 'the blue screen', hp: 25000, r: 2.2, h: 5.6, speed: 2.4, xp: 0,
             look: 'bsod',
             gap: 1.25,
             phases: [
@@ -283,7 +283,7 @@
             rooms: [3, 4, 4], packs: [2, 3], pack: [5, 7],
             kinds: { gremlin: 4, popup: 3, shield: 2, brute: 1, healer: 1, bomber: 2, swarm: 2 },
             late: { brute: 1, healer: 1 },
-            hpMul: 1, dmgMul: 1.1, grow: 0.72, elite: 0.08, bossDmg: 1.25,
+            hpMul: 1, dmgMul: 1.1, grow: 0.66, elite: 0.08, bossDmg: 1.25,
             boss: 'trollking',
             theme: {
                 floor: ['chip', 'floor2'], wall: 'slab', cliff: 'slab', gate: 'low',
@@ -297,7 +297,7 @@
             rooms: [4, 4, 4], packs: [3, 3], pack: [5, 8],
             kinds: { gremlin: 3, popup: 3, shield: 2, brute: 2, healer: 2, bomber: 3, swarm: 2 },
             late: { brute: 1, healer: 1, shield: 1 },
-            hpMul: 1.05, dmgMul: 1.2, grow: 0.9, elite: 0.18, bossDmg: 1.5,
+            hpMul: 1.05, dmgMul: 1.2, grow: 1, elite: 0.18, bossDmg: 1.6,
             boss: 'bsod',
             theme: {
                 floor: ['disk', 'floor'], wall: 'low', cliff: 'low', gate: 'slab',

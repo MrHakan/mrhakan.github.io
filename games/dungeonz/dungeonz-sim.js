@@ -68,6 +68,7 @@
             if (prev) {
                 // a corridor four wide where the two rooms overlap
                 const lo = max(prev.x0, cx - w / 2) + 3, hi = min(prev.x1, cx + w / 2) - 3;
+                if (lo > hi) throw new Error('dungeon: rooms ' + prev.i + ' and ' + rooms.length + ' do not overlap');
                 const ccx = round(clamp((prev.cx + cx) / 2, lo, hi));
                 const len = ri(6, 9);
                 corridors.push({ x0: ccx - 2, x1: ccx + 2, z0: prev.z1, z1: prev.z1 + len });
@@ -93,10 +94,10 @@
                 cx = round(cx);
                 addRoom('fight', w, d, cx, { section: sec, last: k === def.rooms[sec] - 1 });
             }
-            cx = clamp(cx, -6, 6);
-            addRoom('shrine', 14, 14, round(cx), { shrine: sec + 1, section: sec });
+            cx = clamp(round(prev.cx), -XW / 2 + 9, XW / 2 - 9);
+            addRoom('shrine', 14, 14, cx, { shrine: sec + 1, section: sec });
         }
-        const boss = addRoom('boss', 34, 34, 0, { section: sections });
+        const boss = addRoom('boss', 34, 34, clamp(round(prev.cx), -12, 12), { section: sections });
         // the door behind you in the boss's room: open until the fight starts
         gates.push({ i: gates.length, room: boss.i, door: true, x0: boss.entry.x - 2, x1: boss.entry.x + 2, z0: boss.z0 - 0.6, z1: boss.z0 });
         boss.door = gates.length - 1;
@@ -155,7 +156,7 @@
             if (i < 0 || j < 0 || i >= GX || j >= GZ) return WALL_H;
             return floorGrid[j * GX + i];
         };
-        const world = PW.build({ x0: X0, z0: 0, w: XW, d: GZ / 2, cells: 2, nav: 1, outer: WALL_H, rim: 0, ground: (x, zz) => ground(x - 0.01, zz - 0.01) });
+        const world = PW.build({ x0: X0, z0: 0, w: XW, d: GZ / 2, cells: 2, nav: 1, outer: WALL_H, rim: 0, keep: 48, ground: (x, zz) => ground(x - 0.01, zz - 0.01) });
 
         // a chest in the last fight room of each section, somewhere you can stand
         const chests = [];
@@ -199,8 +200,8 @@
         for (let p = 0; p < packs; p++) {
             const kind = pickKind();
             let size = ri(def.pack[0], def.pack[1]);
-            if (room.i === 1) size = min(size, 5);
             if (kind === 'swarm') size = 6;
+            if (room.i === 1) size = min(size, 5);
             if (kind === 'brute') size = 1 + (r() < 0.3 ? 1 : 0);
             if (kind === 'healer') size = 1;
             // the pack's middle: away from the door you came in by
@@ -240,7 +241,7 @@
             id, kind, room, elite: !!elite,
             x, z, y: 0, yaw: PI, vx: 0, vz: 0, kx: 0, kz: 0,
             hp, maxHp: hp,
-            dmgMul: def.dmgMul * (1 + def.grow * 0.5 * max(0, section)) * (elite ? D.ELITE.dmg : 1),
+            dmgMul: def.dmgMul * (1 + def.grow * 0.5 * max(0, section)) * (elite ? D.ELITE.dmg : 1) * (section === 0 ? 0.85 : 1),
             xp: M.xp * (elite ? D.ELITE.xp : 1) * (1 + 0.15 * max(0, section)),
             r: M.r * (elite ? D.ELITE.size : 1),
             state: 0,          // 0 asleep, 1 awake, 2 dead
@@ -741,6 +742,8 @@
                     s.cleared[sh.room] = 1;
                     if (rm.gate >= 0) s.gateOpen[rm.gate] = 1;
                     emit(s, 'onward', sh.room);
+                    // what the party carries halfway: the balance check compares runs from here
+                    if (s.stats && rm.shrine === 2) s.stats.mid = { skills: [...new Set([].concat(...s.heroes.map(h => h.skills.map(k => k.id))))], pas: [...new Set([].concat(...s.heroes.map(h => Object.keys(h.pas))))] };
                     advanceFrontier(s);
                 }
             }
@@ -908,6 +911,14 @@
         if (e.cell !== cell && s.t - e.at > 0.3) { W.fill(e.field, cell, 40); e.cell = cell; e.at = s.t; }
         return e.field;
     }
+    // a bot walking up to a minion that will not die: one field it keeps refreshing, not a new one each time
+    function heroFieldAt(s, b, T) {
+        const W = W_(s);
+        const cell = W.nearestPassable(W.navCell(T.x, T.z));
+        if (!b.field) b.field = W.field();
+        if (b.fieldCell !== cell) { W.fill(b.field, cell, 40); b.fieldCell = cell; }
+        return b.field;
+    }
     function minionTarget(s, m) {
         // a decoy close by is the more interesting thing
         let best = null, bd = 1e9;
@@ -927,9 +938,18 @@
         const W = W_(s);
         let gx = tx, gz = tz;
         const d = hypot(tx - m.x, tz - m.z);
-        if (d > 1 && !(d < 12 && W.clearLine(m.x, 0.4, m.z, tx, 0.4, tz, 0.5))) {
-            const step = W.nextStep(m.x, m.z, tx, tz, m.field || undefined);
-            gx = step.x; gz = step.z;
+        // the way there is worked out four times a second, and followed in between
+        m.routeT = (m.routeT || 0) - DT;
+        if (m.routeT <= 0 || m.routeGx === undefined) {
+            m.routeT = 0.25;
+            m.direct = d <= 1 || (d < 12 && W.clearLine(m.x, 0.4, m.z, tx, 0.4, tz, 0.5));
+            if (!m.direct) { const step = W.nextStep(m.x, m.z, tx, tz, m.field || undefined); m.routeGx = step.x; m.routeGz = step.z; }
+            else m.routeGx = 0;
+        }
+        if (!m.direct) {
+            gx = m.routeGx; gz = m.routeGz;
+            // got there early: the next cell along
+            if (hypot(gx - m.x, gz - m.z) < 0.4) m.routeT = 0;
         }
         let dx = gx - m.x, dz = gz - m.z;
         const l = hypot(dx, dz) || 1;
@@ -1167,6 +1187,8 @@
         emit(s, 'battack', ATTACK_NAMES.indexOf(name));
         if (name === 'summon') {
             const S = P.summon || { kinds: ['gremlin'], n: 4 };
+            // never into a crowd: a long fight must not turn into a hundred of them
+            if (s.minions.filter(m => m.state === 1).length > 10) { b.gap = 0.3; return; }
             const rm = s.dun.rooms[s.dun.boss];
             for (let k = 0; k < S.n; k++) {
                 const kind = S.kinds[k % S.kinds.length];
@@ -1254,15 +1276,15 @@
             let dead = p.life <= 0;
             if (!dead && W.at(p.x, p.z) > p.y) { dead = true; if (p.aoe) explode(s, p); else emit(s, 'spark', r1(p.x), r1(p.z), p.side); }
             if (!dead && p.side === 0) {
-                for (const t of enemiesNear(s, p.x, p.z, p.r)) {
-                    if (p.hit && p.hit.includes(t.e)) continue;
+                const hit = firstHit(s, p);
+                if (hit) {
+                    const t = { e: hit };
                     if (p.aoe) { explode(s, p); dead = true; break; }
                     const sl = p.slow;
                     damageEnemy(s, t.e, p.dmg, { o: p.o, src: p.src, fx: p.vx, fz: p.vz });
                     if (sl && !t.e.boss) { t.e.slow = max(t.e.slow, sl); t.e.slowT = max(t.e.slowT, p.slowT); }
-                    if (p.hit && p.hit.length < p.pierce) { p.hit.push(t.e); continue; }
-                    dead = true;
-                    break;
+                    if (p.hit && p.hit.length < p.pierce) p.hit.push(t.e);
+                    else dead = true;
                 }
             } else if (!dead) {
                 for (const h of s.heroes) {
@@ -1279,6 +1301,19 @@
             if (!dead) keep.push(p);
         }
         s.proj = keep;
+    }
+    // the first thing a friendly bolt touches, without building a list every tick
+    function firstHit(s, p) {
+        for (const m of s.minions) {
+            if (m.state !== 1) continue;
+            const rr = p.r + m.r;
+            if (abs(m.x - p.x) > rr || abs(m.z - p.z) > rr) continue;
+            if (hypot(m.x - p.x, m.z - p.z) > rr || (p.hit && p.hit.includes(m))) continue;
+            return m;
+        }
+        const b = s.boss;
+        if (b && s.bossOn && b.hp > 0 && hypot(b.x - p.x, b.z - p.z) <= p.r + b.r && !(p.hit && p.hit.includes(b))) return b;
+        return null;
     }
     function explode(s, p) {
         emit(s, 'boom', r1(p.x), r1(p.z), p.aoe, 1);
@@ -1554,7 +1589,8 @@
             const f = a[5];
             mn.act = f & 3; mn.elite = !!(f & 4); mn.hitT = f & 8 ? 0.15 : 0; mn.stunT = f & 16 ? 0.2 : 0; mn.slowT = f & 32 ? 0.2 : 0;
         }
-        for (const mn of s.minions) if (mn.state === 1 && !seen.has(mn.id)) { mn.state = 2; mn.hp = 0; }
+        // not listed awake: dead, if anybody has been in its room, and asleep otherwise
+        for (const mn of s.minions) if (!seen.has(mn.id) && (mn.state === 1 || s.entered[mn.room])) { mn.state = 2; mn.hp = 0; }
         s.eproj = [];
         const e = d.e || [];
         for (let k = 0; k + 4 < e.length; k += 5) s.eproj.push({ x: e[k] / 5, z: e[k + 1] / 5, vx: e[k + 2] / 5, vz: e[k + 3] / 5, big: e[k + 4] === 1, y: SHOT_Y });
@@ -1675,7 +1711,7 @@
         b.chase = max(0, (b.chase || 0) - DT);
         const T = b.target;
         // ---- where to stand ----
-        let gx, gz, urgent = false;
+        let gx, gz, urgent = false, local = false;
         const dz = danger(s, h.x, h.z, b.react);
         const downed = s.heroes.find(o => o.down && o !== h && hypot(o.x - h.x, o.z - h.z) < 30);
         if (dz) {
@@ -1699,7 +1735,8 @@
             const ux = (T.x - h.x) / d, uz = (T.z - h.z) / d;
             const back = d < want ? -1 : d > want + 4 ? 1 : 0;
             gx = h.x + ux * back * 3 + -uz * b.strafe * 2; gz = h.z + uz * back * 3 + ux * b.strafe * 2;
-            if (b.chase > 0) { gx = T.x; gz = T.z; }
+            local = true;
+            if (b.chase > 0) { gx = T.x; gz = T.z; local = false; }
             // never strafe off into a corner: the room's middle pulls a little
             const rmi = s.dun.roomAt(h.x, h.z);
             if (rmi >= 0) { const rm = s.dun.rooms[rmi]; gx += (rm.cx - h.x) * 0.08; gz += (rm.cz - h.z) * 0.08; }
@@ -1710,10 +1747,23 @@
         // ---- getting there ----
         let mvx = 0, mvz = 0;
         if (hypot(gx - h.x, gz - h.z) > 0.6) {
-            const step = urgent ? { x: gx, z: gz } : W.nextStep(h.x, h.z, gx, gz);
+            // a step or two in a fight is steered, not routed: a flow field per place a bot
+            // wanted to stand for a moment was most of what a run cost
+            let step;
+            if (urgent || local) step = { x: gx, z: gz };
+            else if (downed && gx === downed.x && gz === downed.z) step = W.nextStep(h.x, h.z, gx, gz, heroField(s, downed.i));
+            else if (b.chase > 0 && T && !T.boss) step = W.nextStep(h.x, h.z, gx, gz, heroFieldAt(s, b, T));
+            else step = W.nextStep(h.x, h.z, gx, gz);
             mvx = step.x - h.x; mvz = step.z - h.z;
             const l = hypot(mvx, mvz) || 1;
             mvx /= l; mvz /= l;
+            if (urgent || local) {
+                // round whatever is in the way: the first of a few turns that is clear
+                for (const a of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) {
+                    const c = cos(a), sn = sin(a), dx = mvx * c - mvz * sn, dz = mvx * sn + mvz * c;
+                    if (groundUnder(s, h.x + dx * 0.9, h.z + dz * 0.9) <= h.y + HERO.step && !wallAt(s, h.x + dx * 0.9, h.z + dz * 0.9, HERO.radius)) { mvx = dx; mvz = dz; break; }
+                }
+            }
             // a door that is shut: wait by it rather than walking into it
             if (gateAt(s, h.x + mvx * 1.2, h.z + mvz * 1.2, HERO.radius)) { mvx = 0; mvz = 0; }
         }
@@ -1743,6 +1793,7 @@
         if (!canAct(h) || s.phase !== 'live') return;
         b.hold -= DT;
         if (b.hold > 0) return;
+        b.hold = 0.2;
         for (let k = 0; k < h.skills.length; k++) {
             const sk = h.skills[k];
             if (sk.cd > 0) continue;
@@ -1769,7 +1820,8 @@
                     break;
                 case 'ward': {
                     const hurting = s.heroes.filter(o => !o.down && !o.out && hypot(o.x - h.x, o.z - h.z) < R.aoe && o.hp < o.maxHp * 0.85).length;
-                    go = hurting >= 1 && (near(12).length >= 2 || s.bossOn);
+                    const friends = s.heroes.filter(o => !o.down && !o.out && hypot(o.x - h.x, o.z - h.z) < R.aoe).length;
+                    go = (hurting >= 1 || friends >= 3) && (near(14).length >= 2 || s.bossOn);
                     break;
                 }
                 case 'heal': {

@@ -5,10 +5,16 @@ Every game here is at least two files — `<name>-data.js` (content) and
 a window from `createAppWindow()`. No build step, no framework, no
 bundler.
 
-Two of the files are not a game:
+Three of the files are not a game:
 
 - **`netplay.js`** — lobbies, invite codes and transports, shared by
   every multiplayer game on the site.
+- **`ps1/`** — what makes wizardz and dungeonz look like 1996 (`ps1-gl.js`:
+  the shaders, the texture page, the wizards, a height map mesher, `core()`,
+  which owns the webgl context) and the world they stand in (`ps1-world.js`:
+  a height map, and the flow fields bots find their way with). A game builds
+  its own frame out of `core()`, so a third one (a kart race, say) needs no
+  copy of either.
 - **`wizardz/`** — the first game that uses it. `age-of-troll/` is the
   better worked example for a new one, because it is simpler.
 
@@ -202,6 +208,135 @@ minute per relay, about 6MB a minute over four. That is under a megabit a second
 phone can do, but it is **the limit, and it has only been measured on the stand-in relay**, from
 eight tabs on one machine (\`WZ_EIGHT=1\`). Whether a public relay puts up with eight clients
 for a whole match has not been tried. Two people and six bots is far lighter.
+
+## dungeonz 98
+
+A co-op raid for four on the wizardz engine. Same 240 lines, same wizards, same sigils.
+You and up to three friends go through a dungeon a room at a time, and bots sit in
+whatever seats nobody is in.
+
+| file | what it is |
+| --- | --- |
+| `dungeonz-data.js` | every number: the three dungeons, seven minions, three bosses and their attacks, twelve skills, seven passives |
+| `dungeonz-sim.js` | the rules, the dungeon built from a seed, the minions, the bosses, the bots, the wire. no page in it |
+| `dungeonz-gl.js` | the dungeon, the minions and the bosses, on `games/ps1/ps1-gl.js` |
+| `dungeonz.js` | the window, the mouse, the thumbs, the hud, the cards, the wire |
+| `dungeonz.css` | what the wizardz styles do not cover. It comes with the game, not with the desktop |
+
+It also loads `wizardz-data.js` and `wizardz-sigil.js` for the sigils, and the two shared
+files in `games/ps1/`.
+
+### a run
+
+- Pick a dungeon: **the recycle bin** (easy), **the registry** (normal) or **the blue
+  screen** (hard). Each has its own minions, its own boss and its own colours.
+- A dungeon is three sections of three or four rooms, a checkpoint shrine after each, and
+  the boss's room at the end. It is built from the run's seed: rooms in a line with
+  corridors between them, pillars and low walls, and the packs of minions asleep in them.
+  Every screen builds the same one from the same seed, so none of that goes over the wire.
+- The gate out of a room opens when everything in it is dead.
+- Every kill gives **everyone** the xp, whoever landed it. A level is a card.
+- Cards are spent at the shrines, where the party is healed and the dead come back: three
+  to choose from each time, rolled for you alone. A new skill (up to four), a rank on one
+  you have (up to three), or a passive. There is one card at the entrance, which is how you
+  choose your first skill, and a chest in each section gives everyone one more.
+- **Nothing that makes you stronger carries over** to the next run. What is kept is a trophy
+  and a best time per dungeon. That is what keeps the balance check honest.
+- **How long:** with bots, a clear takes about 4 minutes on easy, 7 on normal and 10 on hard,
+  and the boss 1.5 to 3 of those. People take longer, mostly at the shrines.
+
+### skills are sigils
+
+Twelve wizardz sigils, rebuilt for a crowd: fireball, frostbolt, chain lightning, meteor,
+thunderclap, rune ward, regrowth, blink, ice wall, magic missile, nightfall (a decoy) and
+blizzard. Press 1 to 4, or press **E** and draw it. A drawing goes through the wizardz
+recogniser with your four skills as the book, and how clean it was sets its power: a key
+is 100%, a clean drawing up to 150%. While you draw you walk slowly and take a quarter
+more damage, so it is a choice and not a tax.
+
+### dying
+
+At no health you are **down**, not dead. A friend standing next to you for 2.5 seconds gets
+you up at 40%. Nobody comes for 25 seconds and you are **out** until the room is clear.
+Everybody down at once is a **wipe**: the party starts again at the last shrine, the rooms
+after it are built again from the seed with fresh minions worth half the xp, and it costs
+one of two **continues**. Out of continues, the run is over.
+
+### bosses say it first
+
+Clippy, the troll king and the blue screen, three phases each, at two thirds and one third
+of their health, with a few words and a moment where nothing hurts them. Every attack shows
+where it will land before it does: a red circle that fills (slams, rain), a lane on the floor
+(beams), a ring going out along the floor that you can jump, or bolts you can see coming.
+At least 0.9 seconds of warning, which `check-dungeonz.mjs` holds the data to.
+
+### one to four people: bots, not scaling
+
+A party is always four seats and bots fill the empty ones, rather than the dungeon getting
+easier for fewer people. The fights are built round a party: picking each other up, the boss
+splitting its attention, wards and heals that cover whoever stands near. A lone wizard with
+smaller numbers loses all of that. And the bots are already the balance instrument, so the
+solo game is exactly what CI measures. A guest who drops is replaced by the same bot.
+
+### online
+
+Host authoritative through `auto`, like wizardz: the host runs the sim and the bots, a guest
+sends what it is holding and numbered commands (a cast, a card) until a snapshot says they
+landed, moves itself at once, and draws everything else from the snapshots. A snapshot is:
+
+- the four heroes every time, and what they carry (health, skills and cooldowns, cards on
+  offer) only when it changed, three times over, and one seat at a time on a loop
+- the minions that are **awake**, as id, place, facing, health and what they are doing.
+  The sleeping ones come from the seed. One a guest has seen awake that is no longer listed
+  is dead
+- the enemy's bolts, the red bits on the floor, zones, ice walls, decoys, the boss
+- what happened, without the purely cosmetic on the relays, no more than fourteen at a time
+
+Friendly bolts are not sent at all: a guest draws its own at once, and everybody else's
+from the firing flag in their snapshot. That is the difference between a crowd fitting the
+relays and not.
+
+Measured in `browser-dungeonz.mjs` with real sockets against the stand-in relay, two people
+and two bots in the blue screen with 28 minions awake, multiplied by the four relays in the
+list: the host sends **1.9MB a minute**, a guest 0.7MB, at 4.6 events a second each.
+`check-dungeonz.mjs` holds the average snapshot of a whole hard run under the 3MB a minute
+too, and the biggest single one under 6kB. **The limit is four people**, which is what the
+game is, and it has only been measured on the stand-in relay.
+
+When a guest drops, a bot takes their seat at once with their level and their cards, and
+they get it back the moment they speak again. When the host's line goes quiet the run goes
+on with bots in every guest's seat until they come back: co-op has nobody to be unfair to,
+so it never waits. A guest whose line goes quiet freezes until the host is heard again.
+**The host leaving ends the run.** There is no host migration, and the guests are told.
+
+### the look, and what it costs
+
+The dungeon is one height map, so its floor and walls come out of the same mesher as the
+wizardz arenas, about ten thousand triangles in one draw call, with the rock nobody can see
+the top of left out. Minions and bosses are boxes on hinges. A frame with four wizards and 45
+minions awake is about 70 draw calls and 3.5ms of javascript, and on CI's software renderer,
+with no gpu at all, 37fps.
+
+### balance
+
+Tune in `dungeonz-data.js` and run `DZ_TABLE=1 node .github/scripts/check-dungeonz.mjs`.
+Parties of four bots play 36 runs of every dungeon on as many threads as the machine has,
+picking their cards at random so that every card gets measured. Held to:
+
+| | cleared | a clear, in bot minutes | level at the boss |
+| --- | --- | --- | --- |
+| the recycle bin | 85% to 100% | 2.5 to 8 | 4 to 9 |
+| the registry | 55% to 97% | 3.5 to 11 | 5.5 to 11 |
+| the blue screen | 30% to 85% | 4.5 to 14 | 6.5 to 13 |
+
+and easy above normal above hard, the boss between 40 seconds and 4 minutes, and failures
+rarely in the first two rooms. For the cards it measures two things. What a skill does per
+second somebody owns it, counting damage done and health saved (by a ward, a heal, an ice
+wall or a decoy): none may be more than three times the median or less than a third of it.
+And how often a party carrying it clears normal and hard against one that is not: no skill
+and no passive may move that by more than 30 points. `DZ_RUNS` is how many runs. The bots
+are the instrument, so a skill they use badly reads as weak, and nothing here has been played
+by a crowd of people.
 
 ## age of troll
 
@@ -447,13 +582,15 @@ play against: open the site twice, host in one tab, join in the other.
 `.github/scripts/check-games.mjs` loads these files without a browser
 and checks the content and the desktop wiring;
 `check-wizardz.mjs` and `check-sigils.mjs` hold wizardz's rules, balance and
-recogniser to their targets;
+recogniser to their targets, and `check-dungeonz.mjs` the raid's;
 `.github/scripts/browser-check.mjs` opens the real site in chromium,
 draws a sigil with the mouse and runs a two-tab lobby;
 `browser-wizardz.mjs` plays a match to the end with a real mouse, a phone with
 real touches, every map, a 4 v 4 with bots to the end, a 2 v 2 with two browsers and bots
 including somebody walking out, loadout ids typed in and refused, a guest trying to cast what
 it does not carry, and two browsers direct and over the relays;
+`browser-dungeonz.mjs` takes a raid from the address bar to a cleared dungeon, draws a
+fireball, measures the frame rate in a crowd, and plays it on a phone and in two browsers;
 `.github/scripts/check-netplay.mjs` and `browser-netplay.mjs` hold the ways
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one

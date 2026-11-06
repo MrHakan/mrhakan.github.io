@@ -58,7 +58,9 @@ css/
   giscus-win98.css      the theme the giscus iframe loads, since style.css
                         cannot reach into another origin
 games/                one folder per game, plus the shared netplay layer
-  echoes/  jokerz/  wizardz/  age-of-troll/  become-user/  troll-problem/
+  echoes/  jokerz/  wizardz/  dungeonz/  age-of-troll/  become-user/  troll-problem/
+  ps1/                the PlayStation renderer and the height map world that
+                      wizardz and dungeonz both stand on
   netplay.js
 data/                 site content, board config, the projects list, the
                       github snapshot, and news.json: the what's new panel on
@@ -113,6 +115,7 @@ exits non-zero if anything drifted.
 | `check-startup.mjs` | what the first visit costs: no remote or parser-blocking scripts, a `tailwind.css` with every class the markup asks for, windows that load when opened, and a size budget |
 | `check-music-stage.mjs` | uploaded music catalog, audio-reactive lighting, scene lifecycle, pause, reduced motion, hidden tabs and concert controls |
 | `check-wizardz.mjs` | wizardz: the rules, the teams, the four maps, what goes over the wire, loadout ids, and a thousand bot matches against the balance targets, then more on every map at every team size and for all ten ready made loadouts |
+| `check-dungeonz.mjs` | dungeonz: the rules, every dungeon a seed can build being walkable, what goes over the wire, and a hundred runs of four bots against the balance targets: the difficulty curve, run and boss length, the level at the boss, and no skill or passive dominant or useless |
 | `check-sigils.mjs` | wizardz: every symbol drawn badly a few hundred times, and the confusion matrix held to its targets |
 | `check-offline.mjs` | offline fallbacks, stalled requests, cache scope, media streaming, responses that do not wait for their cache write, and files fetched only when asked |
 | `check-games.mjs` | every script parses, the fifty spells and their sigils, desktop wiring, my documents' backup envelope, the GitHub snapshot |
@@ -130,6 +133,7 @@ exits non-zero if anything drifted.
 | `browser-netplay.mjs` | two strangers into a duel with nothing picked: an invite link through the boot screen, direct when there is a route, the relays when there is not, a blocked cdn, a wrong code, and a direct link dying mid-duel. Runs on no outside server |
 | `browser-age-of-troll.mjs` | a match against the bot through to a win with real clicks, on a desktop and a phone; a save surviving a reload; and two browsers through a match over a direct link and the relays, with the link dying partway and a player vanishing |
 | `browser-wizardz.mjs` | wizardz played with a real mouse through to the end of a match, old saves, the auto scaler, a phone with real touches, every map, a 4 v 4 with bots to the end, a 2 v 2 with two browsers and bots, loadout ids typed in and refused, a guest casting what it does not carry, and two browsers direct and over the relays, with the link dying, a player leaving and the bytes counted |
+| `browser-dungeonz.mjs` | dungeonz from the address bar to a cleared dungeon with the clock turned up: a card picked by key, a fireball drawn with the mouse, the boss through three phases, the frame rate with four wizards and a crowd, a phone with real touches, and two browsers direct and over the relays, with the line going quiet, the link dying and a guest walking out, and the bytes counted |
 | `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem aims before it builds, and the music is never handed to a sleeping audio graph |
 | `browser-giscus.mjs` | original boards by default, both posting methods and preserved drafts on desktop and mobile, isolated discussion terms and theme URLs, blocked scripts, service errors and stalled frames; proves CORS and application errors are still detected |
 

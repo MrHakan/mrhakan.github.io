@@ -4,12 +4,12 @@
     "description": "a retro personal site with no build step: plain html, css and javascript, served straight off github pages. the scripts here are its test suite and the optional multiplayer relay, not a build.",
     "private": true,
     "scripts": {
-        "test": "node .github/scripts/check-startup.mjs && node .github/scripts/check-playground.mjs && node .github/scripts/check-music-stage.mjs && node .github/scripts/check-games.mjs && node .github/scripts/check-wizardz.mjs && node .github/scripts/check-sigils.mjs && node .github/scripts/check-netplay.mjs && node .github/scripts/check-offline.mjs && node .github/scripts/check-guestbook.mjs && node .github/scripts/check-motion.mjs && node .github/scripts/check-defrag.mjs && node .github/scripts/check-web.mjs && node .github/scripts/check-echoes.mjs && node .github/scripts/check-age-of-troll.mjs && node server/relay-smoke.mjs",
+        "test": "node .github/scripts/check-startup.mjs && node .github/scripts/check-playground.mjs && node .github/scripts/check-music-stage.mjs && node .github/scripts/check-games.mjs && node .github/scripts/check-wizardz.mjs && node .github/scripts/check-sigils.mjs && node .github/scripts/check-netplay.mjs && node .github/scripts/check-offline.mjs && node .github/scripts/check-guestbook.mjs && node .github/scripts/check-motion.mjs && node .github/scripts/check-defrag.mjs && node .github/scripts/check-web.mjs && node .github/scripts/check-echoes.mjs && node .github/scripts/check-age-of-troll.mjs && node .github/scripts/check-dungeonz.mjs && node server/relay-smoke.mjs",
         "relay": "node server/relay.js",
         "feed": "node .github/scripts/build-feed-json.mjs",
         "css": "node .github/scripts/build-tailwind.mjs",
         "relays": "node .github/scripts/probe-relays.mjs",
-        "test:browser": "node .github/scripts/browser-check.mjs && node .github/scripts/browser-web.mjs && node .github/scripts/browser-arcade.mjs && node .github/scripts/browser-netplay.mjs && node .github/scripts/browser-age-of-troll.mjs && node .github/scripts/browser-wizardz.mjs && node .github/scripts/browser-scale.mjs",
+        "test:browser": "node .github/scripts/browser-check.mjs && node .github/scripts/browser-web.mjs && node .github/scripts/browser-arcade.mjs && node .github/scripts/browser-netplay.mjs && node .github/scripts/browser-age-of-troll.mjs && node .github/scripts/browser-wizardz.mjs && node .github/scripts/browser-dungeonz.mjs && node .github/scripts/browser-scale.mjs",
         "serve": "python3 -m http.server 8099"
     },
     "devDependencies": {},

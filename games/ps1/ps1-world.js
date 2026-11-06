@@ -16,6 +16,7 @@
 //     boxes    [x, z, half width, half depth, height, ...] standing on it
 //     rim      how far in from the edge the outer wall starts (default 1)
 //     step     the biggest step a walker takes without jumping (default 0.45)
+//     keep     how many flow fields to a fixed goal to keep (default 512)
 // ===================================================================
 (function () {
     'use strict';
@@ -71,7 +72,10 @@
         // a breadth first walk out from a goal: f[cell] is the next cell towards it, -1 if
         // it cannot be reached. limit stops it that many steps out, for goals that move
         function fill(f, cell, limit) {
-            f.fill(-1);
+            // only what the last walk touched needs wiping, which for a short walk on a big map
+            // is most of the cost
+            if (f.touched) { const t = f.touched; for (let k = 0; k < f.nTouched; k++) f[t[k]] = -1; }
+            else f.fill(-1);
             const queue = W_QUEUE.length >= NX * NZ ? W_QUEUE : (W_QUEUE = new Int32Array(NX * NZ));
             const depth = W_DEPTH.length >= NX * NZ ? W_DEPTH : (W_DEPTH = new Int32Array(NX * NZ));
             let head = 0, tail = 0;
@@ -95,14 +99,21 @@
                     queue[tail++] = n;
                 }
             }
+            if (limit) {
+                if (!f.touched || f.touched.length < tail) f.touched = new Int32Array(max(tail, 1024));
+                f.touched.set(queue.subarray(0, tail));
+                f.nTouched = tail;
+            }
             return f;
         }
         let W_QUEUE = new Int32Array(0), W_DEPTH = new Int32Array(0);
-        // goals that never move get a field each, kept for ever
+        // goals that never move get a field each, kept until there are too many of them
         const flows = new Map();
+        const KEEP = o.keep || 512;
         function flowTo(cell) {
             let f = flows.get(cell);
             if (f) return f;
+            if (flows.size >= KEEP) flows.delete(flows.keys().next().value);
             f = fill(new Int32Array(NX * NZ), cell, 0);
             flows.set(cell, f);
             return f;

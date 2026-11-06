@@ -112,6 +112,11 @@ jobs:
             - name: Check age of troll
               run: node .github/scripts/check-age-of-troll.mjs
 
+            # and the raid: every dungeon a seed can build is walkable, what goes over the
+            # wire fits, and a hundred runs of bot parties against the balance targets
+            - name: Check dungeonz
+              run: node .github/scripts/check-dungeonz.mjs
+
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest
@@ -236,6 +241,18 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8104 node .github/scripts/browser-wizardz.mjs
+
+            # a solo run from the address bar to a cleared dungeon with the clock turned
+            # up, a phone, and two browsers direct and over the relays with the link
+            # dying and a guest walking out. Its own stand-ins for peerjs and the relays
+            - name: Play dungeonz
+              run: |
+                  python3 -m http.server 8105 &
+                  site_pid=$!
+                  trap 'kill "$site_pid" 2>/dev/null || true' EXIT
+                  sleep 2
+                  kill -0 "$site_pid"
+                  SITE_URL=http://localhost:8105 node .github/scripts/browser-dungeonz.mjs
 
             # the auto scaler moves a real mouse by a known number of real pixels on
             # the screens people have, and presses every button in the news panel.

@@ -236,6 +236,8 @@
         if (why) say(g, DENY[why] || 'no', 'bad');
         else if (!g.isHost) { const h = myHero(g); h.offer = null; h.picks = max(0, h.picks - 1); }
         paintCards(g, true);
+        // the card that had the focus has gone: give it back to the dungeon, or the keys stop
+        focusGame(g);
     }
 
     // ===============================================================
@@ -1212,7 +1214,8 @@
             text(c, g.banner.text, W / 2, H * 0.3, g.banner.color, small ? 16 : 20, 'center');
             c.globalAlpha = 1;
         }
-        if (s.phase === 'countdown') text(c, 'pick a skill to start: 1, 2 or 3', W / 2, H * 0.22, '#6fe8ff', 12, 'center');
+        // the entrance: your first card, then the others'
+        if (s.shrine && s.shrine.room === 0 && !s.shrine.done) text(c, me.picks > 0 ? 'pick a skill to start: 1, 2 or 3' : 'waiting for the others to pick', W / 2, H * 0.22, '#6fe8ff', 12, 'center');
         // ---- downed friends you cannot see ----
         for (const hv of heroes) {
             if (!hv.h.down || hv.i === g.me) continue;
@@ -1540,7 +1543,7 @@
         const m = meta();
         const pick = chosenDungeon();
         root.innerHTML = `
-            <div class="wz-menu dz-menu">
+            <div class="wz-menu">
                 <div class="wz-title dz-title">dungeonz 98</div>
                 <div class="wz-sub">four wizards, one dungeon, a lot of minions. level up, spend cards at the shrines, close the boss. bots take any seat nobody is in, bradar.</div>
                 <div class="wz-menu-grid">
