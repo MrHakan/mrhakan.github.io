@@ -763,6 +763,14 @@ section('fullscreen, including where the api will not do it');
     expect(out.fs && out.says === 'exit', 'on a phone in fullscreen the way out says exit', JSON.stringify(out));
     expect(out.onScreen && out.reachable && out.w >= 44 && out.h >= 36, 'and it is on the screen, uncovered, and a thumb can hit it', JSON.stringify(out));
     expect(out.bg !== 'rgb(192, 192, 192)', 'and it does not look like the buttons beside it', out.bg);
+    // a narrow screen caps every window at the screen less the taskbar, and that cap
+    // stayed on in fullscreen: the bottom 96px of a phone was the desktop
+    const fill = await p.evaluate(() => {
+        const w = document.querySelector('.app-window'), wr = w.getBoundingClientRect(), br = w.querySelector('.app-window-body').getBoundingClientRect();
+        return { winShort: Math.round(innerHeight - wr.bottom), bodyShort: Math.round(wr.bottom - br.bottom), top: Math.round(wr.top) };
+    });
+    expect(fill.top === 0 && fill.winShort <= 1, 'and the window it belongs to fills the whole phone, to the bottom', JSON.stringify(fill));
+    expect(fill.bodyShort <= 8, 'and what is in the window fills the window', JSON.stringify(fill));
     await p.tap('.app-window .fs-btn');
     await p.waitForTimeout(600);
     const back = await p.evaluate(() => ({
