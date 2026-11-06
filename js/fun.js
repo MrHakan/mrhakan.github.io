@@ -631,6 +631,7 @@ function initExtraSecrets() {
         duel: () => openWizardz(),
         bot: () => openWizardz('bot'),
         ageoftroll: () => openAgeOfTroll(),
+        dungeonz: () => openDungeonz(),
         lobby: () => openNetplay(),
         defrag: () => openDefrag(),
         roast: roastMe,

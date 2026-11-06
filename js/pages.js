@@ -232,6 +232,7 @@ const SITE_MAP = [
             ['sir, we have a troll problem', 'openTrollProblem()'], ['become user', 'openBecomeUser()'],
             ['wizardz 98 (draw your spells)', 'openWizardz()'], ['wizardz: 1 v bot', "openWizardz('bot')"],
             ['age of troll', 'openAgeOfTroll()'],
+            ['dungeonz 98 (co-op raid)', 'openDungeonz()'],
             ['multiplayer lobby', 'openNetplay()'],
             ['solitaire', 'openSolitaire()'],
             ['minesweeper', 'openMinesweeper()'], ['snake', 'openSnake()'], ['pong', 'openPong()'],

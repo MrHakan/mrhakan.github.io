@@ -1228,7 +1228,18 @@
                 { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2'], ['3', '3 v 3'], ['4', '4 v 4']] },
                 { key: 'map', label: 'map', values: [['temple', 'the temple'], ['bin', 'the recycle bin'], ['defrag', 'defrag'], ['wire', 'the long wire']] }
             ],
-            scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js']
+            scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/ps1/ps1-world.js', 'games/wizardz/wizardz-sim.js', 'games/ps1/ps1-gl.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js']
+        },
+        {
+            id: 'dungeonz',
+            name: 'dungeonz 98',
+            icon: 'bug_report',
+            min: 2, max: 4,
+            blurb: 'a co-op raid for four: rooms of minions, shrines, cards, a boss at the end. bots take the empty seats',
+            options: [
+                { key: 'dungeon', label: 'dungeon', values: [['bin', 'the recycle bin (easy)'], ['registry', 'the registry (normal)'], ['bsod', 'the blue screen (hard)']] }
+            ],
+            scripts: ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/ps1/ps1-world.js', 'games/ps1/ps1-gl.js', 'games/dungeonz/dungeonz-data.js', 'games/dungeonz/dungeonz-sim.js', 'games/dungeonz/dungeonz-gl.js', 'games/dungeonz/dungeonz.js']
         },
         {
             id: 'ageoftroll',

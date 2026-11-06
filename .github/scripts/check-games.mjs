@@ -100,9 +100,9 @@ try { loadInto(win, 'games/netplay.js'); ok('games/netplay.js runs without a dom
 catch (e) { bad('games/netplay.js runs without a dom', e.message); }
 try { loadInto(win, 'games/wizardz/wizardz-data.js'); ok('games/wizardz/wizardz-data.js runs'); }
 catch (e) { bad('games/wizardz/wizardz-data.js runs', e.message); }
-for (const f of ['wizardz-sigil', 'wizardz-sim', 'wizardz-gl', 'wizardz']) {
-    try { loadInto(win, 'games/wizardz/' + f + '.js'); ok('games/wizardz/' + f + '.js runs'); }
-    catch (e) { bad('games/wizardz/' + f + '.js runs', e.message); }
+for (const f of ['ps1/ps1-world', 'ps1/ps1-gl', 'wizardz/wizardz-sigil', 'wizardz/wizardz-sim', 'wizardz/wizardz-gl', 'wizardz/wizardz']) {
+    try { loadInto(win, 'games/' + f + '.js'); ok('games/' + f + '.js runs'); }
+    catch (e) { bad('games/' + f + '.js runs', e.message); }
 }
 
 const WZ = win.WZ;
@@ -359,7 +359,7 @@ const sw = read('sw.js');
 const html = read('index.html');
 const indexJs = read('js/index.js');
 const extras = read('js/extras.js');
-['games/netplay.js', 'games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js'].forEach(f =>
+['games/netplay.js', 'games/ps1/ps1-world.js', 'games/ps1/ps1-gl.js', 'games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js'].forEach(f =>
     expect(sw.includes('/' + f), 'service worker precaches ' + f));
 expect(/const CACHE = 'mrhakan98-v(\d+)'/.test(sw), 'service worker has a cache version');
 expect(html.includes("startMenuAction('wizardz')"), 'wizardz is in the start menu');
