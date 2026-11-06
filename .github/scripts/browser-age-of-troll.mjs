@@ -290,6 +290,133 @@ try {
     }
 
     // ===================================================================
+    section('a replay, from a link');
+    // ===================================================================
+    {
+        // a match nobody reaches into: only buttons, so the replay has to come out the same
+        const ctx = await context({ viewport: { width: 1180, height: 900 } });
+        const p = await open(ctx);
+        await p.evaluate(() => openAgeOfTroll());
+        await p.waitForSelector('#aot-solo', { timeout: 20000 });
+        await p.selectOption('#aot-diff', 'easy');
+        await p.selectOption('#aot-plan', 'rush');
+        await p.click('#aot-solo');
+        await live(p);
+        await p.evaluate(() => AOT_ENGINE.speed(25));
+        await playUntilOver([p], 100000);
+        if (!(await state(p, g => g.s.over))) {
+            // long enough: a surrender is an ending too, and the replay has to know it
+            await p.click('#aot-resign');
+            await p.click('.retro-dialog-btn:has-text("yes")', { timeout: 3000 });
+            await p.waitForFunction(() => AOT_ENGINE.state().s.over, null, { timeout: 5000 });
+        }
+        await p.evaluate(() => AOT_ENGINE.speed(1));
+        const was = await state(p, (g, A) => ({ tick: g.s.tick, winner: g.s.winner, hash: A.replay.stateHash(g.s), why: g.s.endWhy, orders: g.s.log.c.length / 2 }));
+        await p.waitForSelector('#aot-share:not([disabled])', { timeout: 5000 });
+        await p.click('#aot-share');
+        const link = await p.inputValue('#aot-replay-link');
+        expect(link.startsWith(BASE + '/?app=ageoftroll&replay='), 'the end screen hands over a link', link.length + ' characters for ' + Math.round(was.tick / 20 / 60) + ' game minutes and ' + was.orders + ' orders, ' + was.why);
+        expect(/characters/.test(await p.textContent('#aot-replay-note')), 'and says how long it is');
+        await ctx.close();
+
+        // somebody else, somewhere else: nothing in common but the link
+        const other = await context({ viewport: { width: 1180, height: 900 } });
+        const w = await open(other, link);
+        await w.waitForFunction(() => window.AOT_ENGINE && AOT_ENGINE.state() && AOT_ENGINE.state().watch, null, { timeout: 30000 });
+        expect(await state(w, g => g.s.tick < 200 && g.watch.playing), 'the link opens straight into the match, from the start');
+        expect(await w.evaluate(() => /[?&]replay=/.test(location.search)), 'and the address still says which one');
+        expect(await w.locator('#aot-cmds[inert]').count() === 1 && await w.locator('#aot-resign').count() === 0, 'nothing on the screen gives an order');
+        // paused, then everything a player would do: the state has to stay the replay's own
+        await w.click('#aot-play');
+        await w.locator('.aot-cmd[data-cmd="u0"]').click({ force: true, timeout: 2000 }).catch(() => { });
+        await w.focus('#aot-canvas');
+        for (const k of ['q', 'w', 'e', 'r', 'f', 'x']) await w.keyboard.press(k);
+        expect(await w.evaluate(() => AOT_ENGINE.issue({ c: 'train', r: 0 }) === false), 'and the engine itself turns an order away');
+        const untouched = await state(w, (g, A) => A.replay.stateHash(g.s) === A.replay.stateHash(A.replay.seek(g.watch.rp, g.watch.keys, g.s.tick).s));
+        expect(untouched, 'clicks and keys change nothing: the state is the replay\'s, tick for tick');
+        await w.click('#aot-play');
+
+        await w.click('[data-rate="8"]');
+        const t0 = await state(w, g => g.s.tick);
+        await w.waitForTimeout(1000);
+        const t1 = await state(w, g => g.s.tick);
+        expect(await state(w, g => g.watch.rate) === 8 && t1 - t0 > 90, '8x plays eight seconds a second', (t1 - t0) + ' ticks in a second');
+        await w.keyboard.press('2');
+        expect(await state(w, g => g.watch.rate) === 2, 'and the number keys pick the speed');
+        await w.click('#aot-play');
+        const paused = await state(w, g => g.s.tick);
+        await w.waitForTimeout(400);
+        expect(await state(w, g => g.s.tick) === paused && /play/.test(await w.textContent('#aot-play')), 'pause stops it');
+        await w.click('#aot-play');
+        const side0 = await state(w, g => g.me);
+        await w.click('#aot-side');
+        expect(await state(w, g => g.me) === 1 - side0, 'the camera goes over to the other side');
+        await w.keyboard.press('c');
+        expect(await state(w, g => g.me) === side0, 'and back, with C');
+
+        // the time bar: halfway, then the very end
+        const seek = v => w.evaluate(v => {
+            const el = document.querySelector('#aot-seek');
+            el.value = String(v === 'end' ? el.max : v);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }, v);
+        await seek(Math.floor(was.tick / 2));
+        expect(Math.abs(await state(w, g => g.s.tick) - Math.floor(was.tick / 2)) <= 2, 'the time bar jumps to the middle');
+        await w.screenshot({ path: SHOTS + '/aot-replay.png' });
+        await seek('end');
+        await w.waitForSelector('#aot-end:not([hidden]) #aot-replay-result', { timeout: 5000 });
+        const now = await state(w, (g, A) => ({ tick: g.s.tick, winner: g.s.winner, hash: A.replay.stateHash(g.s) }));
+        expect(now.tick === was.tick && now.winner === was.winner && now.hash === was.hash, 'and at the end it is the same match, to the last bit',
+            'tick ' + now.tick + ' / ' + was.tick + ', winner ' + now.winner + ' / ' + was.winner + ', state ' + now.hash + ' / ' + was.hash);
+        await w.screenshot({ path: SHOTS + '/aot-replay-end.png' });
+        const said = await w.textContent('#aot-replay-result');
+        expect(was.winner === -1 ? /draw/.test(said) : / wins$/.test(said), 'the end of the replay says who won', said);
+        await w.click('#aot-again');
+        await w.waitForFunction(() => AOT_ENGINE.state().s.tick < 300 && !AOT_ENGINE.state().s.over, null, { timeout: 5000 });
+        expect(true, 'and it can be watched again');
+        await w.click('#aot-quit');
+        await w.waitForSelector('#aot-paste', { timeout: 5000 });
+        expect(await w.evaluate(() => !/replay=/.test(location.href)), 'leaving it takes the replay off the address');
+
+        // pasted into the menu, and opened as a file
+        await w.fill('#aot-paste', 'look at this ' + link + ' bradar');
+        await w.click('#aot-watch');
+        await w.waitForFunction(() => AOT_ENGINE.state() && AOT_ENGINE.state().watch, null, { timeout: 10000 });
+        expect(true, 'a link pasted into the menu plays too');
+        await w.click('#aot-quit');
+        await w.waitForSelector('#aot-file', { timeout: 5000 });
+        await w.setInputFiles('#aot-fileinput', { name: 'age-of-troll-replay.txt', mimeType: 'text/plain', buffer: Buffer.from(link + '\n') });
+        await w.waitForFunction(() => AOT_ENGINE.state() && AOT_ENGINE.state().watch, null, { timeout: 10000 });
+        expect(true, 'and so does a saved replay file');
+
+        // what happens to a link somebody has been at
+        const problem = async url => {
+            await w.goto(url, { waitUntil: 'load' });
+            await w.waitForSelector('#aot-problem', { timeout: 30000 });
+            return { why: await w.getAttribute('#aot-problem', 'data-why'), text: await w.textContent('#aot-problem') };
+        };
+        const code = link.split('replay=')[1];
+        const cut = await problem(BASE + '/?app=ageoftroll&replay=' + code.slice(0, Math.floor(code.length / 2)));
+        expect(cut.why === 'broken', 'half a link is turned away, politely', cut.text);
+        const nonsense = await problem(BASE + '/?app=ageoftroll&replay=%3Cscript%3Ealert(1)%3C%2Fscript%3E');
+        expect(nonsense.why === 'broken', 'and so is nonsense');
+        const older = await w.evaluate(async code => {
+            const d = await AOT.replay.decode(code);
+            const b = AOT.replay.pack(Object.assign({}, d.rp, { print: (d.rp.print ^ 1) >>> 0 }));
+            let s = '';
+            [0, ...b].forEach(x => { s += String.fromCharCode(x); });
+            return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }, code);
+        const old = await problem(BASE + '/?app=ageoftroll&replay=' + older);
+        expect(old.why === 'old' && /older version/.test(old.text), 'one from other rules says it is from an older version', old.text);
+        const big = await problem(BASE + '/?app=ageoftroll#replay=' + 'A'.repeat(200000));
+        expect(big.why === 'big', 'and one far too long is not read at all');
+        expect(await w.evaluate(() => !!document.querySelector('.aot-body')), 'none of that took the window down');
+        await other.close();
+    }
+
+    // ===================================================================
     section('the theme, on winamp');
     // ===================================================================
     {
@@ -701,6 +828,52 @@ try {
         expect(true, 'and can leave');
         await guest.evaluate(() => localStorage.removeItem('test-direct'));
         await guest.close();
+    }
+
+    // ===================================================================
+    section('an online match, watched again');
+    // ===================================================================
+    {
+        const host = await open(ctx);
+        const code = await hostLobby(host);
+        const guest = await open(ctx);
+        await joinLobby(guest, code);
+        await startMatch(host, guest);
+        await host.evaluate(() => AOT_ENGINE.speed(25));
+        await playUntilOver([host, guest], 70000);
+        if (!(await state(host, g => g.s.over))) {
+            await guest.click('#aot-resign');
+            await guest.click('.retro-dialog-btn:has-text("yes")', { timeout: 3000 });
+            await host.waitForFunction(() => AOT_ENGINE.state().s.over, null, { timeout: 8000 });
+        }
+        await host.evaluate(() => AOT_ENGINE.speed(1));
+        const was = await state(host, (g, A) => ({ tick: g.s.tick, winner: g.s.winner, hash: A.replay.stateHash(g.s), orders: g.s.log.c.length / 2, theirs: g.s.log.c.filter((c, i) => i % 2 && c % 2).length }));
+        expect(was.theirs > 0, 'the host wrote down the guest\'s orders too', was.theirs + ' of ' + was.orders);
+        // the guest never ran the rules, so its copy comes from the host
+        await guest.waitForSelector('#aot-share:not([disabled])', { timeout: 15000 });
+        await guest.click('#aot-share');
+        const link = await guest.inputValue('#aot-replay-link');
+        expect(/[?&#]replay=/.test(link), 'the guest gets a link as well, from the host', link.length + ' characters');
+        await host.waitForSelector('#aot-share:not([disabled])', { timeout: 5000 });
+        await host.close();
+        await guest.close();
+
+        const third = await context({ viewport: { width: 1000, height: 800 } });
+        const w = await open(third, link);
+        await w.waitForFunction(() => window.AOT_ENGINE && AOT_ENGINE.state() && AOT_ENGINE.state().watch, null, { timeout: 30000 });
+        expect(await state(w, g => g.me) === 1, 'it opens on the guest\'s side, since the guest shared it');
+        await w.click('[data-rate="4"]');
+        await w.waitForTimeout(500);
+        await w.evaluate(() => {
+            const el = document.querySelector('#aot-seek');
+            el.value = el.max;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await w.waitForSelector('#aot-end:not([hidden]) #aot-replay-result', { timeout: 5000 });
+        const now = await state(w, (g, A) => ({ tick: g.s.tick, winner: g.s.winner, hash: A.replay.stateHash(g.s) }));
+        expect(now.tick === was.tick && now.winner === was.winner && now.hash === was.hash, 'and it is the match the host played, to the last bit',
+            'tick ' + now.tick + ' / ' + was.tick + ', state ' + now.hash + ' / ' + was.hash);
+        await third.close();
     }
 
     section('page errors');

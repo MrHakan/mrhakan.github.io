@@ -540,7 +540,16 @@ function aotLoadScripts() {
     return npLoadScripts().then(() => Netplay.loadGame('ageoftroll'));
 }
 
+// ?app=ageoftroll&replay=<code> (or #replay= for a long one): read now, while
+// the address still says so, not once the game's scripts have arrived
+function aotReplayInUrl() {
+    const q = new URLSearchParams(location.search);
+    if ((q.get('app') || '').toLowerCase() !== 'ageoftroll') return null;
+    return q.get('replay') || new URLSearchParams(location.hash.slice(1)).get('replay');
+}
+
 function openAgeOfTroll(mode) {
+    if (!mode) { const replay = aotReplayInUrl(); if (replay) mode = { replay }; }
     if (window.startAgeOfTroll) { startAgeOfTroll(mode); return; }
     const { body, win } = createAppWindow('age of troll', { icon: 'castle', width: 320 });
     body.innerHTML = '<div class="bj-loading">dialling up the trolls...</div>';

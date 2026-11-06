@@ -210,6 +210,9 @@
                 finish(s, 1 - side, 'resign');
                 break;
         }
+        // a recorded game writes down what happened and when, which is all a
+        // replay needs: the rules do the rest again from the same seed
+        if (s.log) s.log.c.push(s.tick, cmdCode(c) * 2 + side);
         return null;
     }
 
@@ -723,6 +726,355 @@
         }
         return s;
     }
+
+    // -----------------------------------------------------------------
+    // replays. A match is its seed, its handicaps and every command that went
+    // through, each with the tick it landed on. Play those into the same rules
+    // and the same match comes out, down to the last bit of the last hit point,
+    // on any machine: nothing in here reads a clock, Math.random or a frame, and
+    // + - * / and Math.round are the same everywhere JavaScript runs.
+    //
+    // What a replay cannot survive is the rules changing under it. So it carries
+    // a fingerprint of every number the rules read, and the hash of the state it
+    // ended on: a replay from older rules is turned away before it starts, and
+    // one that still plays out differently is caught before anybody watches it.
+    // -----------------------------------------------------------------
+    const RULES_REV = 1;              // bump on any change to how step() or command() behave
+    const REPLAY_FORMAT = 1;
+    const REPLAY_LIMIT = {
+        chars: 160000,                // of text. half an hour of a person clicking is two or three thousand
+        bytes: 1 << 18,               // once unpacked
+        cmds: 60000,
+        ticks: 2 * 3600 * HZ,         // the disks fill up long before this
+        name: 24                      // bytes of a player's name
+    };
+    const KEY_EVERY = 20 * HZ;        // a saved state every twenty seconds, for scrubbing back
+
+    const CMD_NAMES = ['train', 'train', 'train', 'train', 'turret', 'turret', 'sell', 'modem', 'age', 'special', 'stance', 'stance', 'overclock', 'resign'];
+    function cmdCode(c) {
+        switch (c.c) {
+            case 'train': return c.r;
+            case 'turret': return 4 + c.k;
+            case 'sell': return 6;
+            case 'modem': return 7;
+            case 'age': return 8;
+            case 'special': return 9;
+            case 'stance': return 10 + c.h;
+            case 'overclock': return 12;
+            default: return 13;       // resign: canCommand has already turned away anything else
+        }
+    }
+    function codeCmd(n) {
+        const c = CMD_NAMES[n];
+        if (n < 4) return { c, r: n };
+        if (n < 6) return { c, k: n - 4 };
+        if (n === 10 || n === 11) return { c, h: n - 10 };
+        return { c };
+    }
+    const WHY = ['base', 'resign', 'gone'];
+
+    // start writing a game down. Only whoever runs the rules does this: the
+    // host, or the one player of a game against a bot
+    function record(s, seed) {
+        s.log = { seed: seed | 0, c: [] };
+        return s;
+    }
+
+    function fnv(text) {
+        let h = 0x811c9dc5;
+        for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+        return h >>> 0;
+    }
+    // every number the rules read, and none of the names, pictures and words
+    // around them, so a renamed troll does not throw away everybody's replays
+    const RULE_KEYS = ['HZ', 'LANE', 'BASE_FRONT', 'MID', 'POP_CAP', 'QUEUE_MAX', 'ROLE_VS', 'ROLE_SIEGE', 'AGES', 'UNITS', 'BOSS',
+        'BOUNTY', 'KILL_XP', 'BASE_HIT_XP', 'BASE_HIT_GOLD', 'MODEM_STEP', 'MODEM_COST', 'TURRETS', 'TURRET_SELL', 'FIREWALL',
+        'OVERTIME_BELOW', 'OVERTIME', 'CATCH_UP_XP', 'RALLY', 'MARCH_GAP', 'HOLD_GAP', 'SERVER', 'SPECIALS', 'OVERCLOCK',
+        'DISK_FULL_AT', 'DISK_FULL_RATE'];
+    const WORDS = { name: 1, sprite: 1, desc: 1, label: 1, note: 1, looksLeft: 1, size: 1 };
+    function rulesPrint() {
+        const derived = [];
+        for (let n = 0; n <= A.OVERCLOCK.max; n++) derived.push(A.overclockXp(n), A.overclockGold(n));
+        for (let a = 0; a < A.AGES.length; a++) for (let k = 0; k < A.TURRETS.length; k++) derived.push(A.turretCost(k, a), A.turretDmg(k, a));
+        return fnv(JSON.stringify([RULES_REV, RULE_KEYS.map(k => A[k]), derived], (k, v) => (WORDS[k] ? undefined : v)));
+    }
+    // what the match came to. Leaves out what is not the rules': the sparks,
+    // the log itself, the match number and how the host worded the ending
+    const NOT_STATE = { ev: 1, log: 1, endWhy: 1, match: 1, guessing: 1 };
+    function stateHash(s) {
+        return fnv(JSON.stringify(s, (k, v) => (NOT_STATE[k] ? undefined : v)));
+    }
+
+    // a finished, recorded game, as a plain object
+    function replayOf(s, meta) {
+        if (!s || !s.log || !s.over) return null;
+        meta = meta || {};
+        return {
+            print: rulesPrint(),
+            seed: s.log.seed,
+            h: [s.p[0].handicap, s.p[1].handicap],
+            c: s.log.c.slice(),
+            end: s.tick,
+            w: s.winner,
+            why: Math.max(0, WHY.indexOf(meta.why || s.endWhy || 'base')),
+            hash: stateHash(s),
+            me: meta.me === 1 ? 1 : 0,
+            label: String(meta.label || ''),
+            names: [String((meta.names || [])[0] || 'left'), String((meta.names || [])[1] || 'right')]
+        };
+    }
+
+    // ---- bytes. Varints, because almost every number in here is small ----
+    function writer() {
+        const b = [];
+        const w = {
+            bytes: b,
+            u8: n => { b.push(n & 255); },
+            u32: n => { n >>>= 0; b.push(n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255); },
+            v: n => { n = Math.max(0, Math.floor(n)); while (n >= 128) { b.push((n % 128) | 128); n = Math.floor(n / 128); } b.push(n); },
+            str: (t, max) => {
+                let u = new TextEncoder().encode(t);
+                if (u.length > max) {
+                    // cut on a whole character, not through the middle of one
+                    let end = max;
+                    while (end > 0 && (u[end] & 0xc0) === 0x80) end--;
+                    u = u.slice(0, end);
+                }
+                w.v(u.length);
+                for (let i = 0; i < u.length; i++) b.push(u[i]);
+            }
+        };
+        return w;
+    }
+    function reader(b) {
+        let at = 0;
+        const need = n => { if (at + n > b.length) throw new Error('short'); };
+        const r = {
+            left: () => b.length - at,
+            u8: () => { need(1); return b[at++]; },
+            u32: () => { need(4); const n = ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0; at += 4; return n; },
+            v: () => {
+                let n = 0, mul = 1;
+                for (let i = 0; i < 6; i++) {
+                    const x = r.u8();
+                    n += (x & 127) * mul;
+                    if (x < 128) return n;
+                    mul *= 128;
+                }
+                throw new Error('varint');
+            },
+            str: max => {
+                const n = r.v();
+                if (n > max) throw new Error('name');
+                need(n);
+                const t = new TextDecoder().decode(b.subarray(at, at + n));
+                at += n;
+                return t;
+            }
+        };
+        return r;
+    }
+
+    function packReplay(rp) {
+        const w = writer();
+        w.u8(REPLAY_FORMAT);
+        w.u32(rp.print);
+        w.u32(rp.seed);
+        w.v(Math.round(rp.h[0] * 100)); w.v(Math.round(rp.h[1] * 100));
+        w.v(rp.end);
+        w.u8(rp.w + 1);
+        w.u8(rp.why);
+        w.u32(rp.hash);
+        w.u8(rp.me);
+        w.str(rp.label, 16);
+        w.str(rp.names[0], REPLAY_LIMIT.name);
+        w.str(rp.names[1], REPLAY_LIMIT.name);
+        const c = rp.c;
+        w.v(c.length / 2);
+        let last = 0;
+        for (let i = 0; i < c.length; i += 2) { w.v(c[i] - last); w.u8(c[i + 1]); last = c[i]; }
+        return new Uint8Array(w.bytes);
+    }
+
+    // throws on anything that is not a replay this version can play
+    function unpackReplay(bytes) {
+        const r = reader(bytes);
+        const format = r.u8();
+        if (format !== REPLAY_FORMAT) throw tagged('old');
+        const print = r.u32();
+        if (print !== rulesPrint()) throw tagged('old');
+        const rp = { print, seed: r.u32() | 0 };
+        rp.h = [r.v() / 100, r.v() / 100];
+        if (rp.h.some(h => !(h >= 0.5 && h <= 2))) throw new Error('handicap');
+        rp.end = r.v();
+        if (rp.end > REPLAY_LIMIT.ticks) throw tagged('big');
+        rp.w = r.u8() - 1;
+        if (rp.w < -1 || rp.w > 1) throw new Error('winner');
+        rp.why = r.u8();
+        if (rp.why >= WHY.length) throw new Error('why');
+        rp.hash = r.u32();
+        rp.me = r.u8();
+        if (rp.me > 1) throw new Error('side');
+        rp.label = r.str(16);
+        rp.names = [r.str(REPLAY_LIMIT.name), r.str(REPLAY_LIMIT.name)];
+        const n = r.v();
+        if (n > REPLAY_LIMIT.cmds) throw tagged('big');
+        // two bytes is the least a command takes, so a count that the rest of
+        // the bytes cannot hold is a lie, and is not allowed to allocate
+        if (n * 2 > r.left()) throw new Error('count');
+        const c = new Array(n * 2);
+        let t = 0;
+        for (let i = 0; i < n; i++) {
+            t += r.v();
+            const code = r.u8();
+            if (t > rp.end || code >= CMD_NAMES.length * 2) throw new Error('command');
+            c[i * 2] = t; c[i * 2 + 1] = code;
+        }
+        if (r.left()) throw new Error('trailing');
+        rp.c = c;
+        return rp;
+    }
+    function tagged(why) { const e = new Error(why); e.why = why; return e; }
+
+    // ---- text: deflated where the browser can, then base64url ----
+    const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    function toB64(b) {
+        let out = '';
+        for (let i = 0; i < b.length; i += 3) {
+            const n = (b[i] << 16) | ((b[i + 1] || 0) << 8) | (b[i + 2] || 0);
+            out += B64[n >> 18] + B64[(n >> 12) & 63];
+            if (i + 1 < b.length) out += B64[(n >> 6) & 63];
+            if (i + 2 < b.length) out += B64[n & 63];
+        }
+        return out;
+    }
+    function fromB64(t) {
+        if (t.length % 4 === 1) throw new Error('b64');
+        const out = new Uint8Array(Math.floor(t.length * 3 / 4));
+        let o = 0, acc = 0, bits = 0;
+        for (let i = 0; i < t.length; i++) {
+            const v = B64.indexOf(t[i]);
+            if (v < 0) throw new Error('b64');
+            acc = ((acc << 6) | v) & 0xffffff; bits += 6;
+            if (bits >= 8) { bits -= 8; out[o++] = (acc >> bits) & 255; }
+        }
+        return out.subarray(0, o);
+    }
+    async function squeeze(bytes, inflate, limit) {
+        const st = inflate ? new DecompressionStream('deflate-raw') : new CompressionStream('deflate-raw');
+        const w = st.writable.getWriter();
+        w.write(bytes).catch(() => { });
+        w.close().catch(() => { });
+        const rd = st.readable.getReader();
+        const parts = [];
+        let n = 0;
+        for (;;) {
+            const { done, value } = await rd.read();
+            if (done) break;
+            n += value.length;
+            // a small link that unpacks into something huge is not a replay
+            if (n > limit) { rd.cancel().catch(() => { }); throw tagged('big'); }
+            parts.push(value);
+        }
+        const out = new Uint8Array(n);
+        let o = 0;
+        parts.forEach(p => { out.set(p, o); o += p.length; });
+        return out;
+    }
+    const canSqueeze = () => typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+
+    async function encodeReplay(rp) {
+        const raw = packReplay(rp);
+        let body = raw, flag = 0;
+        if (canSqueeze()) {
+            try {
+                const z = await squeeze(raw, false, REPLAY_LIMIT.bytes);
+                if (z.length < raw.length) { body = z; flag = 1; }
+            } catch (e) { /* the plain bytes are still a replay */ }
+        }
+        const out = new Uint8Array(body.length + 1);
+        out[0] = flag; out.set(body, 1);
+        return toB64(out);
+    }
+
+    // a link's replay, or why not: 'broken', 'big', 'old' or 'browser'.
+    // Never throws, whatever is pasted into it
+    async function decodeReplay(text) {
+        try {
+            if (typeof text !== 'string' || !text) return { why: 'broken' };
+            text = text.trim();
+            if (text.length > REPLAY_LIMIT.chars) return { why: 'big' };
+            const bytes = fromB64(text);
+            if (!bytes.length) return { why: 'broken' };
+            let raw;
+            if (bytes[0] === 0) raw = bytes.subarray(1);
+            else if (bytes[0] === 1) {
+                if (!canSqueeze()) return { why: 'browser' };
+                raw = await squeeze(bytes.subarray(1), true, REPLAY_LIMIT.bytes);
+            } else return { why: 'broken' };
+            if (raw.length > REPLAY_LIMIT.bytes) return { why: 'big' };
+            return { rp: unpackReplay(raw) };
+        } catch (e) {
+            return { why: (e && e.why) || 'broken' };
+        }
+    }
+
+    // the start of a replay's match, before anything has happened
+    function replayStart(rp) {
+        const s = newGame(rp.seed);
+        s.p[0].handicap = rp.h[0];
+        s.p[1].handicap = rp.h[1];
+        return s;
+    }
+    // one tick of a replay: the commands that landed on it, then the rules.
+    // Returns false when a command the original took is turned away now, which
+    // only happens when the rules are not the ones it was made with
+    function replayTick(s, rp, cur) {
+        const c = rp.c;
+        while (cur.i < c.length && c[cur.i] === s.tick) {
+            const code = c[cur.i + 1];
+            cur.i += 2;
+            if (command(s, code & 1, codeCmd(code >> 1))) return false;
+        }
+        if (!s.over) step(s);
+        return true;
+    }
+    const clone = s => (typeof structuredClone === 'function' ? structuredClone(s) : JSON.parse(JSON.stringify(s)));
+
+    // play the whole thing through once, fast, before anybody watches it: it
+    // has to end where it says, on the tick it says, in the state it says.
+    // The states it keeps on the way are what makes scrubbing back cheap
+    function verifyReplay(rp) {
+        const s = replayStart(rp);
+        const cur = { i: 0 };
+        const keys = [];
+        let fine = true;
+        while (!s.over) {
+            if (s.tick % KEY_EVERY === 0) keys.push({ tick: s.tick, i: cur.i, s: clone(s) });
+            if (s.tick > rp.end || !replayTick(s, rp, cur)) { fine = false; break; }
+        }
+        const ok = fine && s.over && s.tick === rp.end && s.winner === rp.w && cur.i === rp.c.length && stateHash(s) === rp.hash;
+        return { ok, keys, end: s };
+    }
+    // the state at any tick, from the nearest saved one before it
+    function replaySeek(rp, keys, tick) {
+        tick = Math.max(0, Math.min(rp.end, Math.floor(tick)));
+        let k = keys[0];
+        for (let i = keys.length - 1; i >= 0; i--) if (keys[i].tick <= tick) { k = keys[i]; break; }
+        const s = clone(k.s), cur = { i: k.i };
+        while (s.tick < tick && !s.over) replayTick(s, rp, cur);
+        // the very end means the result, even when it was a surrender on the last tick
+        if (tick === rp.end) while (!s.over && s.tick <= rp.end) replayTick(s, rp, cur);
+        return { s, cur };
+    }
+
+    A.replay = {
+        FORMAT: REPLAY_FORMAT, RULES_REV, LIMIT: REPLAY_LIMIT, KEY_EVERY, WHY,
+        record, replayOf, rulesPrint, stateHash,
+        pack: packReplay, unpack: unpackReplay, encode: encodeReplay, decode: decodeReplay,
+        start: replayStart, tick: replayTick, verify: verifyReplay, seek: replaySeek,
+        cmdCode, codeCmd
+    };
 
     Object.assign(A, {
         DT, rand, newGame, step, command, canCommand, seconds,
