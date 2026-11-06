@@ -985,15 +985,22 @@
 
     async function encodeReplay(rp) {
         const raw = packReplay(rp);
-        let body = raw, flag = 0;
+        let out = new Uint8Array(raw.length + 1);
+        out.set(raw, 1);
         if (canSqueeze()) {
             try {
                 const z = await squeeze(raw, false, REPLAY_LIMIT.bytes);
-                if (z.length < raw.length) { body = z; flag = 1; }
+                // deflated, its length goes first: some engines stop at the end of
+                // a deflate stream and ignore whatever was stuck on after it, and
+                // a replay should not be read differently in different browsers
+                const w = writer();
+                w.u8(1); w.v(z.length);
+                if (w.bytes.length + z.length < out.length) {
+                    out = new Uint8Array(w.bytes.length + z.length);
+                    out.set(w.bytes, 0); out.set(z, w.bytes.length);
+                }
             } catch (e) { /* the plain bytes are still a replay */ }
         }
-        const out = new Uint8Array(body.length + 1);
-        out[0] = flag; out.set(body, 1);
         return toB64(out);
     }
 
@@ -1009,8 +1016,12 @@
             let raw;
             if (bytes[0] === 0) raw = bytes.subarray(1);
             else if (bytes[0] === 1) {
+                const r = reader(bytes);
+                r.u8();
+                const n = r.v();
+                if (n !== r.left()) return { why: 'broken' };
                 if (!canSqueeze()) return { why: 'browser' };
-                raw = await squeeze(bytes.subarray(1), true, REPLAY_LIMIT.bytes);
+                raw = await squeeze(bytes.subarray(bytes.length - n), true, REPLAY_LIMIT.bytes);
             } else return { why: 'broken' };
             if (raw.length > REPLAY_LIMIT.bytes) return { why: 'big' };
             return { rp: unpackReplay(raw) };

@@ -668,10 +668,11 @@ section('replays: the same match, from a link');
     const goodRp = (await R.decode(good)).rp;
     const junk = ['', ' ', '!!!!', 'A', 'AAAA', 'not a replay at all', good.slice(0, 10), good.slice(0, -3), good + 'AAAA', good.replace(/[a-m]/g, 'Z'), '%00%00', 'AQ'.repeat(40)];
     let calm = 0;
-    for (const t of junk) {
-        try { const r = await R.decode(t); if (!r.rp || !R.verify(r.rp).ok) calm++; } catch (e) { /* counted as a crash */ }
+    const let_in = [];
+    for (const [i, t] of junk.entries()) {
+        try { const r = await R.decode(t); if (!r.rp || !R.verify(r.rp).ok) calm++; else let_in.push(i); } catch (e) { let_in.push(i + ' threw ' + e.message); }
     }
-    expect(calm === junk.length, 'nonsense, cut-off and padded links are turned away, and nothing throws', calm + ' of ' + junk.length);
+    expect(calm === junk.length, 'nonsense, cut-off and padded links are turned away, and nothing throws', calm + ' of ' + junk.length + (let_in.length ? ', let in: ' + let_in.join(', ') : ''));
 
     // one byte changed anywhere, a few hundred times: refused, or only a name changed
     const bytes = await (async () => { const z = await R.decode(good); return R.pack(z.rp); })();
@@ -698,7 +699,9 @@ section('replays: the same match, from a link');
     {
         const bomb = new Uint8Array(4 << 20);
         const z = zlib.deflateRawSync(bomb, { level: 9 });
-        const c = new Uint8Array(z.length + 1); c[0] = 1; c.set(z, 1);
+        const len = [];
+        for (let n = z.length; ; n = Math.floor(n / 128)) { if (n < 128) { len.push(n); break; } len.push((n % 128) | 128); }
+        const c = Uint8Array.from([1, ...len, ...z]);
         const code = Buffer.from(c).toString('base64url');
         expect(code.length < R.LIMIT.chars && (await R.decode(code)).why === 'big', 'a small link that unpacks into megabytes stops at ' + (R.LIMIT.bytes >> 10) + 'kb', code.length + ' characters of zeros');
     }

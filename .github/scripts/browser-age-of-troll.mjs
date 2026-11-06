@@ -839,12 +839,24 @@ try {
         const guest = await open(ctx);
         await joinLobby(guest, code);
         await startMatch(host, guest);
+        // a few minutes of both of them, then the guest gives up. A surrender is
+        // the ending a slow machine always reaches, and the one that lands between
+        // ticks: the guest has to hear about it from snapshots carrying a tick it
+        // has already seen
         await host.evaluate(() => AOT_ENGINE.speed(25));
-        await playUntilOver([host, guest], 70000);
+        await playUntilOver([host, guest], 25000);
         if (!(await state(host, g => g.s.over))) {
+            // the clock stopped, so every snapshot from here on has the same tick
+            await host.evaluate(() => AOT_ENGINE.speed(0));
+            const still = await state(host, g => g.s.tick);
+            await guest.waitForFunction(t => AOT_ENGINE.state().snapTick === t, still, { timeout: 5000 });
             await guest.click('#aot-resign');
             await guest.click('.retro-dialog-btn:has-text("yes")', { timeout: 3000 });
             await host.waitForFunction(() => AOT_ENGINE.state().s.over, null, { timeout: 8000 });
+            expect(await state(host, g => g.s.tick) === still, 'the guest gives up between two ticks');
+            await guest.waitForSelector('#aot-end:not([hidden]) .aot-result', { timeout: 8000 }).catch(() => { });
+            const said = await guest.textContent('#aot-end .aot-result').catch(() => 'nothing');
+            expect(/you lost/.test(said), 'and is told it is over, by snapshots with a tick it has already seen', said);
         }
         await host.evaluate(() => AOT_ENGINE.speed(1));
         const was = await state(host, (g, A) => ({ tick: g.s.tick, winner: g.s.winner, hash: A.replay.stateHash(g.s), orders: g.s.log.c.length / 2, theirs: g.s.log.c.filter((c, i) => i % 2 && c % 2).length }));
@@ -879,7 +891,8 @@ try {
     section('page errors');
     expect(!errors.length, 'nothing threw the whole way through', [...new Set(errors)].slice(0, 6).join('\n        '));
 } catch (e) {
-    expect(false, 'the run fell over', String(e.stack || e.message).split('\n').slice(0, 6).join('\n        '));
+    expect(false, 'the run fell over', String(e.stack || e.message).split('\n').slice(0, 6).join('\n        ') +
+        (errors.length ? '\n        page errors: ' + [...new Set(errors)].slice(0, 6).join('\n        ') : ''));
 } finally {
     await browser.close();
     relay.kill();

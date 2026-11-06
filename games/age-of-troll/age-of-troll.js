@@ -211,8 +211,11 @@
 
     function onSnapshot(g, d) {
         if (!d || !d.p || !Array.isArray(d.u)) return;
-        // relays reorder. An old snapshot is not news, unless it is a new match
-        if (d.m < g.s.match || (d.m === g.s.match && d.k <= g.snapTick)) return;
+        // relays reorder. An old snapshot is not news, unless it is a new match,
+        // or the end of this one: a surrender lands between ticks, so the
+        // snapshots saying it is over carry the tick the last one already had
+        const ending = d.o && !g.s.over && d.k === g.snapTick;
+        if (d.m < g.s.match || (d.m === g.s.match && d.k <= g.snapTick && !ending)) return;
         if (d.m > g.s.match) {
             // a rematch: the numbering of orders starts again with the match
             g.vis.clear(); g.ended = false; g.wantsRematch = false; hideEnd();
