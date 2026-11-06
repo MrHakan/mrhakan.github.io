@@ -51,6 +51,7 @@ const WEB = (function () {
         openEchoes: 'echoes',
         openWizardz: 'wizardz',
         openAgeOfTroll: 'ageoftroll',
+        openDungeonz: 'dungeonz',
         openNetplay: 'netplay',
         openNotepad: 'notepad'
     };

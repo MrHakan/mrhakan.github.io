@@ -517,6 +517,23 @@ function openWizardz(mode) {
     });
 }
 
+// ---------- dungeonz 98: a co-op raid on the wizardz engine ----------
+function dzLoadScripts() {
+    if (window.startDungeonz) return Promise.resolve();
+    return npLoadScripts().then(() => Netplay.loadGame('dungeonz'));
+}
+
+function openDungeonz(mode) {
+    if (window.startDungeonz) { startDungeonz(mode); return; }
+    const { body, win } = createAppWindow('dungeonz 98', { icon: 'swords', width: 320 });
+    body.innerHTML = '<div class="bj-loading">lighting the torches...</div>';
+    dzLoadScripts().then(() => {
+        replaceLazyWindow(win, () => startDungeonz(mode));
+    }).catch(() => {
+        body.innerHTML = '<div class="bj-loading">the dungeon would not open bradar</div>';
+    });
+}
+
 // ---------- age of troll ----------
 function aotLoadScripts() {
     if (window.startAgeOfTroll) return Promise.resolve();
@@ -912,6 +929,7 @@ function siteSearchIndex() {
         ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 2v2 3v3 4v4 teams maps loadout id preset spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire 3d shooter tps third person ps1 playstation low poly'],
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
+        ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
         ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
