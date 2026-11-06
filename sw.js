@@ -68,6 +68,8 @@ const PRECACHE_LATER = [
     '/games/echoes/echoes-data.js',
     '/games/echoes/echoes.js',
     '/games/netplay.js',
+    '/games/ps1/ps1-world.js',
+    '/games/ps1/ps1-gl.js',
     '/games/wizardz/wizardz-data.js',
     '/games/wizardz/wizardz-sigil.js',
     '/games/wizardz/wizardz-sim.js',

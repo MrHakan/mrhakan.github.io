@@ -17,7 +17,8 @@
 // walls, and splash and zones only hurt the other side.
 //
 // Each map is a height map with no overhangs, so "is that a wall" and "can they see me"
-// are array lookups, which is why a match costs a few milliseconds to run.
+// are array lookups, which is why a match costs a few milliseconds to run. The height
+// map and the bots' flow fields are games/ps1/ps1-world.js, shared with dungeonz 98.
 // ===================================================================
 (function () {
     'use strict';
@@ -48,34 +49,11 @@
     let W = null;
     function buildWorld(id) {
         const layout = D.makeLayout(id);
-        const height = new Float32Array(SIDE * SIDE);
-        for (let j = 0; j < SIDE; j++) for (let i = 0; i < SIDE; i++) {
-            const x = i / CELLS - HALF, z = j / CELLS - HALF;
-            let h = layout.ground(x, z);
-            if (abs(x) > HALF - 1 || abs(z) > HALF - 1) h = OUTER;
-            for (const b of layout.boxes) {
-                if (abs(x - b[0]) <= b[2] && abs(z - b[1]) <= b[3]) h = max(h, b[4]);
-            }
-            height[j * SIDE + i] = h;
-        }
-        const at = (x, z) => {
-            const i = round((x + HALF) * CELLS), j = round((z + HALF) * CELLS);
-            if (i < 0 || j < 0 || i >= SIDE || j >= SIDE) return OUTER;
-            return height[j * SIDE + i];
-        };
-        // where a bot can walk. A cell with a drop or a wall inside its width is not one
-        const passable = new Uint8Array(NAV_SIDE * NAV_SIDE);
-        const navH = new Float32Array(NAV_SIDE * NAV_SIDE);
-        for (let j = 0; j < NAV_SIDE; j++) for (let i = 0; i < NAV_SIDE; i++) {
-            const x = (i + 0.5) * NAV - HALF, z = (j + 0.5) * NAV - HALF;
-            const h = at(x, z);
-            navH[j * NAV_SIDE + i] = h;
-            let ok = h < OUTER - 1;
-            for (const [dx, dz] of [[0.75, 0], [-0.75, 0], [0, 0.75], [0, -0.75], [0.6, 0.6], [-0.6, 0.6], [0.6, -0.6], [-0.6, -0.6]]) {
-                if (abs(at(x + dx, z + dz) - h) > 0.45) ok = false;
-            }
-            passable[j * NAV_SIDE + i] = ok ? 1 : 0;
-        }
+        const w = window.PS1_WORLD.build({
+            x0: -HALF, z0: -HALF, w: A.size, d: A.size, cells: CELLS, nav: NAV, outer: OUTER,
+            ground: layout.ground, boxes: layout.boxes
+        });
+        const at = w.at, passable = w.passable;
         // somewhere to stand with something in the way, for a bot that wants to draw
         const cover = [];
         layout.boxes.forEach(b => {
@@ -86,7 +64,7 @@
                 if (passable[c] && at(p[0], p[1]) + 1.2 < b[4]) cover.push(p);
             });
         });
-        return { id: layout.id, layout, height, at, passable, navH, cover, flows: new Map() };
+        return Object.assign(w, { id: layout.id, layout, cover });
     }
     function useMap(id) {
         const m = D.mapById(id);
@@ -1385,63 +1363,10 @@
     // A flow field on a coarse grid, one per goal per map, kept for ever since a map does
     // not change. That turns "how do I get to the altar" into a table lookup.
     // ===============================================================
-    const navCell = (x, z) => {
-        const i = clamp(floor((x + HALF) / NAV), 0, NAV_SIDE - 1), j = clamp(floor((z + HALF) / NAV), 0, NAV_SIDE - 1);
-        return j * NAV_SIDE + i;
-    };
-    function flowTo(cell) {
-        let f = W.flows.get(cell);
-        if (f) return f;
-        const passable = W.passable, navH = W.navH;
-        f = new Int32Array(NAV_SIDE * NAV_SIDE).fill(-1);
-        const queue = [cell];
-        f[cell] = cell;
-        for (let head = 0; head < queue.length; head++) {
-            const c = queue[head];
-            const i = c % NAV_SIDE, j = (c - i) / NAV_SIDE;
-            for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
-                const a = i + di, b = j + dj;
-                if (a < 0 || b < 0 || a >= NAV_SIDE || b >= NAV_SIDE) continue;
-                const n = b * NAV_SIDE + a;
-                if (f[n] !== -1 || !passable[n]) continue;
-                if (abs(navH[n] - navH[c]) > 0.5) continue;
-                if (di && dj && (!passable[j * NAV_SIDE + a] || !passable[b * NAV_SIDE + i])) continue;
-                f[n] = c;
-                queue.push(n);
-            }
-        }
-        W.flows.set(cell, f);
-        return f;
-    }
-    function nearestPassable(cell) {
-        const passable = W.passable;
-        if (passable[cell]) return cell;
-        const i = cell % NAV_SIDE, j = (cell - i) / NAV_SIDE;
-        for (let r = 1; r < 8; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
-            const a = i + di, b = j + dj;
-            if (a < 0 || b < 0 || a >= NAV_SIDE || b >= NAV_SIDE) continue;
-            if (passable[b * NAV_SIDE + a]) return b * NAV_SIDE + a;
-        }
-        return cell;
-    }
-    function nextStep(x, z, gx, gz) {
-        const from = nearestPassable(navCell(x, z)), goal = nearestPassable(navCell(gx, gz));
-        if (from === goal) return { x: gx, z: gz };
-        const f = flowTo(goal);
-        let c = f[from];
-        if (c === -1 || c === undefined) return { x: gx, z: gz };
-        // look a couple of cells ahead, or it walks like a chess piece
-        const n2 = f[c];
-        if (n2 !== -1 && n2 !== undefined) c = n2;
-        const i = c % NAV_SIDE, j = (c - i) / NAV_SIDE;
-        return { x: (i + 0.5) * NAV - HALF, z: (j + 0.5) * NAV - HALF };
-    }
+    // the flow fields themselves live in ps1-world.js, one per goal per map
+    function nextStep(x, z, gx, gz) { return W.nextStep(x, z, gx, gz); }
     // can this be walked to from there? the check that a map is any good
-    function canWalkBetween(ax, az, bx, bz) {
-        const from = nearestPassable(navCell(ax, az)), goal = nearestPassable(navCell(bx, bz));
-        const f = flowTo(goal);
-        return from === goal || (f[from] !== -1 && f[from] !== undefined);
-    }
+    function canWalkBetween(ax, az, bx, bz) { return W.canWalkBetween(ax, az, bx, bz); }
 
     function botSkill(def, difficulty) {
         const d = D.BOT_DIFFICULTY[difficulty] || D.BOT_DIFFICULTY.normal, k = def.skill;

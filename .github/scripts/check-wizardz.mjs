@@ -30,7 +30,9 @@ const pct = n => (n * 100).toFixed(0) + '%';
 const window = {};
 const ctx = vm.createContext({ window, console });
 vm.runInContext(read('games/wizardz/wizardz-data.js'), ctx);
+vm.runInContext(read('games/ps1/ps1-world.js'), ctx);
 vm.runInContext(read('games/wizardz/wizardz-sim.js'), ctx);
+vm.runInContext(read('games/ps1/ps1-gl.js'), ctx);
 vm.runInContext(read('games/wizardz/wizardz-gl.js'), ctx);
 const D = window.WZ, S = window.WZ_SIM, A = D.ARENA;
 const HZ = S.HZ;
@@ -1276,7 +1278,7 @@ section('wired into the site');
 // ===================================================================
 {
     const index = read('index.html');
-    const scripts = ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/wizardz/wizardz-sim.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js'];
+    const scripts = ['games/wizardz/wizardz-data.js', 'games/wizardz/wizardz-sigil.js', 'games/ps1/ps1-world.js', 'games/wizardz/wizardz-sim.js', 'games/ps1/ps1-gl.js', 'games/wizardz/wizardz-gl.js', 'games/wizardz/wizardz.js'];
     const sw = read('sw.js');
     const later = (sw.match(/PRECACHE_LATER = \[([\s\S]*?)\]/) || [])[1] || '';
     const first = (sw.match(/PRECACHE = \[([\s\S]*?)\]/) || [])[1] || '';
