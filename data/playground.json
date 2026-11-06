@@ -1,5 +1,39 @@
 [
   {
+    "name": "Slide Fifteen 98",
+    "type": "game",
+    "date": "2026-11-06",
+    "url": "/games/slide-fifteen/",
+    "description": "Solvable daily 3×3 and 4×4 sliding-tile puzzles with keyboard/touch controls, undo, heuristic hints and local bests.",
+    "icon": "🧩",
+    "tags": [
+      "sliding-puzzle",
+      "15-puzzle",
+      "daily",
+      "logic",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "Radius Craft 98",
+    "type": "app",
+    "date": "2026-11-06",
+    "url": "/apps/radius-craft/",
+    "description": "Private elliptical CSS border-radius playground with four-corner sliders, presets, live preview and copyable CSS.",
+    "icon": "🟪",
+    "tags": [
+      "css",
+      "border-radius",
+      "design",
+      "developer",
+      "responsive",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Lights Out 98",
     "type": "game",
     "date": "2026-11-05",
