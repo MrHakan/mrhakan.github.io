@@ -441,7 +441,7 @@ const news = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/news.json'), 'utf8
     })));
     expect(shown.length === Math.min(news.length, 5), 'it shows the first lines of data/news.json', shown.length + ' rows');
     expect(shown[0].title === news[0].title && shown[0].text === news[0].text, 'in that order', shown[0].title);
-    expect(/play now/.test(shown[0].button), 'each with a button that says what it does', shown[0].button);
+    expect(shown[0].button.startsWith(news[0].button), 'each with a button that says what it does', shown[0].button);
 
     let l = await layout(p);
     expect(l.news.top >= l.enter.bottom, 'under the hello block and its enter button', Math.round(l.news.top) + ' under ' + Math.round(l.enter.bottom));

@@ -349,7 +349,7 @@ const src = arcade + toys;
 const dead = [...indexJs.slice(indexJs.indexOf('function appActions()')).matchAll(/^\s+[a-z0-9]+: (open[A-Z]\w+|toggle[A-Z]\w+|surpriseMe)/gm)]
     .map(m => m[1])
     .filter(fn => !new RegExp('function ' + fn + '\\b').test(src + indexJs + read('js/apps.js') +
-        read('js/fun.js') + extrasJs + read('js/pages.js') + read('js/defrag.js') + read('js/documents.js')));
+        read('js/fun.js') + extrasJs + read('js/pages.js') + read('js/defrag.js') + read('js/documents.js') + read('js/trophies.js')));
 expect(dead.length === 0, 'and every action points at a function that exists', dead.join(', '));
 
 expect(read('sw.js').includes("'/js/arcade.js'") && read('sw.js').includes("'/js/toys.js'"),

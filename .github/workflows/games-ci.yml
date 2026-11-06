@@ -117,6 +117,11 @@ jobs:
             - name: Check dungeonz
               run: node .github/scripts/check-dungeonz.mjs
 
+            # every achievement on a shelf and every save read without being
+            # broken by it, and the manifest against Chrome's install criteria
+            - name: Check the trophy room and the manifest
+              run: node .github/scripts/check-trophies.mjs
+
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest
@@ -266,6 +271,12 @@ jobs:
             # It brings its own server and sends nothing off the machine
             - name: The auto scaler and the news panel
               run: node .github/scripts/browser-scale.mjs
+
+            # the trophy room opened, earned in, and fed broken saves; the install
+            # button; Chrome's own installability verdict; and every game opened
+            # with the cable out. It brings its own server on localhost
+            - name: The trophy room, the install and offline
+              run: node .github/scripts/browser-trophies.mjs
 
             - name: Giscus isolation, responsive boards and failure recovery
               run: |

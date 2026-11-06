@@ -14,6 +14,8 @@ links.html            the links page
 404.html
 sw.js                 the service worker — has to stay at the root, its
                       scope is its own directory
+site.webmanifest      what makes the site installable: name, icons,
+                      standalone, and shortcuts into four of the games
 js/                   everything the pages load
   lazy.js               stand-ins for the windows that load when they are
                         opened. Loads first, so nothing can ask before it is here
@@ -34,6 +36,9 @@ js/                   everything the pages load
                         on-screen pad, long press for the right click
   defrag.js             disk defragmenter, on a real disk (on demand)
   documents.js          my documents: every game's save, exportable (on demand)
+  trophies.js           the trophy room: every achievement, each game's records
+                        and time played, and a picture of it to share (on demand,
+                        with css/trophies.css)
   guestbook.js          composing and reading a board entry, and the
                         giscus config for both boards
   themes.js  theme-maker.js  theme-scan.js
@@ -65,7 +70,8 @@ games/                one folder per game, plus the shared netplay layer
 data/                 site content, board config, the projects list, the
                       github snapshot, and news.json: the what's new panel on
                       the home page, one line per thing
-src/                  assets only: images, fonts, music
+src/                  assets only: images, fonts, music, and icons/, the app
+                      icons, drawn by .github/scripts/make-icons.py
 server/               the optional self-hosted netplay relay
 feed.xml              the rss, written by hand
 feed.json             the json feed, generated from feed.xml
@@ -125,6 +131,7 @@ exits non-zero if anything drifted.
 | `check-defrag.mjs` | the defragmenter's plan never loses a cluster |
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
 | `check-age-of-troll.mjs` | the lane game's rules, what it sends over the wire, and a few hundred bot games: no unit or plan dominates, the difficulties are really difficulties, and a game lasts about as long as intended; and replays: recorded matches played back to the same last bit on several seeds, scrubbing, link lengths measured, and broken, cut, oversized and old-version links turned away without a crash |
+| `check-trophies.mjs` | every achievement a game hands out exists and lands on its game's shelf, the room against an empty browser and ten kinds of broken save without rewriting any of them, the playground's records found under each game's own key, and `site.webmanifest` against what Chrome asks before it offers an install: sizes read out of the PNGs, maskable icons with nothing see-through, shortcuts that open something real |
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
 | `browser-arcade.mjs` | the thirty new windows played rather than opened: eight games of tic-tac-toe it expects to lose, tiles merged in 2048, the pet's clock wound back nine hours |
@@ -135,6 +142,7 @@ exits non-zero if anything drifted.
 | `browser-wizardz.mjs` | wizardz played with a real mouse through to the end of a match, old saves, the auto scaler, a phone with real touches, every map, a 4 v 4 with bots to the end, a 2 v 2 with two browsers and bots, loadout ids typed in and refused, a guest casting what it does not carry, and two browsers direct and over the relays, with the link dying, a player leaving and the bytes counted |
 | `browser-dungeonz.mjs` | dungeonz from the address bar to a cleared dungeon with the clock turned up: a card picked by key, a fireball drawn with the mouse, the boss through three phases, the frame rate with four wizards and a crowd, a phone with real touches, and two browsers direct and over the relays, with the line going quiet, the link dying and a guest walking out, and the bytes counted |
 | `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem aims before it builds, and the music is never handed to a sleeping audio graph |
+| `browser-trophies.mjs` | the trophy room opened from the desktop icon and the start menu, dungeonz handing out an achievement and the room showing it, a playground record in another tab, the share picture, an empty and a fully broken browser, a phone; the install button with a stand-in for Chrome's prompt, an iPhone, and the installed copy; Chrome's own installability verdict over CDP; and the cable out: a returning visitor offline, every on-demand game opened, the lobby refusing to wait. Brings its own server on localhost, since a service worker needs one |
 | `browser-giscus.mjs` | original boards by default, both posting methods and preserved drafts on desktop and mobile, isolated discussion terms and theme URLs, blocked scripts, service errors and stalled frames; proves CORS and application errors are still detected |
 
 ## Things that will bite you
@@ -247,6 +255,26 @@ exits non-zero if anything drifted.
   `js/extras.js`, and `PRECACHE_LATER` in `sw.js`. It also checks that every
   `unlockAchievement()` names an achievement that exists, and that every
   class the new files invent has a style.
+- **An achievement is one line and one call.** A line in `ACHIEVEMENTS`
+  in `js/fun.js`, and `unlockAchievement('id')` where it happens. The
+  trophy room shelves it by its prefix (`dungeonz_`, `aot-`, `echoes-`,
+  `troll_`...), so a new one for an existing game needs nothing else. An
+  id that does not exist does nothing at all, silently: that is how wizardz
+  handed out two achievements for weeks that nobody could ever get.
+  `check-trophies.mjs` fails the build on one now. A `hint` on the line is
+  what a locked one shows instead of its description.
+- **The playground's pages do not load the desktop's scripts.** So they
+  cannot call `unlockAchievement`. Their achievements are counted from the
+  records they leave in localStorage, which the trophy room finds by the
+  game's folder name (`lights-out-98-best` is `games/lights-out/`). A game
+  that saves under some other name goes in `ALIAS` in `js/trophies.js`.
+- **The install button only exists when there is something to install.**
+  Chrome and Edge fire `beforeinstallprompt` once, early, when the site
+  qualifies; `js/fun.js` keeps it for the start menu and the tray. Safari
+  never fires it, so an iPhone gets the share, add to home screen
+  instructions instead. Inside the installed copy (`display-mode:
+  standalone`) neither shows. A change to `site.webmanifest` or the icons
+  goes through `browser-trophies.mjs`, which asks Chrome itself.
 - **`node_modules/` is disposable.** The site has no dependencies and
   neither does the test suite; the only thing that lands there is
   Playwright, installed with `--no-save` for the browser runs.
