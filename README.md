@@ -67,6 +67,7 @@ games/                one folder per game, plus the shared netplay layer
   ps1/                the PlayStation renderer and the height map world that
                       wizardz and dungeonz both stand on
   netplay.js
+  lobbies.js          the open lobby list and quick match, on the same relays
 data/                 site content, board config, the projects list, the
                       github snapshot, and news.json: the what's new panel on
                       the home page, one line per thing
@@ -128,6 +129,7 @@ exits non-zero if anything drifted.
 | `check-guestbook.mjs` | composing and reading an entry, and the giscus config |
 | `check-motion.mjs` | reduced motion means no motion, the charts, the stylesheet's own links |
 | `check-netplay.mjs` | the ways online against fake relays and a fake broker that misbehave the way real ones do: refusing, throttling, dropping, reordering, no route, a direct link dying mid-duel |
+| `check-lobbies.mjs` | the open lobby list against strangers: listings checked field by field and by signature, stale ones dropped, forged, broken and oversized ones changing nothing, one line per key, a flood held to a ceiling, and a relay that says no left alone |
 | `check-defrag.mjs` | the defragmenter's plan never loses a cluster |
 | `check-echoes.mjs` | a few thousand fights against the RPG's balance targets, and its maps |
 | `check-age-of-troll.mjs` | the lane game's rules, what it sends over the wire, and a few hundred bot games: no unit or plan dominates, the difficulties are really difficulties, and a game lasts about as long as intended; and replays: recorded matches played back to the same last bit on several seeds, scrubbing, link lengths measured, and broken, cut, oversized and old-version links turned away without a crash |
@@ -138,6 +140,7 @@ exits non-zero if anything drifted.
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 | `browser-netplay.mjs` | two strangers into a duel with nothing picked: an invite link through the boot screen, direct when there is a route, the relays when there is not, a blocked cdn, a wrong code, and a direct link dying mid-duel. Runs on no outside server |
+| `browser-lobbies.mjs` | strangers in separate browsers on the open lobby list: listed, seen, joined with one click, gone when the match starts, the host leaves or its tab dies; quick match one after the other and both at once; html and forgeries on the relay. Brings its own server and relay |
 | `browser-age-of-troll.mjs` | a match against the bot through to a win with real clicks, on a desktop and a phone; a save surviving a reload; and two browsers through a match over a direct link and the relays, with the link dying partway and a player vanishing; and a replay link from a finished match opened in a new browser, watched at 8x, scrubbed to the end and compared bit for bit, from a solo match and an online one |
 | `browser-wizardz.mjs` | wizardz played with a real mouse through to the end of a match, old saves, the auto scaler, a phone with real touches, every map, a 4 v 4 with bots to the end, a 2 v 2 with two browsers and bots, loadout ids typed in and refused, a guest casting what it does not carry, and two browsers direct and over the relays, with the link dying, a player leaving and the bytes counted |
 | `browser-dungeonz.mjs` | dungeonz from the address bar to a cleared dungeon with the clock turned up: a card picked by key, a fireball drawn with the mouse, the boss through three phases, the frame rate with four wizards and a crowd, a phone with real touches, and two browsers direct and over the relays, with the line going quiet, the link dying and a guest walking out, and the bytes counted |
@@ -171,7 +174,16 @@ exits non-zero if anything drifted.
   server looks exactly like a working one. That hid the free TURN servers
   vanishing and a relay list that was down to one working relay. The relays
   are other people's servers and they change: `npm run relays` checks them at
-  game rate, for long enough to get past the limits a quick check never sees.
+  game rate, for long enough to get past the limits a quick check never sees,
+  and `npm run relays -- --lobbies` checks that they pass on the open lobby
+  list's listings, questions and goodbyes.
+
+- **The open lobby list is strangers' writing.** Anyone can post to a public
+  relay, so `games/lobbies.js` checks every listing against the game
+  catalogue, cuts it to length, checks its signature and escapes it before it
+  is drawn. A flood of new keys can fill the list for as long as it keeps
+  posting; it cannot break it. A tab that is killed outright cannot say
+  goodbye, so its listing lasts until the 40 second time limit.
 
 - **`sw.js` stays at the root.** A service worker's scope is its own
   directory; moving it into `js/` would silently stop it controlling the

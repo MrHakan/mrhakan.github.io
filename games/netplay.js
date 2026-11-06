@@ -425,6 +425,17 @@
             }
             return r;
         }
+        // any other point, for checking somebody else's signature. Plain double
+        // and add: it runs a few times a minute, on the open lobby list only
+        function mul(p, k) {
+            let r = [0n, 1n, 0n];
+            const bits = k.toString(2);
+            for (let i = 0; i < bits.length; i++) {
+                r = dbl(r);
+                if (bits[i] === '1') r = add(r, p);
+            }
+            return r;
+        }
         // and the key's own point never changes between signatures
         let lastKey = null;
         function pointOf(d) {
@@ -472,6 +483,25 @@
                 const k = (ry % 2n === 0n) ? k0 : N - k0;
                 const e = mod(bytesToBig(await tagged('BIP0340/challenge', bigTo32(rx), bigTo32(px), msg32)), N);
                 return cat(bigTo32(rx), bigTo32(mod(k + e * d, N)));
+            },
+            // BIP-340 verification. A relay checks signatures before it passes an
+            // event on, but the relay is a stranger too, so the open lobby list
+            // checks them again. Never throws: anything malformed is just false
+            async verify(msg32, pub32, sig64) {
+                try {
+                    if (!msg32 || msg32.length !== 32 || !pub32 || pub32.length !== 32 || !sig64 || sig64.length !== 64) return false;
+                    const px = bytesToBig(pub32), r = bytesToBig(sig64.slice(0, 32)), s = bytesToBig(sig64.slice(32));
+                    if (px >= P || r >= P || s >= N) return false;
+                    const c = mod(px * px * px + 7n);
+                    let y = pow(c, (P + 1n) / 4n);
+                    if (mod(y * y) !== c) return false;          // not a point on the curve
+                    if (y & 1n) y = P - y;
+                    const e = mod(bytesToBig(await tagged('BIP0340/challenge', sig64.slice(0, 32), pub32, msg32)), N);
+                    const R = add(mulG(s), mul([px, y, 1n], mod(N - e, N)));
+                    if (R[2] === 0n) return false;
+                    const [rx, ry] = affine(R);
+                    return (ry & 1n) === 0n && rx === r;
+                } catch (e) { return false; }
             }
         };
     })();
@@ -501,22 +531,56 @@
         return JSON.parse(new TextDecoder().decode(pt));
     }
 
-    function NostrTransport(code, isHost) {
-        const t = { kind: 'bus', id: null, h: {}, code };
-        const links = new Map();         // relay url -> { ws, quietUntil, tries }
-        const known = new Set();         // peers we have told the session about
-        const streams = new Map();       // peer -> how far through their batches we are
-        let seen = new Set(), seenBefore = new Set();   // event ids already handled
-        let room = null, sk = null, queue = [], flushTimer = null, closed = false;
-        let sent = 0, everUp = false, lost = false;
+    // ---------- signed events ----------
+    async function eventId(pub, created, kind, tags, content) {
+        return bip340.sha256(new TextEncoder().encode(JSON.stringify([0, pub, created, kind, tags, content])));
+    }
+    async function signEvent(sk, pub, kind, tags, content) {
+        const created = Math.floor(Date.now() / 1000);
+        const id = await eventId(pub, created, kind, tags, content);
+        const sig = await bip340.sign(id, sk);
+        return { id: bip340.toHex(id), pubkey: pub, created_at: created, kind, tags, content, sig: bip340.toHex(sig) };
+    }
+    // the id has to be the hash of what the event says, and the signature has
+    // to be the key's. A caller checks the shape first: this assumes hex
+    async function verifyEvent(ev) {
+        try {
+            const id = await eventId(ev.pubkey, ev.created_at, ev.kind, ev.tags, ev.content);
+            if (bip340.toHex(id) !== ev.id) return false;
+            return bip340.verify(id, bip340.fromHex(ev.pubkey), bip340.fromHex(ev.sig));
+        } catch (e) { return false; }
+    }
 
-        function publish(text) {
+    // ---------- a set of relay sockets ----------
+    //
+    // What every use of the public relays shares: one socket per relay, a
+    // subscription that is sent again whenever a socket comes back, a backoff
+    // when one drops, and good manners when one says no. The bus carries a
+    // duel on it and the open lobby list (games/lobbies.js) carries listings.
+    //
+    //   relays    urls, NP.nostrRelays() if not given
+    //   sub       the subscription id
+    //   filters   () -> [filter, ...], asked for on every (re)connect
+    //   maxFrame  frames longer than this are dropped unread
+    //   onEvent(ev) onOpen(link) onLost() onBack() onRefusedAll()
+    function RelayPool(o) {
+        const links = new Map();         // relay url -> { ws, quietUntil, tries }
+        let closed = false, everUp = false, lost = false;
+        const pool = { links };
+        const call = (name, arg) => { if (o[name]) o[name](arg); };
+
+        function subscribe(link) {
+            const f = o.filters ? o.filters() : [];
+            try { link.ws.send(JSON.stringify(f.length ? ['REQ', o.sub].concat(f) : ['CLOSE', o.sub])); } catch (e) { }
+        }
+        pool.publish = function (text) {
             const now = Date.now();
             links.forEach(link => {
                 if (link.ws.readyState !== 1 || link.quietUntil > now) return;
                 try { link.ws.send(text); } catch (e) { }
             });
-        }
+        };
+        pool.sendEvent = ev => pool.publish(JSON.stringify(['EVENT', ev]));
         // A relay says what it thinks of every event. Carrying on at ten a second
         // after it has said no is what gets an address banned, and relay.damus.io
         // has done exactly that: "too many rate-limit violations". So a relay
@@ -526,11 +590,65 @@
             if (/^duplicate/i.test(why)) return;
             const slowDown = /rate.?limit|slow down/i.test(why) && !/^banned/i.test(why);
             link.quietUntil = slowDown ? Date.now() + REFUSED_MS : Infinity;
+            link.why = why;
             const now = Date.now();
-            if (![...links.values()].some(l => l.quietUntil <= now)) {
-                t.h.error && t.h.error('every public relay is refusing this connection');
-            }
+            if (![...links.values()].some(l => l.quietUntil <= now)) call('onRefusedAll');
         }
+        function connect(url) {
+            let ws;
+            try { ws = new WebSocket(url); } catch (e) { return; }
+            const link = links.get(url) || { url, quietUntil: 0, tries: 0 };
+            link.ws = ws;
+            links.set(url, link);
+            ws.onopen = () => {
+                link.tries = 0;
+                everUp = true;
+                subscribe(link);
+                if (lost) { lost = false; call('onBack'); }
+                call('onOpen', link);
+            };
+            ws.onmessage = (e) => {
+                if (o.maxFrame && typeof e.data === 'string' && e.data.length > o.maxFrame) return;
+                let m = null;
+                try { m = JSON.parse(e.data); } catch (err) { return; }
+                if (!Array.isArray(m)) return;
+                if (m[0] === 'EVENT') call('onEvent', m[2]);
+                else if (m[0] === 'OK' && m[2] === false) refused(link, String(m[3] || ''));
+            };
+            ws.onerror = () => { };
+            ws.onclose = () => {
+                if (closed) return;
+                // relays restart and phones sleep, so none of this is final. One
+                // dropping is nothing and all of them at once is worth a mention.
+                if (everUp && !lost && ![...links.values()].some(l => l.ws.readyState === 1)) {
+                    lost = true;
+                    call('onLost');
+                }
+                link.tries = Math.min(link.tries + 1, 5);
+                setTimeout(() => { if (!closed) connect(url); }, 1000 * Math.pow(2, link.tries));
+            };
+        }
+        pool.open = () => { (o.relays || NP.nostrRelays()).forEach(connect); return pool; };
+        // the filters changed: tell every relay that is listening
+        pool.resubscribe = () => links.forEach(l => { if (l.ws.readyState === 1) subscribe(l); });
+        pool.up = () => [...links.values()].some(l => l.ws.readyState === 1);
+        pool.close = () => {
+            if (closed) return;
+            closed = true;
+            links.forEach(link => { try { link.ws.close(); } catch (e) { } });
+        };
+        return pool;
+    }
+    NP.nostr = { KIND: NOSTR_KIND, bip340, RelayPool, signEvent, verifyEvent };
+
+    function NostrTransport(code, isHost) {
+        const t = { kind: 'bus', id: null, h: {}, code };
+        const known = new Set();         // peers we have told the session about
+        const streams = new Map();       // peer -> how far through their batches we are
+        let seen = new Set(), seenBefore = new Set();   // event ids already handled
+        let room = null, sk = null, queue = [], flushTimer = null, closed = false;
+        let sent = 0, pool = null;
+
         async function flush() {
             flushTimer = null;
             if (closed || !room || !t.id) { queue = []; return; }
@@ -540,18 +658,9 @@
             queue = [];
             try {
                 const content = await seal(room.key, batch);
-                const created = Math.floor(Date.now() / 1000);
-                const tags = [['d', room.tag]];
-                const pub = t.id;
-                const ser = JSON.stringify([0, pub, created, NOSTR_KIND, tags, content]);
-                const id = await bip340.sha256(new TextEncoder().encode(ser));
-                const sig = await bip340.sign(id, sk);
-                const ev = {
-                    id: bip340.toHex(id), pubkey: pub, created_at: created,
-                    kind: NOSTR_KIND, tags, content, sig: bip340.toHex(sig)
-                };
+                const ev = await signEvent(sk, t.id, NOSTR_KIND, [['d', room.tag]], content);
                 seen.add(ev.id);
-                publish(JSON.stringify(['EVENT', ev]));
+                pool.sendEvent(ev);
             } catch (e) {
                 t.h.error && t.h.error('could not post to the relays');
             }
@@ -612,39 +721,6 @@
             if (batch[0] && typeof batch[0].n === 'number') inOrder(ev.pubkey, batch[0].n, batch.slice(1));
             else deliver(ev.pubkey, batch);
         }
-        function connect(url, opened) {
-            let ws;
-            try { ws = new WebSocket(url); } catch (e) { return; }
-            const link = links.get(url) || { quietUntil: 0, tries: 0 };
-            link.ws = ws;
-            links.set(url, link);
-            ws.onopen = () => {
-                link.tries = 0;
-                everUp = true;
-                ws.send(JSON.stringify(['REQ', 'np', { kinds: [NOSTR_KIND], '#d': [room.tag], since: Math.floor(Date.now() / 1000) - 20 }]));
-                if (lost) { lost = false; t.h.status && t.h.status('back on the public relays'); }
-                opened();
-            };
-            ws.onmessage = (e) => {
-                let m = null;
-                try { m = JSON.parse(e.data); } catch (err) { return; }
-                if (m[0] === 'EVENT') onEvent(m[2]);
-                else if (m[0] === 'OK' && m[2] === false) refused(link, String(m[3] || ''));
-            };
-            ws.onerror = () => { };
-            ws.onclose = () => {
-                if (closed) return;
-                // relays restart and phones sleep, so none of this is final. One
-                // dropping is nothing and all of them at once is worth a mention.
-                if (everUp && !lost && ![...links.values()].some(l => l.ws.readyState === 1)) {
-                    lost = true;
-                    t.h.error && t.h.error('lost every public relay, trying to get back');
-                }
-                link.tries = Math.min(link.tries + 1, 5);
-                setTimeout(() => { if (!closed) connect(url, opened); }, 1000 * Math.pow(2, link.tries));
-            };
-        }
-
         t.open = function () {
             return new Promise((resolve, reject) => {
                 if (!window.crypto || !crypto.subtle) return reject(new Error('this browser has no webcrypto'));
@@ -654,15 +730,24 @@
                     sk = bip340.newKey();
                     return bip340.pubkey(sk);
                 }).then(pub => {
+                    if (closed) return reject(new Error('closed before the relays answered'));
                     t.id = bip340.toHex(pub);
                     t.hostId = null;                 // a bus has no host to address
                     let settled = false;
-                    NP.nostrRelays().forEach(url => connect(url, () => {
-                        if (settled) return;
-                        settled = true;
-                        t.h.status && t.h.status('on the public relays');
-                        resolve();
-                    }));
+                    pool = RelayPool({
+                        sub: 'np',
+                        filters: () => [{ kinds: [NOSTR_KIND], '#d': [room.tag], since: Math.floor(Date.now() / 1000) - 20 }],
+                        onEvent,
+                        onBack: () => { t.h.status && t.h.status('back on the public relays'); },
+                        onLost: () => { t.h.error && t.h.error('lost every public relay, trying to get back'); },
+                        onRefusedAll: () => { t.h.error && t.h.error('every public relay is refusing this connection'); },
+                        onOpen: () => {
+                            if (settled) return;
+                            settled = true;
+                            t.h.status && t.h.status('on the public relays');
+                            resolve();
+                        }
+                    }).open();
                     setTimeout(() => {
                         if (!settled) {
                             settled = true;
@@ -679,7 +764,7 @@
                 closed = true;
                 clearTimeout(flushTimer);
                 streams.forEach(s => clearTimeout(s.timer));
-                links.forEach(link => { try { link.ws.close(); } catch (e) { } });
+                if (pool) pool.close();
             };
             // one last batch, because it is usually the goodbye
             if (queue.length && room) flush().then(finish, finish);
@@ -1224,6 +1309,7 @@
             blurb: 'a low poly shooter: draw sigils to load your staff, then go and hit somebody. up to 4 v 4, and bots fill the seats',
             teams: true,
             loadouts: true,
+            seats: o => 2 * (Number(o.mode) || 1),   // what the open lobby list counts as full
             options: [
                 { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2'], ['3', '3 v 3'], ['4', '4 v 4']] },
                 { key: 'map', label: 'map', values: [['temple', 'the temple'], ['bin', 'the recycle bin'], ['defrag', 'defrag'], ['wire', 'the long wire']] }
@@ -1267,6 +1353,14 @@
                 return NP.games[id];
             });
     };
+    // the open lobby list and quick match, which only the lobby window needs
+    NP.loadLobbies = function () {
+        if (NP.Lobbies) return Promise.resolve(NP.Lobbies);
+        return loadScript('games/lobbies.js').then(() => {
+            if (!NP.Lobbies) throw new Error('the open lobby list did not load');
+            return NP.Lobbies;
+        });
+    };
     NP.launch = function (session, opts) {
         const id = opts.gameId;
         NP.loadGame(id).then(g => {
@@ -1300,6 +1394,7 @@
         const t = spec.make(code, true);
         return opening(t, onStatus).then(() => {
             const s = new Session(t, true, code);
+            s.mode = NP.TRANSPORTS[mode] ? mode : 'auto';
             s.id = t.id || s.id;
             s.me.id = s.id;
             s.me.host = true;
@@ -1353,9 +1448,15 @@
         let gameId = opts.gameId || (session && session.gameId) || NP.CATALOG[0].id;
         let busy = false;
         const unsubs = [];
+        // the open lobby list on the first screen, and a quick match lobby
+        // keeping an eye out for an older one to move into
+        let listUI = null, quickStop = null;
+        const stopList = () => { if (listUI) { listUI.stop(); listUI = null; } };
 
         win._cleanup = () => {
             unsubs.forEach(u => { try { u(); } catch (e) { } });
+            stopList();
+            if (quickStop) quickStop();
             NP.lobbyWin = null;
             // leaving the window while still in the lobby means leaving the lobby
             if (session && session.alive && session.state === 'lobby') session.leave();
@@ -1375,6 +1476,97 @@
             const s = body.querySelector('#np-status');
             if (s && msg) s.textContent = msg;
             body.querySelectorAll('button').forEach(b => { if (!b.dataset.always) b.disabled = v; });
+        }
+        function enter(s) {
+            session = s;
+            bind(s);
+            setBusy(false);
+            renderLobby();
+            beep('ding');
+        }
+
+        // ---------- open lobbies and quick match (games/lobbies.js) ----------
+        const internet = m => m === 'auto' || m === 'bus';
+        function listPublicly(s, how) {
+            return NP.loadLobbies().then(L => {
+                if (s.alive && s.state === 'lobby') L.announce(s, how);
+                return s.listing;
+            }).catch(e => { say('could not list it: ' + e.message); });
+        }
+        // one click on the list. A lobby that will not have us is hidden for a minute
+        function tryJoin(l) {
+            say('joining ' + l.name + "'s lobby...");
+            return NP.join('auto', l.code, say).catch(err => {
+                if (listUI) listUI.hide(l.code);
+                throw err;
+            });
+        }
+        function joinListing(l) {
+            if (busy) return;
+            setBusy(true);
+            tryJoin(l).then(enter).catch(err => { setBusy(false, 'failed: ' + err.message); beep('error'); });
+        }
+        function quickMatch(qGame, qMode) {
+            if (busy) return;
+            const tried = new Set();
+            setBusy(true, 'quick match: looking for an open lobby...');
+            NP.loadLobbies().then(L => {
+                const attempt = () => L.find(qGame, qMode, 3500, tried).then(l => {
+                    if (!l) return hostQuick(L, qGame, qMode);
+                    tried.add(l.code);
+                    return tryJoin(l).then(enter, () => (tried.size < 3 ? attempt() : hostQuick(L, qGame, qMode)));
+                });
+                return attempt();
+            }).catch(err => { setBusy(false, 'failed: ' + err.message); beep('error'); });
+        }
+        // nobody about: open one, list it, and wait in it
+        function hostQuick(L, qGame, qMode) {
+            say('quick match: nobody about, opening one...');
+            return NP.host('auto', qGame, undefined, say).then(s => {
+                const key = L.modeKey(NP.byId(qGame));
+                if (key && qMode) s.setOption(key, qMode);
+                gameId = qGame;
+                enter(s);
+                const a = L.announce(s, { quick: true });
+                a.mode = qMode;
+                say("quick match: you're listed. waiting on a stranger, bradar");
+                watchForOlder(L, s, a);
+            });
+        }
+        function watchForOlder(L, s, a) {
+            if (quickStop) quickStop();
+            let stopped = false;
+            const offs = [];
+            const quit = () => {
+                if (stopped) return;
+                stopped = true;
+                offs.forEach(off => off());
+                if (quickStop === quit) quickStop = null;
+            };
+            quickStop = quit;
+            offs.push(s.on('closed', quit), s.on('start', quit), s.on('roster', () => { if (s.players.length > 1) quit(); }));
+            offs.push(L.watch(list => {
+                if (stopped) return;
+                if (!s.alive || s.state !== 'lobby' || s.listing !== a || s.players.length > 1) { quit(); return; }
+                const older = L.olderMatch(a.info(), list);
+                if (!older) return;
+                quit();
+                s.leave();
+                session = null;
+                setBusy(true, 'quick match: ' + older.name + ' got here first, moving in...');
+                tryJoin(older).then(enter, () => hostQuick(L, a.info().game, a.mode))
+                    .catch(err => { setBusy(false, 'failed: ' + err.message); beep('error'); });
+            }));
+        }
+        // the first option a game offers is what quick match matches on
+        function fillQuickModes() {
+            const sel = body.querySelector('#np-qmode');
+            if (!sel) return;
+            const g = NP.byId(gameId) || {};
+            const opt = (g.options || [])[0];
+            sel.classList.toggle('np-hidden', !opt);
+            sel.innerHTML = opt ? `<option value="">any ${esc(opt.label)}</option>` +
+                opt.values.map(v => `<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('') : '';
         }
 
         // ---------- the two screens ----------
@@ -1413,6 +1605,7 @@
                         <div class="np-card-title">start a lobby</div>
                         <p class="np-p">you get a 5 letter code. whoever types it in joins you.</p>
                         <button id="np-host" class="np-btn np-go">create lobby</button>
+                        <label class="np-check ${internet(mode) ? '' : 'np-hidden'}" id="np-public-row"><input type="checkbox" id="np-public"> put it in open lobbies, so strangers can join too</label>
                     </div>
                     <div class="np-card">
                         <div class="np-card-title">join a lobby</div>
@@ -1423,21 +1616,48 @@
                         </div>
                     </div>
                 </div>
+                <div class="np-card">
+                    <div class="np-card-title">quick match</div>
+                    <p class="np-p">no friends online? fair. this drops you in an open lobby for this game, or opens one and lists it so the next stranger finds you.</p>
+                    <div class="np-quickrow">
+                        <select id="np-qmode" class="np-input"></select>
+                        <button id="np-quick" class="np-btn np-go">quick match</button>
+                    </div>
+                </div>
+                <div id="np-lobbies"></div>
                 <div class="np-solo">
                     <button id="np-solo" class="np-btn np-small">or play a bot — no code, no waiting</button>
                 </div>
                 <div id="np-status" class="np-status">not connected</div>`;
 
+            fillQuickModes();
+            body.querySelector('#np-quick').onclick = () => quickMatch(gameId, body.querySelector('#np-qmode').value || null);
+            // the list only listens while it is on screen. Nothing connects before this
+            stopList();
+            const box = body.querySelector('#np-lobbies');
+            NP.loadLobbies().then(L => {
+                if (!box.isConnected) return;
+                listUI = L.mountList(box, { game: () => gameId, mine: () => session && session.code, join: joinListing });
+                // whatever the list just drew is clickable only when nothing else is going on
+                if (busy) setBusy(true);
+            }).catch(e => { box.innerHTML = `<div class="np-note">${esc(e.message)}</div>`; });
+
             body.querySelector('#np-name').addEventListener('change', e => {
                 NP.setName(e.target.value);
                 e.target.value = NP.profile().name;
             });
-            body.querySelector('#np-game').onchange = e => { gameId = e.target.value; };
+            body.querySelector('#np-game').onchange = e => {
+                gameId = e.target.value;
+                fillQuickModes();
+                if (listUI) listUI.draw();
+            };
             body.querySelector('#np-mode').onchange = e => {
                 mode = e.target.value;
                 localStorage.setItem('mrhakan98-netplay-mode', mode);
                 body.querySelector('#np-modenote').textContent = NP.TRANSPORTS[mode].note;
                 body.querySelector('#np-relay-row').classList.toggle('np-hidden', mode !== 'relay');
+                // a lobby in one browser, or on your own relay, is no use to a stranger
+                body.querySelector('#np-public-row').classList.toggle('np-hidden', !internet(mode));
             };
             const relayInput = body.querySelector('#np-relay');
             if (relayInput) relayInput.addEventListener('change', e => NP.setRelayUrl(e.target.value.trim()));
@@ -1453,13 +1673,11 @@
             };
             body.querySelector('#np-host').onclick = () => {
                 if (busy) return;
+                const pub = internet(mode) && body.querySelector('#np-public').checked;
                 setBusy(true, 'opening a lobby...');
                 NP.host(mode, gameId, undefined, say).then(s => {
-                    session = s;
-                    bind(s);
-                    setBusy(false);
-                    renderLobby();
-                    beep('ding');
+                    enter(s);
+                    if (pub) listPublicly(s);
                 }).catch(err => { setBusy(false, 'failed: ' + err.message); beep('error'); });
             };
             body.querySelector('#np-join').onclick = () => {
@@ -1483,6 +1701,7 @@
         function renderLobby() {
             const s = session;
             if (!s) return renderConnect();
+            stopList();
             const game = NP.byId(s.gameId) || NP.CATALOG[0];
             body.innerHTML = `
                 <div class="np-head">
@@ -1500,6 +1719,7 @@
                         <button id="np-copylink" class="np-btn np-small" data-always="1">copy link</button>
                     </div>
                 </div>
+                ${s.isHost && internet(s.mode) ? `<label class="np-check"><input type="checkbox" id="np-listed" ${s.listing ? 'checked' : ''}> listed in open lobbies: strangers can see it and join</label>` : ''}
                 <div class="np-players" id="np-players"></div>
                 ${s.isHost ? `<div class="np-row">
                     <label class="np-label">game</label>
@@ -1522,6 +1742,11 @@
 
             body.querySelector('#np-copycode').onclick = () => copy(s.code, 'code copied');
             body.querySelector('#np-copylink').onclick = () => copy(NP.inviteLink(s.code), 'invite link copied');
+            const listed = body.querySelector('#np-listed');
+            if (listed) listed.onchange = () => {
+                if (listed.checked) listPublicly(s).then(a => say(a ? 'listed. strangers can find you now' : 'not listed'));
+                else if (s.listing) { s.listing.stop('hidden'); say('off the list. only the code gets in now'); }
+            };
             const g2 = body.querySelector('#np-game2');
             if (g2) g2.onchange = e => s.pickGame(e.target.value);
             body.querySelector('#np-ready').onclick = () => { s.setReady(!s.me.ready); drawPlayers(); body.querySelector('#np-ready').textContent = s.me.ready ? 'not ready' : "i'm ready"; };
@@ -1649,6 +1874,7 @@
             unsubs.push(s.on('net:error', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = 'trouble: ' + m; }));
             unsubs.push(s.on('net:down', m => { const st = body.querySelector('#np-status'); if (st) st.textContent = m; }));
             unsubs.push(s.on('start', () => { setBusy(false); }));
+            unsubs.push(s.on('listing', () => { const cb = body.querySelector('#np-listed'); if (cb && s === session) cb.checked = !!s.listing; }));
         }
 
         if (session) { bind(session); renderLobby(); } else renderConnect();
