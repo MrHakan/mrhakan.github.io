@@ -782,6 +782,73 @@ section('fullscreen, including where the api will not do it');
 }
 
 // ===================================================================
+section('who is online');
+// ===================================================================
+// whos.amung.us is a script from outside, with ad trackers behind it, so the
+// site stays away from it when a test drives the browser. Here the test says
+// it is a person, and a stand-in for the widget draws what the real one draws.
+{
+    const FAKE_WAU = `(function () {
+        (window._wau || []).forEach(function (w) {
+            var at = document.getElementById('_wau' + w[2]);
+            var a = document.createElement('a');
+            a.className = 'waubutton wau push';
+            a.href = 'https://whos.amung.us/stats/' + w[1] + '/';
+            a.setAttribute('style', 'background-color: rgb(0, 0, 0); width: 110px; height: 30px; line-height: 30px; text-align: left;');
+            a.innerHTML = '<span><img style="height: 23px; width: 32px;"></span><p style="font-size: 18px; margin: 0px 0px 0px 55px; color: rgb(13, 242, 89);">7</p>';
+            at.parentNode.insertBefore(a, at.nextSibling);
+        });
+    })();`;
+    const asked = [];
+    const visit = async (opts) => {
+        const c = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+        await c.addInitScript(() => { sessionStorage.setItem('booted', '1'); sessionStorage.setItem('welcomed', '1'); });
+        if (opts.person) await c.addInitScript(() => Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }));
+        await c.route('**/*', route => {
+            const u = route.request().url();
+            if (/waust\.at|whos\.amung\.us/.test(u)) {
+                asked.push(u);
+                return opts.blocked ? route.abort() : route.fulfill({ status: 200, contentType: 'text/javascript', body: FAKE_WAU });
+            }
+            if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u)) return route.continue();
+            return route.abort();
+        });
+        const p = await c.newPage();
+        p.on('pageerror', e => errors.push(e.message));
+        await p.goto(BASE + '/', { waitUntil: 'load' });
+        await p.waitForTimeout(2500);
+        const look = await p.evaluate(() => {
+            const panel = document.getElementById('counter-panel').getBoundingClientRect();
+            const cols = [...document.querySelectorAll('#counter-panel .counter-col')].filter(c => !c.hidden)
+                .map(c => c.getBoundingClientRect());
+            const left = Math.min(...cols.map(r => r.left)), right = Math.max(...cols.map(r => r.right));
+            const top = Math.min(...cols.map(r => r.top));
+            const num = document.querySelector('#online-box .waubutton p');
+            return {
+                shown: !document.getElementById('online-col').hidden, cols: cols.length,
+                offCentre: Math.round(((left - panel.left) - (panel.right - right)) * 10) / 10,
+                sameRow: cols.every(r => Math.abs(r.top - top) < 2),
+                number: num ? num.textContent : null,
+                fits: num ? num.getBoundingClientRect().right <= panel.right : true
+            };
+        });
+        await c.close();
+        return look;
+    };
+
+    let look = await visit({});
+    expect(!asked.length && !look.shown && look.cols === 1, 'a browser a test drives never asks whos.amung.us', JSON.stringify(look));
+    expect(Math.abs(look.offCentre) <= 1, 'and the visitor counter sits in the middle on its own', JSON.stringify(look));
+
+    look = await visit({ person: true });
+    expect(asked.length > 0 && look.shown && look.number === '7', 'for a person it loads after the page, and shows the number', JSON.stringify(look));
+    expect(look.cols === 2 && look.sameRow && Math.abs(look.offCentre) <= 1 && look.fits, 'visitors and online side by side, centred in the panel', JSON.stringify(look));
+
+    look = await visit({ person: true, blocked: true });
+    expect(!look.shown && look.cols === 1 && Math.abs(look.offCentre) <= 1, 'with the script blocked the column stays away and visitors stays centred', JSON.stringify(look));
+}
+
+// ===================================================================
 section('page errors');
 // ===================================================================
 // everything off this server is refused on purpose, so its failures are

@@ -23,6 +23,7 @@ window.addEventListener('message', event => {
 document.addEventListener('DOMContentLoaded', () => {
     const audio = document.getElementById('audio-player');
     initVisitorCounter();
+    initOnlineCounter();
     // two calls to the github api per visit, for a box a phone has to scroll to
     whenOnScreen(document.getElementById('shoutbox-window'), fetchShoutbox);
 
@@ -1657,6 +1658,37 @@ function initVisitorCounter() {
     // request (adblock, offline) can fail before this listener exists — a
     // finished image with no intrinsic width is one that already failed
     if (badge.complete && badge.naturalWidth === 0) fallback();
+}
+// whos.amung.us, for how many are here right now. It is a script from
+// somebody else's server, and it brings a crowd of ad trackers along, so it
+// waits until the page has loaded and gone quiet, and it stays away from a
+// connection that asked to save data and from a browser a test is driving.
+// The column only shows once the widget has drawn itself into it.
+const WAU_KEY = '4mh183pvp1';
+const WAU_SLOT = '98m';
+function initOnlineCounter() {
+    const col = document.getElementById('online-col');
+    const box = document.getElementById('online-box');
+    if (!col || !box || navigator.webdriver) return;
+    const c = navigator.connection;
+    if (c && c.saveData) return;
+    const start = () => whenIdle(() => {
+        const drawn = new MutationObserver(() => {
+            if (!box.querySelector('.waubutton')) return;
+            col.hidden = false;
+            drawn.disconnect();
+        });
+        drawn.observe(box, { childList: true, subtree: true });
+        window._wau = window._wau || [];
+        window._wau.push(['dynamic', WAU_KEY, WAU_SLOT, '0000000df259', 'small']);
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://waust.at/d.js';
+        s.onerror = () => drawn.disconnect();
+        document.head.appendChild(s);
+    });
+    if (document.readyState === 'complete') start();
+    else window.addEventListener('load', start, { once: true });
 }
 const GH_REPO = 'MrHakan/mrhakan.github.io';
 const GH_BRANCH = 'main';

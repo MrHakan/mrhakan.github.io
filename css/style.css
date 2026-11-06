@@ -4904,6 +4904,14 @@ body.disco-floor::after {
     }
 }
 
+/* ---------- visitors, and who is online (js/index.js) ---------- */
+.counter-panel { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 6px 16px; }
+.counter-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.counter-col[hidden], #online-box .waubutton span { display: none !important; }
+#online-box .waubutton { display: flex !important; align-items: center; gap: 6px; width: auto !important; height: 20px !important; background: none !important; box-shadow: none !important; }
+#online-box .waubutton::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #0df259; box-shadow: 0 0 6px #0df259; }
+#online-box .waubutton p { margin: 0 !important; font: 700 16px/20px 'Courier New', monospace !important; letter-spacing: 0; color: #0df259 !important; }
+
 /* ---------- hit counter badge ---------- */
 /* the count comes from komarev as an svg image, so it cannot be restyled —
    a green glow is enough to seat it on the black LED panel */
@@ -9162,6 +9170,7 @@ summary:focus-visible,
     #winamp-window,
     #shoutbox-window,
     #visitor-box,
+    #online-col,
     #effects-container,
     .crt-overlay,
     .star-overlay,
