@@ -6,23 +6,23 @@
 const ACHIEVEMENTS = {
     firstboot: { icon: '💾', name: 'hello world', desc: 'booted the shithole' },
     signer: { icon: '✍️', name: 'certified bradar', desc: 'signed the guestbook' },
-    konami: { icon: '🎮', name: 'up up down down', desc: 'entered the konami code' },
-    hacker: { icon: '💀', name: 'h4x0r', desc: 'read passwords.txt' },
+    konami: { icon: '🎮', name: 'up up down down', desc: 'entered the konami code', hint: 'a very old cheat code still works here' },
+    hacker: { icon: '💀', name: 'h4x0r', desc: 'read passwords.txt', hint: 'the terminal has files you should not read' },
     terminal: { icon: '⌨️', name: 'command line warrior', desc: 'used the terminal' },
     snake10: { icon: '🐍', name: 'snake charmer', desc: 'scored 10 in snake' },
     pong: { icon: '🏓', name: 'pong champion', desc: 'beat the cpu 5 times' },
     minesweeper: { icon: '🚩', name: 'bomb defuser', desc: 'won minesweeper' },
     painter: { icon: '🎨', name: 'digital picasso', desc: 'saved a painting' },
     writer: { icon: '📝', name: 'novelist', desc: 'saved a notepad file' },
-    sparta: { icon: '💥', name: 'system destroyer', desc: 'ended every process' },
-    bsod: { icon: '🟦', name: 'blue screen of death', desc: 'crashed windows' },
+    sparta: { icon: '💥', name: 'system destroyer', desc: 'ended every process', hint: 'the task manager lets you end things. all of them' },
+    bsod: { icon: '🟦', name: 'blue screen of death', desc: 'crashed windows', hint: 'type something rude to an operating system' },
     party: { icon: '🪩', name: 'party animal', desc: 'activated party mode' },
     explorer: { icon: '🖥️', name: 'explorer', desc: 'opened my computer' },
     cleaner: { icon: '🗑️', name: 'marie kondo', desc: 'emptied the recycle bin' },
     decorator: { icon: '🖼️', name: 'interior designer', desc: 'changed the wallpaper' },
     dialup: { icon: '☎️', name: 'you got mail', desc: 'connected via dial-up' },
     charmap: { icon: '🔣', name: 'ascii artist', desc: 'used the character map' },
-    nice: { icon: '😎', name: 'nice', desc: 'calculated a funny number' },
+    nice: { icon: '😎', name: 'nice', desc: 'calculated a funny number', hint: 'the calculator has a sense of humour' },
     dj: { icon: '🎧', name: 'the dj', desc: 'played 3 different tracks' },
     fortune: { icon: '🥠', name: 'seeker', desc: 'asked the magic 8-ball' },
     voter: { icon: '🗳️', name: 'democracy', desc: 'voted in the poll' },
@@ -49,7 +49,7 @@ const ACHIEVEMENTS = {
     setup: { icon: '⏳', name: 'four minutes remaining', desc: 'tried to cancel setup' },
     ram: { icon: '💾', name: 'ninety nine percent', desc: 'tried to download more ram' },
     virus: { icon: '🦠', name: 'clean bill', desc: 'scanned for viruses that were never there' },
-    hunter2: { icon: '🔑', name: '*******', desc: 'typed the password everyone can see' },
+    hunter2: { icon: '🔑', name: '*******', desc: 'typed the password everyone can see', hint: 'an old irc joke about passwords' },
     soundboard: { icon: '🔊', name: 'the whole scheme', desc: 'played with the sound board' },
     moon: { icon: '🌙', name: 'lunatic', desc: 'checked the moon' },
     biorhythm: { icon: '📈', name: 'pseudoscience', desc: 'plotted your biorhythm' },
@@ -91,17 +91,33 @@ const ACHIEVEMENTS = {
     'aot-hard': { icon: '🧌', name: 'problem?', desc: 'beat the hard bot in age of troll' },
     defrag: { icon: '💽', name: 'clean machine', desc: 'defragmented drive C:' },
     reader: { icon: '📰', name: 'subscriber', desc: 'read the devlog' },
+    wizardz: { icon: '🧙', name: 'apprentice', desc: 'drew a first sigil in wizardz 98' },
+    wizardz_win: { icon: '🪄', name: 'last wizard standing', desc: 'won a match in wizardz 98' },
+    dungeonz: { icon: '🕯️', name: 'torchbearer', desc: 'went down into dungeonz 98' },
+    dungeonz_win: { icon: '🗝️', name: 'dungeon cleared', desc: 'closed the boss of a dungeon in dungeonz 98' },
+    playground: { icon: '🧩', name: 'on the board', desc: 'kept a record in a playground game' },
+    playground_5: { icon: '📋', name: 'regular', desc: 'kept records in five playground games' },
+    playground_15: { icon: '🗄️', name: 'the whole cabinet', desc: 'kept records in fifteen playground games' },
+    trophy_room: { icon: '🏛️', name: 'curator', desc: 'opened the trophy room' },
+    installed: { icon: '📦', name: 'setup complete', desc: 'installed mrhakan 98 as an app', hint: 'there is an install button somewhere on this desktop' },
     completionist: { icon: '🏆', name: 'completionist', desc: 'unlocked everything else' }
 };
+// { id: when } in localStorage. Adding one is a line in the table above and a
+// call to unlockAchievement where it happens; js/trophies.js shelves it
+// by its prefix. A save that is broken or from somewhere else reads as empty
+// and is never written over unless something new is unlocked.
 function getUnlocked() {
-    try { return JSON.parse(localStorage.getItem('achievements') || '{}'); } catch (e) { return {}; }
+    let v = null;
+    try { v = JSON.parse(localStorage.getItem('achievements') || '{}'); } catch (e) { }
+    if (Array.isArray(v)) return v.reduce((m, k) => (typeof k === 'string' && (m[k] = 1), m), {});
+    return v && typeof v === 'object' ? v : {};
 }
 function unlockAchievement(id) {
     if (!ACHIEVEMENTS[id]) return;
     const un = getUnlocked();
     if (un[id]) return;
     un[id] = Date.now();
-    localStorage.setItem('achievements', JSON.stringify(un));
+    try { localStorage.setItem('achievements', JSON.stringify(un)); } catch (e) { }
     const a = ACHIEVEMENTS[id];
     showAchievementToast(a);
     // completionist unlocks once every other achievement is done
@@ -115,27 +131,16 @@ function showAchievementToast(a) {
         <div><div class="achv-head">achievement unlocked!</div>
         <div class="achv-name">${escapeHtml(a.name)}</div>
         <div class="achv-desc">${escapeHtml(a.desc)}</div></div>`;
+    el.title = 'open the trophy room';
+    el.style.cursor = 'pointer';
+    el.onclick = () => { el.remove(); startMenuAction('trophies'); };
     document.body.appendChild(el);
     playSound('ding');
     setTimeout(() => el.classList.add('fading'), 3400);
     setTimeout(() => el.remove(), 4000);
 }
-function openAchievements() {
-    const { body } = createAppWindow('achievements', { icon: 'emoji_events', width: 340 });
-    const un = getUnlocked();
-    const total = Object.keys(ACHIEVEMENTS).length;
-    const got = Object.keys(un).filter(k => ACHIEVEMENTS[k]).length;
-    body.innerHTML = `
-        <div class="achv-progress bevel-in"><div class="achv-progress-fill" style="width:${(got / total) * 100}%"></div>
-            <span>${got} / ${total} unlocked</span></div>
-        <div class="achv-list">${Object.entries(ACHIEVEMENTS).map(([id, a]) => {
-        const has = !!un[id];
-        return `<div class="achv-row${has ? '' : ' locked'}">
-                <span class="achv-row-icon">${has ? a.icon : '🔒'}</span>
-                <span><b>${has ? escapeHtml(a.name) : '???'}</b><br><small>${has ? escapeHtml(a.desc) : 'keep exploring bradar'}</small></span>
-            </div>`;
-    }).join('')}</div>`;
-}
+// the old list, now a tab of the trophy room (js/trophies.js)
+function openAchievements() { openTrophies('all'); }
 
 // ---------- snow ----------
 let snowRAF = null;
@@ -487,7 +492,7 @@ const contextItems = [
     { label: 'new folder', icon: 'folder', act: () => showToast('desktop', 'cannot create folder: disk full of vibes') },
     { label: 'let it snow', icon: 'ac_unit', act: () => toggleSnow() },
     { label: 'confetti', icon: 'celebration', act: () => { launchConfetti(); playSound('ding'); } },
-    { label: 'achievements', icon: 'emoji_events', act: () => openAchievements() },
+    { label: 'trophy room', icon: 'emoji_events', act: () => startMenuAction('trophies') },
     { label: 'site stats', icon: 'monitoring', act: () => openSiteStats() },
     { label: 'reset effects', icon: 'settings', act: () => resetAllModes() }
 ];
@@ -552,7 +557,7 @@ function initCalendarPopup() {
 const SHORTCUTS = [
     ['Ctrl + Alt + Del', 'task manager'],
     ['F1', 'help / about'],
-    ['F2', 'achievements'],
+    ['F2', 'achievements (trophy room)'],
     ['F3', 'find: files'],
     ['F4', 'terminal'],
     ['?', 'this shortcut list'],
@@ -780,6 +785,96 @@ function showWelcomePopup() {
     }, 1400);
 }
 
+// ---------- time played, per window ----------
+// Counted while the tab is in front, so a game left open behind another tab
+// overnight is not eight hours of dungeonz. Seconds by window title, which is
+// what js/trophies.js reads to put a time on each shelf.
+const PLAYTIME_KEY = 'mrhakan98-playtime';
+const playClock = new Map();
+function bankPlaytime(pause) {
+    if (!playClock.size) return;
+    let t = {};
+    try { const v = JSON.parse(localStorage.getItem(PLAYTIME_KEY) || '{}'); if (v && typeof v === 'object' && !Array.isArray(v)) t = v; } catch (e) { }
+    const now = Date.now();
+    playClock.forEach((c, win) => {
+        if (c.since) t[c.title] = (+t[c.title] || 0) + Math.round(Math.min(now - c.since, 216e5) / 1000);
+        c.since = pause ? 0 : now;
+        if (!win.isConnected) playClock.delete(win);
+    });
+    try { localStorage.setItem(PLAYTIME_KEY, JSON.stringify(t)); } catch (e) { }
+}
+function initPlayClock() {
+    if (!window.MutationObserver) return;
+    new MutationObserver(list => {
+        let gone = false;
+        for (const m of list) {
+            m.addedNodes.forEach(n => {
+                const t = n.classList && n.classList.contains('app-window') && n.querySelector('.app-window-title');
+                if (t) playClock.set(n, { title: t.textContent.trim().toLowerCase().slice(0, 40), since: document.hidden ? 0 : Date.now() });
+            });
+            m.removedNodes.forEach(n => { if (playClock.has(n)) gone = true; });
+        }
+        if (gone) bankPlaytime();
+    }).observe(document.body, { childList: true });
+    document.addEventListener('visibilitychange', () => document.hidden ? bankPlaytime(true) : playClock.forEach(c => { c.since = Date.now(); }));
+    window.addEventListener('pagehide', () => bankPlaytime(true));
+    setInterval(() => { if (!document.hidden) bankPlaytime(); }, 60000);
+}
+
+// a playground game in another tab kept a record. The trophy room checks
+// what that earned when this tab is looked at again, without opening.
+let trophySyncDue = false;
+window.addEventListener('storage', e => { if (e.key && e.key !== 'achievements' && e.key !== PLAYTIME_KEY) trophySyncDue = true; });
+function syncTrophiesLater() {
+    if (document.hidden || !trophySyncDue || !window.LAZY) return;
+    trophySyncDue = false;
+    LAZY.load('js/trophies.js').then(() => window.TROPHIES && TROPHIES.sync()).catch(() => { });
+}
+document.addEventListener('visibilitychange', syncTrophiesLater);
+window.addEventListener('focus', syncTrophiesLater);
+
+// ---------- install mrhakan 98 ----------
+// Chrome and Edge say an install is possible with beforeinstallprompt, once
+// and early, so this listens from the start. Safari never says it, so an
+// iphone gets the two taps written down instead.
+let installPrompt = null;
+const siteInstalled = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const appleMobile = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function paintInstall() {
+    const show = !siteInstalled() && (!!installPrompt || appleMobile());
+    document.querySelectorAll('.install-entry').forEach(el => el.classList.toggle('hidden', !show));
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; paintInstall(); });
+window.addEventListener('appinstalled', () => {
+    installPrompt = null; paintInstall();
+    unlockAchievement('installed');
+    showToast('setup.exe', 'installed. it is on your real desktop now bradar');
+});
+function installSite() {
+    const menu = document.getElementById('start-menu');
+    if (menu) { menu.classList.add('hidden'); startMenuOpen = false; }
+    playSound('click');
+    if (siteInstalled()) return showToast('setup.exe', 'you are already in the installed one bradar');
+    const told = lines => showRetroDialog({ title: 'install mrhakan 98', lines, okLabel: 'got it' });
+    if (installPrompt) {
+        const p = installPrompt;
+        installPrompt = null;
+        return Promise.resolve(p.prompt()).then(() => p.userChoice).then(c => {
+            if (c && c.outcome !== 'accepted') showToast('setup.exe', 'maybe later then');
+        }).catch(() => told(['the browser said no this time. try its own install button in the address bar.'])).finally(paintInstall);
+    }
+    told(appleMobile() ? [
+        'safari has no install button, so it is two taps:',
+        '1. tap share at the bottom of safari (the square with the arrow going up)',
+        '2. scroll down and tap "add to home screen"',
+        'after that it opens full screen from your home screen, like a real program.'
+    ] : [
+        'this browser did not offer an install.',
+        'in chrome or edge: the install icon at the right end of the address bar, or the menu, then "install mrhakan 98".',
+        'firefox on a computer does not install sites. it still works offline once you have been here.'
+    ]);
+}
+
 // ---------- boot everything ----------
 document.addEventListener('DOMContentLoaded', () => {
     applyDisplayPrefs();
@@ -789,6 +884,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initExtraSecrets();
     setTimeout(initPlaylistSearch, 900);
     showWelcomePopup();
+    initPlayClock();
+    paintInstall();
+    if (siteInstalled()) unlockAchievement('installed');
     if (localStorage.getItem('sparkles-off') === '1') {
         document.removeEventListener('mousemove', createSparkle);
     }

@@ -1,0 +1,82 @@
+/* the trophy room (js/trophies.js). Loaded with the window, not with the
+   desktop: the boot stylesheets have no room left, and nobody needs this
+   until they open it. */
+.tr-body { padding: 4px; background: #c0c0c0; }
+.tr-room { display: flex; flex-direction: column; gap: 6px; color: #000; font: 12px Tahoma, "MS Sans Serif", "Segoe UI", sans-serif; }
+
+.tr-head { display: flex; align-items: center; gap: 10px; }
+.tr-cup { font-size: 34px; line-height: 1; filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, .35)); }
+.tr-sum { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tr-path { font: bold 12px "Courier New", monospace; }
+.tr-meter { height: 18px; background: #fff; padding: 2px; }
+/* the Win98 progress bar is blocks, not a gradient */
+.tr-fill { height: 100%; background: repeating-linear-gradient(90deg, #000080 0 10px, transparent 10px 12px); min-width: 0; }
+.tr-line { font-size: 11px; color: #222; }
+.tr-btn { background: #c0c0c0; color: #000; padding: 4px 10px; min-height: 30px; font: 12px Tahoma, "MS Sans Serif", sans-serif; cursor: pointer; white-space: nowrap; }
+.tr-btn.small { min-height: 24px; padding: 1px 8px; font-size: 11px; }
+.tr-btn:active { transform: translateY(1px); }
+
+/* tabs sit on the panel, the selected one a little taller and joined to it */
+.tr-tabs { display: flex; gap: 2px; margin-bottom: -7px; padding-left: 4px; position: relative; z-index: 1; }
+.tr-tab {
+    background: #c0c0c0; color: #000; font: 12px Tahoma, "MS Sans Serif", sans-serif; padding: 4px 10px 5px; min-height: 30px; cursor: pointer;
+    border: 2px solid; border-color: #fff #404040 transparent #fff; border-radius: 3px 3px 0 0; margin-top: 3px;
+}
+.tr-tab.on { margin-top: 0; padding-bottom: 8px; font-weight: bold; }
+.tr-tab:focus-visible, .tr-plaque:focus-visible, .tr-btn:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.tr-page { background: #c0c0c0; padding: 8px; max-height: min(430px, calc(62vh / var(--z, 1))); overflow-y: auto; border-top-color: #fff; }
+
+/* a shelf: a group box with a glass case of trophies on a wooden plank */
+.tr-shelf { border: 2px groove #fff; padding: 4px 6px 6px; margin-bottom: 8px; }
+.tr-shelf-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.tr-shelf-name { font-weight: bold; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-shelf-count { font: bold 11px "Courier New", monospace; color: #000080; }
+.tr-case {
+    display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 6px 12px; min-height: 52px;
+    background: linear-gradient(#1a0b2e, #2a1450); border: 2px solid; border-color: #808080 #fff #fff #808080;
+    box-shadow: inset 0 -8px 0 #8a5a1e, inset 0 -10px 0 #c08a3e;
+}
+.tr-plaque {
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12);
+}
+.tr-plaque-icon { font-size: 24px; line-height: 1; filter: grayscale(1) brightness(.3); opacity: .8; }
+.tr-plaque:not(.got) .tr-plaque-icon { color: #9a8ec4; font: bold 18px "Courier New", monospace; }
+.tr-plaque.got { background: radial-gradient(circle at 50% 40%, rgba(255, 215, 90, .28), transparent 70%); border-color: rgba(255, 215, 90, .5); }
+.tr-plaque.got .tr-plaque-icon { filter: drop-shadow(0 0 4px rgba(255, 215, 90, .55)); opacity: 1; }
+.tr-plaque:hover { border-color: #0df259; }
+.tr-recs { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 4px; font-size: 11px; }
+.tr-recs i { font-style: normal; color: #555; }
+.tr-none { color: #9a8ec4; font-style: italic; font-size: 11px; align-self: center; }
+.tr-recs .tr-none { color: #666; }
+.tr-none.pad { display: block; padding: 18px 6px; color: #444; text-align: center; }
+
+/* every achievement: a white list view */
+.tr-filter { display: flex; gap: 14px; padding: 0 2px 6px; }
+.tr-filter label { display: flex; align-items: center; gap: 4px; min-height: 28px; cursor: pointer; }
+.tr-list { background: #fff; border: 2px solid; border-color: #808080 #fff #fff #808080; }
+.tr-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px dotted #c0c0c0; cursor: default; }
+.tr-row-icon { width: 28px; text-align: center; font-size: 20px; filter: grayscale(1) opacity(.45); }
+.tr-row.got .tr-row-icon { filter: none; }
+.tr-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tr-row-text small { color: #555; font-size: 11px; }
+.tr-row:not(.got) b { color: #666; }
+.tr-row-when { font: 11px "Courier New", monospace; color: #000080; white-space: nowrap; }
+.tr-row:not(.got) .tr-row-when { color: #999; }
+
+/* records: a details view */
+.tr-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 11px; }
+.tr-table th { position: sticky; top: -8px; background: #c0c0c0; text-align: left; font-weight: normal; padding: 3px 6px; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.tr-table td { padding: 3px 6px; border-bottom: 1px dotted #c0c0c0; vertical-align: top; }
+.tr-table a { color: #0000ee; }
+
+.tr-status { background: #c0c0c0; padding: 3px 6px; min-height: 22px; font-size: 11px; }
+
+.tr-share img { display: block; width: 100%; max-width: 560px; height: auto; border: 2px solid; border-color: #808080 #fff #fff #808080; }
+
+@media (max-width: 560px) {
+    .tr-head { flex-wrap: wrap; }
+    .tr-cup { font-size: 26px; }
+    .tr-tab { padding: 4px 6px 5px; }
+    .tr-row-when { display: none; }
+}

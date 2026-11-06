@@ -163,10 +163,10 @@
         },
         {
             id: 'achievements',
-            name: 'achievements',
+            name: 'trophy room',
             icon: '🏆',
-            keys: ['achievements'],
-            open: 'achievements',
+            keys: ['achievements', 'mrhakan98-playtime'],
+            open: 'trophies',
             summary() {
                 const a = json('achievements');
                 if (!a) return null;

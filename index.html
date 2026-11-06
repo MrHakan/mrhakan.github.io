@@ -21,7 +21,11 @@
   <link rel="alternate" type="application/rss+xml" title="mrhakan's shithole" href="feed.xml" />
   <link rel="alternate" type="application/feed+json" title="mrhakan's shithole" href="feed.json" />
   <link rel="icon" type="image/png" sizes="48x48" href="src/emoj/favicon-48.png" />
-  <link rel="apple-touch-icon" href="src/emoj/Cursed Pack 1-emojigg-pack/7161-joe-cool.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="src/icons/apple-touch-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="mrhakan 98" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <link rel="manifest" href="site.webmanifest" />
   <link rel="author" href="humans.txt" />
   <!-- indieweb: rel=me tells other sites these accounts are the same person -->
@@ -183,6 +187,11 @@
               class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
               <span class="material-symbols-outlined text-blue-600 group-hover:text-blue-700">link</span>
               <span class="text-black font-bold font-header">cool links</span>
+            </button>
+            <button onclick="startMenuAction('trophies')"
+              class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
+              <span class="material-symbols-outlined text-yellow-600 group-hover:text-yellow-700">emoji_events</span>
+              <span class="text-black font-bold font-header">trophy room</span>
             </button>
             <button onclick="copyDiscord()"
               class="bevel-out active:border-t-[#404040] active:border-l-[#404040] active:border-r-white active:border-b-white active:translate-y-[2px] bg-retro-gray p-2 flex items-center gap-2 group hover:bg-[#d4d4d4] transition-colors">
@@ -700,8 +709,8 @@
                 class="material-symbols-outlined text-blue-600">sports_esports</span>pong</button>
             <button onclick="startMenuAction('quiz')" class="start-item"><span
                 class="material-symbols-outlined text-purple-700">psychology</span>which track are you?</button>
-            <button onclick="startMenuAction('achievements')" class="start-item"><span
-                class="material-symbols-outlined text-yellow-600">emoji_events</span>achievements</button>
+            <button onclick="startMenuAction('trophies')" class="start-item"><span
+                class="material-symbols-outlined text-yellow-600">emoji_events</span>trophy room</button>
           </div>
         </div>
         <div class="start-sub">
@@ -861,6 +870,9 @@
           <span class="material-symbols-outlined text-blue-500">chat</span>discord me
         </button>
         <div class="border-t border-[#808080] border-b border-b-white my-1"></div>
+        <button onclick="installSite()" class="start-item install-entry hidden">
+          <span class="material-symbols-outlined text-blue-800">computer</span>install mrhakan 98
+        </button>
         <button onclick="startMenuAction('find')" class="start-item">
           <span class="material-symbols-outlined text-yellow-700">search</span>find...
         </button>
@@ -899,6 +911,8 @@
     <div class="w-0 h-7 border-l border-[#808080] border-r border-r-white mx-1"></div>
     <div id="taskbar-windows" class="flex-1 flex items-center gap-1 overflow-hidden min-w-0"></div>
     <div class="ml-auto bevel-in bg-retro-gray h-8 px-2 flex items-center gap-2 flex-shrink-0">
+      <button onclick="installSite()" title="install mrhakan 98" aria-label="install mrhakan 98"
+        class="install-entry hidden material-symbols-outlined text-black text-base leading-none cursor-pointer">computer</button>
       <button onclick="toggleSound()" id="tray-sound" title="toggle sound"
         class="material-symbols-outlined text-black text-base leading-none cursor-pointer">volume_up</button>
       <span id="taskbar-clock" class="font-header text-black text-xs tabular-nums">--:--</span>
