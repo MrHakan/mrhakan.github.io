@@ -314,8 +314,9 @@ so it never waits. A guest whose line goes quiet freezes until the host is heard
 The dungeon is one height map, so its floor and walls come out of the same mesher as the
 wizardz arenas, about ten thousand triangles in one draw call, with the rock nobody can see
 the top of left out. Minions and bosses are boxes on hinges. A frame with four wizards and 45
-minions awake is about 70 draw calls and 3.5ms of javascript, and on CI's software renderer,
-with no gpu at all, 37fps.
+minions awake is about 75 draw calls and 1 to 3.5ms of javascript a frame. On this machine's gpu
+(headless chromium, `DZ_GPU=1`) it holds 60fps, which is all headless gives, and on a software
+renderer with no gpu at all, as CI has, 37 to 60fps depending on what else the machine is doing.
 
 ### balance
 

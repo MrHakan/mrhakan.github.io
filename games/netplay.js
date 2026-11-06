@@ -1233,7 +1233,7 @@
         {
             id: 'dungeonz',
             name: 'dungeonz 98',
-            icon: 'swords',
+            icon: 'bug_report',
             min: 2, max: 4,
             blurb: 'a co-op raid for four: rooms of minions, shrines, cards, a boss at the end. bots take the empty seats',
             options: [

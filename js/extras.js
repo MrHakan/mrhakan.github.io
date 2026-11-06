@@ -525,7 +525,7 @@ function dzLoadScripts() {
 
 function openDungeonz(mode) {
     if (window.startDungeonz) { startDungeonz(mode); return; }
-    const { body, win } = createAppWindow('dungeonz 98', { icon: 'swords', width: 320 });
+    const { body, win } = createAppWindow('dungeonz 98', { icon: 'bug_report', width: 320 });
     body.innerHTML = '<div class="bj-loading">lighting the torches...</div>';
     dzLoadScripts().then(() => {
         replaceLazyWindow(win, () => startDungeonz(mode));

@@ -1431,7 +1431,7 @@
         ensureCss();
         if (winRef && document.getElementById(winRef.id)) return winRef;
         const vw = typeof viewportWidth === 'function' ? viewportWidth() : 1000;
-        winRef = createAppWindow('dungeonz 98', { icon: 'swords', width: min(1000, vw - 20) });
+        winRef = createAppWindow('dungeonz 98', { icon: 'bug_report', width: min(1000, vw - 20) });
         winRef.id = winRef.id || winRef.win.id;
         winRef.body.classList.add('wz-body', 'dz-body');
         if (document.documentElement.clientHeight < 500) winRef.win.style.top = '0px';
