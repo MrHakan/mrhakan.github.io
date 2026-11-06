@@ -2297,7 +2297,7 @@ function createAppWindow(title, opts = {}) {
     // canvas inside it up to fit. esc gets you out, same as every other app.
     const fsBtn = document.createElement('button');
     fsBtn.className = 'ie-titlebar-btn bevel-out fs-btn';
-    fsBtn.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+    paintFsButton(fsBtn, false);
     fsBtn.title = 'full screen';
     fsBtn.onclick = () => toggleWindowFullscreen(win);
     const closeBtn = document.createElement('button');
@@ -2443,7 +2443,7 @@ function enterFauxFullscreen(win) {
     markFullscreenButton(win, true);
     fitFullscreenCanvas(win);
     // there is no escape key on a phone, so say how to get out
-    showToast('display', 'fullscreen. the ⤢ button in the title bar gets you out');
+    showToast('display', 'fullscreen. the exit button in the title bar gets you out');
 }
 
 function exitFauxFullscreen() {
@@ -2466,10 +2466,20 @@ function exitWindowFullscreen() {
     if (ex && document.fullscreenElement) ex.call(document);
 }
 
+// The way out of fullscreen used to be the icon font's fullscreen_exit, which is not in
+// the site's subset of that font: it drew the way IN, followed by a stray "_exit", so on
+// a phone the one button that got you out looked like nothing in particular. Both are
+// drawn here instead, and on a touch screen the way out also says so in words.
+const FS_ICONS = {
+    in: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>',
+    out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></svg><span class="fs-label">exit</span>'
+};
+function paintFsButton(btn, on) {
+    btn.innerHTML = on ? FS_ICONS.out : FS_ICONS.in;
+}
 function markFullscreenButton(win, on) {
-    const b = win.querySelector('.fs-btn .material-symbols-outlined');
-    if (b) b.textContent = on ? 'fullscreen_exit' : 'fullscreen';
     const btn = win.querySelector('.fs-btn');
+    if (btn) paintFsButton(btn, on);
     if (btn) {
         btn.title = on ? 'leave full screen' : 'full screen';
         btn.setAttribute('aria-label', btn.title);
@@ -2522,15 +2532,13 @@ function onFullscreenChange() {
     document.querySelectorAll('.app-window.fs-active').forEach(w => {
         if (w !== fs) {
             w.classList.remove('fs-active');
-            const b = w.querySelector('.fs-btn .material-symbols-outlined');
-            if (b) b.textContent = 'fullscreen';
+            markFullscreenButton(w, false);
             fitFullscreenCanvas(w);
         }
     });
     if (fs && fs.classList && fs.classList.contains('app-window')) {
         fs.classList.add('fs-active');
-        const b = fs.querySelector('.fs-btn .material-symbols-outlined');
-        if (b) b.textContent = 'fullscreen_exit';
+        markFullscreenButton(fs, true);
         // let the fullscreen layout settle before measuring it
         requestAnimationFrame(() => requestAnimationFrame(() => fitFullscreenCanvas(fs)));
     }

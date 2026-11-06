@@ -6154,10 +6154,18 @@ body.disco-floor::after {
 /* ===================================================================
    fullscreen windows
    =================================================================== */
-.fs-btn .material-symbols-outlined {
-    font-size: 14px;
-    line-height: 1;
+.fs-btn svg {
+    width: 14px;
+    height: 14px;
     vertical-align: middle;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: square;
+}
+
+.fs-btn .fs-label {
+    display: none;
 }
 
 /* :fullscreen paints its own black backdrop and ignores the window's
@@ -6170,6 +6178,10 @@ body.disco-floor::after {
     width: calc(100vw / var(--z, 1)) !important;
     max-width: calc(100vw / var(--z, 1)) !important;
     height: calc(100vh / var(--z, 1)) !important;
+    /* a narrow screen caps every window at the screen less the taskbar
+       (.is-narrow .app-window): in fullscreen there is no taskbar to leave
+       room for, and that cap left the bottom 96px of a phone bare */
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
@@ -6187,6 +6199,9 @@ body.disco-floor::after {
 .app-window.fs-active .app-window-body {
     flex: 1 1 auto;
     min-height: 0;
+    /* a body capped for the desktop (wizardz's is 80vh) left the bottom of a
+       fullscreen window bare grey: in fullscreen the window is the limit */
+    max-height: none;
     overflow: auto;
     display: flex;
     flex-direction: column;
@@ -7376,10 +7391,14 @@ body.disco-floor::after {
 
 .wz-menu-main {
     flex: 1 1 260px;
+    /* a flex item will not shrink below its content: one wide row made every
+       button in the column wider than a phone, cut off on the right */
+    min-width: 0;
 }
 
 .wz-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     margin: 5px 0;
@@ -9853,6 +9872,22 @@ html.fs-locked body {
     .app-window.fs-active .fs-btn {
         min-width: 44px;
         min-height: 36px;
+        /* the one button that matters here: it says what it does, and it stands out */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        width: auto;
+        padding: 0 8px;
+        background: #ffe14d;
+        color: #000;
+    }
+
+    .app-window.fs-active .fs-btn .fs-label {
+        display: inline;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
     }
 
     .app-window.fs-active .app-window-header {

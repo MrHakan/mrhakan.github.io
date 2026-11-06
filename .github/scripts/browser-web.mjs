@@ -702,6 +702,13 @@ section('fullscreen, including where the api will not do it');
     expect(fs.fillsW && fs.fillsH, 'and it fills the viewport', JSON.stringify(fs));
     expect(fs.locked, 'and nothing behind it scrolls');
     expect(fs.z > 9600, 'and nothing is drawn over it, not even the toasts', 'z ' + fs.z);
+    // the way out was the icon font's fullscreen_exit, which is not in the site's subset
+    // of that font: it drew the way in, then a stray "_exit". It is drawn, not spelled
+    const wayOut = await p.evaluate(() => {
+        const b = document.querySelector('.app-window .fs-btn');
+        return { svg: !!b.querySelector('svg'), font: !!b.querySelector('.material-symbols-outlined'), text: b.textContent.trim(), title: b.title };
+    });
+    expect(wayOut.svg && !wayOut.font && /leave/.test(wayOut.title), 'the way out is drawn as a way out, not left to a font that does not have it', JSON.stringify(wayOut));
 
     // there is no escape key on a phone, but there is one here
     await p.keyboard.press('Escape');
@@ -717,6 +724,61 @@ section('fullscreen, including where the api will not do it');
     expect(after.gone && after.unlocked, 'escape leaves it', JSON.stringify(after));
     expect(after.stillOpen, 'and leaves the window it was showing open, rather than closing it');
     await p.close();
+}
+{
+    // on a phone there is no escape key: the button is the only way out, so it has to
+    // be the obvious thing in the title bar, and one tap has to work
+    const phone = await browser.newContext({
+        viewport: { width: 360, height: 740 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
+    });
+    await phone.route('**/*', route => /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(route.request().url()) ? route.continue() : route.abort());
+    await mockGiscus(phone);
+    await phone.addInitScript(() => {
+        try { sessionStorage.setItem('welcomed', '1'); sessionStorage.setItem('booted', '1'); } catch (e) { }
+        // safari on an iphone: no element fullscreen, so it is the css one
+        Element.prototype.requestFullscreen = undefined;
+        Element.prototype.webkitRequestFullscreen = undefined;
+    });
+    const p = await phone.newPage();
+    p.on('pageerror', e => errors.push('phone fullscreen: ' + e.message));
+    await p.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await p.evaluate(() => { document.getElementById('boot-screen')?.remove(); window.soundEnabled = false; });
+    await p.waitForTimeout(500);
+    await p.evaluate(() => openSolitaire());
+    await p.waitForTimeout(900);
+    await p.tap('.app-window .fs-btn');
+    await p.waitForTimeout(600);
+    const out = await p.evaluate(() => {
+        const b = document.querySelector('.app-window .fs-btn'), r = b.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const label = b.querySelector('.fs-label');
+        return {
+            fs: document.querySelector('.app-window').classList.contains('fs-active'),
+            says: label && getComputedStyle(label).display !== 'none' ? label.textContent : '',
+            onScreen: r.left >= 0 && r.right <= innerWidth && r.top >= 0, reachable: !!hit && b.contains(hit),
+            w: Math.round(r.width), h: Math.round(r.height), bg: getComputedStyle(b).backgroundColor
+        };
+    });
+    expect(out.fs && out.says === 'exit', 'on a phone in fullscreen the way out says exit', JSON.stringify(out));
+    expect(out.onScreen && out.reachable && out.w >= 44 && out.h >= 36, 'and it is on the screen, uncovered, and a thumb can hit it', JSON.stringify(out));
+    expect(out.bg !== 'rgb(192, 192, 192)', 'and it does not look like the buttons beside it', out.bg);
+    // a narrow screen caps every window at the screen less the taskbar, and that cap
+    // stayed on in fullscreen: the bottom 96px of a phone was the desktop
+    const fill = await p.evaluate(() => {
+        const w = document.querySelector('.app-window'), wr = w.getBoundingClientRect(), br = w.querySelector('.app-window-body').getBoundingClientRect();
+        return { winShort: Math.round(innerHeight - wr.bottom), bodyShort: Math.round(wr.bottom - br.bottom), top: Math.round(wr.top) };
+    });
+    expect(fill.top === 0 && fill.winShort <= 1, 'and the window it belongs to fills the whole phone, to the bottom', JSON.stringify(fill));
+    expect(fill.bodyShort <= 8, 'and what is in the window fills the window', JSON.stringify(fill));
+    await p.tap('.app-window .fs-btn');
+    await p.waitForTimeout(600);
+    const back = await p.evaluate(() => ({
+        fs: document.querySelector('.app-window').classList.contains('fs-active'),
+        locked: document.documentElement.classList.contains('fs-locked')
+    }));
+    expect(!back.fs && !back.locked, 'one tap on it and you are out', JSON.stringify(back));
+    await phone.close();
 }
 
 // ===================================================================

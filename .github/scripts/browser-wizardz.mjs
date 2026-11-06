@@ -1439,6 +1439,42 @@ try {
     }
 
     // ===================================================================
+    section('the menu, fullscreen on a narrow phone');
+    // ===================================================================
+    // From a screenshot: a phone with no courier new falls back to a wider monospace,
+    // and the teams, map and difficulty row would not wrap. The menu column cannot
+    // shrink below its widest row, so every button in it ran off the right of the
+    // screen. And the body kept its desktop cap of 80vh, leaving the bottom bare.
+    {
+        const ctx = await context({ viewport: { width: 320, height: 658 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+        await ctx.addInitScript(() => {
+            Element.prototype.requestFullscreen = undefined;
+            Element.prototype.webkitRequestFullscreen = undefined;
+            document.addEventListener('DOMContentLoaded', () => {
+                const s = document.createElement('style');
+                s.textContent = '.wz-body, .wz-body * { font-family: "DejaVu Sans Mono", monospace !important; letter-spacing: 1.6px !important; }';
+                document.head.appendChild(s);
+            });
+        });
+        const p = await open(ctx);
+        await p.evaluate(() => openWizardz());
+        await p.waitForSelector('#wz-solo', { timeout: 30000 });
+        await p.waitForTimeout(400);
+        await p.tap('.app-window:has(.wz-body) .fs-btn');
+        await p.waitForTimeout(800);
+        const m = await p.evaluate(() => {
+            const w = document.querySelector('.app-window:has(.wz-body)'), body = w.querySelector('.app-window-body');
+            const wr = w.getBoundingClientRect(), br = body.getBoundingClientRect();
+            const cut = [...body.querySelectorAll('button, select, input')].filter(e => e.offsetParent && e.getBoundingClientRect().right > br.right - 1).map(e => e.id || e.tagName);
+            return { fs: w.classList.contains('fs-active'), cut, sideways: body.scrollWidth - body.clientWidth, winShort: Math.round(innerHeight - wr.bottom), bodyShort: Math.round(wr.bottom - br.bottom) };
+        });
+        expect(m.fs && !m.cut.length && m.sideways <= 1, 'with a wide font on a narrow phone, nothing in the menu runs off the right', JSON.stringify(m));
+        expect(m.winShort <= 1 && m.bodyShort <= 8, 'and fullscreen means the whole screen, not 80% of it', JSON.stringify(m));
+        await p.screenshot({ path: SHOTS + '/wz-menu-narrow-fullscreen.png' });
+        await ctx.close();
+    }
+
+    // ===================================================================
     section('a phone held upright, and aim assist for thumbs');
     // ===================================================================
     {
