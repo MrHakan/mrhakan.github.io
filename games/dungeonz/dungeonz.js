@@ -238,6 +238,9 @@
         paintCards(g, true);
         // the card that had the focus has gone: give it back to the dungeon, or the keys stop
         focusGame(g);
+        // the last card picked, by a click or a key: that is a gesture, so the same press takes
+        // the mouse back. If the browser says not yet, the overlay asks for one more click
+        if (!g.cardsShown && !g.touchMode && !g.noLock && !g.ended && !isLocked(g)) askLock(g);
     }
 
     // ===============================================================
@@ -476,6 +479,15 @@
         }
     }
 
+    // A second button pressed while one is already down is not a pointerdown, because the
+    // pointer is already down: it is a pointermove whose button says which one changed, and
+    // letting go of one of two is a pointermove too. So holding the right button to aim
+    // and pressing the left fired nothing.
+    const BUTTON_BIT = [1, 4, 2, 8, 16];
+    function chorded(ev, down, up) {
+        if (ev.type !== 'pointermove' || !(ev.button >= 0) || ev.button > 4) return;
+        if (ev.buttons & BUTTON_BIT[ev.button]) down(ev); else up(ev);
+    }
     function bindInput(g) {
         const cv = g.cv, stage = g.stage;
         g.touch = IS_TOUCH();
@@ -486,6 +498,8 @@
             if (g.paused || g.ended) return;
             ev.preventDefault();
             focusGame(g);
+            // while there is a card to pick, the mouse stays a pointer
+            if (g.cardsShown && !isLocked(g) && !g.noLock) return;
             if (!isLocked(g) && !g.noLock) { askLock(g); g.mouseX = ev.clientX; g.mouseY = ev.clientY; if (!g.stance) return; }
             if (g.noLock) { g.mouseX = ev.clientX; g.mouseY = ev.clientY; g.dragging = true; }
             if (ev.button === 2) { if (g.stance) clearStance(g); return; }
@@ -496,7 +510,9 @@
             } else { g.wantFire = true; g.fireQ = true; }
         };
         const move = ev => {
-            if (isFinger(ev) || g.paused) return;
+            if (isFinger(ev)) return;
+            chorded(ev, down, up);
+            if (g.paused) return;
             if (isLocked(g)) {
                 const mx = ev.movementX || 0, my = ev.movementY || 0;
                 if (abs(mx) > 500 || abs(my) > 500) return;
@@ -1266,7 +1282,12 @@
         const key = show ? h.picks + ':' + h.offer.map(c => c.t + c.id).join(',') : '';
         if (!force && key === g.cardsKey) return;
         g.cardsKey = key;
+        const was = !!g.cardsShown;
         g.cardsShown = show ? h.offer : null;
+        // cards are picked with a pointer, and a locked mouse has none. Letting go of it here is
+        // not the player letting go, so the run does not pause
+        if (show && isLocked(g)) { g.hadLock = false; g.wantFire = false; freeMouse(g); }
+        if (was !== show) paintOverlay(g);
         if (!show) { el.style.display = 'none'; el.innerHTML = ''; return; }
         el.style.display = '';
         el.innerHTML = `<div class="dz-cards-title">pick a card <span>${h.picks} to spend</span></div><div class="dz-cards-row">` +
@@ -1302,7 +1323,7 @@
         if (g.paused) { panel(`<div class="wz-dialog-title">paused</div><p>${g.pauseWhy === 'mouse' ? 'you let go of the mouse.' : 'take your time bradar.'}</p><button class="wz-btn wz-go wz-wide" data-go="resume">carry on</button>${buttons}`); wire(); return; }
         if (g.menuOpen) { panel(`<div class="wz-dialog-title">menu</div><p>this does not stop the run bradar.</p><button class="wz-btn wz-go wz-wide" data-go="resume">back to it</button>${buttons}`); wire(); return; }
         if (g.netDown) { panel(`<div class="wz-dialog-title">the line went quiet</div><p>the host vanished. if they come back this carries on from here.</p><button class="wz-btn wz-wide" data-go="quit">leave the dungeon</button>`); wire(); return; }
-        if (!g.touchMode && !g.touch && !g.noLock && !isLocked(g) && !g.s.over) {
+        if (!g.touchMode && !g.touch && !g.noLock && !isLocked(g) && !g.s.over && !g.cardsShown) {
             o.style.display = '';
             o.innerHTML = '<button class="wz-clicktoplay" id="dz-click">click to take the mouse. esc lets go.</button>';
             o.querySelector('#dz-click').onclick = () => { askLock(g); focusGame(g); };
@@ -1395,7 +1416,9 @@
             if (w < 520 && vh > w) h = clamp(w * 1.25, 120, room);
         }
         h = floor(h);
-        if (g.stageW === w && g.stageH === h && g.hudW === wantHudW(g, w)) return;
+        // the canvases' own sizes are checked too: anything else that sets them (the desktop
+        // fitting a fullscreen window's canvases, say) is undone here rather than kept
+        if (g.stageW === w && g.stageH === h && g.hudW === wantHudW(g, w) && g.cv.style.width === w + 'px' && g.cv.style.height === h + 'px' && g.hud.style.width === w + 'px' && g.hud.style.height === h + 'px') return;
         g.stageW = w; g.stageH = h;
         stage.style.width = w + 'px'; stage.style.height = h + 'px';
         const aspect = w / h;
@@ -1475,8 +1498,8 @@
         root.classList.add('wz-playing');
         root.innerHTML = `
             <div class="wz-stage dz-stage" id="dz-stage">
-                <canvas id="dz-canvas" class="wz-canvas" tabindex="0" aria-label="The dungeon. W A S D walks, the mouse looks, click fires your staff, 1 to 4 cast your skills, E draws a sigil, space jumps, shift dashes."></canvas>
-                <canvas id="dz-hud" class="wz-hud" aria-hidden="true"></canvas>
+                <canvas id="dz-canvas" class="wz-canvas" data-fit="self" tabindex="0" aria-label="The dungeon. W A S D walks, the mouse looks, click fires your staff, 1 to 4 cast your skills, E draws a sigil, space jumps, shift dashes."></canvas>
+                <canvas id="dz-hud" class="wz-hud" data-fit="self" aria-hidden="true"></canvas>
                 <div id="dz-touch" class="wz-touch" style="display:none">
                     <button type="button" class="wz-t wz-t-fire" id="dz-t-fire" aria-label="fire">fire</button>
                     <button type="button" class="wz-t dz-t-skill" id="dz-t-s0" aria-label="skill 1">1</button>

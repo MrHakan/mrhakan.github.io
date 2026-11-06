@@ -207,6 +207,12 @@
     //   volley   a fan of bolts                           n, spread, dmg, speed
     //   spiral   bolts going round, for a while           n, dur, dmg, speed, spin
     //   summon   some of the dungeon's minions            kinds, n
+    //
+    // A dungeon's bossDmg multiplies everything its boss does. The party is always four,
+    // three of them bots that level with you, so a boss is tuned against four wizards at
+    // the level they get there. The troll king used to die at the first go every time,
+    // and nobody went down much: check-dungeonz now holds how often a party beats each
+    // boss at the first go, and how often somebody goes down while it is up.
     // ---------------------------------------------------------------
     const ATTACKS = {
         slam: { kind: 'slam', r: 5.2, windup: 1.2, dmg: 45 },
@@ -226,7 +232,7 @@
         clippy: {
             name: 'clippy the unhelpful', hp: 11000, r: 1.6, h: 4.2, speed: 2.6, xp: 0,
             look: 'clippy',
-            gap: 1.6,   // seconds between attacks
+            gap: 1.45,  // seconds between attacks
             phases: [
                 { at: 1, attacks: ['volley', 'slam', 'rain'], line: 'it looks like you are trying to raid a dungeon' },
                 { at: 0.66, attacks: ['volley', 'slam', 'rain', 'summon'], summon: { kinds: ['gremlin', 'swarm'], n: 6 }, line: 'would you like help with that' },
@@ -234,9 +240,9 @@
             ]
         },
         trollking: {
-            name: 'the troll king', hp: 20000, r: 1.9, h: 4.8, speed: 2.8, xp: 0,
+            name: 'the troll king', hp: 18000, r: 1.9, h: 4.8, speed: 2.8, xp: 0,
             look: 'troll',
-            gap: 1.4,
+            gap: 1,
             phases: [
                 { at: 1, attacks: ['slam', 'lane', 'volley'], line: 'problem?' },
                 { at: 0.66, attacks: ['ring', 'lane', 'summon', 'rain'], summon: { kinds: ['brute', 'gremlin', 'gremlin', 'healer'], n: 4 }, line: 'u mad bradar' },
@@ -246,7 +252,7 @@
         bsod: {
             name: 'the blue screen', hp: 25000, r: 2.2, h: 5.6, speed: 2.4, xp: 0,
             look: 'bsod',
-            gap: 1.25,
+            gap: 1.1,
             phases: [
                 { at: 1, attacks: ['lane', 'spiral', 'volley9'], line: 'a fatal exception has occurred' },
                 { at: 0.66, attacks: ['rain2', 'ring', 'summon', 'lane3'], summon: { kinds: ['bomber', 'bomber', 'healer', 'shield'], n: 5 }, line: 'press any key to continue' },
@@ -269,7 +275,7 @@
             rooms: [3, 3, 3], packs: [2, 3], pack: [4, 6],
             kinds: { gremlin: 5, swarm: 3, popup: 3, bomber: 2 },
             late: { brute: 1 },
-            hpMul: 1, dmgMul: 1, grow: 0.6, elite: 0, bossDmg: 1,
+            hpMul: 1, dmgMul: 1, grow: 0.6, elite: 0, bossDmg: 1.25,
             boss: 'clippy',
             theme: {
                 floor: ['floor', 'floor2'], wall: 'brick', cliff: 'brick', gate: 'low',
@@ -283,7 +289,7 @@
             rooms: [3, 4, 4], packs: [2, 3], pack: [5, 7],
             kinds: { gremlin: 4, popup: 3, shield: 2, brute: 1, healer: 1, bomber: 2, swarm: 2 },
             late: { brute: 1, healer: 1 },
-            hpMul: 1, dmgMul: 1.1, grow: 0.66, elite: 0.08, bossDmg: 1.25,
+            hpMul: 1, dmgMul: 1.1, grow: 0.66, elite: 0.08, bossDmg: 2.1,
             boss: 'trollking',
             theme: {
                 floor: ['chip', 'floor2'], wall: 'slab', cliff: 'slab', gate: 'low',
@@ -297,7 +303,7 @@
             rooms: [4, 4, 4], packs: [3, 3], pack: [5, 8],
             kinds: { gremlin: 3, popup: 3, shield: 2, brute: 2, healer: 2, bomber: 3, swarm: 2 },
             late: { brute: 1, healer: 1, shield: 1 },
-            hpMul: 1.05, dmgMul: 1.2, grow: 1, elite: 0.18, bossDmg: 1.6,
+            hpMul: 1.05, dmgMul: 1.2, grow: 1, elite: 0.14, bossDmg: 2.25,
             boss: 'bsod',
             theme: {
                 floor: ['disk', 'floor'], wall: 'low', cliff: 'low', gate: 'slab',

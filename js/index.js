@@ -2530,6 +2530,9 @@ function fitFullscreenCanvas(win) {
     if (!win) return;
     win.querySelectorAll('canvas').forEach(cv => {
         if (!cv.width || !cv.height) return;
+        // a game that sizes its own canvases every frame: measuring round its stage, which
+        // is still there at full size, left the 3d games a box in the corner of the screen
+        if (cv.dataset.fit === 'self') return;
         if (!win.classList.contains('fs-active')) { cv.style.width = ''; cv.style.height = ''; return; }
         const box = cv.closest('.app-window-body') || win;
         // shrink the canvas to nothing and measure where the surrounding chrome

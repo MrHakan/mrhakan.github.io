@@ -749,6 +749,15 @@
         paintOverlay(g);
     }
 
+    // A second button pressed while one is already down is not a pointerdown, because the
+    // pointer is already down: it is a pointermove whose button says which one changed, and
+    // letting go of one of two is a pointermove too. So holding the right button to aim
+    // and pressing the left fired nothing.
+    const BUTTON_BIT = [1, 4, 2, 8, 16];
+    function chorded(ev, down, up) {
+        if (ev.type !== 'pointermove' || !(ev.button >= 0) || ev.button > 4) return;
+        if (ev.buttons & BUTTON_BIT[ev.button]) down(ev); else up(ev);
+    }
     function bindInput(g) {
         const cv = g.cv, stage = g.stage;
         const touch = g.touch = IS_TOUCH();
@@ -780,6 +789,7 @@
         };
         const move = ev => {
             if (isFinger(ev)) return;
+            chorded(ev, down, up);
             if (g.paused) return;
             if (isLocked(g)) {
                 const mx = ev.movementX || 0, my = ev.movementY || 0;
@@ -1374,7 +1384,7 @@
         const wiz = buildWizards(g, dt, alpha);
         const mine = wiz[g.me];
         // the camera follows you, with your own yaw and pitch, which never wait for anything
-        const proxy = { x: mine.x, y: mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch, aim: (g.wantAim || g.touchAim) && !g.stance };
+        const proxy = { x: mine.x, y: mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch, aim: (g.wantAim || g.touchAim) && !g.stance, lens: true };
         const cam = S.camera(s, proxy);
         g.camT = cam.t;
         assistAim(g, dt, wiz, cam);
@@ -2215,8 +2225,8 @@
         root.classList.add('wz-playing');
         root.innerHTML = `
             <div class="wz-stage" id="wz-stage">
-                <canvas id="wz-canvas" class="wz-canvas" tabindex="0" aria-label="The arena. W A S D walks, the mouse looks, E starts drawing a sigil, click fires, right click aims, space jumps, shift dashes."></canvas>
-                <canvas id="wz-hud" class="wz-hud" aria-hidden="true"></canvas>
+                <canvas id="wz-canvas" class="wz-canvas" data-fit="self" tabindex="0" aria-label="The arena. W A S D walks, the mouse looks, E starts drawing a sigil, click fires, right click aims, space jumps, shift dashes."></canvas>
+                <canvas id="wz-hud" class="wz-hud" data-fit="self" aria-hidden="true"></canvas>
                 <div id="wz-touch" class="wz-touch" style="display:none">
                     <button type="button" class="wz-t wz-t-fire" id="wz-t-fire" aria-label="fire">fire</button>
                     <button type="button" class="wz-t wz-t-ink" id="wz-t-ink" aria-label="draw a sigil">ink</button>

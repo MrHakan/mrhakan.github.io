@@ -299,7 +299,7 @@
         return s;
     }
     function newStats() {
-        return { kills: 0, wipes: 0, downs: 0, revives: 0, bossT: 0, bossAt: -1, levelAtBoss: 0, picks: {}, dmg: {}, saved: {}, own: {}, sections: [], deaths: 0, casts: 0 };
+        return { kills: 0, wipes: 0, downs: 0, revives: 0, bossT: 0, bossAt: -1, levelAtBoss: 0, bossTries: 0, bossDowns: 0, picks: {}, dmg: {}, saved: {}, own: {}, sections: [], deaths: 0, casts: 0 };
     }
     const blankInput = () => ({ mx: 0, mz: 0, yaw: PI, pitch: 0, fire: false, jump: false, dash: false, ink: false });
     function addMinion(s, m) { s.minions.push(m); s.byId.set(m.id, m); }
@@ -645,7 +645,7 @@
             h.revive = 0;
             h.stance = false;
             h.regen = [];
-            if (s.stats) s.stats.downs++;
+            if (s.stats) { s.stats.downs++; if (s.bossOn) s.stats.bossDowns++; }
             emit(s, 'down', h.i);
         }
         return amount;
@@ -714,7 +714,14 @@
                     if (m.room !== rm.i || m.state !== 1) continue;
                     let near = 1e9;
                     for (const h of alive) near = min(near, hypot(h.x - m.x, h.z - m.z));
-                    if (near > 14) { m.x = rm.cx + (rnd(s) - 0.5) * 4; m.z = rm.cz + (rnd(s) - 0.5) * 4; }
+                    if (near <= 14) continue;
+                    // onto the floor: the middle of a room can be a pillar, and a minion put
+                    // inside one could not be shot or reached, so the room never cleared
+                    for (let k = 0; k < 12; k++) {
+                        const spread = 4 + k;
+                        const x = rm.cx + (rnd(s) - 0.5) * spread, z = rm.cz + (rnd(s) - 0.5) * spread;
+                        if (dun.world.at(x, z) < 0.3 && dun.world.at(x + m.r, z) < 0.3 && dun.world.at(x - m.r, z) < 0.3 && dun.world.at(x, z + m.r) < 0.3 && dun.world.at(x, z - m.r) < 0.3 && !gateAt(s, x, z, m.r)) { m.x = x; m.z = z; break; }
+                    }
                 }
             }
         } else { s.frontT = 0; s.brave = false; }
@@ -1113,7 +1120,7 @@
             hp: B.hp, maxHp: B.hp, phase: 0, gap: 2.5, atk: null, atkT: 0, n: 0, safe: 0, hitT: 0, target: 0, stunT: 0, slow: 0, slowT: 0, spiral: null
         };
         s.bossOn = true;
-        if (s.stats) { s.stats.bossAt = s.t; s.stats.levelAtBoss = s.heroes.reduce((a, h) => a + h.level, 0) / s.heroes.length; }
+        if (s.stats) { s.stats.bossTries++; s.stats.bossAt = s.t; s.stats.levelAtBoss = s.heroes.reduce((a, h) => a + h.level, 0) / s.heroes.length; }
         emit(s, 'boss', 0);
     }
     function bossTarget(s) {
@@ -1853,23 +1860,62 @@
     // ===============================================================
     // the camera, which the page and the tests both want
     // ===============================================================
+    // The camera is a spring arm from a point just over your head. It swings round that point
+    // with your pitch: looking up brings it down behind you and tips it up, looking down lifts it
+    // over you and tips it down. It used to do the opposite, rising over the walls as you looked
+    // up and sinking into the floor and the wall beside you as you looked down.
+    //
+    // The lens is a ball, not a point: the near plane is 0.2m away and wide, so a camera that only
+    // kept its centre out of a wall still drew half the screen as the inside of it. It stays below
+    // the tops of the walls, which are the edge of the world. Where there is no room behind you,
+    // it lifts the arm, up to straight over your head, rather than going into the wall or your hat.
+    // It looks at a point ahead of you along your aim, nearer when it is close, so you stay in the
+    // picture as it lifts.
+    const CAM = { pivot: 1.7, len: 6, tilt: 0.2, lens: 0.42, floor: 0.4, under: 0.7, focus: 9, step: 0.2 };
+    const LENS = [];
+    for (let k = 0; k < 16; k++) LENS.push([cos(k * PI / 8), sin(k * PI / 8)]);
+    for (let k = 0; k < 8; k++) LENS.push([cos(k * PI / 4 + PI / 8) * 0.6, sin(k * PI / 4 + PI / 8) * 0.6]);
+    function lensFits(s, W, x, y, z, r) {
+        if (y - W.at(x, z) < CAM.floor) return false;
+        for (let k = 0; k < LENS.length; k++) if (W.at(x + LENS[k][0] * r, z + LENS[k][1] * r) > y - 0.05) return false;
+        return !gateAt(s, x, z, r);
+    }
     function camera(s, h, out) {
         out = out || {};
-        const yaw = h.yaw, pitch = h.pitch || 0;
+        const yaw = h.yaw, pitch = h.pitch || 0, W = W_(s);
         const fx = sin(yaw), fz = -cos(yaw);
-        const back = 6, up = 3.3;
-        let dist = back;
-        const W = W_(s);
-        // pull in rather than look through a wall
-        for (let d = 0.5; d <= back; d += 0.25) {
-            const x = h.x - fx * d * cos(pitch), z = h.z - fz * d * cos(pitch);
-            if (W.at(x, z) > h.y + up - 0.3) { dist = max(1.2, d - 0.5); break; }
+        const px = h.x, py = h.y + CAM.pivot, pz = h.z;
+        const top = h.y + WALL_H - CAM.under;
+        const want = CAM.tilt - pitch;
+        // you can stand closer to a wall than the lens is wide, and the arm starts at you
+        let r = CAM.lens;
+        while (r > 0.3 && !lensFits(s, W, px, py, pz, r)) r -= 0.04;
+        let best = null;
+        for (let k = 0; k <= 5; k++) {
+            const e = k ? want + (PI / 2 - want) * k / 5 : want;
+            if (k && want >= PI / 2 - 0.01) break;
+            const ce = cos(e), se = sin(e);
+            let len = CAM.len;
+            if (se > 0 && py + se * len > top) len = max(0.3, (top - py) / se);
+            let got = len;
+            const n = ceil(len / CAM.step);
+            for (let i = 1; i <= n; i++) {
+                const u = len * i / n;
+                if (!lensFits(s, W, px - fx * ce * u, py + se * u, pz - fz * ce * u, r)) { got = max(0, u - CAM.step); break; }
+            }
+            // every bit of lift the arm needs costs it, so it only goes up when it has to, and an
+            // arm too short to get out of your head is worse than any lift
+            const score = got - (e - want) * 1.2 - (got < 1 ? 5 : 0);
+            if (!best || score > best.score) best = { ce, se, got, score };
+            if (got >= len * 0.85) break;
         }
-        out.x = h.x - fx * dist * cos(pitch);
-        out.y = h.y + up + sin(pitch) * dist * 0.6;
-        out.z = h.z - fz * dist * cos(pitch);
-        out.fx = fx * cos(pitch - 0.08); out.fy = -sin(-pitch + 0.08); out.fz = fz * cos(pitch - 0.08);
-        out.t = dist / back;
+        const u = best.got, back = best.ce * u;
+        out.x = px - fx * back; out.y = py + best.se * u; out.z = pz - fz * back;
+        const d = clamp(back * 1.6, 3, CAM.focus), cp = cos(pitch);
+        const ax = px + fx * cp * d - out.x, ay = py + sin(pitch) * d - out.y, az = pz + fz * cp * d - out.z;
+        const al = hypot(ax, ay, az) || 1;
+        out.fx = ax / al; out.fy = ay / al; out.fz = az / al;
+        out.t = u / CAM.len;
         return out;
     }
     // where the crosshair meets the floor, for skills that land somewhere

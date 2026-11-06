@@ -261,6 +261,16 @@
     }
     // the camera. The sim needs it too, because a crosshair is a line from the camera
     // and not from the staff: the shot leaves the staff and goes where the line lands.
+    // The picture's lens is a ball rather than a point (w.lens): the near plane is wide, and a
+    // camera that only kept its centre out of a wall, with your back to it, drew a slice of the
+    // inside of it. The rules' camera, which aims, keeps the point, so a lens changes no match.
+    const LENS = [];
+    for (let k = 0; k < 16; k++) LENS.push([cos(k * PI / 8) * 0.42, sin(k * PI / 8) * 0.42]);
+    for (let k = 0; k < 8; k++) LENS.push([cos(k * PI / 4 + PI / 8) * 0.25, sin(k * PI / 4 + PI / 8) * 0.25]);
+    function lensInWorld(x, y, z) {
+        for (let k = 0; k < LENS.length; k++) if (heightAt(x + LENS[k][0], z + LENS[k][1]) > y - 0.05) return true;
+        return false;
+    }
     function camera(s, w, out) {
         const aim = w.aim;
         const back = aim ? 2.4 : 4, side = aim ? 0.8 : 1, up = aim ? 1.7 : 1.95;
@@ -276,7 +286,7 @@
         for (let k = 1; k <= steps; k++) {
             const u = k / steps;
             const x = px + dx * u, y = py + dy * u, z = pz + dz * u;
-            if (y < heightAt(x, z) + 0.18 || insideWall(s, x, y, z, 0.2)) { t = max(0.05, (k - 1) / steps - 0.04); break; }
+            if (y < heightAt(x, z) + (w.lens ? 0.3 : 0.18) || (w.lens && lensInWorld(x, y, z)) || insideWall(s, x, y, z, 0.2)) { t = max(0.05, (k - 1) / steps - 0.04); break; }
         }
         out = out || {};
         out.x = px + dx * t; out.y = py + dy * t; out.z = pz + dz * t; out.t = t;
