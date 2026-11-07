@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>who is online</title>
+<!-- whos.amung.us, in a frame of its own. js/index.js loads this page in a
+     sandbox without allow-same-origin, so the widget and the ad trackers it
+     brings along run on an opaque origin: they cannot read this site's
+     storage, cookies or pages. It tells the desktop once it has drawn. -->
+<style>
+html, body { margin: 0; height: 20px; overflow: hidden; background: transparent; }
+body { display: flex; align-items: center; justify-content: center; }
+.waubutton { display: flex !important; align-items: center; gap: 6px; width: auto !important; height: 20px !important; background: none !important; box-shadow: none !important; text-decoration: none; }
+.waubutton span { display: none !important; }
+.waubutton::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #0df259; box-shadow: 0 0 6px #0df259; }
+.waubutton p { margin: 0 !important; font: 700 16px/20px 'Courier New', monospace !important; letter-spacing: 0 !important; color: #0df259 !important; text-shadow: none !important; }
+</style>
+</head>
+<body>
+<span id="_wau98m"></span>
+<script>
+var _wau = [['dynamic', '4mh183pvp1', '98m', '0000000df259', 'small']];
+new MutationObserver(function (_, seen) {
+    var a = document.querySelector('.waubutton');
+    if (!a) return;
+    seen.disconnect();
+    // the sandbox has no way to take over the desktop, so the stats open in a tab
+    a.target = '_blank';
+    a.rel = 'noopener';
+    parent.postMessage({ online: true }, '*');
+}).observe(document.body, { childList: true, subtree: true });
+</script>
+<script async src="https://waust.at/d.js"></script>
+</body>
+</html>

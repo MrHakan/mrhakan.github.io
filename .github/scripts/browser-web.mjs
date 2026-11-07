@@ -788,6 +788,7 @@ section('who is online');
 // site stays away from it when a test drives the browser. Here the test says
 // it is a person, and a stand-in for the widget draws what the real one draws.
 {
+    // the frame's page, embed/online.html, runs the widget; this draws what the real one draws
     const FAKE_WAU = `(function () {
         (window._wau || []).forEach(function (w) {
             var at = document.getElementById('_wau' + w[2]);
@@ -802,7 +803,8 @@ section('who is online');
     const asked = [];
     const visit = async (opts) => {
         const c = await browser.newContext({ viewport: { width: 1366, height: 900 } });
-        await c.addInitScript(() => { sessionStorage.setItem('booted', '1'); sessionStorage.setItem('welcomed', '1'); });
+        // this runs in the sandboxed frame too, where storage throws
+        await c.addInitScript(() => { try { sessionStorage.setItem('booted', '1'); sessionStorage.setItem('welcomed', '1'); } catch (e) { } });
         if (opts.person) await c.addInitScript(() => Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }));
         await c.route('**/*', route => {
             const u = route.request().url();
@@ -817,21 +819,31 @@ section('who is online');
         p.on('pageerror', e => errors.push(e.message));
         await p.goto(BASE + '/', { waitUntil: 'load' });
         await p.waitForTimeout(2500);
+        const frame = await p.evaluate(() => {
+            const f = document.querySelector('#online-box iframe');
+            if (!f) return null;
+            return { sandbox: f.getAttribute('sandbox'), src: f.getAttribute('src') };
+        });
+        const inside = p.frames().find(f => /embed\/online\.html/.test(f.url()));
+        const shut = inside ? await inside.evaluate(() => {
+            try { localStorage.length; return false; } catch (e) { return true; }
+        }) : null;
         const look = await p.evaluate(() => {
             const panel = document.getElementById('counter-panel').getBoundingClientRect();
             const cols = [...document.querySelectorAll('#counter-panel .counter-col')].filter(c => !c.hidden)
                 .map(c => c.getBoundingClientRect());
             const left = Math.min(...cols.map(r => r.left)), right = Math.max(...cols.map(r => r.right));
             const top = Math.min(...cols.map(r => r.top));
-            const num = document.querySelector('#online-box .waubutton p');
             return {
                 shown: !document.getElementById('online-col').hidden, cols: cols.length,
                 offCentre: Math.round(((left - panel.left) - (panel.right - right)) * 10) / 10,
                 sameRow: cols.every(r => Math.abs(r.top - top) < 2),
-                number: num ? num.textContent : null,
-                fits: num ? num.getBoundingClientRect().right <= panel.right : true
+                fits: (() => { const f = document.querySelector('#online-box iframe'); return !f || f.getBoundingClientRect().right <= panel.right; })()
             };
         });
+        look.number = inside ? await inside.evaluate(() => { const n = document.querySelector('.waubutton p'); return n ? n.textContent : null; }) : null;
+        look.frame = frame;
+        look.shut = shut;
         await c.close();
         return look;
     };
@@ -842,6 +854,8 @@ section('who is online');
 
     look = await visit({ person: true });
     expect(asked.length > 0 && look.shown && look.number === '7', 'for a person it loads after the page, and shows the number', JSON.stringify(look));
+    expect(look.frame && /allow-scripts/.test(look.frame.sandbox) && !/allow-same-origin/.test(look.frame.sandbox) && look.shut === true,
+        'and the widget runs in a sandbox that cannot reach this site\'s storage', JSON.stringify({ frame: look.frame, shut: look.shut }));
     expect(look.cols === 2 && look.sameRow && Math.abs(look.offCentre) <= 1 && look.fits, 'visitors and online side by side, centred in the panel', JSON.stringify(look));
 
     look = await visit({ person: true, blocked: true });

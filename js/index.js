@@ -1664,12 +1664,12 @@ function initVisitorCounter() {
     if (badge.complete && badge.naturalWidth === 0) fallback();
 }
 // whos.amung.us, for how many are here right now. It is a script from
-// somebody else's server, and it brings a crowd of ad trackers along, so it
-// waits until the page has loaded and gone quiet, and it stays away from a
-// connection that asked to save data and from a browser a test is driving.
-// The column only shows once the widget has drawn itself into it.
-const WAU_KEY = '4mh183pvp1';
-const WAU_SLOT = '98m';
+// somebody else's server and it brings a crowd of ad trackers along, so it
+// never runs in this page: embed/online.html runs it in a frame sandboxed
+// without allow-same-origin, where it cannot see this site's storage, cookies
+// or windows. The frame waits until the page has loaded and gone quiet, and
+// stays away from a connection that asked to save data and from a browser a
+// test is driving. The column only shows once the frame says it has drawn.
 function initOnlineCounter() {
     const col = document.getElementById('online-col');
     const box = document.getElementById('online-box');
@@ -1677,19 +1677,17 @@ function initOnlineCounter() {
     const c = navigator.connection;
     if (c && c.saveData) return;
     const start = () => whenIdle(() => {
-        const drawn = new MutationObserver(() => {
-            if (!box.querySelector('.waubutton')) return;
+        const frame = document.createElement('iframe');
+        frame.title = 'who is online, from whos.amung.us';
+        frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+        frame.src = 'embed/online.html';
+        const drawn = event => {
+            if (event.source !== frame.contentWindow || !event.data || event.data.online !== true) return;
             col.hidden = false;
-            drawn.disconnect();
-        });
-        drawn.observe(box, { childList: true, subtree: true });
-        window._wau = window._wau || [];
-        window._wau.push(['dynamic', WAU_KEY, WAU_SLOT, '0000000df259', 'small']);
-        const s = document.createElement('script');
-        s.async = true;
-        s.src = 'https://waust.at/d.js';
-        s.onerror = () => drawn.disconnect();
-        document.head.appendChild(s);
+            window.removeEventListener('message', drawn);
+        };
+        window.addEventListener('message', drawn);
+        box.appendChild(frame);
     });
     if (document.readyState === 'complete') start();
     else window.addEventListener('load', start, { once: true });
