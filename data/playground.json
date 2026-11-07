@@ -1,5 +1,39 @@
 [
   {
+    "name": "⚫ Reversi Pocket 98",
+    "type": "game",
+    "date": "2026-11-07",
+    "url": "/games/reversi-pocket/",
+    "description": "Offline 6×6 Reversi with local computer opponent, two-player mode, legal-move hints, passing and undo.",
+    "icon": "⚫",
+    "tags": [
+      "reversi",
+      "strategy",
+      "board-game",
+      "computer",
+      "two-player",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "🥣 Recipe Ratio 98",
+    "type": "app",
+    "date": "2026-11-07",
+    "url": "/apps/recipe-ratio/",
+    "description": "Private recipe portion scaler with editable ingredient amounts, flexible units and copyable shopping list.",
+    "icon": "🥣",
+    "tags": [
+      "cooking",
+      "recipe",
+      "scaling",
+      "calculator",
+      "food",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Slide Fifteen 98",
     "type": "game",
     "date": "2026-11-06",
