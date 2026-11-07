@@ -1425,9 +1425,12 @@
         });
     };
 
-    NP.inviteLink = function (code) {
+    // A page per game (join/<id>/), so a link pasted in a chat previews as that
+    // game rather than as the whole site. It hands ?lobby= on to the desktop,
+    // which still takes the bare ?lobby= of links made before it existed.
+    NP.inviteLink = function (code, gameId) {
         const base = location.origin + location.pathname.replace(/index\.html?$/, '');
-        return base + '?lobby=' + code;
+        return base + (NP.byId(gameId) ? 'join/' + gameId + '/' : '') + '?lobby=' + code;
     };
 
     // ===============================================================
@@ -1743,7 +1746,7 @@
                 <div id="np-status" class="np-status">${s.isHost ? 'waiting for someone to join...' : 'in the lobby'}</div>`;
 
             body.querySelector('#np-copycode').onclick = () => copy(s.code, 'code copied');
-            body.querySelector('#np-copylink').onclick = () => copy(NP.inviteLink(s.code), 'invite link copied');
+            body.querySelector('#np-copylink').onclick = () => copy(NP.inviteLink(s.code, s.gameId), 'invite link copied');
             const listed = body.querySelector('#np-listed');
             if (listed) listed.onchange = () => {
                 if (listed.checked) listPublicly(s).then(a => say(a ? 'listed. strangers can find you now' : 'not listed'));
