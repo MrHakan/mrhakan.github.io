@@ -70,7 +70,7 @@ for (const [slug, ready, entry] of [
 ]) {
     is(await p.evaluate(name => !window[name], entry), slug + ': starts with a cold loader');
     await p.evaluate(s => {
-        const choices = WEB.slugs().filter(name => !['home', 'shutdown', 'run', 'reset', 'find', 'favorites', 'discord', 'netplay'].includes(name));
+        const choices = WEB.slugs().filter(name => !['home', 'shutdown', 'run', 'reset', 'find', 'favorites', 'discord', 'netplay', 'neko', 'trail', 'scroller', 'surprise'].includes(name));
         const random = Math.random;
         let choose = true;
         // Control only the route selection; game initialization keeps its RNG.
@@ -123,6 +123,16 @@ for (const slug of ['neko', 'trail', 'scroller', 'surprise']) {
     })[s], slug);
     is(on && errors.length === before, slug + ' does something when you turn it on');
 }
+// surprise picks at random, and when it picked the cat or the trail it turned
+// one back off, so the check below failed one run in a few
+const toggled = await p.evaluate(() => {
+    const real = WEB.open, got = new Set();
+    WEB.open = s => got.add(s);
+    try { for (let i = 0; i < 150; i++) surpriseMe(); } finally { WEB.open = real; }
+    document.querySelectorAll('.toast, .retro-toast').forEach(t => t.remove());
+    return [...got].filter(s => ['neko', 'trail', 'scroller', 'surprise'].includes(s));
+});
+is(!toggled.length, 'surprise opens something, and never flips a toggle or itself', toggled.join(', '));
 // and off again, or they are not toggles
 await p.evaluate(() => { appActions().neko(); appActions().trail(); appActions().scroller(); });
 await p.waitForTimeout(400);
