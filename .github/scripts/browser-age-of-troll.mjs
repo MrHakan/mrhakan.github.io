@@ -279,6 +279,9 @@ try {
         expect(await p.evaluate(() => !localStorage.getItem('mrhakan98-ageoftroll-save')), 'a finished game is not offered back');
         const won = await p.evaluate(() => (JSON.parse(localStorage.getItem('achievements') || '{}'))['aot-win'] !== undefined);
         expect(won === (end.winner === 0), 'and only a win is an achievement');
+        const drawn = await p.evaluate(() => AOT_ENGINE.animStats());
+        expect(drawn.walk > 0 && drawn.attack > 0 && drawn.death > 0 && drawn.shot > 0,
+            'the trolls walked, swung, died and threw things, from their sheets', JSON.stringify(drawn));
         await p.evaluate(() => AOT_ENGINE.speed(1));
         await p.click('#aot-again');
         await p.waitForFunction(() => { const g = AOT_ENGINE.state(); return g && !g.s.over && g.s.tick < 200; }, null, { timeout: 5000 });

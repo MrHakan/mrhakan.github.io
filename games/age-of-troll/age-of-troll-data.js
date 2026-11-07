@@ -99,6 +99,21 @@
     // true when this troll has to be drawn flipped, for the side it is on
     AOT.flipped = (u, mine) => (mine ? u.looksLeft : !u.looksLeft);
 
+    // The animations: a 4 x 4 sheet per move in games/age-of-troll/anim, cut from
+    // the approved gifs by .github/scripts/aot-anim-sheets.py, which also writes
+    // the frame boxes into the block below. Indexed by unit id, the king last.
+    AOT.ANIM_DIR = 'games/age-of-troll/anim/';
+    AOT.ANIM_NAMES = ['01-he', '02-hello', '03-hot', '04-joe-fight', '05-joe-cool', '06-joe-angry',
+        '07-joe-murder', '08-joe-chef', '09-lesgooo', '10-pffft', '11-nasiya', '12-ingaaa',
+        '13-xd-troll', '14-trollface', '15-patron-edasiyla', '16-the-troll-king'];
+    AOT.UNITS.forEach(u => { u.anim = AOT.ANIM_NAMES[u.id]; });
+    // all of them drawn facing right, except the trollface's attack, which spits
+    // its little trollface out to the left
+    AOT.ANIM_LOOKS_LEFT = { '14-trollface-attack': true };
+    // <aot-anim>
+    AOT.ANIM = {"01-he":{"cell":96,"w":0.958,"h":1.0},"02-hello":{"cell":96,"w":1.0,"h":0.927,"shot":{"cell":48,"w":1.0,"h":0.771}},"03-hot":{"cell":96,"w":1.0,"h":0.927},"04-joe-fight":{"cell":96,"w":1.0,"h":0.906},"05-joe-cool":{"cell":96,"w":1.0,"h":0.969,"shot":{"cell":48,"w":1.0,"h":0.354}},"06-joe-angry":{"cell":96,"w":1.0,"h":0.906},"07-joe-murder":{"cell":96,"w":0.875,"h":1.0},"08-joe-chef":{"cell":96,"w":1.0,"h":0.906,"shot":{"cell":48,"w":1.0,"h":0.792}},"09-lesgooo":{"cell":96,"w":1.0,"h":1.0},"10-pffft":{"cell":96,"w":1.0,"h":0.969},"11-nasiya":{"cell":96,"w":0.99,"h":1.0,"shot":{"cell":48,"w":1.0,"h":0.833}},"12-ingaaa":{"cell":96,"w":1.0,"h":0.979},"13-xd-troll":{"cell":96,"w":0.979,"h":1.0},"14-trollface":{"cell":96,"w":1.0,"h":0.792,"shot":{"cell":48,"w":1.0,"h":0.938}},"15-patron-edasiyla":{"cell":96,"w":1.0,"h":0.99},"16-the-troll-king":{"cell":192,"w":1.0,"h":0.984}};
+    // </aot-anim>
+
     AOT.unitFor = (age, role) => role === 3 ? AOT.UNITS[AOT.BOSS] : AOT.UNITS[age * 3 + role];
 
     AOT.BOUNTY = 0.4;               // of a dead unit's cost, to whoever killed it

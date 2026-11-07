@@ -63,6 +63,50 @@
     }
     function warmSprites() { A.UNITS.forEach(u => sprite(u.sprite)); }
 
+    // ---------------------------------------------------------------
+    // the animations: a 4 x 4 sheet per move (A.ANIM, games/age-of-troll/anim).
+    // A sheet is asked for the first time a troll of that kind turns up, or when
+    // somebody reaches its age, and until it arrives the troll is its still
+    // picture. Only the drawing changes: the rules never see any of this.
+    // ---------------------------------------------------------------
+    const FRAME = 0.08;          // the gifs' 80ms a frame
+    const DEATH_HOLD = 0.6;      // and the last frame of a death held, as the gif does
+    const SHEETS = {};
+    const animStats = { walk: 0, attack: 0, death: 0, shot: 0, still: 0 };
+    function animSheet(file) {
+        let e = SHEETS[file];
+        if (e) return e;
+        e = SHEETS[file] = { img: null };
+        const img = new Image();
+        img.onload = () => { e.img = img; };
+        img.src = A.ANIM_DIR + file + '.webp';
+        return e;
+    }
+    function warmAge(age) {
+        A.UNITS.forEach(u => {
+            if (u.age !== age || !A.ANIM || !A.ANIM[u.anim]) return;
+            ['walk', 'attack', 'death'].forEach(m => animSheet(u.anim + '-' + m));
+            if (A.ANIM[u.anim].shot) animSheet(u.anim + '-projectile');
+        });
+    }
+    // one frame of a move, standing on bottom, size across; false until it has loaded
+    function drawAnim(c, file, cell, frame, x, bottom, size, flip, alpha) {
+        const sh = animSheet(file);
+        if (!sh.img) return false;
+        const f = Math.max(0, Math.min(15, Math.floor(frame)));
+        c.save();
+        if (alpha !== undefined) c.globalAlpha = alpha;
+        c.translate(x, bottom);
+        if (flip) c.scale(-1, 1);
+        c.drawImage(sh.img, (f % 4) * cell, (f >> 2) * cell, cell, cell, -size / 2, -size, size, size);
+        c.restore();
+        return true;
+    }
+    // a troll's own animation is drawn facing right, so the other side is the mirror image
+    const animFlip = (file, mine) => (A.ANIM_LOOKS_LEFT && A.ANIM_LOOKS_LEFT[file] ? mine : !mine);
+    // how big a troll's frame is drawn, for the size it has in the rules
+    const animSize = type => type.size * (type.id === A.BOSS ? 1.5 : 1.6);
+
     // ===============================================================
     // a match
     // ===============================================================
@@ -86,7 +130,7 @@
             seq: 0, pending: [], ack: 0, seen: new Set(), seenTo: 0, outbox: [], wantsRematch: false,
             saveAcc: 0, ended: false, sayT: 0,
             view: { cam: 0, follow: true, drag: null, heldAt: 0 },
-            vis: new Map(), sparks: [], floats: [], shots: [], rings: [], popups: [], banners: [], flash: 0, t: 0,
+            vis: new Map(), corpses: [], sparks: [], floats: [], shots: [], rings: [], popups: [], banners: [], flash: 0, t: 0,
             turretKick: [[0, 0, 0, 0], [0, 0, 0, 0]], wallHit: [0, 0], baseFlash: [0, 0], lastHud: 0
         };
         if (o.solo) {
@@ -370,12 +414,20 @@
             switch (e.e) {
                 case 'hit': {
                     const v = g.vis.get(e.id);
-                    if (v) v.swing = 1;
+                    if (v) {
+                        v.swing = 1;
+                        // the attack plays over the time to the next one, never slower than drawn
+                        const ty = A.UNITS[v.t];
+                        v.atk = g.t;
+                        v.atkDur = Math.max(0.45, Math.min(16 * FRAME, ty ? ty.cd * 0.95 : 1));
+                    }
                     if (e.base !== undefined) {
                         g.wallHit[e.base] = 1;
                         if (fancy) addSpark(g, A.BASE_FRONT[e.base] + (e.base ? 6 : -6), GY - 70 - Math.random() * 90, 3, '#ffe14d');
                     } else if (e.role === 1 && fancy) {
-                        g.shots.push({ x0: e.x, x1: e.tx, y: GY - 32, t: 0, d: 0.22, s: e.s });
+                        const ty = v && A.UNITS[v.t];
+                        const anim = ty && A.ANIM && A.ANIM[ty.anim] && A.ANIM[ty.anim].shot ? ty.anim : null;
+                        g.shots.push({ x0: e.x, x1: e.tx, y: GY - 32, t: 0, d: anim ? 0.32 : 0.22, s: e.s, anim });
                     } else if (fancy) {
                         addSpark(g, e.tx, GY - 22 - Math.random() * 24, 2, '#fff');
                     }
@@ -390,12 +442,22 @@
                         if (e.k === 1) g.rings.push({ x: e.x, r: 6, max: A.TURRETS[1].radius, t: 0 });
                     }
                     break;
-                case 'die':
-                    if (fancy) for (let n = 0; n < 6; n++) addSpark(g, e.x, GY - 20 - Math.random() * 30, 3, e.s === g.me ? '#a0c0ff' : '#ffb0a0');
+                case 'die': {
+                    // it plays its death where it fell, and then it is gone
+                    const v = g.vis.get(e.id);
+                    const ty = v && A.UNITS[v.t];
+                    if (fancy && ty && A.ANIM && A.ANIM[ty.anim]) {
+                        g.corpses.push({ t: v.t, x: v.x, side: e.s, depth: (e.id * 7) % 3, at: g.t });
+                        if (g.corpses.length > 40) g.corpses.shift();
+                    } else if (fancy) {
+                        for (let n = 0; n < 6; n++) addSpark(g, e.x, GY - 20 - Math.random() * 30, 3, e.s === g.me ? '#a0c0ff' : '#ffb0a0');
+                    }
                     if (e.s !== g.me && e.g) addFloat(g, e.x, GY - 52, '+' + e.g, '#ffe14d');
                     g.vis.delete(e.id);
                     break;
+                }
                 case 'age':
+                    warmAge(e.a);
                     addBanner(g, (g.watch ? nameOf(g, e.s) + ' reached ' : mine ? 'you reached ' : 'they reached ') + 'age ' + (e.a + 1) + ': ' + A.AGES[e.a].name, mine ? '#fff' : '#ffd0d0');
                     beep('ding');
                     break;
@@ -710,10 +772,23 @@
     function drawUnits(c, dt) {
         const g = G, t = g.t;
         const all = [];
+        // the fallen first, under everybody still standing
+        const deathLen = 16 * FRAME + DEATH_HOLD, fade = 0.35;
+        for (let i = g.corpses.length - 1; i >= 0; i--) {
+            const k = g.corpses[i], age = t - k.at;
+            if (age < 0 || age > deathLen + fade) { g.corpses.splice(i, 1); continue; }
+            const type = A.UNITS[k.t], meta = A.ANIM[type.anim];
+            const sx = screenX(k.x);
+            if (sx < g.view.cam - 80 || sx > g.view.cam + viewW + 80) continue;
+            const file = type.anim + '-death';
+            const alpha = age > deathLen ? Math.max(0, 1 - (age - deathLen) / fade) : 1;
+            if (drawAnim(c, file, meta.cell, age / FRAME, sx, GY + 2 + k.depth * 6, animSize(type), animFlip(file, k.side === g.me), alpha)) animStats.death++;
+        }
         for (let side = 0; side < 2; side++) {
             for (const u of g.s.u[side]) {
                 let v = g.vis.get(u.id);
                 if (!v) { v = { x: u.x, swing: 0, hurt: 0, phase: u.id * 1.7 }; g.vis.set(u.id, v); }
+                v.t = u.t;
                 const moved = Math.abs(u.x - v.x);
                 // eased, so a guest's correction is a nudge and not a teleport,
                 // unless it is so wrong that a nudge would look worse
@@ -746,9 +821,28 @@
             const spr = sprite(type.sprite);
             const size = type.size * 1.2;
             const w = spr.cv ? size : size;
-            const h = spr.cv ? Math.min(size * 1.3, size * spr.ratio) : size;
-            const dx = sx + lunge, dy = lane - 2 - h - bob;
-            if (spr.cv) {
+            let h = spr.cv ? Math.min(size * 1.3, size * spr.ratio) : size;
+            let dx = sx + lunge, dy = lane - 2 - h - bob;
+            // walking, swinging, or standing still waiting for the next swing
+            const meta = A.ANIM && A.ANIM[type.anim];
+            let animated = false;
+            if (meta) {
+                const big = animSize(type);
+                const swinging = fancy && v.atk !== undefined && t - v.atk < v.atkDur;
+                const move = swinging ? 'attack' : 'walk';
+                const frame = swinging ? (t - v.atk) / v.atkDur * 16
+                    : fancy && v.walking && !u.stun ? ((t + v.phase) / FRAME) % 16 : 0;
+                const file = type.anim + '-' + move;
+                animated = drawAnim(c, file, meta.cell, frame, sx, lane - 2, big, animFlip(file, mine));
+                if (animated) {
+                    animStats[fancy && (swinging || v.walking) ? move : 'still']++;
+                    h = big * meta.h;
+                    dx = sx; dy = lane - 2 - h;
+                }
+            }
+            if (animated) {
+                // drawn above
+            } else if (spr.cv) {
                 c.save();
                 c.translate(dx, dy + h / 2);
                 if (A.flipped(type, mine)) c.scale(-1, 1);
@@ -798,7 +892,10 @@
             const y0 = s.y0 !== undefined ? s.y0 : s.y;
             const x = x0 + (x1 - x0) * k;
             const y = y0 + (s.y - y0) * k - (s.shell ? Math.sin(k * Math.PI) * 50 : 0);
-            if (s.tracer) {
+            const shot = s.anim && A.ANIM[s.anim].shot;
+            if (shot && drawAnim(c, s.anim + '-projectile', shot.cell, (s.t / FRAME) % 16, x, y + 13, 26, x1 < x0)) {
+                animStats.shot++;
+            } else if (s.tracer) {
                 c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1.4;
                 c.beginPath(); c.moveTo(x0 + (x1 - x0) * Math.max(0, k - 0.3), y0 + (s.y - y0) * Math.max(0, k - 0.3)); c.lineTo(x, y); c.stroke();
             } else {
@@ -1661,7 +1758,7 @@
         r.s.ev = [];
         g.s = r.s; w.cur = r.cur; w.acc = 0;
         g.vis.clear();
-        g.sparks = []; g.shots = []; g.rings = []; g.popups = []; g.floats = []; g.banners = []; g.flash = 0;
+        g.sparks = []; g.shots = []; g.corpses = []; g.rings = []; g.popups = []; g.floats = []; g.banners = []; g.flash = 0;
         if (g.s.over) { w.playing = false; watchEnd(g); } else hideEnd();
         hud(g);
     }
@@ -1710,6 +1807,7 @@
         stopEverything();
         G = g;
         warmSprites();
+        warmAge(0);
         buildGame(g);
         bindNet(g);
         g.last = performance.now();
@@ -1896,6 +1994,8 @@
     // handy for the console, and for the browser test
     window.AOT_ENGINE = {
         state: () => G, issue, openMenu, startSolo, fit, speed: n => { speed = n; },
+        // how many frames of each move have been drawn, for the browser test
+        animStats: () => Object.assign({ sheets: Object.keys(SHEETS).filter(k => SHEETS[k].img).length }, animStats),
         watchReplay, replayUrl, seek: t => { if (G && G.watch) watchSeek(G, t); }
     };
 })();

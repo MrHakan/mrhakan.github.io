@@ -760,6 +760,41 @@ section('replays: the same match, from a link');
 }
 
 // ===================================================================
+section('the animations');
+{
+    // each sheet is a webp of 4 x 4 frames, read off its header: VP8 (lossy), VP8L or VP8X
+    const webpSize = buf => {
+        if (buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WEBP') return null;
+        const kind = buf.toString('ascii', 12, 16);
+        if (kind === 'VP8X') return [1 + buf.readUIntLE(24, 3), 1 + buf.readUIntLE(27, 3)];
+        if (kind === 'VP8L') { const b = buf.readUInt32LE(21); return [1 + (b & 0x3fff), 1 + ((b >> 14) & 0x3fff)]; }
+        if (kind === 'VP8 ') return [buf.readUInt16LE(26) & 0x3fff, buf.readUInt16LE(28) & 0x3fff];
+        return null;
+    };
+    const bad = [];
+    let sheets = 0, bytes = 0;
+    for (const u of A.UNITS) {
+        const meta = A.ANIM && A.ANIM[u.anim];
+        if (!meta) { bad.push(u.name + ' has no animation'); continue; }
+        const moves = ['walk', 'attack', 'death'].concat(meta.shot ? ['projectile'] : []);
+        for (const m of moves) {
+            const file = 'games/age-of-troll/anim/' + u.anim + '-' + m + '.webp';
+            if (!fs.existsSync(path.join(ROOT, file))) { bad.push(file + ' is missing'); continue; }
+            const buf = fs.readFileSync(path.join(ROOT, file));
+            const cell = m === 'projectile' ? meta.shot.cell : meta.cell;
+            const size = webpSize(buf);
+            if (!size || size[0] !== cell * 4 || size[1] !== cell * 4) bad.push(file + ' is ' + size + ', not ' + cell * 4 + ' square');
+            sheets++; bytes += buf.length;
+        }
+        if (u.role === 1 && !meta.shot) bad.push(u.name + ' shoots, and has nothing to shoot');
+    }
+    expect(!bad.length, 'every troll walks, swings and dies, and every one that shoots has a shot', bad.join('; '));
+    expect(sheets === 53, 'which is 53 sheets', sheets);
+    expect(bytes < 3 * 1024 * 1024, 'that all come to a few megabytes, and load one kind of troll at a time', Math.round(bytes / 1024) + 'kb');
+    const odd = Object.keys(A.ANIM_LOOKS_LEFT || {}).filter(f => !fs.existsSync(path.join(ROOT, 'games/age-of-troll/anim/' + f + '.webp')));
+    expect(!odd.length, 'the moves drawn looking left are moves that exist', odd.join(', '));
+}
+
 section('wired into the site');
 // ===================================================================
 {
