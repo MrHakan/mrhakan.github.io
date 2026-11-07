@@ -933,7 +933,10 @@ function openDice() {
 // there — which is more than the 1998 ones could say.
 function surpriseMe() {
     if (!window.WEB) return;
-    const skip = ['home', 'shutdown', 'run', 'reset', 'find', 'favorites', 'discord', 'netplay'];
+    // and nothing that flips on or off instead of opening: landing on the cat
+    // turned it off for somebody who had it on, and on itself it went again
+    const skip = ['home', 'shutdown', 'run', 'reset', 'find', 'favorites', 'discord', 'netplay',
+        'neko', 'trail', 'scroller', 'surprise'];
     const all = WEB.slugs().filter(s => skip.indexOf(s) === -1);
     const pick = all[(Math.random() * all.length) | 0];
     showToast('surprise', 'opening /' + pick);
