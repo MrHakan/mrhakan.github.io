@@ -18,7 +18,9 @@ import { fileURLToPath } from 'url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const exists = f => fs.existsSync(path.join(ROOT, f));
-const gz = f => zlib.gzipSync(fs.readFileSync(path.join(ROOT, f)), { level: 6 }).length;
+// measured with the line endings github pages serves: a windows checkout has
+// \r\n everywhere, and those bytes alone took the style budget over the edge
+const gz = f => zlib.gzipSync(Buffer.from(read(f).replace(/\r\n/g, '\n')), { level: 6 }).length;
 
 let checks = 0, failures = 0;
 const expect = (cond, msg, detail) => {

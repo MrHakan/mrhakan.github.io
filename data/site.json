@@ -95,7 +95,7 @@
             "hosted free on github pages, deployed by github actions",
             "audio visualiser + error remix built on the web audio api",
             "every window, game and effect is plain dom + canvas",
-            "no trackers. no analytics. no cookie banner. no ads.",
+            "no analytics, no cookie banner, no ads. two counters: komarev's hit badge, an image, and whos.amung.us for who is online. that one brings ad trackers with it, so it runs in a sandboxed frame that can see nothing of this site, and they cannot read or set cookies there either",
             "installable as an app — there is a web manifest and everything"
         ]
     },
