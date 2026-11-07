@@ -1860,18 +1860,21 @@
     // ===============================================================
     // the camera, which the page and the tests both want
     // ===============================================================
-    // The camera is a spring arm from a point just over your head. It swings round that point
-    // with your pitch: looking up brings it down behind you and tips it up, looking down lifts it
-    // over you and tips it down. It used to do the opposite, rising over the walls as you looked
-    // up and sinking into the floor and the wall beside you as you looked down.
+    // The camera is a spring arm from a point just over your head. Where it looks comes from your
+    // yaw and pitch and nothing else; the arm swings round that point with them, so looking up
+    // brings it down behind you and looking down lifts it over you.
     //
-    // The lens is a ball, not a point: the near plane is 0.2m away and wide, so a camera that only
-    // kept its centre out of a wall still drew half the screen as the inside of it. It stays below
-    // the tops of the walls, which are the edge of the world. Where there is no room behind you,
-    // it lifts the arm, up to straight over your head, rather than going into the wall or your hat.
-    // It looks at a point ahead of you along your aim, nearer when it is close, so you stay in the
-    // picture as it lifts.
-    const CAM = { pivot: 1.7, len: 6, tilt: 0.2, lens: 0.42, floor: 0.4, under: 0.7, focus: 9, step: 0.2 };
+    // When something is in the way the arm only gets shorter. It used to lift itself over your
+    // head and look at a point that moved with it, and with your back to a wall that made the
+    // picture turn by itself and jump as the mouse moved. The lens is a ball, not a point: the near
+    // plane is 0.2m away and wide, so a camera that only kept its centre out of a wall still drew
+    // the inside of it. It stays below the tops of the walls, which are the edge of the world.
+    //
+    // The page passes what the arm was last frame (was) and the frame time (dt). Then it never
+    // jumps where it does not have to: where it is now still fits, it eases towards where it
+    // wants to be, and where it does not, it comes in only as far as it must. Up close, the page
+    // fades your own wizard out rather than drawing the inside of your hat.
+    const CAM = { pivot: 1.7, len: 6, tilt: 0.2, look: 0.08, lens: 0.42, tight: 0.32, floor: 0.4, under: 0.7, step: 0.2, grow: 4, shrink: 14, out: 5, in: 9 };
     const LENS = [];
     for (let k = 0; k < 16; k++) LENS.push([cos(k * PI / 8), sin(k * PI / 8)]);
     for (let k = 0; k < 8; k++) LENS.push([cos(k * PI / 4 + PI / 8) * 0.6, sin(k * PI / 4 + PI / 8) * 0.6]);
@@ -1885,36 +1888,56 @@
         const yaw = h.yaw, pitch = h.pitch || 0, W = W_(s);
         const fx = sin(yaw), fz = -cos(yaw);
         const px = h.x, py = h.y + CAM.pivot, pz = h.z;
-        const top = h.y + WALL_H - CAM.under;
-        const want = CAM.tilt - pitch;
+        const e = CAM.tilt - pitch, ce = cos(e), se = sin(e);
         // you can stand closer to a wall than the lens is wide, and the arm starts at you
         let r = CAM.lens;
         while (r > 0.3 && !lensFits(s, W, px, py, pz, r)) r -= 0.04;
-        let best = null;
-        for (let k = 0; k <= 5; k++) {
-            const e = k ? want + (PI / 2 - want) * k / 5 : want;
-            if (k && want >= PI / 2 - 0.01) break;
-            const ce = cos(e), se = sin(e);
-            let len = CAM.len;
-            if (se > 0 && py + se * len > top) len = max(0.3, (top - py) / se);
-            let got = len;
-            const n = ceil(len / CAM.step);
-            for (let i = 1; i <= n; i++) {
-                const u = len * i / n;
-                if (!lensFits(s, W, px - fx * ce * u, py + se * u, pz - fz * ce * u, r)) { got = max(0, u - CAM.step); break; }
-            }
-            // every bit of lift the arm needs costs it, so it only goes up when it has to, and an
-            // arm too short to get out of your head is worse than any lift
-            const score = got - (e - want) * 1.2 - (got < 1 ? 5 : 0);
-            if (!best || score > best.score) best = { ce, se, got, score };
-            if (got >= len * 0.85) break;
+        const at = (u, rr) => lensFits(s, W, px - fx * ce * u, py + se * u, pz - fz * ce * u, rr || r);
+        let len = CAM.len;
+        const top = h.y + WALL_H - CAM.under;
+        if (se > 0 && py + se * len > top) len = max(0, (top - py) / se);
+        // how far out the arm can go: the first sample that does not fit, then halved down to a centimetre
+        let want = len;
+        const n = ceil(len / CAM.step);
+        for (let i = 1; i <= n; i++) {
+            const u = len * i / n;
+            if (at(u)) continue;
+            let lo = len * (i - 1) / n, hi = u;
+            for (let k = 0; k < 6; k++) { const m = (lo + hi) / 2; if (at(m)) lo = m; else hi = m; }
+            want = max(0, lo - 0.02);
+            break;
         }
-        const u = best.got, back = best.ce * u;
-        out.x = px - fx * back; out.y = py + best.se * u; out.z = pz - fz * back;
-        const d = clamp(back * 1.6, 3, CAM.focus), cp = cos(pitch);
-        const ax = px + fx * cp * d - out.x, ay = py + sin(pitch) * d - out.y, az = pz + fz * cp * d - out.z;
-        const al = hypot(ax, ay, az) || 1;
-        out.fx = ax / al; out.fy = ay / al; out.fz = az / al;
+        let u = want, ex = px - fx * ce * u, ey = py + se * u, ez = pz - fz * ce * u;
+        if (h.was !== undefined && h.dt !== undefined) {
+            // the arm eases towards the length it wants, at no more than a camera's pace
+            const was = min(h.was, len);
+            u = was + clamp((want - was) * (1 - Math.exp(-(want > was ? CAM.grow : CAM.shrink) * h.dt)), -CAM.in * h.dt, CAM.out * h.dt);
+            ex = px - fx * ce * u; ey = py + se * u; ez = pz - fz * ce * u;
+            // and where its end is in something, the lens is pushed out of it sideways, the way a
+            // ball would be, so it slides along a wall as you turn rather than cutting along the arm
+            for (let k = 0; k < 14 && !lensFits(s, W, ex, ey, ez, CAM.tight); k++) {
+                let ax = 0, az = 0;
+                for (let q = 0; q < 16; q++) if (W.at(ex + LENS[q][0] * r, ez + LENS[q][1] * r) > ey - 0.05) { ax -= LENS[q][0]; az -= LENS[q][1]; }
+                const al = hypot(ax, az);
+                if (ey - W.at(ex, ez) < CAM.floor) ey += 0.03;
+                if (al > 1e-6) { ex += ax / al * 0.03; ez += az / al * 0.03; } else if (ey - W.at(ex, ez) >= CAM.floor) break;
+            }
+            if (!lensFits(s, W, ex, ey, ez, CAM.tight)) {
+                // deep in something, as after a wipe or a gate shutting: in along the arm just far enough
+                while (u > 0 && !at(u, CAM.tight)) u -= 0.03;
+                u = max(0, u);
+                ex = px - fx * ce * u; ey = py + se * u; ez = pz - fz * ce * u;
+            } else {
+                // the arm is as long as where the ball ended up, so next frame starts at the wall
+                // rather than as deep in it as the easing would have left it
+                u = min(u, max(0, -(ex - px) * fx * ce + (ey - py) * se - (ez - pz) * fz * ce));
+            }
+        }
+        out.x = ex; out.y = ey; out.z = ez;
+        const lp = pitch - CAM.look, cl = cos(lp);
+        out.fx = fx * cl; out.fy = sin(lp); out.fz = fz * cl;
+        out.len = u;
+        out.near = hypot(ex - px, ey - py, ez - pz);
         out.t = u / CAM.len;
         return out;
     }

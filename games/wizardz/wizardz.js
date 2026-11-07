@@ -1282,6 +1282,7 @@
     function buildWizards(g, dt, alpha) {
         const out = [];
         const s = g.s;
+        const near = g.camLen === undefined ? 1 : clamp((g.camLen - 0.6) / 1.1, 0, 1);
         for (let i = 0; i < s.wiz.length; i++) {
             const w = s.wiz[i];
             const mine = i === g.me;
@@ -1320,7 +1321,8 @@
                 avatar: w.avatar,
                 walk: speed > 0.3 && !w.dead ? g.walkA[i] : 0,
                 raise: g.raise[i], kneel: w.stance ? 1 : 0, fall: g.fall[i],
-                alpha: alphaOut, hidden: alphaOut === 0 || (mine && g.camT < 0.22),
+                // your own wizard fades out as the camera comes in to your head, rather than showing its inside
+                alpha: mine && near < 1 ? min(alphaOut === undefined ? 1 : alphaOut, near) : alphaOut, hidden: alphaOut === 0 || (mine && near < 0.15),
                 flash: w.hitT > 0 ? 0.7 * w.hitT / 0.25 : 0,
                 xray: w.team !== g.myTeam && S.has(w, 'mark') && !w.dead, stance: w.stance, i, w
             });
@@ -1384,9 +1386,12 @@
         const wiz = buildWizards(g, dt, alpha);
         const mine = wiz[g.me];
         // the camera follows you, with your own yaw and pitch, which never wait for anything
-        const proxy = { x: mine.x, y: mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch, aim: (g.wantAim || g.touchAim) && !g.stance, lens: true };
+        const proxy = { x: mine.x, y: mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch, aim: (g.wantAim || g.touchAim) && !g.stance, lens: true, was: g.camLen, dt };
+        // the arm carries on from last frame, unless you went somewhere else entirely (a respawn, a blink)
+        if (g.camAt && hypot(mine.x - g.camAt.x, mine.z - g.camAt.z, mine.y - g.camAt.y) > 3) proxy.was = undefined;
         const cam = S.camera(s, proxy);
-        g.camT = cam.t;
+        g.camAt = { x: mine.x, y: mine.y, z: mine.z };
+        g.camLen = cam.len; g.camT = cam.t; g.cam = cam;
         assistAim(g, dt, wiz, cam);
         g.shake = max(0, g.shake - dt * 1.4);
         const shake = g.shake > 0 ? g.shake * 0.25 : 0;

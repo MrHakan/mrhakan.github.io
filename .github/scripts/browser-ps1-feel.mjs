@@ -255,7 +255,8 @@ try {
                 const half = (g.fovNow || 1.12) / 2;
                 res({
                     cam: [+cam.x.toFixed(2), +cam.y.toFixed(2), +cam.z.toFixed(2)], fy: +(cam.fy / fl).toFixed(2), clear: +clear.toFixed(2), floorGap: +floorGap.toFixed(2),
-                    chest: +ang(h.y + 1).toFixed(2), hat: +ang(h.y + 2.2).toFixed(2), half: +half.toFixed(2), back: +Math.hypot(cam.x - h.x, cam.z - h.z).toFixed(2), wallTop: 4.5
+                    chest: +ang(h.y + 1).toFixed(2), hat: +ang(h.y + 2.2).toFixed(2), half: +half.toFixed(2), back: +Math.hypot(cam.x - h.x, cam.z - h.z).toFixed(2), wallTop: 4.5,
+                    arm: +Math.hypot(cam.x - h.x, cam.y - h.y - 1.7, cam.z - h.z).toFixed(2)
                 });
             }));
         }), { spot, yaw, pitch });
@@ -271,10 +272,10 @@ try {
                 expect(v.floorGap >= 0.35, tag + ': and off the floor', v.floorGap + 'm');
                 expect(v.cam[1] <= v.wallTop - 0.4, tag + ': and below the tops of the walls', v.cam[1] + 'm up');
                 // in the open you are on the picture. Up against something there is nowhere
-                // behind you for a camera, so it goes over your head, never into it
+                // behind you for a camera, so it comes in close, and your wizard fades out
                 const seen = Math.min(v.chest, v.hat) < v.half - 0.03;
                 if (where === 'the middle of a room' || where === 'along a corridor') expect(seen, tag + ': and you are in the picture', 'chest ' + v.chest + ', hat ' + v.hat + ' rad from the middle, the picture is ' + v.half + ' each way');
-                else expect(seen || v.cam[1] > 2.6, tag + ': and you are in the picture, or it is over your head', JSON.stringify(v));
+                else expect(seen || v.arm < 1.7, tag + ': and you are in the picture, or it is close enough that you fade out', JSON.stringify(v));
                 if (where === 'the middle of a room' && which !== 'level') {
                     if (which === 'all the way up') expect(v.cam[1] <= flat.cam[1] && v.fy > 0.2, 'looking up brings the camera down behind you and tips it up', v.cam[1] + 'm against ' + flat.cam[1] + 'm level, looking ' + v.fy);
                     else expect(v.cam[1] >= flat.cam[1] && v.fy < -0.5, 'looking down lifts it over you and tips it down', v.cam[1] + 'm against ' + flat.cam[1] + 'm level, looking ' + v.fy);
@@ -334,6 +335,129 @@ try {
                 expect(v.clear >= 0.3 && v.floorGap >= 0.25, 'wizardz, ' + where + ', ' + which + ': the lens keeps out of the walls and the floor', JSON.stringify(v) + ' ' + file);
             }
         }
+        await ctx.close();
+    }
+
+    // ===================================================================
+    section('back to a wall, looking round with the mouse');
+    // ===================================================================
+    // What was reported after the camera above went out: with your back to a wall, the camera
+    // bumping into it made it turn in strange ways as you moved the mouse. A camera can come
+    // closer when there is no room, but where it looks has to follow the mouse and nothing else,
+    // and it must not jump from one frame to the next. This turns the mouse a little at a time,
+    // across the wall and back, then up and down, and reads the camera each frame was drawn with.
+    const SWEEP = async ({ engine, sim, spot, yaw0, shots }) => {
+        const g = window[engine].state(), S = window[sim];
+        const dz = engine === 'DZ_ENGINE';
+        const me = dz ? g.s.heroes[g.me] : g.s.wiz[g.me];
+        const ground = (x, z) => dz ? g.s.dun.world.at(x, z) : S.heightAt(x, z);
+        const put = () => { me.x = me.px = spot.x; me.z = me.pz = spot.z; me.y = me.py = dz ? 0 : S.heightAt(spot.x, spot.z); me.yaw = g.yaw; };
+        let last = performance.now(), frameDt = 0;
+        const frame = () => new Promise(r => requestAnimationFrame(() => { const t = performance.now(); frameDt = (t - last) / 1000; last = t; r(); }));
+        const drawn = () => {
+            // the camera this frame was drawn with, where the game keeps it, or the one it would have used
+            const c = g.cam || S.camera(g.s, dz ? { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch } : { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false, lens: true });
+            const l = Math.hypot(c.fx, c.fy, c.fz);
+            return { x: c.x, y: c.y, z: c.z, vyaw: Math.atan2(c.fx / l, -c.fz / l), vpitch: Math.asin(c.fy / l), yaw: g.yaw, pitch: g.pitch };
+        };
+        const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+        const move = (dx, dy) => window.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', movementX: dx, movementY: dy, bubbles: true }));
+        g.yaw = yaw0; g.pitch = -0.1; put();
+        await frame(); await frame(); await frame();
+        const plan = [];
+        // half a turn each way, which puts the wall behind, beside and in front of you, then up and down
+        for (let i = 0; i < 60; i++) plan.push([12, 0]);
+        for (let i = 0; i < 120; i++) plan.push([-12, 0]);
+        for (let i = 0; i < 60; i++) plan.push([12, 0]);
+        for (let i = 0; i < 40; i++) plan.push([0, -9]);
+        for (let i = 0; i < 80; i++) plan.push([0, 9]);
+        for (let i = 0; i < 40; i++) plan.push([0, -9]);
+        let yawLo = 9, yawHi = -9;
+        let prev = drawn(), worstAim = 0, worstJump = 0, worstClear = 9, jumps = 0, at = null, still = 0, worstCut = 0;
+        const out = [];
+        for (let k = 0; k < plan.length; k++) {
+            move(plan[k][0], plan[k][1]); put();
+            await frame();
+            const now = drawn();
+            yawLo = Math.min(yawLo, now.yaw); yawHi = Math.max(yawHi, now.yaw);
+            // where it looks moved by as much as the mouse turned it, and no more
+            const aim = Math.max(Math.abs(wrap((now.vyaw - prev.vyaw) - (now.yaw - prev.yaw))), Math.abs((now.vpitch - prev.vpitch) - (now.pitch - prev.pitch)));
+            const jump = Math.hypot(now.x - prev.x, now.y - prev.y, now.z - prev.z);
+            if (aim > worstAim) { worstAim = aim; at = k; }
+            worstJump = Math.max(worstJump, jump);
+            // a camera may move, smoothly: a cut is more than it could have travelled at 12m/s, on
+            // top of the arc the arm swings through as the mouse turns it
+            const arm = Math.hypot(now.x - me.x, now.y - me.y - 1.7, now.z - me.z);
+            const cut = Math.max(0.3, 12 * Math.min(frameDt, 0.1)) + arm * (Math.abs(wrap(now.yaw - prev.yaw)) + Math.abs(now.pitch - prev.pitch));
+            if (jump > cut) { jumps++; worstCut = Math.max(worstCut, jump - cut); }
+            let clear = 9;
+            for (let a = 0; a < 16; a++) for (let d = 0.05; d <= 0.6; d += 0.05) if (ground(now.x + Math.cos(a * Math.PI / 8) * d, now.z + Math.sin(a * Math.PI / 8) * d) > now.y - 0.05) { clear = Math.min(clear, d); break; }
+            worstClear = Math.min(worstClear, clear);
+            if (shots.includes(k)) out.push(k);
+            prev = now;
+        }
+        // and held still, it settles and then stays still
+        for (let k = 0; k < 90; k++) { put(); await frame(); }
+        prev = drawn();
+        for (let k = 0; k < 20; k++) { put(); await frame(); const now = drawn(); still = Math.max(still, Math.hypot(now.x - prev.x, now.y - prev.y, now.z - prev.z) + Math.abs(wrap(now.vyaw - prev.vyaw))); prev = now; }
+        return { turned: +(yawHi - yawLo).toFixed(2), worstAim: +worstAim.toFixed(3), at, worstCut: +worstCut.toFixed(2), worstJump: +worstJump.toFixed(2), jumps, worstClear: +worstClear.toFixed(2), still: +still.toFixed(3), steps: plan.length };
+    };
+    for (const name of ['dungeonz', 'wizardz']) {
+        const G = GAMES[name];
+        const ctx = await context({ viewport: { width: 1280, height: 860 } });
+        const p = await open(ctx);
+        if (name === 'dungeonz') await G.start(p, { seed: 4242, dungeon: 'registry' });
+        else await G.start(p);
+        expect(await takeMouse(p, G), name + ': a click takes the mouse');
+        const spot = await p.evaluate(name => {
+            if (name === 'dungeonz') {
+                const g = DZ_ENGINE.state(), W = g.s.dun.world;
+                g.s.minions.forEach(m => { m.state = 2; m.hp = 0; }); g.speed = 1e-9;
+                const floor = (x, z) => [0, 0.5, -0.5].every(a => [0, 0.5, -0.5].every(b => W.at(x + a, z + b) < 0.1));
+                const rm = g.s.dun.rooms.find(r => r.kind === 'fight');
+                // as close to the wall as a wizard gets: nothing solid within its radius, 0.45
+                for (let k = 0; k < 40; k++) {
+                    const z = rm.cz + (k % 2 ? 1 : -1) * k * 0.5;
+                    if (!(W.at(rm.x0 - 0.3, z) > 3) || !floor(rm.x0 + 1, z) || !floor(rm.x0 + 3, z)) continue;
+                    for (let x = rm.x0 - 0.5; x < rm.x0 + 1.5; x += 0.01) if ([0, 1, 2, 3, 4, 5, 6, 7].every(a => W.at(x + Math.cos(a * Math.PI / 4) * 0.46, z + Math.sin(a * Math.PI / 4) * 0.46) < 0.1)) return { x, z, yaw: Math.PI / 2, dx: 1 };
+                }
+                return null;
+            }
+            const g = WZ_ENGINE.state(), S = WZ_SIM, me = g.s.wiz[g.me];
+            g.speed = 1e-9; g.brains = {}; g.s.wiz.forEach((w, i) => { if (i !== g.me) { w.x = 60; w.z = 60; } });
+            for (let r = 2; r < 30; r += 0.5) for (let a = 0; a < 32; a++) {
+                const x = me.x + Math.cos(a / 32 * 6.283) * r, z = me.z + Math.sin(a / 32 * 6.283) * r;
+                if (S.heightAt(x, z) > 0.1 || S.heightAt(x + 0.6, z) > 0.1) continue;
+                if (S.heightAt(x - 0.55, z) > 2.5 && S.heightAt(x + 2.5, z) < 0.1) return { x, z, yaw: Math.PI / 2, dx: 1 };
+            }
+            return null;
+        }, name);
+        if (!spot) { expect(false, name + ': found a wall to stand against'); await ctx.close(); continue; }
+        // flat against it, and a step or two out from it, where the arm is only partly in the way
+        const rs = [];
+        for (const off of [0, 0.4, 0.9, 1.5, 2.2]) {
+            const at = { x: spot.x + spot.dx * off, z: spot.z };
+            const one = await p.evaluate(`(${SWEEP})(${JSON.stringify({ engine: G.engine, sim: G.sim, spot: at, yaw0: spot.yaw, shots: [] })})`);
+            one.off = off;
+            rs.push(one);
+        }
+        const worst = k => rs.reduce((a, b) => (b[k] > a[k] ? b : a));
+        const r = { turned: Math.min(...rs.map(q => q.turned)), worstCut: worst('worstCut').worstCut, worstAim: worst('worstAim').worstAim, aimAt: worst('worstAim').off + 'm out', worstJump: worst('worstJump').worstJump, jumpAt: worst('worstJump').off + 'm out', jumps: rs.reduce((a, q) => a + q.jumps, 0), worstClear: Math.min(...rs.map(q => q.worstClear)), still: worst('still').still, steps: rs.length * rs[0].steps };
+        expect(r.turned > 2, name + ': the mouse really turns it, about half a turn each way', r.turned + ' rad');
+        // pictures: square on to the wall, turned, and looking up and down
+        for (const [label, yaw, pitch] of [['square', spot.yaw, -0.1], ['turned', spot.yaw + 0.9, -0.1], ['up', spot.yaw, 0.6], ['down', spot.yaw, -0.85]]) {
+            await p.evaluate(({ engine, yaw, pitch, spot }) => new Promise(res => {
+                const g = window[engine].state(), me = engine === 'DZ_ENGINE' ? g.s.heroes[g.me] : g.s.wiz[g.me];
+                g.yaw = yaw; g.pitch = pitch; me.x = me.px = spot.x + 0.4 * spot.dx; me.z = me.pz = spot.z;
+                let n = 0; const f = () => (++n > 30 ? res() : requestAnimationFrame(f)); f();
+            }), { engine: G.engine, yaw, pitch, spot });
+            await p.screenshot({ path: SHOTS + '/ps1-wall-' + name + '-' + label + '.png' });
+        }
+        const tag = name + ', back to a wall, ' + r.steps + ' small turns of the mouse';
+        expect(r.worstAim < 0.01, tag + ': where the camera looks follows the mouse and nothing else', JSON.stringify(r));
+        expect(r.jumps === 0, tag + ': and it never cuts from one place to another between two frames', JSON.stringify(r));
+        expect(r.worstClear >= 0.3, tag + ': and the lens keeps out of the wall all the way round', JSON.stringify(r));
+        expect(r.still < 0.001, tag + ': and with the mouse still, the camera is still', JSON.stringify(r));
         await ctx.close();
     }
 

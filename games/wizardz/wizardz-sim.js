@@ -267,8 +267,9 @@
     const LENS = [];
     for (let k = 0; k < 16; k++) LENS.push([cos(k * PI / 8) * 0.42, sin(k * PI / 8) * 0.42]);
     for (let k = 0; k < 8; k++) LENS.push([cos(k * PI / 4 + PI / 8) * 0.25, sin(k * PI / 4 + PI / 8) * 0.25]);
-    function lensInWorld(x, y, z) {
-        for (let k = 0; k < LENS.length; k++) if (heightAt(x + LENS[k][0], z + LENS[k][1]) > y - 0.05) return true;
+    function lensInWorld(x, y, z, size) {
+        const m = (size || 0.42) / 0.42;
+        for (let k = 0; k < LENS.length; k++) if (heightAt(x + LENS[k][0] * m, z + LENS[k][1] * m) > y - 0.05) return true;
         return false;
     }
     function camera(s, w, out) {
@@ -288,8 +289,35 @@
             const x = px + dx * u, y = py + dy * u, z = pz + dz * u;
             if (y < heightAt(x, z) + (w.lens ? 0.3 : 0.18) || (w.lens && lensInWorld(x, y, z)) || insideWall(s, x, y, z, 0.2)) { t = max(0.05, (k - 1) / steps - 0.04); break; }
         }
+        // The picture's camera never jumps where it does not have to. The arm's end is found to a
+        // centimetre rather than a fifth of a metre, and with what the arm was last frame (w.was, in
+        // metres) and the frame time (w.dt): where it is now still fits, it eases towards where it
+        // wants to be, and where it does not, it comes in only as far as it must. Coming off a box's
+        // corner it used to snap two metres at once as you turned.
+        if (w.lens) {
+            const fits = (u, size) => {
+                const x = px + dx * u, y = py + dy * u, z = pz + dz * u;
+                return !(y < heightAt(x, z) + 0.3 || lensInWorld(x, y, z, size) || insideWall(s, x, y, z, 0.2));
+            };
+            if (t < 1) {
+                let lo = max(0, t), hi = min(1, t + 0.04 + 2 / steps);
+                if (!fits(lo)) lo = 0;
+                for (let k = 0; k < 7; k++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
+                t = max(0.05, lo - 0.02 / len);
+            }
+            if (w.was !== undefined && w.dt !== undefined) {
+                const was = clamp(w.was / len, 0.05, 1);
+                let u;
+                if (fits(was)) u = was + clamp((t - was) * (1 - Math.exp(-(t > was ? 4 : 14) * w.dt)), -9 * w.dt / len, 5 * w.dt / len);
+                // grazing something: slide in at a camera's pace with a slightly tighter lens, rather than cut
+                else if (fits(was, 0.32)) { u = max(t, was - 9 * w.dt / len); while (u > 0.05 && !fits(u, 0.32)) u -= 0.03 / len; }
+                else { u = was; while (u > 0.05 && !fits(u, 0.32)) u -= 0.03 / len; }
+                while (u > t && !fits(u, 0.32)) u = max(t, u - 0.03 / len);
+                t = max(0.05, u);
+            }
+        }
         out = out || {};
-        out.x = px + dx * t; out.y = py + dy * t; out.z = pz + dz * t; out.t = t;
+        out.x = px + dx * t; out.y = py + dy * t; out.z = pz + dz * t; out.t = t; out.len = t * len;
         out.fx = f.x; out.fy = f.y; out.fz = f.z;
         return out;
     }

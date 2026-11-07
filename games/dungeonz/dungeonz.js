@@ -220,7 +220,8 @@
             return false;
         }
         const sk = D.skillById(h.skills[k].id);
-        const cam = S.camera(s, { x: h.x, y: h.y, z: h.z, yaw: g.yaw, pitch: g.pitch });
+        // the camera on the screen, arm and all, so it lands where the crosshair is
+        const cam = S.camera(s, { x: h.x, y: h.y, z: h.z, yaw: g.yaw, pitch: g.pitch, was: g.camLen, dt: 0 });
         const p = S.crosshairGround(s, cam, sk.range || 18, h);
         issue(g, { c: 'cast', k, q: q || 0, y: g.yaw, tx: p.x, tz: p.z });
         if (!g.isHost) {
@@ -880,6 +881,8 @@
     const lerp = (a, b, t) => a + (b - a) * t;
     function heroViews(g, dt, alpha) {
         const s = g.s, out = [];
+        // your own wizard fades out as the camera comes in to your head, rather than showing its inside
+        const near = g.camNear === undefined ? 1 : clamp((g.camNear - 0.6) / 1.1, 0, 1);
         s.heroes.forEach((h, i) => {
             const mine = i === g.me;
             let x = h.px === undefined ? h.x : lerp(h.px, h.x, alpha), y = h.py === undefined ? h.y : lerp(h.py, h.y, alpha), z = h.pz === undefined ? h.z : lerp(h.pz, h.z, alpha);
@@ -898,8 +901,8 @@
             out.push({
                 x, y, z, yaw: mine ? g.yaw : h.yaw, pitch: mine ? g.pitch * 0.5 : 0, avatar: h.avatar,
                 walk: speed > 0.3 && !h.down ? g.walkA[i] : 0, raise: g.raise[i], kneel: h.stance ? 1 : 0, fall: g.fall[i],
-                alpha: h.out ? 0.35 : h.safe > 0 && floor(s.t * 10) % 2 ? 0.6 : undefined,
-                hidden: mine && g.camT < 0.25, flash: h.hitT > 0 ? 0.6 : 0, h, i
+                alpha: mine && near < 1 ? near : h.out ? 0.35 : h.safe > 0 && floor(s.t * 10) % 2 ? 0.6 : undefined,
+                hidden: mine && near < 0.15, flash: h.hitT > 0 ? 0.6 : 0, h, i
             });
         });
         return out;
@@ -951,8 +954,12 @@
         if (!g.stance) assistAim(g, dt);
         const heroes = heroViews(g, dt, alpha);
         const mine = heroes[g.me];
-        const cam = S.camera(s, { x: mine.x, y: me.out ? me.y + 1 : mine.y, z: mine.z, yaw: g.yaw, pitch: g.pitch });
-        g.camT = cam.t;
+        // the arm carries on from last frame, unless you went somewhere else entirely (a wipe, a shrine)
+        const camY = me.out ? me.y + 1 : mine.y;
+        if (g.camAt && hypot(mine.x - g.camAt.x, mine.z - g.camAt.z, camY - g.camAt.y) > 3) g.camLen = undefined;
+        const cam = S.camera(s, { x: mine.x, y: camY, z: mine.z, yaw: g.yaw, pitch: g.pitch, was: g.camLen, dt });
+        g.camAt = { x: mine.x, y: camY, z: mine.z };
+        g.camLen = cam.len; g.camNear = cam.near; g.camT = cam.t; g.cam = cam;
         g.shake = max(0, g.shake - dt * 1.4);
         const sh = g.shake * 0.25;
         const camV = { x: cam.x + (sh ? (Math.random() - 0.5) * sh : 0), y: cam.y + (sh ? (Math.random() - 0.5) * sh : 0), z: cam.z, fx: cam.fx, fy: cam.fy, fz: cam.fz };
