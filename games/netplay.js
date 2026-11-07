@@ -1508,6 +1508,8 @@
         }
         function quickMatch(qGame, qMode) {
             if (busy) return;
+            // say so now, not after looking for a lobby nobody can reach
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) { say(NP.OFFLINE); beep('error'); return; }
             const tried = new Set();
             setBusy(true, 'quick match: looking for an open lobby...');
             NP.loadLobbies().then(L => {

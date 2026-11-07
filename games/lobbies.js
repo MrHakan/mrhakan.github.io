@@ -518,7 +518,8 @@
             rows = L.current().filter(l => l.code !== mine && !dead.has(l.code))
                 .sort((a, b) => ((b.game === want) - (a.game === want)));
             const up = L.up();
-            countEl.textContent = !up ? (t - opened > 9000 ? "can't reach the public relays" : 'tuning in...')
+            const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+            countEl.textContent = !up ? (offline ? "you're offline" : t - opened > 9000 ? "can't reach the public relays" : 'tuning in...')
                 : rows.length ? rows.length + ' open' : 'none right now';
             if (!rows.length) {
                 listEl.innerHTML = `<div class="np-lb-empty">${up
