@@ -374,6 +374,13 @@ the rules and the bot, and neither touches the page, which is how
 `check-age-of-troll.mjs` plays a few hundred games in a minute. Tune in the data
 file and run that.
 
+The trolls are animated: a walk, an attack and a death each, and a shot for the
+five that throw things, as 4 x 4 webp sheets in `anim/`. They are cut from the
+approved gifs by `.github/scripts/aot-anim-sheets.py`, which also writes the
+frame boxes into the `<aot-anim>` block of the data file; run it again after
+changing a gif. Only the drawing uses them. A sheet loads the first time its
+troll turns up, and until then the troll is its still picture.
+
 Online it is host authoritative like wizardz, with one difference: a guest runs
 the same `step()` from the last snapshot rather than only moving things along.
 So over the relays it needs 3 snapshots a second rather than 8. Guests send
