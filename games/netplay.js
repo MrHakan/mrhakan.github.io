@@ -1283,8 +1283,12 @@
     // ===============================================================
     // the lobby is told what is happening while it happens, since a guest can
     // spend seven seconds finding out that there is no direct route
+    // Offline, every way through but two tabs of one browser is a wait that
+    // ends in a network error. Say so before the wait.
+    NP.OFFLINE = 'you are offline bradar. online play needs the internet; the bots and the two-tab local mode still work';
     function opening(t, onStatus) {
         t.h = { status: onStatus };
+        if (t.kind !== 'local' && typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.reject(new Error(NP.OFFLINE));
         return t.open().catch(err => {
             try { t.close(); } catch (e) { }
             throw err;

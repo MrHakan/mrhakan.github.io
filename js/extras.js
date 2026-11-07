@@ -385,6 +385,12 @@ function balLoadScripts() {
     return balLoading;
 }
 
+// a game that was never saved for offline, asked for with the cable out
+function lazyFail(msg) {
+    return '<div class="bj-loading">' + (navigator.onLine === false
+        ? 'you are offline, and this one was never saved on this machine. open it once with the cable in, bradar.' : msg) + '</div>';
+}
+
 function replaceLazyWindow(win, launch) {
     if (!win.isConnected || !win.id) return;
     if (window.WEB && typeof WEB.replaceWindow === 'function') return WEB.replaceWindow(win, launch);
@@ -399,7 +405,7 @@ function openBalatro() {
     balLoadScripts().then(() => {
         replaceLazyWindow(win, () => startBalatro());
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">could not load the game files bradar</div>';
+        body.innerHTML = lazyFail('could not load the game files bradar');
     });
 }
 
@@ -423,7 +429,7 @@ function openTrollProblem() {
     tgLoadScripts().then(() => {
         replaceLazyWindow(win, () => startTrollProblem());
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">could not load the game files bradar</div>';
+        body.innerHTML = lazyFail('could not load the game files bradar');
     });
 }
 
@@ -446,7 +452,7 @@ function openBecomeUser() {
     buLoadScripts().then(() => {
         replaceLazyWindow(win, () => startBecomeUser());
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">could not load the story files bradar</div>';
+        body.innerHTML = lazyFail('could not load the story files bradar');
     });
 }
 
@@ -471,7 +477,7 @@ function openNetplay(opts) {
     npLoadScripts().then(() => {
         replaceLazyWindow(win, () => Netplay.openLobby(opts || {}));
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">could not load the netplay files bradar</div>';
+        body.innerHTML = lazyFail('could not load the netplay files bradar');
     });
 }
 
@@ -502,7 +508,7 @@ function openEchoes() {
     etLoadScripts().then(() => {
         replaceLazyWindow(win, () => startEchoes());
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">the tide took the charts bradar</div>';
+        body.innerHTML = lazyFail('the tide took the charts bradar');
     });
 }
 
@@ -513,7 +519,7 @@ function openWizardz(mode) {
     wzLoadScripts().then(() => {
         replaceLazyWindow(win, () => startWizardz(mode));
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">could not load the spellbook bradar</div>';
+        body.innerHTML = lazyFail('could not load the spellbook bradar');
     });
 }
 
@@ -530,7 +536,7 @@ function openDungeonz(mode) {
     dzLoadScripts().then(() => {
         replaceLazyWindow(win, () => startDungeonz(mode));
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">the dungeon would not open bradar</div>';
+        body.innerHTML = lazyFail('the dungeon would not open bradar');
     });
 }
 
@@ -556,7 +562,7 @@ function openAgeOfTroll(mode) {
     aotLoadScripts().then(() => {
         replaceLazyWindow(win, () => startAgeOfTroll(mode));
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">the trolls got lost on the way bradar</div>';
+        body.innerHTML = lazyFail('the trolls got lost on the way bradar');
     });
 }
 
@@ -581,7 +587,7 @@ function launchThemeMaker() {
     tmLoadScripts().then(() => {
         replaceLazyWindow(win, () => openThemeMaker());
     }).catch(() => {
-        body.innerHTML = '<div class="bj-loading">could not load the theme maker bradar</div>';
+        body.innerHTML = lazyFail('could not load the theme maker bradar');
     });
 }
 
@@ -946,7 +952,8 @@ function siteSearchIndex() {
         ['snake', 'game', () => openSnake(), 'nokia arcade'],
         ['pong', 'game', () => openPong(), 'tennis arcade'],
         ['which track are you?', 'game', () => openQuiz(), 'quiz personality test'],
-        ['achievements', 'game', () => openAchievements(), 'trophies unlocks'],
+        ['trophy room', 'game', () => startMenuAction('trophies'), 'trophies achievements unlocks records high scores best time played share'],
+        ['install mrhakan 98', 'program', () => installSite(), 'install app pwa desktop home screen offline'],
         ['magic 8-ball', 'toy', () => openMagic8Ball(), 'fortune answers'],
         ['visitor poll', 'toy', () => openPoll(), 'vote survey'],
         ['web ring', 'toy', () => openWebRing(), 'neighbours sites'],

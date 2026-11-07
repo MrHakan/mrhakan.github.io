@@ -1,20 +1,27 @@
 {
-    "name": "mrhakan's shithole",
+    "id": "/",
+    "name": "mrhakan 98",
     "short_name": "mrhakan 98",
-    "description": "a retro y2k personal site — winamp, guestbook, minesweeper, trolls and all. best viewed at 800x600.",
+    "description": "a retro y2k personal site you can install: winamp, guestbook, minesweeper, wizardz, dungeonz, trolls and all. works offline once you have been here.",
+    "lang": "en",
+    "dir": "ltr",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
     "orientation": "any",
     "background_color": "#0d0517",
     "theme_color": "#1a0b2e",
-    "categories": ["entertainment", "personalization"],
+    "categories": ["entertainment", "games", "personalization"],
     "icons": [
-        {
-            "src": "/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png",
-            "sizes": "any",
-            "type": "image/png",
-            "purpose": "any"
-        }
+        { "src": "/src/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/src/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/src/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "/src/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ],
+    "shortcuts": [
+        { "name": "trophy room", "short_name": "trophies", "description": "every achievement and record on the desktop", "url": "/?app=trophies", "icons": [{ "src": "/src/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+        { "name": "wizardz 98", "short_name": "wizardz", "description": "draw a sigil, duel a wizard", "url": "/?app=wizardz", "icons": [{ "src": "/src/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+        { "name": "dungeonz 98", "short_name": "dungeonz", "description": "a four seat co-op raid, bots welcome", "url": "/?app=dungeonz", "icons": [{ "src": "/src/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+        { "name": "jokerz 98", "short_name": "jokerz", "description": "poker hands and jokers that break the rules", "url": "/?app=jokerz", "icons": [{ "src": "/src/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
     ]
 }

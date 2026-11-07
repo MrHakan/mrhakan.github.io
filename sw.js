@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v37';
+const CACHE = 'mrhakan98-v38';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -40,7 +40,11 @@ const PRECACHE = [
     '/src/emoj/joe-cool-114.webp',
     '/src/emoj/hot-40.webp',
     '/src/emoj/favicon-48.png',
-    '/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png'
+    '/src/emoj/Cursed%20Pack%201-emojigg-pack/7161-joe-cool.png',
+    // what an installed copy needs to start with the cable out
+    '/site.webmanifest',
+    '/src/icons/icon-192.png',
+    '/src/icons/apple-touch-180.png'
 ];
 
 // Everything that loads on demand, so it still opens offline. The install used
@@ -52,6 +56,8 @@ const PRECACHE_LATER = [
     '/js/toys.js',
     '/js/defrag.js',
     '/js/documents.js',
+    '/js/trophies.js',
+    '/css/trophies.css',
     '/js/theme-scan.js',
     '/js/theme-maker.js',
     '/js/vendor/motion.js',
@@ -91,7 +97,10 @@ const PRECACHE_LATER = [
     '/data/posts.json',
     '/data/projects.json',
     '/data/playground.json',
-    '/src/alagar-720.webp'
+    '/src/alagar-720.webp',
+    '/src/icons/icon-512.png',
+    '/src/icons/maskable-192.png',
+    '/src/icons/maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {

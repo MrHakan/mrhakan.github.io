@@ -1345,6 +1345,7 @@
             m.wins[s.dungeon] = (m.wins[s.dungeon] || 0) + 1;
             if (!m.best[s.dungeon] || s.t < m.best[s.dungeon]) m.best[s.dungeon] = round(s.t);
             SFX.win();
+            if (typeof unlockAchievement === 'function') unlockAchievement('dungeonz_win');
         }
         writeJson(LS.meta, m);
         paintCards(g, true);
@@ -1562,6 +1563,7 @@
     }
     function openMenu() {
         ensureWindow();
+        if (typeof unlockAchievement === 'function') unlockAchievement('dungeonz');
         leaveRun();
         const m = meta();
         const pick = chosenDungeon();

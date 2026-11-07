@@ -29,7 +29,8 @@ const LAZY = (function () {
             'openLoveCalc', 'openCowsay', 'openDice', 'surpriseMe', 'openRating',
             'toggleStatusScroller', 'toggleCursorTrail'],
         'js/defrag.js': ['openDefrag'],
-        'js/documents.js': ['openDocuments']
+        'js/documents.js': ['openDocuments'],
+        'js/trophies.js': ['openTrophies']
     };
 
     // how long somebody has to stay before the offline copies are worth fetching
@@ -67,7 +68,9 @@ const LAZY = (function () {
                 const launch = () => window[name].apply(window, args);
                 return window.WEB ? WEB.withRoute(route, launch) : launch();
             }, () => {
-                if (typeof showToast === 'function') showToast('windows', 'could not load that bradar. check the cable?');
+                if (typeof showToast === 'function') showToast('windows', navigator.onLine === false
+                    ? 'you are offline, and this one was never saved for offline. open it once with the cable in.'
+                    : 'could not load that bradar. check the cable?');
             }).finally(() => {
                 delete opening[name];
                 root.classList.remove('lazy-loading');
