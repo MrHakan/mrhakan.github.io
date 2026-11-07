@@ -7,6 +7,8 @@
 //
 //   - the three dungeons get harder in order, and none is a wall or a walk
 //   - a run, a boss fight and the level you reach the boss at are in range
+//   - the boss is a fight on normal and hard: a party that reaches it does not
+//     always beat it at the first go, and some of them go down doing it
 //   - every skill and every passive gets picked, and none of them is worth far
 //     more or far less than the rest, measured two ways: what it does per second
 //     you own it (damage, and health it saved), and how often a party carrying it
@@ -50,7 +52,7 @@ function playRun(W, dungeon, seed) {
     s.heroes.forEach(h => { h.skills.forEach(k => party.add(k.id)); Object.keys(h.pas).forEach(p => pas.add(p)); });
     return {
         dungeon, seed, win: s.over === 'win', timeout: !s.over, t: s.t, frontier: s.frontier, rooms: s.dun.rooms.length,
-        bossT: s.stats.bossT, bossAt: s.stats.bossAt, lv: s.stats.levelAtBoss, endLv: s.heroes.reduce((a, h) => a + h.level, 0) / 4,
+        bossT: s.stats.bossT, bossAt: s.stats.bossAt, bossTries: s.stats.bossTries, bossDowns: s.stats.bossDowns, lv: s.stats.levelAtBoss, endLv: s.heroes.reduce((a, h) => a + h.level, 0) / 4,
         downs: s.stats.downs, wipes: s.stats.wipes, kills: s.stats.kills, revives: s.stats.revives,
         dmg: s.stats.dmg, saved: s.stats.saved, own: s.stats.own, picks: s.stats.picks,
         party: [...party], pas: [...pas], mid: s.stats.mid || null
@@ -290,7 +292,7 @@ const RUNS = +(process.env.DZ_RUNS || 36);
 const jobs = [];
 for (const d of D.DUNGEONS) for (let k = 0; k < RUNS; k++) jobs.push({ dungeon: d.id, seed: 1000 + k * 7919 });
 // half the cores: the runs make garbage, and the collector's threads are shared
-const nWorkers = Math.max(1, Math.min(Math.floor(os.cpus().length / 2), 6, jobs.length));
+const nWorkers = Math.max(1, Math.min(+process.env.DZ_THREADS || Math.floor(os.cpus().length / 2), 6, jobs.length));
 const results = (await Promise.all(Array.from({ length: nWorkers }, (_, w) => new Promise((res, rej) => {
     const mine = jobs.filter((_, k) => k % nWorkers === w);
     const wk = new Worker(fileURLToPath(import.meta.url), { workerData: { jobs: mine } });
@@ -302,11 +304,13 @@ const by = {};
 for (const r of results) (by[r.dungeon] = by[r.dungeon] || []).push(r);
 const mean = (a, f) => a.length ? a.reduce((s, r) => s + f(r), 0) / a.length : NaN;
 const TARGET = {
-    bin: { clear: [0.85, 1], time: [2.5, 8], lv: [4, 9] },
-    registry: { clear: [0.55, 0.97], time: [3.5, 11], lv: [5.5, 11] },
-    bsod: { clear: [0.3, 0.85], time: [4.5, 14], lv: [6.5, 13] }
+    // first: how often a party that reaches the boss kills it at the first go.
+    // downs: how many times somebody goes down while it is up, over every go at it
+    bin: { clear: [0.85, 1], time: [2.5, 8], lv: [4, 9], first: [0.85, 1], downs: [0, 3] },
+    registry: { clear: [0.55, 0.97], time: [3.5, 11], lv: [5.5, 11], first: [0.5, 0.92], downs: [3, 14] },
+    bsod: { clear: [0.3, 0.85], time: [4.5, 14], lv: [6.5, 13], first: [0.3, 0.85], downs: [6, 22] }
 };
-const clear = {};
+const clear = {}, firstGo = {}, bossDowns = {};
 for (const d of D.DUNGEONS) {
     const rs = by[d.id], wins = rs.filter(r => r.win), T = TARGET[d.id];
     const c = wins.length / rs.length;
@@ -319,12 +323,23 @@ for (const d of D.DUNGEONS) {
     expect(boss >= 40 && boss <= 240, 'the boss takes 40s to 4 minutes', Math.round(boss) + 's on average');
     const lv = mean(rs.filter(r => r.bossAt >= 0), r => r.lv);
     expect(lv >= T.lv[0] && lv <= T.lv[1], 'the party reaches the boss at level ' + T.lv[0] + ' to ' + T.lv[1], lv.toFixed(1));
+    const met = rs.filter(r => r.bossTries > 0);
+    const first = met.filter(r => r.win && r.bossTries === 1).length / Math.max(1, met.length);
+    firstGo[d.id] = first;
+    expect(first >= T.first[0] && first <= T.first[1], 'a party that reaches ' + D.BOSSES[d.boss].name + ' kills it at the first go ' + pct(T.first[0]) + ' to ' + pct(T.first[1]) + ' of the time', pct(first) + ' of ' + met.length);
+    const bd = mean(met, r => r.bossDowns);
+    bossDowns[d.id] = bd;
+    expect(bd >= T.downs[0] && bd <= T.downs[1], 'and somebody goes down ' + T.downs[0] + ' to ' + T.downs[1] + ' times while it is up', bd.toFixed(1) + ' on average');
     const fails = rs.filter(r => !r.win);
     const early = fails.filter(r => r.frontier <= 2).length;
     expect(early <= Math.max(1, rs.length * 0.06), 'and when it fails it is rarely in the first two rooms', early + ' of ' + fails.length + ' failures');
     if (process.env.DZ_TABLE) console.log('        ' + d.id + ': downs ' + mean(rs, r => r.downs).toFixed(1) + ', wipes ' + mean(rs, r => r.wipes).toFixed(2) + ', revives ' + mean(rs, r => r.revives).toFixed(1) + ', kills ' + mean(rs, r => r.kills).toFixed(0) + ', fails at ' + fails.map(r => r.frontier + '/' + r.rooms).join(' '));
 }
 expect(clear.bin > clear.registry && clear.registry > clear.bsod, 'easy is easier than normal, and normal than hard', pct(clear.bin) + ' > ' + pct(clear.registry) + ' > ' + pct(clear.bsod));
+// and so are the bosses. Few parties reach the blue screen, so how often they beat it at the first
+// go moves a lot between machines; how often somebody goes down while it is up does not
+expect(firstGo.bin > firstGo.registry && bossDowns.bin < bossDowns.registry && bossDowns.registry < bossDowns.bsod, 'and so are the bosses: beaten less often at the first go, and more people go down',
+    pct(firstGo.bin) + ' > ' + pct(firstGo.registry) + ' at the first go, ' + bossDowns.bin.toFixed(1) + ' < ' + bossDowns.registry.toFixed(1) + ' < ' + bossDowns.bsod.toFixed(1) + ' downs');
 {
     // what a card is worth: damage done and health saved, per second somebody owned it
     const value = {}, own = {}, pickN = {};

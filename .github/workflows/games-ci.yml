@@ -254,6 +254,13 @@ jobs:
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8105 node .github/scripts/browser-dungeonz.mjs
 
+            # what players ran into on the two 3d shooters: fullscreen on a 2560x1440 screen at
+            # the site's zoom, the dungeonz camera at the ends of its pitch, a shrine's cards with
+            # the mouse locked, and firing with the right button held. A stand-in pointer lock that
+            # behaves like Chrome's, and its own server
+            - name: The 3d shooters, as players found them
+              run: node .github/scripts/browser-ps1-feel.mjs
+
             # the auto scaler moves a real mouse by a known number of real pixels on
             # the screens people have, and presses every button in the news panel.
             # It brings its own server and sends nothing off the machine

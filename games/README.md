@@ -270,6 +270,22 @@ where it will land before it does: a red circle that fills (slams, rain), a lane
 (beams), a ring going out along the floor that you can jump, or bolts you can see coming.
 At least 0.9 seconds of warning, which `check-dungeonz.mjs` holds the data to.
 
+They are tuned against the whole party, because the party is always four: three of them bots
+that level with you. The troll king used to die at the first go every time with hardly anybody
+going down, so a dungeon's `bossDmg` and each boss's `gap` were turned up, most on normal and
+hard, and the balance check below now holds how hard each boss is, not only how long.
+
+### the camera
+
+A spring arm from a point just over your head, which swings round that point with your pitch:
+looking up brings it down behind you and tips it up, looking down lifts it over you. The lens is
+a ball 0.42m across rather than a point, because the near plane is wide and a point kept out of a
+wall still drew the inside of it. It stays 0.7m below the tops of the walls, which are the edge of
+the world, and where there is no room behind you it lifts the arm, up to straight over your head,
+rather than going into the wall or your hat. It looks at a point ahead of you along your aim,
+nearer when the arm is short, so you stay in the picture. `browser-ps1-feel.mjs` measures it and
+keeps a picture of every end of its pitch, in a room, back to a wall and in a corridor.
+
 ### one to four people: bots, not scaling
 
 A party is always four seats and bots fill the empty ones, rather than the dungeon getting
@@ -324,13 +340,15 @@ Tune in `dungeonz-data.js` and run `DZ_TABLE=1 node .github/scripts/check-dungeo
 Parties of four bots play 36 runs of every dungeon on as many threads as the machine has,
 picking their cards at random so that every card gets measured. Held to:
 
-| | cleared | a clear, in bot minutes | level at the boss |
-| --- | --- | --- | --- |
-| the recycle bin | 85% to 100% | 2.5 to 8 | 4 to 9 |
-| the registry | 55% to 97% | 3.5 to 11 | 5.5 to 11 |
-| the blue screen | 30% to 85% | 4.5 to 14 | 6.5 to 13 |
+| | cleared | a clear, in bot minutes | level at the boss | boss beaten at the first go | downs while it is up |
+| --- | --- | --- | --- | --- | --- |
+| the recycle bin | 85% to 100% | 2.5 to 8 | 4 to 9 | 85% to 100% | 0 to 3 |
+| the registry | 55% to 97% | 3.5 to 11 | 5.5 to 11 | 50% to 92% | 3 to 14 |
+| the blue screen | 30% to 85% | 4.5 to 14 | 6.5 to 13 | 30% to 85% | 6 to 22 |
 
-and easy above normal above hard, the boss between 40 seconds and 4 minutes, and failures
+and easy above normal above hard, for the dungeons and for their bosses (fewer beaten at the
+first go, more people going down), the boss between 40
+seconds and 4 minutes, and failures
 rarely in the first two rooms. For the cards it measures two things. What a skill does per
 second somebody owns it, counting damage done and health saved (by a ward, a heal, an ice
 wall or a decoy): none may be more than three times the median or less than a third of it.
@@ -592,6 +610,9 @@ including somebody walking out, loadout ids typed in and refused, a guest trying
 it does not carry, and two browsers direct and over the relays;
 `browser-dungeonz.mjs` takes a raid from the address bar to a cleared dungeon, draws a
 fireball, measures the frame rate in a crowd, and plays it on a phone and in two browsers;
+`browser-ps1-feel.mjs` holds both 3d games to what players ran into: fullscreen on a 2560x1440
+screen at the site's zoom of 1.5, the camera at the ends of its pitch, a shrine's cards with the
+mouse locked, and firing with the right button held;
 `.github/scripts/check-netplay.mjs` and `browser-netplay.mjs` hold the ways
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
