@@ -448,7 +448,8 @@ const news = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/news.json'), 'utf8
     expect(l.news.bottom <= l.mainBody.bottom, 'and all of it is visible without scrolling at 2560x1440', Math.round(l.news.bottom) + ' of ' + Math.round(l.mainBody.bottom));
 
     // every button really opens its thing
-    await p.locator('.news-item', { hasText: 'age of troll' }).locator('button.news-btn').click();
+    // there can be more than one line about it, and they all open the same window
+    await p.locator('.news-item', { hasText: 'age of troll' }).locator('button.news-btn').first().click();
     await p.waitForSelector('.aot-menu', { timeout: 20000 });
     expect(true, 'play now on age of troll opens age of troll');
     await p.evaluate(() => document.querySelectorAll('.app-window').forEach(w => w.remove()));
@@ -531,7 +532,7 @@ if (CHROMIUM) {
             expect(small === 0, 'its buttons are big enough for a finger', small + ' too small');
             await p.locator('#news-panel').scrollIntoViewIfNeeded();
             await p.screenshot({ path: path.join(SHOTS, 'scale-phone.png') });
-            await p.locator('.news-item', { hasText: 'age of troll' }).locator('button.news-btn').tap();
+            await p.locator('.news-item', { hasText: 'age of troll' }).locator('button.news-btn').first().tap();
             await p.waitForSelector('.aot-menu', { timeout: 20000 });
             expect(true, 'and a tap opens the game');
         }
