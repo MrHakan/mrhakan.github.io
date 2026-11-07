@@ -60,7 +60,7 @@
     const E = 'src/emoj/';
     const T = 'src/troll/';
     const CAST = [
-        ['he', E + 'he.gif', 'hello', J + '5065-hello.gif', 'hot', J + '3666-hot.png'],
+        ['emi', J + '1391-emi.png', 'hello', J + '5065-hello.gif', 'hot', J + '3666-hot.png'],
         ['joe fight', J + '9637-joe-fight.png', 'joe cool', J + '7161-joe-cool.png', 'joe angry', J + '3353-joe-angry.png'],
         ['joe murder', J + '9270-joe-murder.png', 'joe chef', J + '4631-joe-chef.png', 'lesgooo', E + 'LESFUCKINGO.png'],
         ['pffft', E + 'pffft.png', 'nasiya', E + 'nasiya.png', 'ingaaa', E + 'ingaaa.png'],
@@ -107,11 +107,11 @@
         '07-joe-murder', '08-joe-chef', '09-lesgooo', '10-pffft', '11-nasiya', '12-ingaaa',
         '13-xd-troll', '14-trollface', '15-patron-edasiyla', '16-the-troll-king'];
     AOT.UNITS.forEach(u => { u.anim = AOT.ANIM_NAMES[u.id]; });
-    // all of them drawn facing right, except the trollface's attack, which spits
-    // its little trollface out to the left
-    AOT.ANIM_LOOKS_LEFT = { '14-trollface-attack': true };
+    // Lesgooo faces left in all three moves; trollface spits left in its attack.
+    // Keep each move's source direction so both sides face their opponent.
+    AOT.ANIM_LOOKS_LEFT = { '09-lesgooo-walk': true, '09-lesgooo-attack': true, '09-lesgooo-death': true, '14-trollface-attack': true };
     // <aot-anim>
-    AOT.ANIM = {"01-he":{"cell":96,"w":0.958,"h":1.0},"02-hello":{"cell":96,"w":1.0,"h":0.927,"shot":{"cell":48,"w":1.0,"h":0.771}},"03-hot":{"cell":96,"w":1.0,"h":0.927},"04-joe-fight":{"cell":96,"w":1.0,"h":0.906},"05-joe-cool":{"cell":96,"w":1.0,"h":0.969,"shot":{"cell":48,"w":1.0,"h":0.354}},"06-joe-angry":{"cell":96,"w":1.0,"h":0.906},"07-joe-murder":{"cell":96,"w":0.875,"h":1.0},"08-joe-chef":{"cell":96,"w":1.0,"h":0.906,"shot":{"cell":48,"w":1.0,"h":0.792}},"09-lesgooo":{"cell":96,"w":1.0,"h":1.0},"10-pffft":{"cell":96,"w":1.0,"h":0.969},"11-nasiya":{"cell":96,"w":0.99,"h":1.0,"shot":{"cell":48,"w":1.0,"h":0.833}},"12-ingaaa":{"cell":96,"w":1.0,"h":0.979},"13-xd-troll":{"cell":96,"w":0.979,"h":1.0},"14-trollface":{"cell":96,"w":1.0,"h":0.792,"shot":{"cell":48,"w":1.0,"h":0.938}},"15-patron-edasiyla":{"cell":96,"w":1.0,"h":0.99},"16-the-troll-king":{"cell":192,"w":1.0,"h":0.984}};
+    AOT.ANIM = {"01-he":{"cell":96,"w":1.0,"h":0.969},"02-hello":{"cell":96,"w":1.0,"h":0.927,"shot":{"cell":48,"w":1.0,"h":0.771}},"03-hot":{"cell":96,"w":1.0,"h":0.927},"04-joe-fight":{"cell":96,"w":1.0,"h":0.906},"05-joe-cool":{"cell":96,"w":1.0,"h":0.969,"shot":{"cell":48,"w":1.0,"h":0.354}},"06-joe-angry":{"cell":96,"w":1.0,"h":0.906},"07-joe-murder":{"cell":96,"w":0.875,"h":1.0},"08-joe-chef":{"cell":96,"w":1.0,"h":0.906,"shot":{"cell":48,"w":1.0,"h":0.792}},"09-lesgooo":{"cell":96,"w":1.0,"h":0.969},"10-pffft":{"cell":96,"w":1.0,"h":0.969},"11-nasiya":{"cell":96,"w":0.99,"h":1.0,"shot":{"cell":48,"w":1.0,"h":0.833}},"12-ingaaa":{"cell":96,"w":1.0,"h":0.979},"13-xd-troll":{"cell":96,"w":0.979,"h":1.0},"14-trollface":{"cell":96,"w":1.0,"h":0.792,"shot":{"cell":48,"w":1.0,"h":0.938}},"15-patron-edasiyla":{"cell":96,"w":1.0,"h":0.99},"16-the-troll-king":{"cell":192,"w":1.0,"h":0.984}};
     // </aot-anim>
 
     AOT.unitFor = (age, role) => role === 3 ? AOT.UNITS[AOT.BOSS] : AOT.UNITS[age * 3 + role];
