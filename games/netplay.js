@@ -1288,7 +1288,7 @@
     NP.OFFLINE = 'you are offline bradar. online play needs the internet; the bots and the two-tab local mode still work';
     function opening(t, onStatus) {
         t.h = { status: onStatus };
-        if (t.kind !== 'local' && navigator.onLine === false) return Promise.reject(new Error(NP.OFFLINE));
+        if (t.kind !== 'local' && typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.reject(new Error(NP.OFFLINE));
         return t.open().catch(err => {
             try { t.close(); } catch (e) { }
             throw err;

@@ -331,7 +331,7 @@ function finish() {
     section('offline, the online games say so');
     {
         const np = read('games/netplay.js');
-        expect(/t\.kind !== 'local' && navigator\.onLine === false\) return Promise\.reject\(new Error\(NP\.OFFLINE\)\)/.test(np),
+        expect(/t\.kind !== 'local' && typeof navigator !== 'undefined' && navigator\.onLine === false\) return Promise\.reject\(new Error\(NP\.OFFLINE\)\)/.test(np),
             'a lobby offline fails at once with a reason, not after a timeout');
         expect(/function lazyFail/.test(read('js/extras.js')) && /navigator\.onLine === false/.test(read('js/lazy.js')),
             'a game that was never saved for offline says that, not "check the cable"');
