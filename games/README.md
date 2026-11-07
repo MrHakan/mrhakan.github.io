@@ -280,13 +280,20 @@ hard, and the balance check below now holds how hard each boss is, not only how 
 ### the camera
 
 A spring arm from a point just over your head, which swings round that point with your pitch:
-looking up brings it down behind you and tips it up, looking down lifts it over you. The lens is
-a ball 0.42m across rather than a point, because the near plane is wide and a point kept out of a
-wall still drew the inside of it. It stays 0.7m below the tops of the walls, which are the edge of
-the world, and where there is no room behind you it lifts the arm, up to straight over your head,
-rather than going into the wall or your hat. It looks at a point ahead of you along your aim,
-nearer when the arm is short, so you stay in the picture. `browser-ps1-feel.mjs` measures it and
-keeps a picture of every end of its pitch, in a room, back to a wall and in a corridor.
+looking up brings it down behind you, looking down lifts it over you. Where it looks comes from
+the mouse and nothing else, wherever the camera has had to go. The lens is a ball 0.42m across
+rather than a point, because the near plane is wide and a point kept out of a wall still drew the
+inside of it, and it stays 0.7m below the tops of the walls, which are the edge of the world.
+
+When something is in the way the arm gets shorter, and that is all it does. It eases in and out at
+no more than a camera's pace, and where its end has gone into a wall the ball is pushed out of it
+sideways, so with your back to a wall it slides along it as you turn rather than cutting. Close to
+your head your own wizard fades out. An earlier version lifted the arm over your head and looked
+at a point that moved with it, and against a wall that turned the picture by itself.
+`browser-ps1-feel.mjs` measures it and keeps a picture of every end of its pitch, in a room, back
+to a wall and in a corridor, and turns the mouse two thousand small steps with your back to a wall,
+holding where it looks to the mouse and the camera to no cuts between frames. Wizardz's picture
+camera eases its arm the same way, and the camera its rules aim with is left as it was.
 
 ### one to four people: bots, not scaling
 
