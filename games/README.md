@@ -9,6 +9,8 @@ Three of the files are not a game:
 
 - **`netplay.js`** — lobbies, invite codes and transports, shared by
   every multiplayer game on the site.
+- **`lobbies.js`** — the open lobby list and quick match, which netplay.js
+  loads the first time the lobby window shows them.
 - **`ps1/`** — what makes wizardz and dungeonz look like 1996 (`ps1-gl.js`:
   the shaders, the texture page, the wizards, a height map mesher, `core()`,
   which owns the webgl context) and the world they stand in (`ps1-world.js`:
@@ -434,6 +436,7 @@ NP.CATALOG = [
         icon: 'auto_fix_high',
         min: 2, max: 8,
         teams: true,            // the lobby offers "switch sides"
+        seats: o => 2 * Number(o.mode),   // when the open lobby list calls it full (default: max)
         options: [              // the lobby offers these to the host, and shows the guests
             { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2']] }
         ],
@@ -443,7 +446,9 @@ NP.CATALOG = [
 ];
 ```
 
-`teams` and `options` are optional and a game that has no use for them leaves them out.
+`teams`, `seats` and `options` are optional and a game that has no use for them leaves them out.
+That entry is also all it takes to be on the open lobby list and in quick match: the first
+option is the mode quick match matches on, and the rest are shown on the list.
 
 ### 2. register when your script loads
 
@@ -512,6 +517,60 @@ behind it, so single player runs down the same code path as a duel and
 cannot rot separately. If you register a `startSolo()` the lobby's
 "play a bot" buttons call that instead — wizardz uses it to show its
 roster of opponents (`WZ.BOTS`) rather than picking one at random.
+
+## open lobbies and quick match
+
+An invite code only helps if you have a friend to send it to. `lobbies.js` is for
+everyone else: a host can put its lobby on a public list, the lobby window shows that
+list to anybody who has it open, and one click joins. Quick match takes the game and the
+mode, joins the fullest open lobby that fits, and otherwise opens one, lists it and waits.
+
+There is no server, so the list lives on the same public nostr relays the bus transport
+uses (`NOSTR_DEFAULTS`), on the same sockets code (`RelayPool` in netplay.js), which
+leaves alone a relay that asks for less exactly the way a duel does.
+
+| | |
+| --- | --- |
+| listing | an ephemeral signed event, tag `mrh98-lobbies-1`: game, options, code, host name, seats taken, when it opened, a region from the time zone's continent |
+| refresh | the host says it again every 14 seconds and whenever something on it changes, never more than once in 2.5 |
+| question | a browser opening the list asks once (`mrh98-lobbies-1-ask`), so it does not wait 14 seconds. Only hosts listen for questions, and the answer carries the question's nonce, which is where the ping on the list comes from: a round trip through the relays |
+| goodbye | when the match starts, the lobby fills, the host leaves, unticks the box or leaves the site. Signed in advance, so a closing page does not wait on maths |
+| time limit | anything not heard from for 40 seconds is gone, which is what catches a tab killed outright |
+
+**Private by default.** "create lobby" stays what it was, a code for a friend, unless the
+host ticks "put it in open lobbies". Somebody making a code for a friend has not agreed to
+their name going out on public relays, and a stranger taking the friend's seat is a worse
+first impression than an empty list. Quick match is public, since that is what it is for,
+and a host can tick or untick the box in the lobby at any time.
+
+**Everything on the list is a stranger's writing.** In order, cheapest first:
+
+- a frame over 2kb is dropped before it is parsed, and a listing over 512 characters after
+- the game has to be in the catalogue and the site version has to match; options have to be ones
+  the game offers, and the seat count is the game's own, never the listing's
+- the code has to be five invite code characters; the head count a whole number that fits
+- names lose control characters, invisible and direction-flipping ones and stacked accents, are
+  cut to 16 characters, and are escaped when drawn
+- a listing more than two minutes off the clock is stale, so an old one cannot be replayed
+- one event a second per key gets a hearing at all, and no more than 80 keys are remembered
+- then the signature, checked here as well as at the relay, at most 40 a ten seconds
+- one line per key (the newest), one per code (whoever claimed it first), and only the key that
+  listed a lobby can take it down
+
+A flood of fresh keys can fill the list for as long as it keeps posting. It cannot break it,
+push out what is already there, or run anything. Proof of work would make that flood cost
+something; it is not done yet.
+
+**Two quick matches at once** would both find nothing, both open a lobby and wait for each
+other forever. So a quick match lobby with nobody in it moves into a matching one that opened
+before it, and the older of two never moves: exactly one of them does.
+
+**Nothing connects at boot.** The list listens only while the lobby window shows it, or while a
+quick match lobby waits alone, and a listed host listens only for questions.
+
+`check-lobbies.mjs` holds all of the above to account with fake relays, `browser-lobbies.mjs`
+does it in separate browsers against the stand-in relay, and `npm run relays -- --lobbies`
+asks the real relays whether they pass listings, questions and goodbyes on.
 
 ## making a game feel responsive
 

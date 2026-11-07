@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v38';
+const CACHE = 'mrhakan98-v39';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -74,6 +74,7 @@ const PRECACHE_LATER = [
     '/games/echoes/echoes-data.js',
     '/games/echoes/echoes.js',
     '/games/netplay.js',
+    '/games/lobbies.js',
     '/games/ps1/ps1-world.js',
     '/games/ps1/ps1-gl.js',
     '/games/wizardz/wizardz-data.js',

@@ -76,6 +76,11 @@ jobs:
             - name: Check the ways online
               run: node .github/scripts/check-netplay.mjs
 
+            # the open lobby list is read off public relays, so everything on it
+            # is a stranger's writing: forged, stale, broken and flooding listings
+            - name: Check the open lobby list
+              run: node .github/scripts/check-lobbies.mjs
+
             - name: Smoke test the netplay relay
               run: node server/relay-smoke.mjs
 
@@ -170,6 +175,12 @@ jobs:
                   python3 -m http.server 8092 &
                   sleep 2
                   SITE_URL=http://localhost:8092 node .github/scripts/browser-netplay.mjs
+
+            # strangers in separate browsers finding each other on the open lobby
+            # list and through quick match, hosts going, and rubbish on the relay.
+            # It brings its own server and stand-in relay
+            - name: Open lobbies and quick match
+              run: node .github/scripts/browser-lobbies.mjs
 
             # the reading layer, driven the way a person drives it: type a
             # name in the address bar, press back, star a page and reload.

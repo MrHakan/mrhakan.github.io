@@ -56,6 +56,9 @@ async function context(options, { boot = true } = {}) {
     await ctx.route('**/*', route => route.request().url().startsWith(BASE) ? route.continue() : route.abort());
     if (boot) await ctx.addInitScript(() => {
         try { sessionStorage.setItem('welcomed', '1'); sessionStorage.setItem('booted', '1'); } catch (e) { }
+        // a news button can open the multiplayer lobby, whose open lobby list
+        // dials the public relays. Here they are a port nothing listens on
+        try { localStorage.setItem('mrhakan98-netplay-relays', 'ws://127.0.0.1:9'); } catch (e) { }
     });
     return ctx;
 }
@@ -432,6 +435,21 @@ section('the guestbook and the links page');
 section('what is new');
 // ===================================================================
 const news = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/news.json'), 'utf8'));
+// the line in the panel whose title is exactly this one. Text is no good for
+// finding it: "age of troll" is in the open lobbies line too, and starts the
+// replays line's title
+function newsLine(p, shown, title) {
+    const i = shown.findIndex(s => s.title === title);
+    if (i < 0) throw new Error('no line titled "' + title + '" in the panel');
+    return p.locator('.news-item').nth(i);
+}
+// which app button to press: age of troll's while it is in the top five, as it
+// has always been, or else whichever other app is. The newest line moves the
+// rest down, so a fixed one falls off the panel sooner or later
+function pickAppItem(list) {
+    const top = list.slice(0, 5).filter(i => i.app);
+    return top.find(i => i.app === 'ageoftroll') || top.find(i => i.app !== 'netplay') || top[0] || null;
+}
 {
     const ctx = await context({ viewport: { width: 2560, height: 1440 } });
     const p = await open(ctx);
@@ -441,24 +459,33 @@ const news = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/news.json'), 'utf8
     })));
     expect(shown.length === Math.min(news.length, 5), 'it shows the first lines of data/news.json', shown.length + ' rows');
     expect(shown[0].title === news[0].title && shown[0].text === news[0].text, 'in that order', shown[0].title);
-    expect(shown[0].button.startsWith(news[0].button), 'each with a button that says what it does', shown[0].button);
+    // the label is whatever the line asks for, so check all five against the file
+    // rather than the first against a word some other line will not use
+    const labels = shown.map((s, i) => s.button.replace(/\s*[▸↗]$/, '') === (news[i].button || 'open it'));
+    expect(labels.every(Boolean) && shown.every(s => s.button.length > 2), 'each with a button that says what it does',
+        shown.map(s => s.button).join(' | '));
 
     let l = await layout(p);
     expect(l.news.top >= l.enter.bottom, 'under the hello block and its enter button', Math.round(l.news.top) + ' under ' + Math.round(l.enter.bottom));
     expect(l.news.bottom <= l.mainBody.bottom, 'and all of it is visible without scrolling at 2560x1440', Math.round(l.news.bottom) + ' of ' + Math.round(l.mainBody.bottom));
 
-    // every button really opens its thing
-    // there can be more than one line about it, and they all open the same window
-    await p.locator('.news-item', { hasText: 'age of troll' }).locator('button.news-btn').first().click();
-    await p.waitForSelector('.aot-menu', { timeout: 20000 });
-    expect(true, 'play now on age of troll opens age of troll');
-    await p.evaluate(() => document.querySelectorAll('.app-window').forEach(w => w.remove()));
+    // every button really opens its thing. A line is found by its exact title:
+    // one line's words turn up in another's text, and in another's title
+    const appItem = pickAppItem(news);
+    if (appItem) {
+        const before = await p.locator('.app-window').count();
+        await newsLine(p, shown, appItem.title).locator('button.news-btn').click();
+        await p.waitForFunction(n => document.querySelectorAll('.app-window').length > n, before, { timeout: 20000 });
+        if (appItem.app === 'ageoftroll') await p.waitForSelector('.aot-menu', { timeout: 20000 });
+        expect(true, appItem.button + ' on ' + appItem.title + ' opens ' + appItem.app);
+        await p.evaluate(() => document.querySelectorAll('.app-window').forEach(w => w.remove()));
+    }
 
     // the panel shows the top five, so those are the ones with a button to press
     for (const item of news.slice(0, 5).filter(i => i.url)) {
         const [popup] = await Promise.all([
             p.context().waitForEvent('page'),
-            p.locator('.news-item', { hasText: item.title }).locator('a.news-btn').click()
+            newsLine(p, shown, item.title).locator('a.news-btn').click()
         ]);
         const res = await popup.waitForLoadState('domcontentloaded').then(() => popup.evaluate(() => ({ path: location.pathname, title: document.title, h: document.body.textContent.length })));
         expect(res.path === item.url && res.h > 50, item.title + ' opens ' + item.url, res.title);
@@ -532,9 +559,15 @@ if (CHROMIUM) {
             expect(small === 0, 'its buttons are big enough for a finger', small + ' too small');
             await p.locator('#news-panel').scrollIntoViewIfNeeded();
             await p.screenshot({ path: path.join(SHOTS, 'scale-phone.png') });
-            await p.locator('.news-item', { hasText: 'age of troll' }).locator('button.news-btn').first().tap();
-            await p.waitForSelector('.aot-menu', { timeout: 20000 });
-            expect(true, 'and a tap opens the game');
+            const tapItem = pickAppItem(news);
+            if (tapItem) {
+                const titles = await p.evaluate(() => [...document.querySelectorAll('.news-item h3')].map(h => ({ title: h.firstChild.textContent })));
+                const before = await p.locator('.app-window').count();
+                await newsLine(p, titles, tapItem.title).locator('button.news-btn').tap();
+                await p.waitForFunction(n => document.querySelectorAll('.app-window').length > n, before, { timeout: 20000 });
+                if (tapItem.app === 'ageoftroll') await p.waitForSelector('.aot-menu', { timeout: 20000 });
+                expect(true, 'and a tap opens ' + tapItem.app);
+            }
         }
         await ctx.close();
     }
