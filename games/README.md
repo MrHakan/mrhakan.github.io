@@ -435,6 +435,84 @@ replays. The end of `age-of-troll-sim.js` has the rest:
   as `aot:replay`, and a guest that has not had it asks with `aot:replay?`. The
   guest turns it round to open on its own side before sharing it.
 
+## sir, we have a troll problem
+
+A tower defense in the style of Bloons, for one to four players. Trolls walk a road
+across the desktop and the desktop's own furniture stops them: a pointer post, a
+floppy launcher, a cooling fan, an overclocked cpu, a dial-up modem, a fax machine,
+a recycle bin catapult, a spam folder, a paperclip helper and a ban hammer. They took
+over the jobs of the old grid game's towers one for one (archer, cannon, frost,
+flame, tesla, ballista, mortar, gas, banner, spire).
+
+| file | what is in it |
+| --- | --- |
+| `troll-problem-data.js` | every number: five maps, ten towers with two paths of four tiers each, twelve trolls, thirty waves, the money, the crystal tree, and the `<tp-art>` block |
+| `troll-problem-sim.js` | the rules, the bots, the wire and the saves. No page in it, so node runs it |
+| `troll-problem.js` | the window, the canvas, the shop, the upgrade panel, the mouse and the thumbs, the wire |
+| `troll-problem.css` | its styles. They come with the game, not with the desktop |
+| `art/` | the towers (`NN-name-base/a/b.webp`, 160px) and what they throw (`-projectile.webp`, 64px) |
+
+**The pictures.** The user drew them as 1254px pngs (the prompts are in
+`troll-problem-towers/PROMPTS.md`, a folder that stays out of git).
+`.github/scripts/tp-tower-art.py <folder>` clears the near invisible haze round their
+edges, crops, scales and writes the webps, and finds the middle and the radius of
+each tower's round base, which it writes into the `<tp-art>` block: the game stands
+the base on the spot that was clicked and sizes it to the footprint. Towers never
+turn; only what they throw flies at the target, drawn flying right and rotated. The
+trolls are age of troll's walk and death sheets, flipped to face where they walk.
+
+**Placing and upgrading.** A tower goes anywhere its round footprint
+(`TP.TOWER_R`) touches neither the road nor another tower; while one is in your
+hand the road and the other towers are tinted red and its range is drawn white or
+red. Each tower has two paths of four tiers. Both can go to two; once one passes
+two the other is locked at two (`TP.CROSS_CAP`), so 4-2 and 2-4 are the tops. The
+fourth tier of a path swaps the picture for that path's. Targeting is first, last,
+strong, weak or close. Selling gives back 70% of everything spent on it. On a
+phone the first tap puts the tower down to look at and the build button pays.
+
+**Up to four.** One road, one set of lives, everybody's own money and own towers,
+and nobody can touch somebody else's. Every bounty, wave reward and early bonus is
+split evenly between the players still connected, as Bloons co-op does it: paying
+whoever lands the kill would pay whoever stands at the front of the road, and the
+fans and paperclips that make those kills possible would earn nothing. The team
+gets a little more than one player in all (`TP.coopStart`, `TP.coopIncome`),
+because four wallets cannot pool into one big upgrade. A wave goes when everybody
+still here has pressed go, or when the timer runs out. The crystal tree counts in
+solo only; online everybody plays the stock towers.
+
+Somebody leaving leaves their towers on the road, still shooting, and their seat
+empty. Anybody who joins with the code takes the first empty seat, with its money
+and its towers: the host sends them the game's start message itself, since their
+lobby never saw one. With no empty seat, a newcomer watches. The host leaving ends
+it, as in dungeonz.
+
+**The wire.** Host authoritative. A guest runs the same simulation as a puppet:
+trolls walk and towers fire for show, and nothing is decided, no damage, no money,
+no deaths. The host's snapshot says where every troll is (five numbers each, about
+eighteen bytes), how hurt, whether slowed, burning or frozen, and everybody's money;
+the tower list and the seats ride along when they change and every three seconds in
+case a frame was lost. 10 a second direct, 4 over the relays, where one post reaches
+every guest. A guest sends nothing but numbered commands, resent until a snapshot
+acknowledges them. `browser-troll-problem.mjs` counts the bytes with four browsers
+over the stand-in relay.
+
+**Balance.** `check-troll-problem.mjs` plays about three hundred games of bots: the
+smart bot on every map with none, half and all of the crystal tree; the smart bot
+favouring each tower and each of its paths on a middle map; sixty random plans; and
+two and four bots together, one of them walking out at wave 8. The targets: the
+first map is won without upgrades and the last one is not, each map is harder than
+the one before it, no wave ends most of the runs that end, no tower and no path is
+four waves better or worse than the median, no tower does three times another's
+damage for its money or most of the work, and two or four players get about as far
+as one. `--report` prints every number behind it. The waves were fitted to a curve:
+each wave's troll health is about a fifth of everything the team has earned by then,
+bosses at about half. Tune in `troll-problem-data.js` and run the check.
+
+**Saves.** `trollproblem-meta-v2` (the name the trophy room reads) now holds a v3
+tree. The old grid game's tree is refunded crystal for crystal and its records kept;
+its run (`trollproblem-run-v2`) is deleted, since its towers no longer exist. A solo
+run is kept in `trollproblem-run-v3` and comes back at the start of the wave it was on.
+
 ## adding multiplayer to a game
 
 ### 1. put it in the catalogue
@@ -727,7 +805,8 @@ play against: open the site twice, host in one tab, join in the other.
 `.github/scripts/check-games.mjs` loads these files without a browser
 and checks the content and the desktop wiring;
 `check-wizardz.mjs` and `check-sigils.mjs` hold wizardz's rules, balance and
-recogniser to their targets, and `check-dungeonz.mjs` the raid's;
+recogniser to their targets, `check-dungeonz.mjs` the raid's and
+`check-troll-problem.mjs` the tower defense's;
 `.github/scripts/browser-check.mjs` opens the real site in chromium,
 draws a sigil with the mouse and runs a two-tab lobby;
 `browser-wizardz.mjs` plays a match to the end with a real mouse, a phone with
@@ -736,6 +815,9 @@ including somebody walking out, loadout ids typed in and refused, a guest trying
 it does not carry, and two browsers direct and over the relays;
 `browser-dungeonz.mjs` takes a raid from the address bar to a cleared dungeon, draws a
 fireball, measures the frame rate in a crowd, and plays it on a phone and in two browsers;
+`browser-troll-problem.mjs` plays a map to the troll king with the clock turned up, puts
+towers where they can and cannot go, locks a path, sells, plays on a phone, and in two and
+four browsers direct and over the relays, with somebody new taking an empty seat;
 `browser-ps1-feel.mjs` holds both 3d games to what players ran into: fullscreen on a 2560x1440
 screen at the site's zoom of 1.5, the camera at the ends of its pitch, a shrine's cards with the
 mouse locked, and firing with the right button held;

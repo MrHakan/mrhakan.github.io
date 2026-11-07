@@ -124,6 +124,12 @@ jobs:
 
             # every achievement on a shelf and every save read without being
             # broken by it, and the manifest against Chrome's install criteria
+            # the tower defense: its rules, what goes over the wire, and three hundred
+            # games of bots against its balance targets: every tower and path pulls
+            # its weight, each map is harder than the last, and four play like one
+            - name: Check the troll problem
+              run: node .github/scripts/check-troll-problem.mjs
+
             - name: Check the trophy room and the manifest
               run: node .github/scripts/check-trophies.mjs
 
@@ -269,6 +275,13 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8105 node .github/scripts/browser-dungeonz.mjs
+
+            # a map from the desktop to the troll king with the clock turned up, towers put
+            # down where they can and cannot go, the path lock, selling, a phone, and two
+            # and four browsers direct and over the relays with a player dropping out.
+            # It brings its own server and stand-ins for peerjs and the relays
+            - name: Play the troll problem
+              run: node .github/scripts/browser-troll-problem.mjs
 
             # what players ran into on the two 3d shooters: fullscreen on a 2560x1440 screen at
             # the site's zoom, the dungeonz camera at the ends of its pitch, a shrine's cards with

@@ -1334,6 +1334,17 @@
             min: 2, max: 2,
             blurb: 'march an army of trolls through five ages at somebody\'s wall',
             scripts: ['games/age-of-troll/age-of-troll-data.js', 'games/age-of-troll/age-of-troll-sim.js', 'games/age-of-troll/age-of-troll.js']
+        },
+        {
+            id: 'trollproblem',
+            name: 'sir, we have a troll problem',
+            icon: 'castle',
+            min: 2, max: 4,
+            blurb: 'tower defense for up to four: one road, one set of lives, your own money and your own towers',
+            options: [
+                { key: 'map', label: 'map', values: [['outskirts', 'the desktop'], ['bridge', 'the taskbar'], ['woods', 'my documents'], ['gates', 'the registry'], ['throne', 'the comment section']] }
+            ],
+            scripts: ['games/troll-problem/troll-problem-data.js', 'games/troll-problem/troll-problem-sim.js', 'games/troll-problem/troll-problem.js']
         }
     ];
     NP.games = {};
@@ -1801,8 +1812,11 @@
             const painter = (NP.games[session.gameId] || {}).paintAvatar;
             // the game's code draws the avatars — pull it in while people
             // are still deciding whether they are ready
-            if (!painter && !NP._preloading) {
+            // once a game: one that draws no avatars would otherwise be fetched again forever
+            NP._preloaded = NP._preloaded || {};
+            if (!painter && !NP._preloading && !NP._preloaded[session.gameId]) {
                 NP._preloading = true;
+                NP._preloaded[session.gameId] = true;
                 NP.loadGame(session.gameId).then(() => { NP._preloading = false; drawPlayers(); })
                     .catch(() => { NP._preloading = false; });
             }

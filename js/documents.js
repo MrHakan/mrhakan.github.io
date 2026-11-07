@@ -105,14 +105,15 @@
             id: 'trollproblem',
             name: 'the troll problem',
             icon: '🚋',
-            keys: ['trollproblem-run-v2', 'trollproblem-meta-v2'],
+            keys: ['trollproblem-run-v3', 'trollproblem-meta-v2', 'trollproblem-prefs'],
             open: 'trollproblem',
             summary() {
-                const run = json('trollproblem-run-v2'), meta = json('trollproblem-meta-v2');
+                const run = json('trollproblem-run-v3'), meta = json('trollproblem-meta-v2');
                 if (!run && !meta) return null;
                 const bits = [];
                 if (run && run.wave) bits.push('wave ' + run.wave);
-                if (meta && meta.bestWave) bits.push('best wave ' + meta.bestWave);
+                const best = meta && meta.bestWave && typeof meta.bestWave === 'object' ? Math.max(0, ...Object.values(meta.bestWave).map(Number).filter(isFinite)) : 0;
+                if (best) bits.push('best wave ' + best);
                 if (meta && meta.runs) bits.push(plural(meta.runs, 'run'));
                 return { line: bits.length ? bits.join(' · ') : 'a run in progress', when: '' };
             }
