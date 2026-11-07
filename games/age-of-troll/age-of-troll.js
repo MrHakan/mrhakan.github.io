@@ -68,12 +68,15 @@
     // ===============================================================
     function makeMatch(o) {
         const seed = o.seed || Math.floor(Math.random() * 1e9);
-        const s = o.resume || A.newGame(seed);
+        const watch = o.watch || null;
+        const s = o.resume || (watch ? A.replay.start(watch.rp) : A.newGame(seed));
+        // whoever runs the rules writes the match down, which is what a replay is
+        if (!o.resume && !watch && (o.solo || o.session.isHost)) A.replay.record(s, seed);
         s.ev = [];
         const g = {
-            s, session: o.session || null, solo: !!o.solo,
-            isHost: o.solo ? true : !!o.session.isHost,
-            me: o.solo ? 0 : (o.session.isHost ? 0 : 1),
+            s, session: o.session || null, solo: !!o.solo, watch,
+            isHost: o.solo ? true : watch ? false : !!o.session.isHost,
+            me: o.solo ? 0 : watch ? watch.rp.me : (o.session.isHost ? 0 : 1),
             names: o.names, diff: o.diff || null, plan: o.plan || null,
             brain: null,
             acc: 0, last: performance.now(),
@@ -94,6 +97,7 @@
     }
 
     function stopEverything() {
+        watchToken = null;            // a replay still being checked is not wanted any more
         if (raf) cancelAnimationFrame(raf);
         raf = null;
         if (driver) clearInterval(driver);
@@ -144,6 +148,12 @@
         const now = performance.now();
         const dt = (now - g.last) / 1000;
         g.last = now;
+        if (g.watch) {
+            watchDrive(g, dt);
+            readEvents(g);
+            if (now - g.lastHud > 150) { g.lastHud = now; hud(g); }
+            return;
+        }
         if (g.solo && !g.paused && winRef && (winRef.win.style.display === 'none' || document.hidden)) pause(g, true, 'away');
 
         const frozen = g.paused || g.netDown;
@@ -201,12 +211,16 @@
 
     function onSnapshot(g, d) {
         if (!d || !d.p || !Array.isArray(d.u)) return;
-        // relays reorder. An old snapshot is not news, unless it is a new match
-        if (d.m < g.s.match || (d.m === g.s.match && d.k <= g.snapTick)) return;
+        // relays reorder. An old snapshot is not news, unless it is a new match,
+        // or the end of this one: a surrender lands between ticks, so the
+        // snapshots saying it is over carry the tick the last one already had
+        const ending = d.o && !g.s.over && d.k === g.snapTick;
+        if (d.m < g.s.match || (d.m === g.s.match && d.k <= g.snapTick && !ending)) return;
         if (d.m > g.s.match) {
             // a rematch: the numbering of orders starts again with the match
             g.vis.clear(); g.ended = false; g.wantsRematch = false; hideEnd();
             g.seq = 0; g.ack = 0; g.pending = [];
+            g.replayP = null; g.replayText = null;
         }
         A.applySnapshot(g.s, d);
         g.s.guessing = true;
@@ -276,6 +290,7 @@
             g.guestId = other ? other.id : null;
             offs.push(s.on('aot:cmd', (d, from) => hostCommand(g, d, from)));
             offs.push(s.on('aot:rematch', () => { g.theyWantRematch = true; if (g.ended) renderEnd(g); }));
+            offs.push(s.on('aot:replay?', d => { if (d && d.m === g.s.match) sendReplay(g); }));
             offs.push(s.on('player-join', p => { if (p.id === g.guestId) comeBack(g); }));
         } else {
             offs.push(s.on('aot:snap', d => {
@@ -283,6 +298,7 @@
                 if (g.netDown && !d.d) comeBack(g);
             }));
             offs.push(s.on('aot:deny', d => { say(denyText(d && d.why), true); beep('error'); }));
+            offs.push(s.on('aot:replay', d => takeReplay(g, d)));
         }
         offs.push(s.on('player-leave', p => { if (g.isHost ? p.id === g.guestId : p.host) goneAway(g, 'left'); }));
         offs.push(s.on('net:down', () => goneAway(g, 'quiet')));
@@ -308,7 +324,8 @@
     // ---------------------------------------------------------------
     function issue(cmd) {
         const g = G;
-        if (!g || g.s.over) return false;
+        // a replay is something that already happened
+        if (!g || g.watch || g.s.over) return false;
         if (g.paused) { pause(g, false); }
         if (g.netDown) { say('the link is down, hold on', true); return false; }
         if (g.isHost) {
@@ -379,20 +396,20 @@
                     g.vis.delete(e.id);
                     break;
                 case 'age':
-                    addBanner(g, (mine ? 'you reached ' : 'they reached ') + 'age ' + (e.a + 1) + ': ' + A.AGES[e.a].name, mine ? '#fff' : '#ffd0d0');
+                    addBanner(g, (g.watch ? nameOf(g, e.s) + ' reached ' : mine ? 'you reached ' : 'they reached ') + 'age ' + (e.a + 1) + ': ' + A.AGES[e.a].name, mine ? '#fff' : '#ffd0d0');
                     beep('ding');
                     break;
                 case 'overclock':
-                    addBanner(g, (mine ? 'overclock +' : 'they overclocked +') + (e.a * 10) + '%', mine ? '#fff' : '#ffd0d0');
+                    addBanner(g, (g.watch ? nameOf(g, e.s) + ' overclocked +' : mine ? 'overclock +' : 'they overclocked +') + (e.a * 10) + '%', mine ? '#fff' : '#ffd0d0');
                     break;
                 case 'special':
                     showSpecial(g, e, fancy, mine);
                     break;
                 case 'server':
-                    addBanner(g, mine ? 'you took the server: more gold, more xp' : 'they took the server', mine ? '#c8ffc8' : '#ffd0d0');
+                    addBanner(g, g.watch ? nameOf(g, e.s) + ' took the server' : mine ? 'you took the server: more gold, more xp' : 'they took the server', mine ? '#c8ffc8' : '#ffd0d0');
                     break;
                 case 'modem':
-                    if (mine) say('modem upgraded: income is now +' + Math.round(A.incomeOf(g.s, g.me) * 10) / 10 + '/s');
+                    if (mine && !g.watch) say('modem upgraded: income is now +' + Math.round(A.incomeOf(g.s, g.me) * 10) / 10 + '/s');
                     break;
             }
         }
@@ -414,7 +431,7 @@
     }
     function showSpecial(g, e, fancy, mine) {
         const sp = A.SPECIALS.find(x => x.key === e.k);
-        addBanner(g, (mine ? '' : 'they cast ') + sp.name.toUpperCase(), mine ? '#fff' : '#ffd0d0');
+        addBanner(g, (g.watch ? nameOf(g, e.s) + ': ' : mine ? '' : 'they cast ') + sp.name.toUpperCase(), mine ? '#fff' : '#ffd0d0');
         beep(mine ? 'ding' : 'error');
         if (!fancy) return;
         if (e.k === 'popups') {
@@ -948,7 +965,7 @@
         const dt = Math.max(0, Math.min(0.1, (now - (g.drawLast || now)) / 1000));
         g.drawLast = now;
         g.t += dt;
-        const frozen = g.paused || g.netDown;
+        const frozen = g.paused || g.netDown || (g.watch && !g.watch.playing);
         const c = ctx, v = g.view;
         camera(dt);
         g.wallHit[0] = Math.max(0, g.wallHit[0] - dt * 5);
@@ -1016,19 +1033,19 @@
                 <span class="aot-train"><span id="aot-trainfill"></span></span>
                 <span class="aot-say" id="aot-say" role="status" aria-live="polite"></span>
             </div>
-            <div class="aot-cmds" id="aot-cmds">
+            <div class="aot-cmds" id="aot-cmds"${g.watch ? ' inert' : ''}>
                 ${commandSpecs().map(c => `<button class="aot-cmd" data-cmd="${c.id}" type="button">
                     <span class="aot-pic" data-pic></span>
                     <span class="aot-txt"><b data-name></b><i data-cost></i></span>
                     <kbd>${c.key}</kbd><span class="aot-cool" data-cool></span>
                 </button>`).join('')}
             </div>
-            <div class="aot-foot">
+            ${g.watch ? watchBar(g) : `<div class="aot-foot">
                 ${g.solo ? '<button class="aot-btn" id="aot-pause" type="button">pause (P)</button>' : ''}
                 <button class="aot-btn" id="aot-help" type="button">how to play</button>
                 <button class="aot-btn" id="aot-resign" type="button">surrender</button>
                 <button class="aot-btn" id="aot-quit" type="button">${g.solo ? 'save and leave' : 'leave match'}</button>
-            </div>`;
+            </div>`}`;
         cv = root.querySelector('#aot-canvas');
         ctx = cv.getContext('2d');
         const specs = commandSpecs();
@@ -1043,18 +1060,21 @@
             };
             b.onclick = () => { byId[id].tap(); if (G) focusGame(); };
         });
-        const pauseBtn = root.querySelector('#aot-pause');
-        if (pauseBtn) pauseBtn.onclick = () => pause(g, !g.paused, 'you');
-        root.querySelector('#aot-help').onclick = () => { if (g.solo) pause(g, true, 'you'); openHelp(); };
-        root.querySelector('#aot-resign').onclick = () => {
-            const go = () => { if (G === g) issue({ c: 'resign' }); };
-            if (typeof showRetroDialog === 'function') showRetroDialog({ title: 'surrender', lines: ['give up this match?'], okLabel: 'yes', cancelLabel: 'no', onOk: go });
-            else if (window.confirm('give up this match?')) go();
-        };
-        root.querySelector('#aot-quit').onclick = () => {
-            if (g.solo) saveNow(g);
-            openMenu();
-        };
+        if (g.watch) bindWatchBar(g);
+        else {
+            const pauseBtn = root.querySelector('#aot-pause');
+            if (pauseBtn) pauseBtn.onclick = () => pause(g, !g.paused, 'you');
+            root.querySelector('#aot-help').onclick = () => { if (g.solo) pause(g, true, 'you'); openHelp(); };
+            root.querySelector('#aot-resign').onclick = () => {
+                const go = () => { if (G === g) issue({ c: 'resign' }); };
+                if (typeof showRetroDialog === 'function') showRetroDialog({ title: 'surrender', lines: ['give up this match?'], okLabel: 'yes', cancelLabel: 'no', onOk: go });
+                else if (window.confirm('give up this match?')) go();
+            };
+            root.querySelector('#aot-quit').onclick = () => {
+                if (g.solo) saveNow(g);
+                openMenu();
+            };
+        }
         bindGameInput(g);
         fit();
         if (window.ResizeObserver) {
@@ -1109,7 +1129,8 @@
         $('#aot-army').textContent = s.u[g.me].length + '/' + A.POP_CAP + ' units';
         $('#aot-clock').textContent = clock(A.seconds(s));
         const link = $('#aot-link');
-        const linkText = g.solo ? 'bot: ' + g.diff : onRelays(g) ? 'via relays' : 'direct';
+        const linkText = g.watch ? 'replay: ' + g.names[g.me].slice(0, 14) + "'s side" : g.solo ? 'bot: ' + g.diff : onRelays(g) ? 'via relays' : 'direct';
+        if (g.watch) watchHud(g);
         if (link.textContent !== linkText) link.textContent = linkText;
 
         for (let r = 0; r < 3; r++) {
@@ -1167,7 +1188,7 @@
         if (next) {
             const why = A.canCommand(s, g.me, { c: 'age' });
             // the xp is there and the gold is not: the moment to stop spending
-            if (why === 'gold' && g.toldAge !== p.age) {
+            if (why === 'gold' && g.toldAge !== p.age && !g.watch) {
                 g.toldAge = p.age;
                 say('enough xp: save $' + money(next.gold) + ' for ' + next.name);
             }
@@ -1215,11 +1236,19 @@
             const tag = (e.target && e.target.tagName) || '';
             if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
             const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-            const press = id => { const b = g.btn[id]; if (b) b.el.click(); };
-            const map = { 1: 'u0', 2: 'u1', 3: 'u2', 4: 'u3', q: 't0', w: 't1', e: 'mo', r: 'ag', f: 'st', x: 'sl' };
-            if (map[k]) { press(map[k]); e.preventDefault(); return; }
-            if (k === ' ') { press('sp'); e.preventDefault(); return; }
-            if (k === 'p' && g.solo) { pause(g, !g.paused, 'you'); e.preventDefault(); return; }
+            if (g.watch) {
+                // watching has its own keys, and none of them is an order
+                const rate = { 1: 1, 2: 2, 3: 4, 4: 8 }[k];
+                if (rate) { watchRate(g, rate); e.preventDefault(); return; }
+                if (k === ' ' || k === 'k' || k === 'p') { watchPlay(g); e.preventDefault(); return; }
+                if (k === 'c') { watchSide(g); e.preventDefault(); return; }
+            } else {
+                const press = id => { const b = g.btn[id]; if (b) b.el.click(); };
+                const map = { 1: 'u0', 2: 'u1', 3: 'u2', 4: 'u3', q: 't0', w: 't1', e: 'mo', r: 'ag', f: 'st', x: 'sl' };
+                if (map[k]) { press(map[k]); e.preventDefault(); return; }
+                if (k === ' ') { press('sp'); e.preventDefault(); return; }
+                if (k === 'p' && g.solo) { pause(g, !g.paused, 'you'); e.preventDefault(); return; }
+            }
             if (k === 'ArrowLeft' || k === 'a') { v.cam -= 120; v.follow = false; v.heldAt = performance.now(); e.preventDefault(); }
             if (k === 'ArrowRight' || k === 'd') { v.cam += 120; v.follow = false; v.heldAt = performance.now(); e.preventDefault(); }
         };
@@ -1292,6 +1321,11 @@
             if (g.solo && (g.diff === 'hard' || g.diff === 'troll')) unlockAchievement('aot-hard');
         }
         beep(won ? 'ding' : 'error');
+        // the replay: written up here when the rules ran here, and asked for when they did not
+        if (g.isHost) {
+            const p = makeReplay(g);
+            if (p && !g.solo) p.then(() => sendReplay(g));
+        } else askReplay(g);
         renderEnd(g);
     }
 
@@ -1323,8 +1357,10 @@
                     </table>
                     <p class="aot-dim">${clock(A.seconds(s))} on the clock</p>
                     <div class="aot-row">${again}<button class="aot-btn" id="aot-menu" type="button">back to the menu</button></div>
+                    ${shareRow(g)}
                 </div>
             </div>`;
+        bindShare(g, box);
         box.querySelector('#aot-again').onclick = () => {
             if (g.solo) { startSolo(g.diff, g.plan); return; }
             if (g.isHost) { restartOnline(g); return; }
@@ -1341,11 +1377,13 @@
 
     function restartOnline(g) {
         const match = g.s.match + 1;
-        const s = A.newGame(Math.floor(Math.random() * 1e9));
+        const seed = Math.floor(Math.random() * 1e9);
+        const s = A.replay.record(A.newGame(seed), seed);
         s.match = match;
         s.ev = [];
         g.s = s;
         g.ended = false;
+        g.replayP = null; g.replayText = null;
         g.theyWantRematch = false;
         g.vis.clear();
         g.seen = new Set(); g.seenTo = 0;
@@ -1390,6 +1428,279 @@
                 <button class="aot-btn" id="aot-giveup" type="button">leave</button>`;
             box.querySelector('#aot-giveup').onclick = () => openMenu();
         }
+    }
+
+    // ===============================================================
+    // replays. The rules write every command down with its tick (see the end
+    // of age-of-troll-sim.js), so a whole match is a few kilobytes and fits in
+    // a link: no server, nobody keeps a copy, the link is the replay.
+    // ===============================================================
+    const LINK_MAX = 8000;            // GitHub Pages answers 414 past about 8,180 characters of address
+    const nameOf = (g, side) => g.names[side] || (side ? 'right' : 'left');
+
+    function replayUrl(code) {
+        const base = location.origin + location.pathname + '?app=ageoftroll';
+        // the part after # never goes to the server, so a long one rides there
+        return base + (base.length + 8 + code.length <= LINK_MAX ? '&replay=' : '#replay=') + code;
+    }
+    // a link, a pasted link with words round it, a file with one in, or the bare code
+    function replayIn(text) {
+        text = String(text || '').trim();
+        const m = text.match(/[?&#]replay=([A-Za-z0-9_-]+)/);
+        return m ? m[1] : text.replace(/\s+/g, '');
+    }
+    function forgetReplayUrl() {
+        if (!/[?&#]replay=/.test(location.search + location.hash)) return;
+        const url = window.WEB && WEB.urlFor ? WEB.urlFor('ageoftroll') : location.pathname + '?app=ageoftroll';
+        try { history.replaceState(history.state, '', url); } catch (e) { }
+        if (window.WEB && WEB.paintAddress) WEB.paintAddress();
+    }
+
+    // the finished match as a replay's text, made where the rules ran
+    function makeReplay(g) {
+        if (g.replayP) return g.replayP;
+        const rp = A.replay.replayOf(g.s, { me: g.me, names: g.names, label: g.solo ? g.diff : 'online', why: g.s.endWhy });
+        // a save from before replays existed has nothing written down
+        if (!rp || rp.c.length / 2 > A.replay.LIMIT.cmds) return null;
+        const match = g.s.match;
+        g.replayP = A.replay.encode(rp).then(code => {
+            if (G === g && g.s.match === match) { g.replayText = code; refreshShare(g); }
+            return code;
+        });
+        return g.replayP;
+    }
+    // the host hands its copy over once, and again whenever the guest asks
+    function sendReplay(g) {
+        if (!g.replayText || !g.session || !g.session.alive || !g.s.over) return;
+        g.session.send('aot:replay', { m: g.s.match, r: g.replayText }, g.guestId);
+    }
+    function askReplay(g) {
+        if (!g.session) return;
+        const match = g.s.match;
+        let tries = 0;
+        const ask = () => {
+            if (G !== g || g.replayText || g.replayFail || g.s.match !== match || !g.s.over || tries++ > 12) return;
+            if (g.session.alive) g.session.sendToHost('aot:replay?', { m: match });
+            setTimeout(ask, 2500);
+        };
+        setTimeout(ask, 1500);
+    }
+    function takeReplay(g, d) {
+        if (!d || typeof d.r !== 'string' || d.m !== g.s.match || g.replayText || g.replayP) return;
+        if (d.r.length > A.replay.LIMIT.chars) return;
+        // the host's copy, turned round so it opens on this side of the lane
+        g.replayP = A.replay.decode(d.r).then(res => {
+            if (!res.rp) { g.replayFail = res.why === 'old' ? 'the host runs another version' : 'it arrived broken'; return null; }
+            res.rp.me = g.me;
+            return A.replay.encode(res.rp);
+        }).then(code => {
+            if (code && G === g && g.s.match === d.m) g.replayText = code;
+            else g.replayP = null;
+            refreshShare(g);
+            return code;
+        });
+    }
+
+    function shareRow() {
+        return `<div class="aot-row">
+                <button class="aot-btn" id="aot-share" type="button" disabled>share the replay</button>
+                <button class="aot-btn" id="aot-savefile" type="button" disabled>save it as a file</button>
+            </div>
+            <input class="aot-input" id="aot-replay-link" readonly hidden aria-label="the replay link">
+            <p class="aot-dim" id="aot-replay-note" hidden></p>`;
+    }
+    function refreshShare(g) {
+        const box = root && root.querySelector('#aot-end');
+        const share = box && box.querySelector('#aot-share'), file = box && box.querySelector('#aot-savefile');
+        if (!share || !file) return;
+        const ready = !!g.replayText;
+        share.disabled = file.disabled = !ready;
+        share.textContent = ready ? 'share the replay'
+            : g.replayFail ? 'no replay: ' + g.replayFail
+                : g.isHost && !g.replayP ? 'no replay of this one'
+                    : g.isHost ? 'writing the replay...' : 'getting the replay from the host...';
+    }
+    function bindShare(g, box) {
+        box.querySelector('#aot-share').onclick = () => {
+            if (!g.replayText) return;
+            const url = replayUrl(g.replayText);
+            const field = box.querySelector('#aot-replay-link'), note = box.querySelector('#aot-replay-note');
+            field.hidden = false;
+            field.value = url;
+            try { field.select(); } catch (e) { }
+            if (window.WEB && WEB.copy) WEB.copy(url, 'replay link copied');
+            else if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => { });
+            note.hidden = false;
+            note.textContent = 'copied: ' + url.length + ' characters. whoever opens it watches the whole match from the start.' +
+                (url.length > 2000 ? ' that is longer than a discord message, so send the file there.' : '');
+        };
+        box.querySelector('#aot-savefile').onclick = () => { if (g.replayText) saveReplayFile(g.replayText); };
+        refreshShare(g);
+    }
+    // the same link, in a file: for a match too long for a chat box
+    function saveReplayFile(code) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([replayUrl(code) + '\n'], { type: 'text/plain' }));
+        a.download = 'age-of-troll-replay.txt';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+
+    // ---------------------------------------------------------------
+    // watching one
+    // ---------------------------------------------------------------
+    const PROBLEM = {
+        old: 'this replay is from an older version of age of troll. the rules have changed since, so it would play out wrong, and it is not going to pretend otherwise.',
+        wrong: 'this replay does not play out the way it was recorded. somebody edited it, or the rules changed under it.',
+        big: 'that is far too big to be a replay, bradar.',
+        browser: 'this browser cannot unpack a replay. a newer one can.',
+        broken: 'that is not a replay, or a piece of it is missing. was the whole link copied?'
+    };
+    let watchToken = null;
+
+    function watchReplay(text) {
+        ensureWindow();
+        stopEverything();
+        if (G) { leaveSession(G); G = null; }
+        cv = null; ctx = null;
+        const token = watchToken = {};
+        root.innerHTML = '<div class="aot-menu"><p class="aot-dim" id="aot-loading">rewinding the tape...</p></div>';
+        A.replay.decode(replayIn(text)).then(res => {
+            if (watchToken !== token || !root) return;
+            if (!res.rp) { replayProblem(res.why); return; }
+            // a moment for that message to be seen: the whole match is played
+            // once before it is shown, which is a few hundred milliseconds
+            setTimeout(() => {
+                if (watchToken !== token || !root) return;
+                let v = null;
+                try { v = A.replay.verify(res.rp); } catch (e) { v = null; }
+                if (!v || !v.ok) { replayProblem('wrong'); return; }
+                const w = { rp: res.rp, keys: v.keys, cur: { i: 0 }, playing: true, rate: 1, acc: 0, scrub: false };
+                beginMatch(makeMatch({ watch: w, names: res.rp.names.slice() }));
+            }, 40);
+        });
+    }
+    function replayProblem(why) {
+        root.innerHTML = `<div class="aot-menu"><div class="aot-dialog">
+                <div class="aot-dtitle">age of troll: replay</div>
+                <div class="aot-dbody">
+                    <p id="aot-problem" data-why="${safe(why)}">${PROBLEM[why] || PROBLEM.broken}</p>
+                    <div class="aot-row"><button class="aot-btn aot-go" id="aot-menu" type="button">back to the menu</button></div>
+                </div>
+            </div></div>`;
+        root.querySelector('#aot-menu').onclick = () => openMenu();
+    }
+
+    function watchBar(g) {
+        return `<div class="aot-foot" style="justify-content:flex-start">
+                <button class="aot-btn aot-go" id="aot-play" type="button">pause (space)</button>
+                ${[1, 2, 4, 8].map(r => `<button class="aot-btn" data-rate="${r}" type="button" aria-pressed="false">${r}x</button>`).join('')}
+                <input type="range" id="aot-seek" min="0" max="${g.watch.rp.end}" step="1" value="0" aria-label="where in the match" style="flex:1 1 140px;min-width:90px">
+                <span class="aot-chip" id="aot-wclock"></span>
+                <button class="aot-btn" id="aot-side" type="button"></button>
+                <button class="aot-btn" id="aot-quit" type="button">back to the menu</button>
+            </div>`;
+    }
+    function bindWatchBar(g) {
+        root.querySelector('#aot-play').onclick = () => watchPlay(g);
+        root.querySelectorAll('[data-rate]').forEach(b => { b.onclick = () => watchRate(g, +b.dataset.rate); });
+        const seek = root.querySelector('#aot-seek');
+        seek.oninput = () => { g.watch.scrub = true; watchSeek(g, +seek.value); };
+        seek.onchange = () => { g.watch.scrub = false; watchSeek(g, +seek.value); };
+        root.querySelector('#aot-side').onclick = () => watchSide(g);
+        root.querySelector('#aot-quit').onclick = () => openMenu();
+    }
+    function watchHud(g) {
+        const w = g.watch, $ = id => root.querySelector(id);
+        const play = $('#aot-play');
+        if (!play) return;
+        const t = g.s.over ? 'watch again' : w.playing ? 'pause (space)' : 'play (space)';
+        if (play.textContent !== t) play.textContent = t;
+        root.querySelectorAll('[data-rate]').forEach(b => {
+            const on = +b.dataset.rate === w.rate;
+            b.classList.toggle('aot-go', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        const seek = $('#aot-seek');
+        if (!w.scrub && +seek.value !== g.s.tick) seek.value = g.s.tick;
+        $('#aot-wclock').textContent = clock(A.seconds(g.s)) + ' / ' + clock(w.rp.end / HZ);
+        const side = $('#aot-side'), st = 'watch ' + nameOf(g, 1 - g.me).slice(0, 14) + ' (C)';
+        if (side.textContent !== st) side.textContent = st;
+    }
+    function watchDrive(g, dt) {
+        const w = g.watch;
+        if (!w.playing || g.s.over) return;
+        // the tab coming back after a minute away does not fast-forward it
+        w.acc += Math.min(dt, 0.25) * w.rate;
+        while (w.acc >= DT && !g.s.over) { A.replay.tick(g.s, w.rp, w.cur); w.acc -= DT; }
+        if (g.s.over) { w.playing = false; w.acc = 0; watchEnd(g); }
+    }
+    function watchPlay(g) {
+        const w = g.watch;
+        if (g.s.over) { watchSeek(g, 0); w.playing = true; }
+        else w.playing = !w.playing;
+        hud(g);
+    }
+    function watchRate(g, r) {
+        g.watch.rate = r;
+        hud(g);
+    }
+    function watchSide(g) {
+        g.me = 1 - g.me;
+        g.view.follow = true;
+        hud(g);
+    }
+    // anywhere in the match: from the saved state before it, played forward
+    function watchSeek(g, tick) {
+        const w = g.watch;
+        tick = Math.max(0, Math.min(w.rp.end, Math.round(tick)));
+        if (tick === g.s.tick && (tick < w.rp.end || g.s.over)) return;
+        const r = A.replay.seek(w.rp, w.keys, tick);
+        r.s.ev = [];
+        g.s = r.s; w.cur = r.cur; w.acc = 0;
+        g.vis.clear();
+        g.sparks = []; g.shots = []; g.rings = []; g.popups = []; g.floats = []; g.banners = []; g.flash = 0;
+        if (g.s.over) { w.playing = false; watchEnd(g); } else hideEnd();
+        hud(g);
+    }
+    function watchEnd(g) {
+        const box = root && root.querySelector('#aot-end');
+        if (!box) return;
+        const s = g.s, rp = g.watch.rp, w = s.winner;
+        const n = side => safe(nameOf(g, side));
+        const title = w === -1 ? 'a draw' : n(w) + ' wins';
+        const why = w === -1 ? 'both walls fell in the same breath.'
+            : rp.why === 1 ? n(1 - w) + ' gave up.'
+                : rp.why === 2 ? n(1 - w) + ' left and did not come back.'
+                    : n(1 - w) + "'s wall came down.";
+        const a = s.p[0], b = s.p[1];
+        box.hidden = false;
+        box.innerHTML = `
+            <div class="aot-dialog">
+                <div class="aot-dtitle">age of troll: replay</div>
+                <div class="aot-dbody">
+                    <div class="aot-result ${w === -1 ? '' : 'aot-won'}" id="aot-replay-result" data-winner="${w}">${title}</div>
+                    <p>${why}</p>
+                    <table class="aot-stats">
+                        <tr><th></th><th>${n(0)}</th><th>${n(1)}</th></tr>
+                        <tr><td>age</td><td>${a.age + 1}</td><td>${b.age + 1}</td></tr>
+                        <tr><td>kills</td><td>${a.kills}</td><td>${b.kills}</td></tr>
+                        <tr><td>wall hurt</td><td>${money(a.baseDmg)}</td><td>${money(b.baseDmg)}</td></tr>
+                        <tr><td>gold made</td><td>${money(a.earned)}</td><td>${money(b.earned)}</td></tr>
+                    </table>
+                    <p class="aot-dim">${clock(A.seconds(s))} on the clock${rp.label ? ', ' + safe(rp.label === 'online' ? 'online' : 'against ' + (/^[aeiou]/.test(rp.label) ? 'an ' : 'a ') + rp.label + ' bot') : ''}</p>
+                    <div class="aot-row">
+                        <button class="aot-btn aot-go" id="aot-again" type="button">watch it again</button>
+                        <button class="aot-btn" id="aot-look" type="button">look around</button>
+                        <button class="aot-btn" id="aot-menu" type="button">back to the menu</button>
+                    </div>
+                </div>
+            </div>`;
+        box.querySelector('#aot-again').onclick = () => { watchSeek(g, 0); g.watch.playing = true; hideEnd(); hud(g); };
+        box.querySelector('#aot-look').onclick = () => hideEnd();
+        box.querySelector('#aot-menu').onclick = () => openMenu();
     }
 
     // ===============================================================
@@ -1447,6 +1758,7 @@
         stopEverything();
         if (G) { leaveSession(G); G = null; }
         cv = null; ctx = null;
+        forgetReplayUrl();
         const saved = load(SAVE, null);
         const m = load(META, { wins: 0, losses: 0 });
         const pref = load(META + '-pref', { diff: 'normal', plan: 'surprise' });
@@ -1476,7 +1788,31 @@
                         ${m.wins || m.losses ? `<p class="aot-dim">record: ${m.wins || 0} won, ${m.losses || 0} lost</p>` : ''}
                     </fieldset>
                 </div>
+                <fieldset class="aot-group" style="margin-top:8px">
+                    <legend>replays</legend>
+                    <p>every match ends with a link to watch it again. got one? paste it here, or open a saved replay file.</p>
+                    <input class="aot-input" id="aot-paste" type="text" placeholder="paste a replay link" aria-label="a replay link" autocomplete="off" spellcheck="false">
+                    <div class="aot-row">
+                        <button class="aot-btn aot-go" id="aot-watch" type="button">watch it</button>
+                        <button class="aot-btn" id="aot-file" type="button">open a replay file</button>
+                        <input id="aot-fileinput" type="file" accept=".txt,text/plain" hidden>
+                    </div>
+                </fieldset>
             </div>`;
+        root.querySelector('#aot-watch').onclick = () => {
+            const t = root.querySelector('#aot-paste').value;
+            if (t.trim()) watchReplay(t);
+        };
+        root.querySelector('#aot-paste').onkeydown = e => { if (e.key === 'Enter') root.querySelector('#aot-watch').click(); };
+        const picker = root.querySelector('#aot-fileinput');
+        root.querySelector('#aot-file').onclick = () => picker.click();
+        picker.onchange = () => {
+            const f = picker.files && picker.files[0];
+            if (!f) return;
+            // a replay file is a link in a text file. anything much bigger is not one
+            if (f.size > A.replay.LIMIT.chars + 4096) { replayProblem('big'); return; }
+            f.text().then(t => watchReplay(t), () => replayProblem('broken'));
+        };
         const savePref = () => store(META + '-pref', { diff: root.querySelector('#aot-diff').value, plan: root.querySelector('#aot-plan').value });
         root.querySelector('#aot-diff').onchange = savePref;
         root.querySelector('#aot-plan').onchange = savePref;
@@ -1553,8 +1889,13 @@
     window.startAgeOfTroll = function (mode) {
         ensureWindow();
         if (mode === 'bot') { startSolo(load(META + '-pref', { diff: 'normal' }).diff, 'surprise'); return; }
+        // ?app=ageoftroll&replay=... : js/extras.js read it off the address before anything could tidy it away
+        if (mode && typeof mode === 'object' && typeof mode.replay === 'string') { watchReplay(mode.replay); return; }
         openMenu();
     };
     // handy for the console, and for the browser test
-    window.AOT_ENGINE = { state: () => G, issue, openMenu, startSolo, fit, speed: n => { speed = n; } };
+    window.AOT_ENGINE = {
+        state: () => G, issue, openMenu, startSolo, fit, speed: n => { speed = n; },
+        watchReplay, replayUrl, seek: t => { if (G && G.watch) watchSeek(G, t); }
+    };
 })();

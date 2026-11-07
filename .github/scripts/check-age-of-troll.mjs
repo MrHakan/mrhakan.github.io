@@ -12,6 +12,7 @@
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
+import zlib from 'zlib';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -26,10 +27,29 @@ const expect = (cond, msg, detail) => {
 };
 const section = n => console.log('\n== ' + n + ' ==');
 
-const ctx = vm.createContext({ console });
-vm.runInContext(read('games/age-of-troll/age-of-troll-data.js'), ctx);
-vm.runInContext(read('games/age-of-troll/age-of-troll-sim.js'), ctx);
-const A = ctx.AOT;
+// what a browser has and a bare vm context does not, for the replays
+const WEB_BITS = { CompressionStream, DecompressionStream, TextEncoder, TextDecoder, structuredClone };
+const loadRules = (tweak) => {
+    const c = vm.createContext({ console, ...WEB_BITS });
+    vm.runInContext(read('games/age-of-troll/age-of-troll-data.js'), c);
+    if (tweak) tweak(c.AOT);
+    vm.runInContext(read('games/age-of-troll/age-of-troll-sim.js'), c);
+    return c.AOT;
+};
+const A = loadRules();
+const FIXTURE = '.github/scripts/age-of-troll-replay.txt';
+if (process.argv.includes('--replay-fixture')) {
+    // node .github/scripts/check-age-of-troll.mjs --replay-fixture: after a change
+    // to the rules, the replay the check below holds the simulation to
+    const s = A.replay.record(A.newGame(2024), 2024);
+    const l = A.newBrain('hard', 'balanced', 5), r = A.newBrain('troll', 'greed', 6);
+    s.p[1].handicap = A.DIFFICULTIES.troll.income;
+    while (!s.over) { A.think(s, 0, l); A.think(s, 1, r); A.step(s); }
+    const code = await A.replay.encode(A.replay.replayOf(s, { names: ['fixture', 'troll bot'], label: 'troll' }));
+    fs.writeFileSync(path.join(ROOT, FIXTURE), code + '\n');
+    console.log('wrote ' + FIXTURE + ': ' + code.length + ' characters, ' + (s.tick / A.HZ / 60).toFixed(1) + ' minutes');
+    process.exit(0);
+}
 const HZ = A.HZ;
 const stepFor = (s, sec) => { for (let i = 0; i < sec * HZ && !s.over; i++) A.step(s); };
 const fresh = (seed = 7, gold = 1e6) => { const s = A.newGame(seed); s.p[0].gold = s.p[1].gold = gold; return s; };
@@ -539,6 +559,207 @@ section('how long a game is');
 }
 
 // ===================================================================
+section('replays: the same match, from a link');
+// ===================================================================
+{
+    const R = A.replay;
+    const LINK_MAX = 8000;      // GitHub Pages answers 414 past about 8,180 characters of address
+    const BASE = 'https://mrhakan.github.io/?app=ageoftroll&replay=';
+    const rules = s => JSON.stringify(s, (k, v) => (['ev', 'log', 'endWhy', 'match', 'guessing'].includes(k) ? undefined : v));
+
+    // somebody at the keyboard: whatever buttons, whenever, including the
+    // pointless ones, with a guest's orders landing on odd ticks
+    function person(seed, perSecond) {
+        let x = seed | 0 || 1;
+        const roll = () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967296; };
+        const all = [{ c: 'train', r: 0 }, { c: 'train', r: 1 }, { c: 'train', r: 2 }, { c: 'train', r: 3 }, { c: 'turret', k: 0 }, { c: 'turret', k: 1 },
+            { c: 'sell' }, { c: 'modem' }, { c: 'age' }, { c: 'special' }, { c: 'stance', h: 0 }, { c: 'stance', h: 1 }, { c: 'overclock' }];
+        return (s, side) => { while (roll() < perSecond / A.HZ) A.command(s, side, all[Math.floor(roll() * all.length)]); };
+    }
+    // a match the way the window plays one: orders between ticks, the bot's
+    // inside the loop, and the whole thing written down
+    function match(seed, left, right, opts = {}) {
+        const s = R.record(A.newGame(seed), seed);
+        if (opts.h) { s.p[0].handicap = opts.h[0]; s.p[1].handicap = opts.h[1]; }
+        let st = s;
+        const limit = (opts.limit || 3600) * A.HZ;
+        for (let i = 0; !st.over && st.tick < limit; i++) {
+            left(st, 0); right(st, 1);
+            // a solo save and a reload, halfway: the log goes into the save with the rest
+            if (opts.saveAt && st.tick === opts.saveAt) st = JSON.parse(JSON.stringify(st));
+            if (opts.resignAt && st.tick === opts.resignAt) A.command(st, 1, { c: 'resign' });
+            if (!st.over) A.step(st);
+        }
+        return st;
+    }
+    const bot = (diff, plan, seed) => { const b = A.newBrain(diff, plan, seed); return (s, side) => A.think(s, side, b); };
+
+    const games = [
+        ['hard balanced v hard greed', 11, bot('hard', 'balanced', 1), bot('hard', 'greed', 2), {}],
+        ['troll turtle v normal waves', 12, bot('troll', 'turtle', 3), bot('normal', 'waves', 4), { h: [1.25, 1] }],
+        ['easy rush v hard balanced', 13, bot('easy', 'rush', 5), bot('hard', 'balanced', 6), { h: [0.8, 1] }],
+        ['a person v a hard bot, saved and reloaded halfway', 14, person(77, 1.2), bot('hard', 'balanced', 7), { saveAt: 9000 }],
+        ['two people online, one of them a button masher', 15, person(78, 0.9), person(79, 6), {}],
+        ['a hard bot v a person who gives up', 16, bot('hard', 'rush', 8), person(80, 1), { resignAt: 4321 }]
+    ];
+    const links = [];
+    for (const [name, seed, left, right, opts] of games) {
+        const s = match(seed, left, right, opts);
+        const rp = R.replayOf(s, { names: ['left', 'right'], label: 'hard' });
+        const code = await R.encode(rp);
+        const back = await R.decode(code);
+        const v = back.rp ? R.verify(back.rp) : { ok: false, end: null };
+        links.push([name, code.length, s.tick, rp.c.length / 2]);
+        expect(v.ok && rules(v.end) === rules(s), name + ': the replay ends in the very same state',
+            (s.tick / A.HZ / 60).toFixed(1) + 'm, ' + rp.c.length / 2 + ' commands, ' + code.length + ' characters' + (v.ok ? '' : ', ' + (back.why || 'did not verify')));
+    }
+    const resigned = links[links.length - 1];
+    expect(resigned[2] === 4321, 'a surrender is in the replay, on its tick');
+
+    // the link, measured. A half-hour match is what the game is for
+    const long = links.filter(l => l[2] >= 20 * 60 * A.HZ);
+    expect(long.length >= 1, 'some of those went on for more than twenty minutes', long.map(l => (l[2] / A.HZ / 60).toFixed(0) + 'm').join(', '));
+    const worst = Math.max(...links.slice(0, 4).map(l => BASE.length + l[1]));
+    expect(worst <= LINK_MAX, 'and the whole link stays inside what GitHub Pages will take', worst + ' characters at most, the limit is ' + LINK_MAX);
+    const masher = links[4];
+    expect(masher[1] < R.LIMIT.chars, 'even six orders a second for the whole match fits in a replay', masher[3] + ' commands, ' + masher[1] + ' characters');
+    console.log('        links: ' + links.map(l => l[1] + ' (' + (l[2] / A.HZ / 60).toFixed(0) + 'm, ' + l[3] + ' orders)').join(', '));
+
+    // several seeds, start to finish, nobody special
+    let same = 0;
+    for (const seed of [101, 202, 303, 404, 505]) {
+        const s = match(seed, bot('normal', 'balanced', seed), bot('hard', 'turtle', seed + 1), {});
+        const v = R.verify(R.unpack(R.pack(R.replayOf(s, {}))));
+        if (v.ok && rules(v.end) === rules(s)) same++;
+    }
+    expect(same === 5, 'five more seeds, five identical endings', same + ' of 5');
+
+    // scrubbing: any tick, from the nearest saved state, is the same as playing up to it
+    {
+        const s = match(31, bot('hard', 'greed', 9), person(81, 1.5), {});
+        const rp = R.replayOf(s, {});
+        const v = R.verify(rp);
+        const straight = R.start(rp), cur = { i: 0 };
+        const marks = [0, 1, 399, 400, 401, 3333, Math.floor(rp.end / 2), rp.end - 1];
+        let fine = 0;
+        for (const t of marks) {
+            while (straight.tick < t) R.tick(straight, rp, cur);
+            if (rules(R.seek(rp, v.keys, t).s) === rules(straight)) fine++;
+        }
+        expect(fine === marks.length, 'jumping anywhere in a replay lands on the same state as playing there', fine + ' of ' + marks.length);
+        const end = R.seek(rp, v.keys, rp.end).s;
+        expect(end.over && end.winner === s.winner && rules(end) === rules(s), 'and jumping to the end is the result');
+        expect(v.keys.length === Math.floor(rp.end / R.KEY_EVERY) + 1, 'a saved state every ' + R.KEY_EVERY / A.HZ + ' seconds', v.keys.length + ' of them');
+    }
+
+    // online: the guest gets the host's copy and turns it round to its own side
+    {
+        const s = match(41, person(82, 1), person(83, 1), { limit: 400 });
+        A.command(s, 0, { c: 'resign' });
+        const host = await R.encode(R.replayOf(s, { me: 0, names: ['host', 'guest'], label: 'online' }));
+        const got = (await R.decode(host)).rp;
+        got.me = 1;
+        const mine = (await R.decode(await R.encode(got))).rp;
+        expect(mine.me === 1 && mine.names[1] === 'guest' && R.verify(mine).ok, 'a guest\'s copy opens on the guest\'s side and still plays true');
+    }
+
+    // ---- what a link can be made to say ----
+    const good = await R.encode(R.replayOf(match(51, bot('hard', 'balanced', 10), bot('normal', 'rush', 11), {}), { names: ['a', 'b'] }));
+    const goodRp = (await R.decode(good)).rp;
+    const junk = ['', ' ', '!!!!', 'A', 'AAAA', 'not a replay at all', good.slice(0, 10), good.slice(0, -3), good + 'AAAA', good.replace(/[a-m]/g, 'Z'), '%00%00', 'AQ'.repeat(40)];
+    let calm = 0;
+    const let_in = [];
+    for (const [i, t] of junk.entries()) {
+        try { const r = await R.decode(t); if (!r.rp || !R.verify(r.rp).ok) calm++; else let_in.push(i); } catch (e) { let_in.push(i + ' threw ' + e.message); }
+    }
+    expect(calm === junk.length, 'nonsense, cut-off and padded links are turned away, and nothing throws', calm + ' of ' + junk.length + (let_in.length ? ', let in: ' + let_in.join(', ') : ''));
+
+    // one byte changed anywhere, a few hundred times: refused, or only a name changed
+    const bytes = await (async () => { const z = await R.decode(good); return R.pack(z.rp); })();
+    const toCode = async b => { const c = new Uint8Array(b.length + 1); c.set(b, 1); return Buffer.from(c).toString('base64url'); };
+    let threw = 0, wrong = 0, tries = 0;
+    const sameRules = r => r.seed === goodRp.seed && r.end === goodRp.end && r.w === goodRp.w && r.hash === goodRp.hash &&
+        r.h.join() === goodRp.h.join() && r.c.join() === goodRp.c.join();
+    let x = 12345;
+    for (let n = 0; n < 400; n++) {
+        x = (x * 1103515245 + 12345) >>> 0;
+        const b = bytes.slice();
+        const at = x % b.length;
+        b[at] = (b[at] + 1 + (x >>> 16) % 255) & 255;
+        tries++;
+        try {
+            const r = await R.decode(await toCode(b));
+            if (r.rp && R.verify(r.rp).ok && !sameRules(r.rp)) wrong++;
+        } catch (e) { threw++; }
+    }
+    expect(!threw && !wrong, 'a byte changed anywhere: refused, or it was only somebody\'s name', tries + ' edits, ' + threw + ' crashes, ' + wrong + ' played wrong');
+
+    // sizes
+    expect((await R.decode('A'.repeat(R.LIMIT.chars + 1))).why === 'big', 'a link longer than ' + R.LIMIT.chars + ' characters is not even read');
+    {
+        const bomb = new Uint8Array(4 << 20);
+        const z = zlib.deflateRawSync(bomb, { level: 9 });
+        const len = [];
+        for (let n = z.length; ; n = Math.floor(n / 128)) { if (n < 128) { len.push(n); break; } len.push((n % 128) | 128); }
+        const c = Uint8Array.from([1, ...len, ...z]);
+        const code = Buffer.from(c).toString('base64url');
+        expect(code.length < R.LIMIT.chars && (await R.decode(code)).why === 'big', 'a small link that unpacks into megabytes stops at ' + (R.LIMIT.bytes >> 10) + 'kb', code.length + ' characters of zeros');
+    }
+    {
+        // the count says a million commands and the bytes say otherwise
+        const rp = Object.assign({}, goodRp, { c: [] });
+        const b = R.pack(rp);
+        // 50000 as a varint, where the count of none was
+        const lie = Uint8Array.from([...b.slice(0, -1), 0xd0, 0x86, 0x03]);
+        expect((await R.decode(await toCode(lie))).rp === undefined, 'a command count the bytes cannot hold is a lie, not an allocation');
+    }
+    {
+        const rp = Object.assign({}, goodRp, { end: R.LIMIT.ticks + 1 });
+        expect((await R.decode(await toCode(R.pack(rp)))).why === 'big', 'and a match that claims to last for ever is not played out');
+    }
+
+    // ---- versions ----
+    const older = loadRules(T => { T.AGES[0].income = 4.7; });
+    const renamed = loadRules(T => { T.BOT_NAMES = ['somebody']; T.SPECIALS[0].name = 'a different name'; });
+    expect(older.replay.rulesPrint() !== R.rulesPrint(), 'one number in the rules changes the fingerprint');
+    expect(renamed.replay.rulesPrint() === R.rulesPrint(), 'a renamed troll or special does not');
+    expect((await older.replay.decode(good)).why === 'old', 'a replay from other rules says it is from an older version, before playing a tick of it');
+    {
+        const b = R.pack(goodRp); b[0] = R.FORMAT + 1;
+        expect((await R.decode(await toCode(b))).why === 'old', 'and so does one in another format');
+        // the rules changed in the code and nobody bumped RULES_REV: the replay
+        // is let in, plays out differently, and the end state gives it away
+        const tampered = Object.assign({}, goodRp, { c: goodRp.c.slice() });
+        tampered.c[tampered.c.length - 1] ^= 2;
+        expect(!R.verify(tampered).ok, 'a replay that plays out differently from how it was recorded is caught before anybody watches it');
+    }
+
+    // the replay that is checked in: as long as the fingerprint matches, the
+    // simulation has to play it to the same last bit. If this fails and the
+    // fingerprint did not change, step() or command() changed: bump RULES_REV
+    {
+        const kept = exists(FIXTURE) ? read(FIXTURE).trim() : '';
+        const d = await R.decode(kept);
+        if (d.why === 'old') {
+            console.log('  note  ' + FIXTURE + ' is from older rules, and is refused as it should be. Run with --replay-fixture to write a new one');
+            expect(true, 'the kept replay is from older rules and says so');
+        } else {
+            const v = d.rp ? R.verify(d.rp) : { ok: false };
+            expect(v.ok, 'the kept replay still plays out to the same last bit',
+                v.ok ? (d.rp.end / A.HZ / 60).toFixed(1) + 'm, ' + kept.length + ' characters' : 'the rules changed without RULES_REV changing: bump it in age-of-troll-sim.js, then run with --replay-fixture');
+        }
+    }
+
+    // the window: no order is given while watching
+    const ui = read('games/age-of-troll/age-of-troll.js');
+    expect(/if \(!g \|\| g\.watch \|\| g\.s\.over\) return false/.test(ui), 'watching cannot issue a command');
+    expect(/class="aot-cmds" id="aot-cmds"\$\{g\.watch \? ' inert' : ''\}/.test(ui), 'and the buttons are inert while watching');
+    expect(/A\.replay\.record\(s, seed\)/.test(ui) && /A\.replay\.record\(A\.newGame\(seed\), seed\)/.test(ui), 'a match and a rematch are both written down');
+    const extras = read('js/extras.js');
+    expect(/function aotReplayInUrl/.test(extras) && /openAgeOfTroll\(mode\) \{\s*if \(!mode\) \{ const replay = aotReplayInUrl\(\)/.test(extras), 'the link is read off the address before the game\'s scripts load');
+}
+
+// ===================================================================
 section('wired into the site');
 // ===================================================================
 {
@@ -566,7 +787,7 @@ section('wired into the site');
     // every class the game invents has a style
     const css = read('css/style.css');
     const used = [...new Set([...ui.matchAll(/\baot-[a-z0-9-]+/g)].map(m => m[0]))]
-        .filter(c => !['aot-win', 'aot-hard', 'aot-canvas', 'aot-gold', 'aot-rate', 'aot-xp', 'aot-xpfill', 'aot-age', 'aot-army', 'aot-clock', 'aot-link', 'aot-end', 'aot-net', 'aot-queue', 'aot-trainfill', 'aot-say', 'aot-cmds', 'aot-pause', 'aot-help', 'aot-resign', 'aot-quit', 'aot-again', 'aot-menu', 'aot-subbot', 'aot-claim', 'aot-giveup', 'aot-continue', 'aot-diff', 'aot-plan', 'aot-solo', 'aot-online', 'aot-help2'].includes(c));
+        .filter(c => !['aot-win', 'aot-hard', 'aot-canvas', 'aot-gold', 'aot-rate', 'aot-xp', 'aot-xpfill', 'aot-age', 'aot-army', 'aot-clock', 'aot-link', 'aot-end', 'aot-net', 'aot-queue', 'aot-trainfill', 'aot-say', 'aot-cmds', 'aot-pause', 'aot-help', 'aot-resign', 'aot-quit', 'aot-again', 'aot-menu', 'aot-subbot', 'aot-claim', 'aot-giveup', 'aot-continue', 'aot-diff', 'aot-plan', 'aot-solo', 'aot-online', 'aot-help2', 'aot-share', 'aot-savefile', 'aot-replay-link', 'aot-replay-note', 'aot-loading', 'aot-problem', 'aot-play', 'aot-seek', 'aot-wclock', 'aot-side', 'aot-replay-result', 'aot-look', 'aot-paste', 'aot-watch', 'aot-file', 'aot-fileinput'].includes(c));
     const unstyled = used.filter(c => !new RegExp('\\.' + c + '[\\s,:{.\\[>]').test(css));
     expect(!unstyled.length, 'every class it invents has a style', unstyled.join(', '));
     const funJs = read('js/fun.js');

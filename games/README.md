@@ -371,6 +371,54 @@ So over the relays it needs 3 snapshots a second rather than 8. Guests send
 numbered commands, resend whatever the next snapshots have not acknowledged, and
 the host ignores a number it has seen, because relays drop and reorder things.
 
+### replays
+
+The rules read no clock, no `Math.random` and no frame time, and the only
+arithmetic in them is `+ - * /` and `Math.round`, which every JavaScript engine
+does the same. So a match is its seed, the two handicaps and the commands with the
+tick each one landed on: `command()` writes a successful one down whenever
+`s.log` exists, and whoever runs the rules (the host, or the one player against a
+bot) starts that log in `makeMatch`. The bot's orders go through `command()` like
+anybody's, so a replay never needs the bot, and tuning the bot breaks nobody's
+replays. The end of `age-of-troll-sim.js` has the rest:
+
+- **the format.** A version byte, a fingerprint of the rules, the seed, the
+  handicaps, the last tick, the winner, a hash of the state it ended in, whose side
+  it opens on, the names, then each command as a varint of ticks since the last one
+  and one byte of what and whose. Deflated with `CompressionStream('deflate-raw')`
+  when the browser has it and that is smaller, then base64url.
+- **the link.** `?app=ageoftroll&replay=<code>`. js/extras.js reads it when the
+  route opens, before the game's scripts load or anything tidies the address.
+  Measured: a 22 minute game between two hard bots is 1,302 characters, 34 minutes
+  of two people, one of them pressing a button six times a second, is 6,055. GitHub Pages answers
+  414 past about 8,180 characters of address, so a code that would push the link
+  past 8,000 goes after `#replay=` instead, which never reaches the server. Discord
+  cuts a message at 2,000, so the end screen says when a link is longer than that,
+  and "save it as a file" writes the same link into a .txt that the menu opens.
+- **the version.** The fingerprint is a hash of every number the rules read (the
+  names, sprites and descriptions are left out, so renaming a troll breaks nothing)
+  plus `RULES_REV`. A replay with another fingerprint says it is from an older
+  version before it plays a tick. Changing `step()` or `command()` without changing
+  a number is what the fingerprint cannot see: bump `RULES_REV`. If that is
+  forgotten, the end state hash still catches it, because the viewer plays the whole
+  match once (a few hundred milliseconds) before showing any of it, and
+  `check-age-of-troll.mjs` keeps a replay in `.github/scripts/age-of-troll-replay.txt`
+  that has to come out to the same last bit while the fingerprint matches. After a
+  balance change, `node .github/scripts/check-age-of-troll.mjs --replay-fixture`
+  writes a new one.
+- **the limits.** 160,000 characters of text, 256kb once unpacked (checked while it
+  inflates, so a small link full of zeros stops early), 60,000 commands, two hours of
+  ticks, 24 bytes a name, and a command count the bytes cannot hold is refused before
+  anything is allocated. Whatever is pasted in, `decode()` returns a reason rather
+  than throwing.
+- **watching.** The check pass keeps a copy of the state every twenty seconds, so
+  scrubbing back is one copy and at most 400 ticks. The command buttons are `inert`
+  and `issue()` refuses while watching; the watch bar has play and pause, 1x to 8x
+  (keys 1 to 4), the time bar, and C for the other side's camera.
+- **online.** Only the host has the log, so it sends the finished code to the guest
+  as `aot:replay`, and a guest that has not had it asks with `aot:replay?`. The
+  guest turns it round to open on its own side before sharing it.
+
 ## adding multiplayer to a game
 
 ### 1. put it in the catalogue
