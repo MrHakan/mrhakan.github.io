@@ -196,8 +196,12 @@ try {
         const code = await hostOn(host);
         const guest = await ctx.newPage();
         guest.on('pageerror', e => errors.push(e.message));
-        await guest.goto(BASE + '/?lobby=' + code, { waitUntil: 'load' });
+        // the link the lobby's copy button hands out, which goes by the game's join page
+        const link = await host.evaluate(c => Netplay.inviteLink(c, Netplay.current.gameId), code);
+        expect(/\/join\/[a-z0-9]+\/\?lobby=/.test(link), 'the copied link goes by the game\'s own join page', link);
+        await guest.goto(link, { waitUntil: 'load' });
         await guest.waitForSelector('#boot-prompt.visible', { timeout: 15000 });
+        expect(!/\/join\//.test(guest.url()), 'which hands it straight on to the desktop', guest.url());
         expect(await guest.locator('.np-body').count() === 0, 'the lobby waits for the boot screen, rather than opening behind it');
         await guest.keyboard.press('Enter');
         await guest.waitForSelector('.np-code', { timeout: 30000 });
@@ -216,6 +220,23 @@ try {
         await spellsCross(host, guest, 'over the direct link');
         await host.close();
         await guest.close();
+    }
+
+    // ===================================================================
+    section('an invite link from before the join pages');
+    // ===================================================================
+    {
+        const host = await open();
+        const code = await hostOn(host);
+        const guest = await ctx.newPage();
+        guest.on('pageerror', e => errors.push(e.message));
+        await guest.goto(BASE + '/?lobby=' + code, { waitUntil: 'load' });
+        await guest.waitForSelector('#boot-prompt.visible', { timeout: 15000 });
+        await guest.keyboard.press('Enter');
+        await guest.waitForSelector('.np-code', { timeout: 30000 });
+        expect((await guest.textContent('.np-code')).trim() === code, 'a bare ?lobby= still gets you into the lobby');
+        await guest.close();
+        await host.close();
     }
 
     // ===================================================================

@@ -546,7 +546,35 @@ await test('the desktop opens one without the multiplayer code having loaded', (
     assert.ok(!SOURCE.includes('checkInviteLink'), 'and netplay.js, which is not loaded yet, no longer pretends to');
 });
 await test('the links it hands out are the ones the desktop reads', () => {
-    assert.match(SOURCE, /return base \+ '\?lobby=' \+ code;/);
+    assert.match(SOURCE, /\+ '\?lobby=' \+ code;/);
+    assert.match(SOURCE, /'join\/' \+ gameId \+ '\/'/);
+    assert.match(SOURCE, /NP\.inviteLink\(s\.code, s\.gameId\)/, 'the lobby copies the link for its own game');
+});
+await test('every online game has a join page that previews as that game and goes on to the lobby', () => {
+    const ids = [...SOURCE.slice(SOURCE.indexOf('NP.CATALOG = ['), SOURCE.indexOf('NP.games = {}')).matchAll(/\bid: '([a-z0-9]+)'/g)].map(m => m[1]);
+    assert.ok(ids.length >= 3, 'found the catalog');
+    for (const id of ids) {
+        const dir = path.join(ROOT, 'join', id);
+        const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+        const meta = k => (html.match(new RegExp('<meta (?:property|name)="' + k + '" content="([^"]*)"')) || [])[1];
+        assert.ok(meta('og:title') && meta('og:description') && meta('og:description').length > 60, id + ': a title and a real description');
+        assert.equal(meta('og:url'), 'https://mrhakan.github.io/join/' + id + '/');
+        assert.equal(meta('og:image'), 'https://mrhakan.github.io/join/' + id + '/preview.jpg');
+        assert.equal(meta('twitter:card'), 'summary_large_image');
+        assert.equal(meta('robots'), 'noindex', id + ': not a page for search results');
+        const jpg = fs.readFileSync(path.join(dir, 'preview.jpg'));
+        assert.ok(jpg[0] === 0xff && jpg[1] === 0xd8, id + ': the preview is a jpeg');
+        assert.ok(jpg.length < 300 * 1024, id + ': and small enough for a chat app to fetch');
+        let size = null;
+        for (let i = 2; i < jpg.length - 8;) {
+            if (jpg[i] !== 0xff) { i++; continue; }
+            const marker = jpg[i + 1];
+            if (marker >= 0xc0 && marker <= 0xc3) { size = [jpg.readUInt16BE(i + 7), jpg.readUInt16BE(i + 5)]; break; }
+            i += 2 + jpg.readUInt16BE(i + 2);
+        }
+        assert.deepEqual(size, [1200, 630], id + ': 1200 x 630, which is what the tags say');
+        assert.match(html, /location\.replace\('\.\.\/\.\.\/' \+ \(code\.length >= 4 \? '\?lobby=' \+ code/, id + ': and it goes on to the lobby');
+    }
 });
 
 console.log(`\n${checks} netplay regression checks passed.`);

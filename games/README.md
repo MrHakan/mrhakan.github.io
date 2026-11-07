@@ -450,6 +450,11 @@ NP.CATALOG = [
 That entry is also all it takes to be on the open lobby list and in quick match: the first
 option is the mode quick match matches on, and the rest are shown on the list.
 
+An online game also needs a join page, `join/<id>/index.html` with a 1200 x 630 `preview.jpg`.
+The lobby's copy button hands out `join/<id>/?lobby=CODE`, so a link pasted in a chat previews
+as that game, and the page sends the code on to the desktop. `check-netplay.mjs` fails
+for a catalog entry without one. Copy an existing page and change its words and picture.
+
 ### 2. register when your script loads
 
 ```js
