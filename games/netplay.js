@@ -1345,6 +1345,21 @@
                 { key: 'map', label: 'map', values: [['outskirts', 'the desktop'], ['bridge', 'the taskbar'], ['woods', 'my documents'], ['gates', 'the registry'], ['throne', 'the comment section']] }
             ],
             scripts: ['games/troll-problem/troll-problem-data.js', 'games/troll-problem/troll-problem-sim.js', 'games/troll-problem/troll-problem.js']
+        },
+        {
+            id: 'trailz',
+            name: 'trailz 98',
+            icon: 'bolt',
+            min: 2, max: 8,
+            blurb: 'light cycles for up to eight: turn at right angles, leave a wall, touch none. bots ride the empty seats',
+            seats: o => Math.max(2, Math.min(8, Number(o.cycles) || 4)),   // what the open lobby list counts as full
+            options: [
+                { key: 'cycles', label: 'cycles', values: [['4', '4 cycles'], ['2', '2 cycles, a duel'], ['6', '6 cycles'], ['8', '8 cycles']] },
+                { key: 'bots', label: 'bots', values: [['normal', 'normal'], ['easy', 'easy'], ['hard', 'hard']] },
+                { key: 'arena', label: 'arena', values: [['medium', 'medium'], ['small', 'small'], ['large', 'large']] },
+                { key: 'rounds', label: 'rounds', values: [['5', '5 rounds'], ['3', '3 rounds'], ['9', '9 rounds']] }
+            ],
+            scripts: ['games/trailz/trailz-data.js', 'games/trailz/trailz-sim.js', 'games/trailz/trailz-gl.js', 'games/trailz/trailz.js']
         }
     ];
     NP.games = {};

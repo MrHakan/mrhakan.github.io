@@ -1,0 +1,78 @@
+/* trailz 98: everything the game's window needs, loaded with the game and not
+   with the desktop, so the first visit pays nothing for it. */
+.tz-body { background: #02030a; padding: 0 !important; overflow: hidden; }
+.tz-stage { position: relative; overflow: hidden; background: #02030a; touch-action: none; user-select: none; -webkit-user-select: none; font: 12px "Courier New", monospace; color: #dff6ff; }
+.tz-canvas { display: block; width: 100%; height: 100%; }
+.tz-flat .tz-canvas { image-rendering: auto; }
+
+/* the hud, over the picture */
+.tz-hud { position: absolute; inset: 0; pointer-events: none; text-shadow: 0 0 4px #000, 1px 1px 0 #000; }
+.tz-top { position: absolute; left: 8px; right: 8px; top: 6px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.tz-round { color: #9fe8ff; font-weight: bold; letter-spacing: .5px; }
+.tz-board { list-style: none; margin: 0; padding: 4px 6px; background: rgba(2, 6, 20, .55); border: 1px solid rgba(80, 200, 255, .35); min-width: 150px; }
+.tz-board li { display: flex; align-items: center; gap: 6px; line-height: 17px; }
+.tz-board li i { width: 9px; height: 9px; flex: 0 0 auto; box-shadow: 0 0 6px currentColor; }
+.tz-board li span { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.tz-board li em { color: #7f97a8; font-style: normal; font-size: 10px; }
+.tz-board li b { color: #fff; }
+.tz-board li.out { opacity: .45; text-decoration: line-through; }
+.tz-board li.me span { color: #fff; font-weight: bold; }
+.tz-big { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: bold 44px "Courier New", monospace; color: #fff; text-shadow: 0 0 12px #26f2ff, 0 0 30px #26f2ff; }
+.tz-big small { display: block; font-size: 15px; color: #bfefff; margin-top: 4px; text-shadow: 0 0 6px #000; }
+.tz-count { font-size: 90px; }
+.tz-feed { position: absolute; left: 8px; bottom: 58px; display: flex; flex-direction: column-reverse; gap: 2px; color: #ffe9a8; }
+.tz-bars { position: absolute; left: 8px; bottom: 22px; display: flex; gap: 14px; }
+.tz-bar { display: flex; align-items: center; gap: 5px; }
+.tz-bar span { color: #9fe8ff; }
+.tz-bar i { display: block; width: 90px; height: 7px; background: rgba(255, 255, 255, .12); border: 1px solid rgba(120, 220, 255, .45); }
+.tz-bar i b { display: block; height: 100%; background: linear-gradient(90deg, #26f2ff, #fff); box-shadow: 0 0 6px #26f2ff; }
+.tz-fuel i b { background: linear-gradient(90deg, #ff8c1a, #ffe14d); box-shadow: 0 0 6px #ff8c1a; }
+.tz-bar em { font-style: normal; color: #fff; min-width: 22px; }
+.tz-help { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; color: #6f8fa3; font-size: 11px; }
+.tz-net { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 6px 10px; background: #c0c0c0; color: #000; border: 2px solid; border-color: #fff #404040 #404040 #fff; text-shadow: none; font-family: Tahoma, "MS Sans Serif", sans-serif; }
+
+/* the thumbs: two halves of the picture and a brake */
+.tz-thumbs { position: absolute; inset: 0; }
+.tz-thumbs[hidden] { display: none; }
+.tz-thumb { position: absolute; top: 30%; bottom: 0; width: 50%; display: flex; align-items: flex-end; padding: 0 0 46px; }
+.tz-thumb-l { left: 0; justify-content: flex-start; padding-left: 14px; }
+.tz-thumb-r { right: 0; justify-content: flex-end; padding-right: 14px; }
+.tz-thumb span { width: 54px; height: 54px; line-height: 54px; text-align: center; font-size: 22px; color: rgba(220, 250, 255, .7); border: 1px solid rgba(120, 220, 255, .35); background: rgba(10, 30, 50, .25); }
+.tz-thumb.on span { background: rgba(38, 242, 255, .35); color: #fff; }
+.tz-brake { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: 84px; height: 44px; font: bold 13px "Courier New", monospace; color: #ffe1b0; background: rgba(60, 30, 0, .45); border: 1px solid rgba(255, 160, 60, .6); touch-action: none; }
+.tz-brake.on { background: rgba(255, 140, 26, .55); color: #fff; }
+
+/* the menu and the end of a match, over the picture */
+.tz-over { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 10px; }
+.tz-over.on { display: flex; }
+.tz-menu, .tz-panel { width: min(520px, 100%); max-height: 100%; overflow-y: auto; padding: 14px 16px; background: rgba(3, 6, 22, .78); border: 1px solid rgba(80, 210, 255, .55); box-shadow: 0 0 22px rgba(38, 242, 255, .25), inset 0 0 30px rgba(38, 242, 255, .06); }
+.tz-logo { font: bold 46px "Courier New", monospace; letter-spacing: 4px; color: #fff; text-align: center; text-shadow: 0 0 8px #26f2ff, 0 0 24px #26f2ff, 0 0 48px #1a8cff; }
+.tz-logo span { font-size: 20px; vertical-align: top; margin-left: 6px; color: #ff8c1a; text-shadow: 0 0 8px #ff8c1a; }
+.tz-sub { margin: 6px 0 10px; color: #bfe6f5; line-height: 1.45; text-align: center; }
+.tz-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 10px; margin-bottom: 10px; }
+.tz-opts label { display: flex; flex-direction: column; gap: 2px; color: #9fe8ff; }
+.tz-sel { min-height: 32px; background: #071226; color: #e8fbff; border: 1px solid #2a7fa8; font: 12px "Courier New", monospace; padding: 2px 4px; }
+.tz-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 6px 0; }
+.tz-btn { min-height: 40px; min-width: 120px; padding: 6px 14px; cursor: pointer; font: bold 14px "Courier New", monospace; color: #dff6ff; background: #0a1a33; border: 1px solid #2a7fa8; }
+.tz-btn:hover, .tz-btn:focus-visible { background: #12305a; outline: none; box-shadow: 0 0 10px rgba(38, 242, 255, .5); }
+.tz-go { color: #02030a; background: #26f2ff; border-color: #bff9ff; box-shadow: 0 0 14px rgba(38, 242, 255, .6); }
+.tz-go:hover, .tz-go:focus-visible { background: #8ff8ff; }
+.tz-keys { margin-top: 8px; color: #8fb3c4; line-height: 1.5; text-align: center; font-size: 11px; }
+.tz-keys b { color: #fff; }
+.tz-rec { margin-top: 6px; color: #ffcf6a; text-align: center; font-size: 11px; }
+.tz-panel-title { font: bold 22px "Courier New", monospace; color: #fff; text-align: center; margin-bottom: 8px; text-shadow: 0 0 10px #26f2ff; }
+.tz-final { list-style: none; margin: 0 0 8px; padding: 0; }
+.tz-final li { display: flex; align-items: center; gap: 8px; padding: 3px 4px; border-bottom: 1px solid rgba(80, 200, 255, .15); }
+.tz-final li i { width: 10px; height: 10px; }
+.tz-final li .n { flex: 1 1 auto; }
+.tz-final li em { color: #7f97a8; font-style: normal; min-width: 52px; text-align: right; }
+.tz-final li.me { color: #fff; font-weight: bold; }
+
+@media (max-width: 560px) {
+    .tz-logo { font-size: 34px; }
+    .tz-big { font-size: 30px; }
+    .tz-count { font-size: 64px; }
+    .tz-board { min-width: 110px; font-size: 11px; }
+    .tz-bar i { width: 60px; }
+    .tz-help { display: none; }
+}

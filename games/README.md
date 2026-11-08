@@ -513,6 +513,142 @@ tree. The old grid game's tree is refunded crystal for crystal and its records k
 its run (`trollproblem-run-v2`) is deleted, since its towers no longer exist. A solo
 run is kept in `trollproblem-run-v3` and comes back at the start of the wave it was on.
 
+## trailz 98
+
+Light cycles for one to eight. Every cycle drives forward on a grid, turns only at right
+angles, and leaves a wall of light behind it. Touch a wall, anybody's or your own, or the
+edge of the arena, and you are out. The last one riding takes the round. It is the game
+the user asked for as "retrocycles", the browser port of Armagetron Advanced. The name is
+the site's own instead (in the line of wizardz and dungeonz): Retrocycles is somebody
+else's game, and this is a new one in the same old genre, written from nothing.
+
+| file | what is in it |
+| --- | --- |
+| `trailz-data.js` | every number: speeds, the grind, the brake, the turn gap, how long walls stay, the arenas, the points, the bot levels |
+| `trailz-sim.js` | the rules, the bots and the wire. No page in it, so node runs it |
+| `trailz-gl.js` | the picture, in hand written WebGL1 |
+| `trailz.js` | the window, the keys and thumbs, the camera, the hud, the menu and the wire |
+| `trailz.css` | its styles. They come with the game, not with the desktop |
+
+### playing
+
+`← →` or `a d` turn, `↓`, `s` or space brake, `c` goes round the cameras. On a phone either
+half of the picture turns that way and a button in the middle brakes; held sideways it goes
+fullscreen.
+
+- **The grind.** A wall within 4.5 units to your side pulls you along: the closer, the faster,
+  up to 42 units a second from 18. It wears off when the wall ends. It is the reason to ride
+  close to things, and the way to get in front of somebody.
+- **The brake** holds you at half speed for about two seconds and fills again in five.
+- **The turn gap.** Six steps (a tenth of a second) between two turns, so a u-turn always has
+  room in it and nobody folds back onto their own wall in one press.
+- **Walls go.** A dead cycle's wall stays up 1.4 seconds, flickers, and is gone a second later.
+- **Rounds and points.** A point for every cycle you outlive, two more for the last one riding.
+  A match is 3, 5 or 9 rounds. After 35 seconds a round gets 3.5% faster every second, so none
+  goes on forever. The floor is sized for the number of cycles on it (a duel gets 62% of the
+  eight cycle arena), because a duel on a floor made for eight is two people never meeting.
+
+### the camera and the picture
+
+Three cameras: **behind the cycle** (the default: low, wide, looking ahead, swinging round after
+a turn in about a sixth of a second while the cycle leans into it), **the panorama** (twenty units
+back and thirteen up: more floor, more of the field), and **the whole arena**, tipped towards you
+from above, the classic view in perspective. Out of a round, the camera rides with whoever leads,
+and the arrow keys pick somebody else.
+
+**Why not the PS1 engine.** `games/ps1/` is built to look like 1995 on purpose: a 240 line canvas,
+corners snapping to whole pixels, textures that swim, a dither over everything. A light cycle game
+wants the opposite picture, thin bright lines that stay thin and bright all the way to the horizon,
+and its shader would have had to be switched off piece by piece until nothing of it was left, with
+its 1100 lines still coming down the wire. So `trailz-gl.js` is its own and small (about 450 lines):
+
+- the floor is one square a kilometre across, and the grid is worked out per pixel in the fragment
+  shader, lines kept one pixel wide however far off they are (`OES_standard_derivatives`) and faded
+  into an even glow where they get too close to draw one by one. The distance for the haze is worked
+  out per pixel too: taken at the corners of a square that size and spread over it, it says nothing
+  is near, which is what the first version did (a floor of pure fog)
+- the walls add light (`ONE, ONE`), so they never need sorting. A cycle's finished walls sit in a
+  buffer of their own that is rebuilt only when it turns, drawn in its colour times how far they have
+  faded; only the stretch from the last turn to the cycle is new each frame. Each wall is a sheet dim
+  at the foot and bright at the top, a hot top edge, and a glow on the floor either side
+- a sky that goes from a purple glow at the horizon to black, a ring of dark blocks far out for a
+  skyline, stars, and the cycles as a few boxes and two wheels, 1.3 times life size so you can see yours
+- the canvas is drawn at the screen's own pixels (`devicePixelRatio`, which already carries the site's
+  zoom at 2560x1440) up to about two million of them
+
+Measured in headless chromium on software GL: 58 to 60 frames a second at 1088 x 612. Without WebGL
+the same game is drawn flat from above on a 2d canvas.
+
+### fairness inside one step
+
+Every cycle moves at once, from where it was to where it will be, and two cycles can reach one
+crossing in the same sixtieth of a second. So each crossing is timed along the step: whoever got
+there first laid the wall, whoever got there later hits it, two that meet head on or arrive at the
+same instant both go, and a cycle that dies early in a step never lays the rest of its wall, so kills
+nobody with it. Nothing depends on which seat is checked first, and `check-trailz.mjs` holds the sim
+to that by playing three hundred little crashes again with the seats in reverse order.
+
+### bots
+
+Three levels. A bot drives straight on until the way ahead gets short, then takes the turn that
+leaves it the most room. **easy** looks every twelfth step, sees twelve units ahead, waits until late,
+and one look in ten does nothing at all. **normal** counts the floor each way by flooding a coarse
+grid from just round the corner, and turns off a way that is running into a pocket before it has to.
+**hard** looks every other step, counts further, cuts in front of somebody running alongside, likes a
+wall to grind on, and when it has to turn also counts the floor it would reach before anybody else
+(Voronoi). Doing that all the time measured worse: it turned too often. Measured in the check, best of
+three round matches from both sides of the arena: hard beats normal about 87% of rounds, hard and
+normal beat easy about 60 to 75%. With eight on the floor, easy scores least by far and hard and
+normal are close: eight is a crowd. Empty seats are bots; in the menu you pick how many and how good.
+
+### online
+
+2 to 8 people through `games/netplay.js`, host authoritative. The host picks the cycles (2, 4, 6 or
+8; quick match matches on this), how good the bots are, the arena and the rounds. Bots take every
+seat nobody is in.
+
+- **The host** runs the sim, the bots and its own cycle, and sends snapshots: 20 a second straight
+  across, 6 over the relays. A snapshot is every cycle's place to a hundredth, its way, speed, fuel and
+  grind as whole numbers, and the last few corners of anybody who turned lately. A guest that finds a
+  hole in somebody's corners asks for the lot.
+- **A guest** runs no rules. Everybody else's cycle is drawn where the last snapshot put it, carried
+  on along its line for as long as the snapshot is old plus half a round trip, never through a wall.
+  Its own cycle is its own: a turn happens on its screen the moment the key goes down, and goes to the
+  host as the spot where it happened (the one coordinate that changes along its line, and how many
+  turns it had made, so the host knows which line).
+- **Lag, and why a turn in time is a turn in time.** The host takes the guest's spot and puts the turn
+  there (`TZ_SIM.turnAt`): the cycle goes back to that spot, turns, and goes on the new way for the same
+  distance, as if the host had heard it on time. That is the Armagetron way of doing it, and what makes
+  a 300ms relay playable. It has limits so it cannot be abused: never more than half a second of
+  driving back, never across the turn gap, and never back past a place where somebody has already died
+  against that line, because a wall that killed somebody stays. The new stretch is checked against
+  every wall there is now, so a lagging cycle gets no wall-free shortcut. A guest whose screen ran a
+  little ahead gets its turn when its cycle reaches the spot. The guest measures its own round trip
+  with a small ping to the host every two seconds and leads its own cycle by half of it, so the spot
+  it sends is where the host's cycle really was. In the browser test, with 250ms added each way, the
+  corner lands 0.001 units from where the key went down.
+- **Every input message carries all the turns not yet acknowledged**, so a lost one costs nothing,
+  and the host acknowledges in each snapshot.
+- **Traffic, measured** in `browser-trailz.mjs` with eight cycles riding over the relays (three people
+  and five bots, and again with eight separate browsers and no bots): the host sends 0.41 to 0.45MB a
+  minute in under six frames a second, each guest 0.03MB and hears about 0.6MB. A snapshot of eight is
+  about 550 bytes. A ninth person is turned away by the lobby.
+- **People coming and going.** A guest who drops is replaced by a normal bot at once and the round goes
+  on; somebody joining with the code takes a bot's seat (their own, if they had one) and is handed the
+  match. The host leaving ends it: there is no host migration. A guest whose line goes quiet freezes
+  and says so, and carries on when the host is heard again; a direct link dying moves both to the relays.
+
+### saves
+
+`mrhakan98-trailz-meta` keeps matches, wins, rounds, rounds won and the longest ride; the trophy room
+shelves it with two achievements (`trailz`, `trailz_win`). `mrhakan98-trailz-prefs` keeps the menu's
+choices and the camera.
+
+### the invite picture
+
+`join/trailz/preview.jpg` is a real frame of a real match, drawn by the game at 1200 x 630:
+`node .github/scripts/trailz-preview.mjs` makes it again.
+
 ## adding multiplayer to a game
 
 ### 1. put it in the catalogue
@@ -805,8 +941,8 @@ play against: open the site twice, host in one tab, join in the other.
 `.github/scripts/check-games.mjs` loads these files without a browser
 and checks the content and the desktop wiring;
 `check-wizardz.mjs` and `check-sigils.mjs` hold wizardz's rules, balance and
-recogniser to their targets, `check-dungeonz.mjs` the raid's and
-`check-troll-problem.mjs` the tower defense's;
+recogniser to their targets, `check-dungeonz.mjs` the raid's,
+`check-troll-problem.mjs` the tower defense's and `check-trailz.mjs` the light cycles';
 `.github/scripts/browser-check.mjs` opens the real site in chromium,
 draws a sigil with the mouse and runs a two-tab lobby;
 `browser-wizardz.mjs` plays a match to the end with a real mouse, a phone with
@@ -815,6 +951,9 @@ including somebody walking out, loadout ids typed in and refused, a guest trying
 it does not carry, and two browsers direct and over the relays;
 `browser-dungeonz.mjs` takes a raid from the address bar to a cleared dungeon, draws a
 fireball, measures the frame rate in a crowd, and plays it on a phone and in two browsers;
+`browser-trailz.mjs` rides a match against a bot to the end with real keys, checks the picture
+from every camera, taps on a phone, and plays two and three browsers direct and over the relays
+with lag on the line, the link dying, the bytes counted and somebody new taking a seat;
 `browser-troll-problem.mjs` plays a map to the troll king with the clock turned up, puts
 towers where they can and cannot go, locks a path, sells, plays on a phone, and in two and
 four browsers direct and over the relays, with somebody new taking an empty seat;

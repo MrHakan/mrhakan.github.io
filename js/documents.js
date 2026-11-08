@@ -102,6 +102,22 @@
             }
         },
         {
+            id: 'trailz',
+            name: 'trailz 98',
+            icon: '🏍️',
+            keys: ['mrhakan98-trailz-meta', 'mrhakan98-trailz-prefs'],
+            open: 'trailz',
+            summary() {
+                const meta = json('mrhakan98-trailz-meta');
+                if (!meta) return null;
+                const bits = [];
+                if (meta.matches) bits.push(plural(meta.matches, 'match', 'matches'));
+                if (meta.wins) bits.push(meta.wins + ' won');
+                if (meta.best) bits.push('longest ride ' + meta.best + 's');
+                return { line: bits.length ? bits.join(' · ') : 'settings, no matches yet', when: '' };
+            }
+        },
+        {
             id: 'trollproblem',
             name: 'the troll problem',
             icon: '🚋',

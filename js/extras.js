@@ -430,6 +430,25 @@ function openTrollProblem() {
 }
 
 // ===================================================================
+// trailz 98 — light cycles for up to eight, through the lobby's loader
+// ===================================================================
+function tzLoadScripts() {
+    if (window.startTrailz) return Promise.resolve();
+    return npLoadScripts().then(() => Netplay.loadGame('trailz'));
+}
+
+function openTrailz() {
+    if (window.startTrailz) { startTrailz(); return; }
+    const { body, win } = createAppWindow('trailz 98', { icon: 'bolt', width: 320 });
+    body.innerHTML = '<div class="bj-loading">laying down the grid...</div>';
+    tzLoadScripts().then(() => {
+        replaceLazyWindow(win, () => startTrailz());
+    }).catch(() => {
+        body.innerHTML = lazyFail('the grid would not open bradar');
+    });
+}
+
+// ===================================================================
 // become user — branching interactive drama, lazy-loaded like the rest
 // ===================================================================
 let buLoading = null;
@@ -940,6 +959,7 @@ function siteSearchIndex() {
         ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 2v2 3v3 4v4 teams maps loadout id preset spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire 3d shooter tps third person ps1 playstation low poly'],
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
+        ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
         ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],
