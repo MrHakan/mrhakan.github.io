@@ -291,8 +291,8 @@ jobs:
 
             # a match from the start menu to the end with real keys, the picture from every camera,
             # a phone with real taps, two browsers direct with lag on the line and the link dying,
-            # three over the relays with the bytes counted and a newcomer taking a seat, and the
-            # open lobby list. It brings its own server and stand-ins for peerjs and the relays
+            # three over the relays with the bytes counted and a newcomer taking a seat, eight
+            # browsers in one match over the relays, and the open lobby list. It brings its own server and stand-ins for peerjs and the relays
             - name: Ride trailz
               run: node .github/scripts/browser-trailz.mjs
 

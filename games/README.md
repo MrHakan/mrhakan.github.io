@@ -629,9 +629,10 @@ seat nobody is in.
   corner lands 0.001 units from where the key went down.
 - **Every input message carries all the turns not yet acknowledged**, so a lost one costs nothing,
   and the host acknowledges in each snapshot.
-- **Traffic, measured** in `browser-trailz.mjs` with eight cycles riding over the relays: the host
-  sends 0.42MB a minute in under six frames a second, a guest 0.03MB. A snapshot of eight is about
-  550 bytes.
+- **Traffic, measured** in `browser-trailz.mjs` with eight cycles riding over the relays (three people
+  and five bots, and again with eight separate browsers and no bots): the host sends 0.41 to 0.45MB a
+  minute in under six frames a second, each guest 0.03MB and hears about 0.6MB. A snapshot of eight is
+  about 550 bytes. A ninth person is turned away by the lobby.
 - **People coming and going.** A guest who drops is replaced by a normal bot at once and the round goes
   on; somebody joining with the code takes a bot's seat (their own, if they had one) and is handed the
   match. The host leaving ends it: there is no host migration. A guest whose line goes quiet freezes

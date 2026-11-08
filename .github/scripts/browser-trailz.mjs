@@ -13,8 +13,10 @@
 //            guest's turn going where it was pressed even with a quarter of a
 //            second of lag on the line, the line going quiet and coming back,
 //            the direct link dying, and the guest walking out (a bot rides on)
-//   relays   three browsers over the relays only, the bytes counted, a guest
-//            leaving and somebody new with the code taking the seat
+//   relays   three browsers and five bots over the relays only, the bytes
+//            counted, a guest leaving and somebody new with the code taking the seat
+//   eight    a full lobby: eight browsers over the relays, no bots, the bytes
+//            counted, the last seat steering, and a ninth turned away
 //   lobby    a public lobby shows up on a stranger's open list
 //
 // It runs on no outside server: its own static server, a peerjs stand-in
@@ -510,6 +512,78 @@ try {
         await eve.screenshot({ path: SHOTS + '/tz-late-join.png' });
         for (const p of [host, guests[0], eve]) await p.close().catch(() => { });
         for (const c of [...ctxs, ctxE]) await c.close().catch(() => { });
+    }
+
+    if (part('eight')) {
+        section('eight browsers over the relays: a full match, no bots');
+        // eight strangers, eight separate browsers, no direct route between any of them.
+        // Small windows, so eight renderers fit on one CI machine
+        const ctxs = [], pages = [];
+        const names = ['ana', 'bob', 'cem', 'dee', 'eda', 'fay', 'gus', 'hal'];
+        for (const name of names) {
+            const ctx = await context({ viewport: { width: 640, height: 480 } }, name, { 'test-direct': 'noroute' });
+            ctxs.push(ctx);
+            pages.push(await open(ctx, null, name));
+        }
+        const [host, ...guests] = pages;
+        const code = await hostLobby(host, { set: { cycles: '8', arena: 'large', rounds: '9' } });
+        for (const gp of guests) await joinLobby(gp, code);
+        await startMatch(host, guests);
+        expect((await Promise.all(pages.map(kind))).every(k => k === 'bus'), 'all eight over the relays');
+        const me = await Promise.all(pages.map(p => state(p, g => g.me)));
+        const seatInfo = await state(host, g => [g.s.n, g.s.seats.filter(x => x.bot).length]);
+        expect(me.join() === '0,1,2,3,4,5,6,7' && seatInfo.join() === '8,0', 'eight cycles, eight people, a seat each and no bots', me.join() + ' | ' + seatInfo.join());
+        // a bot at the wheel of every cycle on the host, so the match runs while it is measured
+        await host.evaluate(() => { for (let i = 0; i < 8; i++) TZ_ENGINE.drive(i, 'hard'); });
+        await race(host);
+        const meter = async p => {
+            const b = { sent: 0, got: 0, on: false, frames: 0 };
+            const cdp = await p.context().newCDPSession(p);
+            await cdp.send('Network.enable');
+            cdp.on('Network.webSocketFrameSent', e => { if (b.on) { b.sent += e.response.payloadData.length; b.frames++; } });
+            cdp.on('Network.webSocketFrameReceived', e => { if (b.on) b.got += e.response.payloadData.length; });
+            return b;
+        };
+        const meters = await Promise.all(pages.map(meter));
+        const seconds = 10;
+        meters.forEach(m => { m.on = true; });
+        let most = 0;
+        for (let i = 0; i < seconds * 2; i++) { await host.waitForTimeout(500); most = Math.max(most, await state(host, g => g.s.cycles.filter(c => c.alive).length)); }
+        meters.forEach(m => { m.on = false; });
+        const perMin = n => n * 60 / seconds / 1048576;
+        const [hm, ...gm] = meters;
+        console.log('        up to ' + most + ' riding: host up ' + perMin(hm.sent).toFixed(2) + 'MB a minute in ' + hm.frames + ' frames; guests up at most ' + Math.max(...gm.map(m => perMin(m.sent))).toFixed(3) + ', down ' + gm.map(m => perMin(m.got).toFixed(2)).join('/'));
+        expect(perMin(hm.sent) <= 1.2, 'the host sends one copy for all seven to the relays, and it is small', perMin(hm.sent).toFixed(2) + 'MB a minute');
+        expect(gm.every(m => perMin(m.sent) <= 0.15), 'every guest sends next to nothing');
+        expect(hm.frames / seconds <= 8, 'and nobody is rude to the relay', (hm.frames / seconds).toFixed(1) + ' frames a second from the host');
+        const ages = await Promise.all(guests.map(p => p.evaluate(() => performance.now() - TZ_ENGINE.state().lastSnap)));
+        expect(ages.every(a => a < 1500), 'all seven guests are still hearing about it', ages.map(Math.round).join(', ') + 'ms');
+        const rounds = await Promise.all(pages.map(p => state(p, g => g.s.round)));
+        expect(rounds.every(r => r === rounds[0]), 'and every screen is on the same round', rounds.join(','));
+        // a guest at the far end of the list still steers its own cycle
+        const last = guests[6];
+        await host.evaluate(() => TZ_ENGINE.drive(7, null));
+        const ok = await last.waitForFunction(() => { const g = TZ_ENGINE.state(); return g.pred && g.pred.alive && g.s.phase === 'race'; }, null, { timeout: 15000 }).then(() => true, () => false);
+        if (ok) {
+            const r = await rays(last, 7);
+            await last.keyboard.press(r[1] > r[2] ? 'ArrowLeft' : 'ArrowRight');
+            const want = await state(last, g => g.pred.dir);
+            const got = await host.waitForFunction(d => TZ_ENGINE.state().s.cycles[7].dir === d || !TZ_ENGINE.state().s.cycles[7].alive, want, { timeout: 5000 }).then(() => true, () => false);
+            expect(got, 'the eighth player\'s turn reaches the host');
+        } else expect(true, 'the eighth player was out between rounds; its turn was not tried');
+        await host.screenshot({ path: SHOTS + '/tz-eight-host.png' });
+        await last.screenshot({ path: SHOTS + '/tz-eight-guest.png' });
+        // a ninth is turned away: the lobby holds eight
+        const ctxN = await context({ viewport: { width: 640, height: 480 } }, 'ivy', { 'test-direct': 'noroute' });
+        const ivy = await open(ctxN, null, 'ivy');
+        await ivy.evaluate(() => openNetplay({ gameId: 'trailz' }));
+        await ivy.waitForSelector('#np-code', { timeout: 15000 });
+        await ivy.fill('#np-code', code);
+        await ivy.click('#np-join');
+        await ivy.waitForTimeout(6000);
+        expect(await state(host, g => g.s.seats.every(x => x.name !== 'ivy')) && !(await ivy.evaluate(() => !!(window.TZ_ENGINE && TZ_ENGINE.state()))), 'a ninth is not given a seat');
+        for (const p of [...pages, ivy]) await p.close().catch(() => { });
+        for (const c of [...ctxs, ctxN]) await c.close().catch(() => { });
     }
 
     if (part('lobby')) {
