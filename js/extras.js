@@ -437,6 +437,15 @@ function tzLoadScripts() {
     return npLoadScripts().then(() => Netplay.loadGame('trailz'));
 }
 
+function openWaveShaper() {
+    if (window.startWaveShaper) { startWaveShaper(); return; }
+    const { body, win } = createAppWindow('waveshaper 98', { icon: 'monitoring', width: 320 });
+    body.innerHTML = '<div class="bj-loading">tuning the wave...</div>';
+    LAZY.load('games/waveshaper/waveshaper-window.js').then(() => {
+        replaceLazyWindow(win, () => startWaveShaper());
+    }).catch(() => { body.innerHTML = lazyFail('the wave would not open bradar'); });
+}
+
 function openTrailz() {
     if (window.startTrailz) { startTrailz(); return; }
     const { body, win } = createAppWindow('trailz 98', { icon: 'bolt', width: 320 });
@@ -960,6 +969,7 @@ function siteSearchIndex() {
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
         ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
+        ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
         ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],

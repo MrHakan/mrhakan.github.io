@@ -4,19 +4,20 @@
     const canvas = $('wave'), ctx = canvas.getContext('2d');
     const buttons = [...document.querySelectorAll('[data-action]')];
     const motion = matchMedia('(prefers-reduced-motion: reduce)');
-    const KEY = 'mrhakan98-waveshaper-v1';
+    // Untimed prototype scores are not comparable with these timed hits.
+    const KEY = 'mrhakan98-waveshaper-v2';
     let saved = {};
     try {
         const value = JSON.parse(localStorage.getItem(KEY));
         if (value && typeof value === 'object' && !Array.isArray(value)) saved = value;
     } catch (_) { /* Storage is optional. */ }
-    const record = mode => Number.isSafeInteger(saved[mode]) && saved[mode] >= 0 ? saved[mode] : 0;
+    const record = () => Number.isSafeInteger(saved.best) && saved.best >= 0 ? saved.best : 0;
     let game = W.create(), phase = 'ready', muted = saved.muted === true;
     let particles = [], pulse = 0, flash = 0, pose = null, poseTime = 0, highlight = -1;
     let raf = 0, last = 0, audio, master, beat = 0, beatTime = 0, activePad = null;
     let previousPad = [false, false, false, false], previousStart = false, usedPad = false;
     function persist() {
-        if (game.mode !== 'practice') saved[game.mode] = Math.max(record(game.mode), game.score);
+        saved.best = Math.max(record(), game.score);
         saved.muted = muted;
         try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (_) { /* Private mode can refuse writes. */ }
     }
@@ -51,9 +52,8 @@
     function hud() {
         $('score').textContent = game.score;
         $('streak').textContent = game.streak;
-        $('lives').textContent = game.mode === 'practice' ? '∞' : game.lives + ' / ' + W.modes[game.mode].lives;
-        $('best').textContent = game.mode === 'practice' ? '—' : Math.max(record(game.mode), game.score);
-        $('mode').disabled = phase === 'playing' || phase === 'paused';
+        $('lives').textContent = game.lives + ' / ' + W.config.lives;
+        $('best').textContent = Math.max(record(), game.score);
         $('pause').disabled = phase === 'ready' || phase === 'over';
         $('pause').textContent = phase === 'paused' ? 'Resume [P]' : 'Pause [P]';
     }
@@ -63,7 +63,7 @@
         const paused = kind === 'paused', over = kind === 'over';
         $('eyebrow').textContent = paused ? 'TAKE A BREATH' : over ? 'END OF TRANSMISSION' : 'A LITTLE VECTOR MENACE';
         $('heading').innerHTML = paused ? 'WAVE ON HOLD.' : over ? 'SIGNAL LOST.' : 'FOUR BUTTONS.<br>ONE WAVE.';
-        $('instructions').textContent = paused ? 'Your run is safe. Resume when you are ready.' : over ? 'One more run. You know you want to.' : 'Read the closest bend. Match its shape and direction before it reaches you. Every match scores one. Every mistake costs a life.';
+        $('instructions').textContent = paused ? 'Your run is safe. Resume when you are ready.' : over ? 'One more run. You know you want to.' : 'Wait for the bend to reach the target, then match its shape and direction. Early, wrong or missed inputs cost a life and cut your speed by 40%.';
         $('results').hidden = !over;
         $('results').textContent = 'SCORE ' + game.score + '  /  LONGEST STREAK ' + game.longest;
         $('start').textContent = paused ? 'RESUME RUN' : over ? 'TRY AGAIN' : 'START RUN';
@@ -72,10 +72,10 @@
     }
     function start() {
         persist();
-        game = W.create($('mode').value);
+        game = W.create();
         particles = []; pulse = flash = poseTime = beatTime = beat = 0;
         phase = 'playing'; last = 0; pose = null;
-        $('status').textContent = game.mode === 'practice' ? 'Practice: no game over. Read the next bend and press its button.' : 'Match the closest bend. ' + (game.mode === 'hard' ? 'One life. Make it count.' : 'Twenty clean matches restore a life.');
+        $('status').textContent = 'Wait for the target. Correct hits speed up the wave; mistakes cut current speed by 40%.';
         soundReady(); hud(); overlay(phase); canvas.focus({ preventScroll: true });
     }
     function pause(message) {
@@ -91,12 +91,10 @@
     }
     function togglePause() { if (phase === 'playing') pause(); else if (phase === 'paused') resume(); }
     function color() {
-        if (game.mode === 'practice') return '#70e6ff';
-        if (game.mode === 'hard') return '#ffb96c';
         return ['#ff4e62', '#ff4e62', '#ffac52', '#e7f761', '#58ff96'][game.lives];
     }
     function burst(obstacle, success) {
-        if (motion.matches) return;
+        if (motion.matches || !obstacle) return;
         const c = success ? color() : '#ff4e62';
         for (let i = 0; i < 22; i++) {
             const angle = Math.random() * Math.PI * 2, speed = 45 + Math.random() * 170;
@@ -113,7 +111,7 @@
             if (result.healed) { note(880, 0.2); $('status').textContent = 'Life restored. ' + game.streak + ' clean matches.'; }
         } else {
             flash = 0.5; burst(result.obstacle, false); note(75, 0.18, 'sawtooth', 0.12);
-            $('status').textContent = result.type === 'wrong' ? 'Wrong shape. The next bend is ' + W.actions[result.obstacle.action].label.toLowerCase() + '.' : 'A bend reached you. Keep reading ahead.';
+            $('status').textContent = (result.type === 'early' ? 'Too early. Wait until the bend reaches the target.' : result.type === 'wrong' ? 'Wrong shape at the target.' : 'Missed the target.') + ' Speed −40% (minimum ' + W.config.floor + ').';
         }
         if (game.over) {
             phase = 'over'; persist(); overlay(phase);
@@ -133,13 +131,12 @@
     $('restart').onclick = start;
     $('pause').onclick = togglePause;
     $('sound').onclick = () => setMuted(!muted);
-    $('mode').onchange = () => {
-        persist(); game = W.create($('mode').value); phase = 'ready';
-        particles = []; pose = null; hud(); overlay(phase);
-        $('status').textContent = 'Ready for ' + game.mode + '. Start a run.';
-    };
     async function fullscreen() {
         try {
+            if (window.frameElement && window.parent.toggleWindowFullscreen) {
+                window.parent.toggleWindowFullscreen(window.frameElement.closest('.app-window'));
+                return;
+            }
             if (document.fullscreenElement) await document.exitFullscreen();
             else if ($('stage').parentElement.requestFullscreen) await $('stage').parentElement.requestFullscreen();
             else $('status').textContent = 'Fullscreen is unavailable in this browser.';
@@ -162,6 +159,7 @@
         else if (e.code === 'KeyF') fullscreen();
     });
     function pollPad() {
+        if (document.hasFocus && !document.hasFocus()) return;
         let pads = [];
         try { pads = [...navigator.getGamepads()].filter(p => p && p.connected); } catch (_) { /* Browser may block the API. */ }
         let pad = pads.find(p => p.index === activePad && p.mapping === 'standard') || pads.find(p => p.mapping === 'standard');
@@ -199,8 +197,10 @@
         ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
         ctx.font = 'bold 58px "Courier New", monospace'; ctx.fillText(String(game.score).padStart(3, '0'), 480, 89);
         ctx.font = '10px monospace'; ctx.fillStyle = '#85938d'; ctx.fillText('MATCH THE NEXT BEND', 480, 115);
-        // A faint receiving bracket makes the deadline readable without a flashing hit zone.
-        ctx.strokeStyle = '#24382c'; ctx.lineWidth = 1;
+        const inTarget = game.obstacles[0] && Math.abs(game.obstacles[0].x - W.PLAYER) <= W.HIT_WINDOW;
+        ctx.fillStyle = inTarget ? '#164a2c' : '#101c14';
+        ctx.fillRect(W.PLAYER - W.HIT_WINDOW, 160, W.HIT_WINDOW * 2, 184);
+        ctx.strokeStyle = inTarget ? '#92ffc0' : '#52725d'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(W.PLAYER, 160); ctx.lineTo(W.PLAYER, 344); ctx.stroke();
         ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 252);
         game.obstacles.forEach(obstacle => { if (obstacle.x < 1000) bend(obstacle.x, obstacle.action); });
@@ -216,8 +216,8 @@
         else { ctx.moveTo(W.PLAYER, 238); ctx.lineTo(W.PLAYER + 14, 252); ctx.lineTo(W.PLAYER, 266); ctx.lineTo(W.PLAYER - 14, 252); ctx.closePath(); }
         ctx.stroke();
         if (phase === 'playing') {
-            ctx.font = '11px monospace'; ctx.fillStyle = '#84978b'; ctx.textAlign = 'left'; ctx.fillText(game.mode.toUpperCase(), 22, 452);
-            ctx.textAlign = 'right'; ctx.fillText((game.speed / W.modes[game.mode].speed).toFixed(2) + '× SPEED', 938, 452);
+            ctx.font = '11px monospace'; ctx.fillStyle = '#84978b'; ctx.textAlign = 'left'; ctx.fillText(inTarget ? 'HIT NOW' : 'WAIT FOR THE TARGET', 22, 452);
+            ctx.textAlign = 'right'; ctx.fillText((game.speed / W.config.speed).toFixed(2) + '× SPEED', 938, 452);
         }
         buttons.forEach((button, i) => button.classList.toggle('active', poseTime > 0 && highlight === i));
     }
@@ -249,6 +249,9 @@
         else { last = 0; if (!raf) raf = requestAnimationFrame(frame); }
     });
     window.addEventListener('pagehide', persist);
+    window.addEventListener('message', e => {
+        if (e.source === window.parent && e.origin === location.origin && e.data?.type === 'waveshaper-pause') pause('Paused while minimized. Resume when you are ready.');
+    });
     motion.addEventListener('change', () => { particles = []; pulse = 0; });
     setMuted(muted); hud(); draw(); raf = requestAnimationFrame(frame);
 })();

@@ -292,6 +292,7 @@ function appActions() {
         jokerz: openBalatro,
         trollproblem: openTrollProblem,
         trailz: openTrailz,
+        waveshaper: openWaveShaper,
         becomeuser: openBecomeUser,
         wizardz: () => openWizardz(),
         wizardzbot: () => openWizardz('bot'),
@@ -477,6 +478,7 @@ function execRunCommand() {
         'tron': openTrailz,
         'lightcycle': openTrailz,
         'lightcycles': openTrailz,
+        'waveshaper': openWaveShaper,
         'dungeon': () => openDungeonz(),
         'raid': () => openDungeonz(),
         'wizardz': () => openWizardz(),
@@ -3179,6 +3181,7 @@ function launchRandomPlayground() {
         return;
     }
     const item = visible[Math.floor(Math.random() * visible.length)];
+    if (item.app && appActions()[item.app]) { startMenuAction(item.app); return; }
     window.open(item.url, '_blank', 'noopener,noreferrer');
 }
 
@@ -3205,6 +3208,10 @@ function renderPlaygroundCatalog() {
         const tags = (item.tags || []).slice(0, 3).map(t =>
             '<span class="bg-black text-[#0df259] px-1 py-[2px] text-[9px] font-pixel">' + playgroundEscape(t) + '</span>'
         ).join('');
+        const launchClass = 'mt-3 text-center bg-retro-gray bevel-out active:translate-y-[1px] px-3 py-2 text-black font-header font-bold text-sm';
+        const launch = item.app && appActions()[item.app]
+            ? '<button type="button" data-playground-app="' + playgroundEscape(item.app) + '" class="' + launchClass + '">launch game ▸</button>'
+            : '<a href="' + playgroundEscape(item.url) + '" target="_blank" rel="noopener" class="' + launchClass + '">launch ' + (item.type === 'game' ? 'game' : 'app') + ' ↗</a>';
         return '<article class="bg-[#f0f0f0] border-2 border-black shadow-[3px_3px_0_#808080] p-3 flex flex-col min-h-[190px]">' +
             '<div class="flex items-start gap-2">' +
               '<div class="text-3xl leading-none" aria-hidden="true">' + playgroundEscape(icon) + '</div>' +
@@ -3215,7 +3222,10 @@ function renderPlaygroundCatalog() {
             '</div>' +
             '<p class="text-black font-body text-sm leading-snug mt-3 flex-1">' + playgroundEscape(item.description || '') + '</p>' +
             '<div class="flex flex-wrap gap-1 mt-3">' + tags + '</div>' +
-            '<a href="' + playgroundEscape(item.url) + '" target="_blank" rel="noopener" class="mt-3 text-center bg-retro-gray bevel-out active:translate-y-[1px] px-3 py-2 text-black font-header font-bold text-sm">launch ' + (item.type === 'game' ? 'game' : 'app') + ' ↗</a>' +
+            launch +
           '</article>';
     }).join('');
+    grid.querySelectorAll('[data-playground-app]').forEach(button => {
+        button.addEventListener('click', () => startMenuAction(button.dataset.playgroundApp));
+    });
 }

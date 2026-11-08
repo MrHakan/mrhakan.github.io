@@ -1,11 +1,12 @@
 [
   {
     "name": "WAVESHAPER 98",
+    "app": "waveshaper",
     "type": "game",
     "date": "2026-11-08",
     "daily": false,
     "url": "/games/waveshaper/",
-    "description": "Four buttons, one wave. Match square and triangle bends in a minimalist vector score attack. Keyboard, touch and gamepad; Normal, Hard and Practice.",
+    "description": "Four buttons, one wave. Match square and triangle bends in a minimalist vector score attack. Timed hits with keyboard, touch and gamepad.",
     "icon": "⌁",
     "tags": [
       "arcade",

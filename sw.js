@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v46';
+const CACHE = 'mrhakan98-v47';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -53,8 +53,11 @@ const PRECACHE = [
 // somebody has stayed a while, unless their connection asked it not to.
 const PRECACHE_LATER = [
     '/games/waveshaper/',
+    '/games/waveshaper/?embed=1',
     '/games/waveshaper/waveshaper-sim.js',
     '/games/waveshaper/waveshaper.js',
+    '/games/waveshaper/waveshaper-window.js',
+    '/games/waveshaper/waveshaper-window.css',
     '/js/arcade.js',
     '/js/toys.js',
     '/js/defrag.js',

@@ -2,7 +2,8 @@ import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 
 const base = (process.env.SITE_URL || 'http://127.0.0.1:8095').replace(/\/$/, '');
-const catalog = JSON.parse(await readFile('data/playground.json', 'utf8'));
+// Native desktop apps are exercised by their integration tests, not the standalone-page contract.
+const catalog = JSON.parse(await readFile('data/playground.json', 'utf8')).filter(item => !item.app);
 const browser = await chromium.launch({ headless: true });
 const failures = [];
 
