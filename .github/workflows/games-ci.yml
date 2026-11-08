@@ -130,6 +130,12 @@ jobs:
             - name: Check the troll problem
               run: node .github/scripts/check-troll-problem.mjs
 
+            # the light cycles: walls, the border, head on and two at one crossing in one step,
+            # the grind, a guest's late turn put back where it was pressed, the same crashes with
+            # the seats reversed, one seed one match, and the bots against each other at every level
+            - name: Check trailz
+              run: node .github/scripts/check-trailz.mjs
+
             - name: Check the trophy room and the manifest
               run: node .github/scripts/check-trophies.mjs
 
@@ -282,6 +288,13 @@ jobs:
             # It brings its own server and stand-ins for peerjs and the relays
             - name: Play the troll problem
               run: node .github/scripts/browser-troll-problem.mjs
+
+            # a match from the start menu to the end with real keys, the picture from every camera,
+            # a phone with real taps, two browsers direct with lag on the line and the link dying,
+            # three over the relays with the bytes counted and a newcomer taking a seat, and the
+            # open lobby list. It brings its own server and stand-ins for peerjs and the relays
+            - name: Ride trailz
+              run: node .github/scripts/browser-trailz.mjs
 
             # what players ran into on the two 3d shooters: fullscreen on a 2560x1440 screen at
             # the site's zoom, the dungeonz camera at the ends of its pitch, a shrine's cards with

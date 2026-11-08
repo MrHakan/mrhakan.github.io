@@ -81,6 +81,15 @@
             }
         },
         {
+            id: 'trailz', name: 'trailz 98', icon: '🏍️', open: 'trailz',
+            has: /^trailz/, windows: /^trailz/,
+            records() {
+                const m = obj(json('mrhakan98-trailz-meta'));
+                if (!m) return [];
+                return [['matches', count(m.matches)], ['matches won', count(m.wins)], ['rounds won', count(m.roundWins)], ['longest ride', count(m.best) ? count(m.best) + 's' : '']];
+            }
+        },
+        {
             id: 'echoes', name: 'echoes of the tide', icon: '🌊', open: 'echoes',
             has: /^echoes/, windows: /^echoes/,
             records() {
