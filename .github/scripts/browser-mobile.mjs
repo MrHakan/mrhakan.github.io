@@ -185,50 +185,51 @@ try {
     {
         await page.evaluate(() => {
             document.querySelectorAll('.app-window').forEach(w => w.remove());
-            try { localStorage.removeItem('troll-problem-run'); } catch (e) { }
+            try { localStorage.removeItem('trollproblem-run-v3'); } catch (e) { }
             window.openTrollProblem();
         });
         await page.waitForSelector('.tg-body .tg-btn', { timeout: 20000 });
-        await page.locator('.tg-body button', { hasText: 'choose a map' }).first().click();
+        await page.locator('.tg-menu [data-act="maps"]').first().click();
         await page.waitForTimeout(400);
         await page.locator('[data-map]').first().click();
         await page.waitForSelector('#tg-canvas', { timeout: 10000 });
         await page.waitForTimeout(700);
 
-        await page.locator('.tg-tbtn').first().click();
+        await page.locator('.tg-card[data-tower="pointer"]').click();
         await page.waitForTimeout(250);
         const cv = await page.locator('#tg-canvas').boundingBox();
-        const before = await page.evaluate(() => TG.towers.length);
-        await page.touchscreen.tap(cv.x + cv.width * 0.2, cv.y + cv.height * 0.15);
+        const towers = () => page.evaluate(() => TP_ENGINE.state().s.towers.length);
+        const before = await towers();
+        // a spot well clear of the road, in the map's own units
+        const spot = await page.evaluate(() => {
+            const s = TP_ENGINE.state().s;
+            for (let y = 60; y < 560; y += 20) for (let x = 60; x < 900; x += 20) if (!TP_SIM.placeProblem(s, x, y) && TP_SIM.roadDist(s.road, x, y) > 60) return { x, y };
+            return null;
+        });
+        await page.touchscreen.tap(cv.x + spot.x / 960 * cv.width, cv.y + spot.y / 600 * cv.height);
         await page.waitForTimeout(350);
 
-        expect(await page.evaluate(() => TG.towers.length) === before,
-            'the first tap does not spend your gold');
-        expect(await page.locator('.tg-aim').count() === 1,
-            'it puts the ghost down and asks');
-        const build = page.locator('[data-act="place"]');
+        expect(await towers() === before, 'the first tap does not spend your money');
+        expect(await page.locator('.tg-aim [data-act="place"]').count() === 1, 'it puts the ghost down and asks');
+        const build = page.locator('.tg-aim [data-act="place"]');
         const bb = await build.boundingBox();
         expect(bb && bb.height >= TAP_FLOOR, 'and the build button is a real target',
             bb ? Math.round(bb.width) + '×' + Math.round(bb.height) : 'missing');
         await build.click();
         await page.waitForTimeout(350);
-        expect(await page.evaluate(() => TG.towers.length) === before + 1, 'the second one builds it');
+        expect(await towers() === before + 1, 'the second one builds it');
         await page.screenshot({ path: SHOTS + '/mobile-troll.png' });
 
-        // picking the same tower again and aiming at the road: refused,
-        // out loud, rather than silently eaten
-        await page.touchscreen.tap(cv.x + cv.width * 0.5, cv.y + cv.height * 0.5);
+        // the same tower again, aimed at the road: refused, out loud, rather than silently eaten
+        await page.locator('.tg-card[data-tower="pointer"]').click();
+        const road = await page.evaluate(() => { const r = TP_SIM.roadOf(TP_ENGINE.state().s.map).road; return r.pts[Math.floor(r.pts.length / 2)]; });
+        await page.touchscreen.tap(cv.x + road.x / 960 * cv.width, cv.y + road.y / 600 * cv.height);
         await page.waitForTimeout(300);
-        const onRoad = await page.evaluate(() => TG.hover && TG.path.cells.has(TG.hover.cy * 20 + TG.hover.cx));
-        if (onRoad) {
-            const n = await page.evaluate(() => TG.towers.length);
-            await page.locator('[data-act="place"]').click();
-            await page.waitForTimeout(300);
-            expect(await page.evaluate(() => TG.towers.length) === n,
-                'and a cell on the road is refused rather than silently eaten');
-        } else {
-            ok('and a cell on the road is refused rather than silently eaten (skipped: that tap missed the road)');
-        }
+        const n = await towers();
+        await page.locator('.tg-aim [data-act="place"]').click();
+        await page.waitForTimeout(300);
+        expect(await towers() === n && /road/.test(await page.textContent('#tg-panel') + await page.evaluate(() => TP_ENGINE.state().msg || '')),
+            'and a spot on the road is refused rather than silently eaten');
     }
 
     section('echoes of the tide, played with a thumb');

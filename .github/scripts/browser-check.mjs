@@ -44,7 +44,10 @@ async function boot(tag, url) {
         // the cdn bits (google fonts, the badges) are not part of this test
         // github's api says no to a rate limited runner without a cors header, and the
         // browser logs that as an error. The boards cope, and a release should not wait on it.
-        if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource|api\.github\.com.*CORS policy/.test(t)) errors.push(tag + ' console: ' + t);
+        // A public nostr relay that is down (relay.primal.net answered 502 on 2026-11-08) is
+        // logged by the browser the same way; netplay goes on with the others, which is what
+        // the lobbies below check, so a stranger's server is not this page's error either.
+        if (m.type() === 'error' && !/ERR_|404|504|Failed to load resource|api\.github\.com.*CORS policy|WebSocket connection to 'wss:\/\/(?!localhost|127\.0\.0\.1)[^']+' failed/.test(t)) errors.push(tag + ' console: ' + t);
     });
     await p.goto(url || BASE, { waitUntil: 'domcontentloaded' });
     await p.keyboard.press('Enter');          // the boot screen wants a keypress

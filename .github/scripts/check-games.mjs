@@ -496,7 +496,7 @@ section('my documents');
         const realKeys = [read('games/echoes/echoes-core.js'), read('games/jokerz/balatro.js'), read('games/become-user/become-user.js'),
             read('games/troll-problem/troll-problem.js'), read('games/wizardz/wizardz.js')].join('\n');
         const wrong = ['ECHOES_OF_THE_TIDE_SAVE', 'jokerz98-run', 'becomeuser-run-v1',
-            'trollproblem-run-v2', 'mrhakan98-wizardz-avatar'].filter(k => !realKeys.includes(k));
+            'trollproblem-run-v3', 'mrhakan98-wizardz-avatar'].filter(k => !realKeys.includes(k));
         expect(wrong.length === 0, 'and each one names a key its game really writes', wrong.join(', '));
 
         // a document with nothing saved reports nothing, not a broken row

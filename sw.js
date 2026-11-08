@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v43';
+const CACHE = 'mrhakan98-v44';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -65,7 +65,9 @@ const PRECACHE_LATER = [
     '/games/jokerz/balatro-fx.js',
     '/games/jokerz/balatro.js',
     '/games/troll-problem/troll-problem-data.js',
+    '/games/troll-problem/troll-problem-sim.js',
     '/games/troll-problem/troll-problem.js',
+    '/games/troll-problem/troll-problem.css',
     '/games/become-user/become-user-data.js',
     '/games/become-user/become-user.js',
     '/games/echoes/echoes-core.js',

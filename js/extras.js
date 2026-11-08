@@ -410,16 +410,12 @@ function openBalatro() {
 }
 
 // ===================================================================
-// sir, we have a troll problem — tower defense mini-game, loaded on
-// demand, same lazy pattern as jokerz 98.
+// sir, we have a troll problem — tower defense for up to four, loaded on
+// demand. It is a netplay game, so it comes in through the lobby's loader.
 // ===================================================================
-let tgLoading = null;
 function tgLoadScripts() {
     if (window.startTrollProblem) return Promise.resolve();
-    if (tgLoading) return tgLoading;
-    const load = LAZY.load;
-    tgLoading = load('games/troll-problem/troll-problem-data.js').then(() => load('games/troll-problem/troll-problem.js'));
-    return tgLoading;
+    return npLoadScripts().then(() => Netplay.loadGame('trollproblem'));
 }
 
 function openTrollProblem() {
