@@ -50,6 +50,9 @@ jobs:
             - name: Validate the daily Playground catalog
               run: node .github/scripts/check-playground.mjs
 
+            - name: Check WAVESHAPER rules and input
+              run: node .github/scripts/check-waveshaper.mjs
+
             # nothing about a slow page fails on its own: no remote scripts, a
             # stylesheet with every class in it, windows that load when opened,
             # and a size budget for the first visit
@@ -162,6 +165,7 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-playground.mjs
+                  SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-waveshaper.mjs
 
             - name: Boot the site, open the game, draw a sigil, run two lobbies
               env:

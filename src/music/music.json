@@ -906,5 +906,34 @@
             "the turret is not helping but you bought it and you will defend it",
             "march. die. repeat. the economy depends on it"
         ]
+    },
+    {
+        "id": 23,
+        "filename": "Yakuza OST - Baka Mitai (ばかみたい) Kiryu full version.mp3",
+        "title": "Baka Mitai (ばかみたい)",
+        "artist": "Kazuma Kiryu / Yakuza OST",
+        "theme": {
+            "primaryColor": "#d34e78",
+            "accentColor": "#f2c879",
+            "backgroundColor": "#1b101b",
+            "fontStyle": "Georgia, Times New Roman, serif"
+        },
+        "effect": "midnight_karaoke",
+        "bg": "A late-night Kamurocho karaoke bar: burgundy velvet, a lone singer in a pale suit, an amber whisky glass and a photograph on the counter. Rain streaks the cyan and rose neon outside.",
+        "stage": {
+            "label": "KAMUROCHO / LAST CALL KARAOKE",
+            "mode": "karaoke",
+            "speed": 0.45,
+            "font": "Georgia, Times New Roman, serif",
+            "description": "One microphone. A faded photograph. The last song before closing."
+        },
+        "memes": [
+            "the karaoke machine has seen things the recycle bin could never understand",
+            "one more song before closing, said every customer three songs ago",
+            "the toughest man in the room has selected the saddest song",
+            "your desktop is staring at an old photograph again",
+            "the neon is on, the glass is half full, the save file can wait",
+            "confidence: legendary. emotional damage: also legendary."
+        ]
     }
 ]

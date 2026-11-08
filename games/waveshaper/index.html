@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#008080">
+  <meta name="description" content="Four buttons. One wave. A minimalist vector score attack inspired by WAVESHAPER, with keyboard, touch and gamepad controls.">
+  <link rel="canonical" href="https://mrhakan.github.io/games/waveshaper/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="WAVESHAPER 98">
+  <meta property="og:description" content="Read the next bend. Match its shape and direction. Keep the wave alive.">
+  <meta property="og:url" content="https://mrhakan.github.io/games/waveshaper/">
+  <meta property="og:image" content="https://mrhakan.github.io/src/emoj/dusung.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/src/icons/icon-192.png">
+  <title>WAVESHAPER 98 — mrhakan</title>
+  <style>
+    *{box-sizing:border-box}html{background:#008080;color:#111;font-family:Tahoma,Arial,sans-serif}body{margin:0;padding:24px 16px}.window{max-width:1120px;margin:auto;background:#c0c0c0;border:2px solid;border-color:#fff #111 #111 #fff;box-shadow:7px 7px #004747}.titlebar{display:flex;align-items:center;gap:9px;padding:5px 7px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff}.titlebar h1{font-size:13px;margin:0;letter-spacing:.5px}.titlebar a{margin-left:auto;background:#c0c0c0;color:#111;text-decoration:none;border:2px solid;border-color:#fff #222 #222 #fff;padding:0 6px;font-weight:bold}.toolbar{display:flex;align-items:center;gap:8px;padding:8px;font-size:12px}.toolbar label{display:flex;align-items:center;gap:6px}button,select{font:inherit;color:inherit}button{cursor:pointer;border:2px solid;border-color:#fff #333 #333 #fff;background:#c0c0c0;padding:6px 11px;font-size:12px;min-height:32px}button:active{border-color:#333 #fff #fff #333}button:disabled{cursor:default;color:#777}select{background:#fff;border:2px inset #eee;padding:4px;font-size:12px;min-height:32px}.toolbar .spacer{flex:1}.stage{margin:0 8px;position:relative;background:#000;border:2px solid;border-color:#777 #fff #fff #777;color:#fff;overflow:hidden}canvas{display:block;width:100%;height:auto;aspect-ratio:2/1;touch-action:manipulation}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#000e;padding:16px;text-align:center}.overlay[hidden]{display:none}.menu{max-width:600px}.eyebrow{font:11px/1.4 monospace;letter-spacing:3px;color:#5dff9d;margin:0 0 16px}.menu h2{font:900 clamp(23px,5vw,52px)/1.1 "Courier New",monospace;letter-spacing:-2px;margin:0 0 16px}.menu p{font:13px/1.7 "Courier New",monospace;color:#aab5b2;margin:12px auto;max-width:430px}.menu .start{font:bold 13px monospace;letter-spacing:2px;background:#5dff9d;color:#00180b;border:1px solid #8dffba;padding:13px 32px;margin:10px 0}.menu .hint{font-size:11px;color:#8a9891}.results{color:#fff!important;font-size:16px!important}.meters{display:grid;grid-template-columns:repeat(4,1fr);margin:8px;gap:6px}.meter{border:2px solid;border-color:#808080 #fff #fff #808080;background:#d4d4d4;padding:7px 10px;display:flex;align-items:center;gap:10px;font:10px monospace;letter-spacing:1px}.meter strong{margin-left:auto;font:bold 16px monospace;letter-spacing:0}.controls{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 8px 8px}.action{display:flex;align-items:center;text-align:left;gap:12px;min-height:56px;padding:7px 12px}.action svg{width:55px;height:30px;fill:none;stroke:currentColor;stroke-width:2.5;flex-shrink:0}.action span{font:11px monospace;letter-spacing:1px}.action kbd{margin-left:auto;min-width:30px;text-align:center;padding:4px;background:#e5e5e5;border:1px solid #808080;box-shadow:1px 1px #fff;font:bold 14px monospace}.action[data-action="1"]{grid-column:1;grid-row:2}.action[data-action="2"]{grid-column:2;grid-row:1}.action.active{background:#002614;color:#73ffac;border-color:#111 #eee #eee #111}.statusbar{margin:0 8px 8px;border:2px solid;border-color:#808080 #fff #fff #808080;padding:6px 9px;display:flex;gap:12px;font:11px/1.5 monospace}.statusbar #status{flex:1}.statusbar #pad{color:#414141}.help{max-width:1120px;margin:18px auto 0;color:#e0ffff;font:12px/1.7 monospace;display:grid;grid-template-columns:1fr 1fr;gap:24px}.help p{margin:0 0 10px}.help strong{color:#fff}.help a{color:#b4ffe0}.help details{font-size:11px}.help summary{cursor:pointer;color:#fff}.muted{color:#b9dada}:focus-visible{outline:3px solid #ff00ff;outline-offset:3px}.stage:fullscreen{margin:0;border:0;width:100%;height:100%;display:grid;place-items:center;background:#000}.stage:fullscreen canvas{width:100%;height:100%;object-fit:contain}.stage:fullscreen .overlay{background:#000e}
+    @media(max-width:600px){body{padding:8px 5px}.toolbar{flex-wrap:wrap;gap:5px;padding:5px}.toolbar button{padding:5px 8px}.toolbar .spacer{display:none}.stage{margin:0 5px}canvas{aspect-ratio:4/3}.overlay{padding:10px}.eyebrow{font-size:9px;margin-bottom:10px}.menu h2{margin-bottom:9px;letter-spacing:-1px}.menu p{font-size:11px;line-height:1.5;margin:8px auto}.menu .start{padding:10px 20px;margin:4px}.menu .hint{font-size:9px}.meters{margin:6px 5px;gap:4px;grid-template-columns:1fr 1fr}.meter{padding:5px 8px}.controls{padding:0 5px 6px;gap:5px}.action{gap:8px;padding:8px;min-height:62px}.action svg{width:40px}.action span{font-size:9px;letter-spacing:0}.action kbd{min-width:25px;font-size:13px}.statusbar{margin:0 5px 6px;font-size:10px;display:block}.help{padding:0 6px;grid-template-columns:1fr;gap:4px;font-size:11px}.titlebar h1{font-size:11px}}
+    .window:fullscreen{max-width:none;width:100%;height:100%;display:flex;flex-direction:column;box-shadow:none;overflow:auto}.window:fullscreen .stage{flex:1;min-height:160px}.window:fullscreen canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.window:fullscreen .controls,.window:fullscreen .meters,.window:fullscreen .toolbar,.window:fullscreen .statusbar{flex-shrink:0}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+<main class="window">
+  <header class="titlebar"><span aria-hidden="true">⌁</span><h1>WAVESHAPER 98.EXE</h1><a href="../../" aria-label="Back to Playground">×</a></header>
+  <div class="toolbar" aria-label="Game settings">
+    <label>Mode <select id="mode"><option value="normal">Normal · 4 lives</option><option value="hard">Hard · 1 life</option><option value="practice">Practice · no game over</option></select></label>
+    <button type="button" id="restart">New run [R]</button><button type="button" id="pause" disabled>Pause [P]</button>
+    <span class="spacer"></span><button type="button" id="sound" aria-pressed="true">Sound: on</button><button type="button" id="fullscreen">Fullscreen</button>
+  </div>
+  <section class="stage" id="stage" aria-label="Waveshaper play area">
+    <canvas id="wave" width="960" height="480" tabindex="0" aria-label="An approaching wave of square and triangle bends. Match the closest bend using W, S, Up or Down. Instructions below."></canvas>
+    <div class="overlay" id="overlay">
+      <div class="menu">
+        <p class="eyebrow" id="eyebrow">A LITTLE VECTOR MENACE</p>
+        <h2 id="heading">FOUR BUTTONS.<br>ONE WAVE.</h2>
+        <p id="instructions">Read the closest bend. Match its <strong>shape</strong> and <strong>direction</strong> before it reaches you. Every match scores one. Every mistake costs a life.</p>
+        <p id="results" class="results" hidden></p>
+        <button type="button" id="start" class="start">START RUN</button>
+        <p class="hint" id="menu-hint">ENTER TO START · GAMEPAD START / MENU</p>
+      </div>
+    </div>
+  </section>
+  <div class="meters" aria-label="Run statistics">
+    <div class="meter">SCORE<strong id="score">0</strong></div><div class="meter">LIVES<strong id="lives">4 / 4</strong></div>
+    <div class="meter">STREAK<strong id="streak">0</strong></div><div class="meter">BEST<strong id="best">0</strong></div>
+  </div>
+  <div class="controls" aria-label="Four wave controls">
+    <button type="button" class="action" data-action="0" aria-label="Square up, W or left bumper"><svg viewBox="0 0 60 32" aria-hidden="true"><path d="M0 26H14V6H46V26H60"/></svg><span>SQUARE UP</span><kbd>W</kbd></button>
+    <button type="button" class="action" data-action="1" aria-label="Square down, S or left trigger"><svg viewBox="0 0 60 32" aria-hidden="true"><path d="M0 6H14V26H46V6H60"/></svg><span>SQUARE DOWN</span><kbd>S</kbd></button>
+    <button type="button" class="action" data-action="2" aria-label="Triangle up, Up arrow or right bumper"><svg viewBox="0 0 60 32" aria-hidden="true"><path d="M0 26H10L30 6L50 26H60"/></svg><span>TRIANGLE UP</span><kbd>↑</kbd></button>
+    <button type="button" class="action" data-action="3" aria-label="Triangle down, Down arrow or right trigger"><svg viewBox="0 0 60 32" aria-hidden="true"><path d="M0 6H10L30 26L50 6H60"/></svg><span>TRIANGLE DOWN</span><kbd>↓</kbd></button>
+  </div>
+  <div class="statusbar"><span id="status" role="status" aria-live="polite">Ready. Four buttons are all you need.</span><span id="pad" role="status">Keyboard / touch</span></div>
+</main>
+<footer class="help">
+  <div><p><strong>W / S</strong> — square up / down. <strong>↑ / ↓</strong> — triangle up / down. Tap the four panels on a phone. Press once per bend; holding a button will not repeat.</p><p><strong>Match in order.</strong> You can clear the closest visible bend as soon as you read it. Speed rises with your score. In Normal, every 20 consecutive matches restores one life.</p></div>
+  <div><p><strong>Gamepad:</strong> LB / LT = square up / down. RB / RT = triangle up / down. Or use Y / A and X / B (Xbox labels). Start / Menu starts or pauses. Connect a standard controller and press a button to detect it.</p><p class="muted">An independent browser remake inspired by <a href="https://store.steampowered.com/app/562260/WAVESHAPER/" target="_blank" rel="noopener">WAVESHAPER by GAMES FOR HUMANS</a>. Original code, vector art and synthesized audio for this site. Records stay on this device; Practice has no record.</p><details><summary>Comfort &amp; shortcuts</summary><p>P / Esc pauses, R starts a fresh run, M mutes, F toggles fullscreen. Leaving the tab pauses automatically. Reduced motion removes particles, trails and pulses; the approaching wave remains visible to play. Best scores are separate for Normal and Hard.</p></details></div>
+</footer>
+<script src="waveshaper-sim.js"></script>
+<script src="waveshaper.js"></script>
+</body>
+</html>

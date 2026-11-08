@@ -70,7 +70,12 @@ for (const item of Array.isArray(catalog) ? catalog : []) {
     }
 }
 
-if (games !== apps) fail(`daily catalog must stay paired: ${games} games vs ${apps} apps`);
+// Requested releases can join the Playground between the paired daily drops.
+// Only an explicit daily:false opts out; all existing drops keep their pairing check.
+const daily = catalog.filter(item => item.daily !== false);
+const dailyGames = daily.filter(item => item.type === 'game').length;
+const dailyApps = daily.filter(item => item.type === 'app').length;
+if (dailyGames !== dailyApps) fail(`daily catalog must stay paired: ${dailyGames} games vs ${dailyApps} apps`);
 
 const projectUrls = new Set((Array.isArray(projects) ? projects : []).map(item => String(item?.url || '').replace('https://mrhakan.github.io', '')));
 for (const item of Array.isArray(catalog) ? catalog : []) {
