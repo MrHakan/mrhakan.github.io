@@ -1,5 +1,39 @@
 [
   {
+    "name": "🔴 Connect Four 98",
+    "type": "game",
+    "date": "2026-11-08",
+    "url": "/games/connect-four/",
+    "description": "Offline four-in-a-row strategy with local computer opponent, two-player mode, undo and keyboard or touch controls.",
+    "icon": "🔴",
+    "tags": [
+      "connect-four",
+      "strategy",
+      "board-game",
+      "computer",
+      "two-player",
+      "offline",
+      "touch"
+    ]
+  },
+  {
+    "name": "🛒 Unit Price Desk 98",
+    "type": "app",
+    "date": "2026-11-08",
+    "url": "/apps/unit-price-desk/",
+    "description": "Compare package prices across weight, volume or count units, including discounts and copyable results.",
+    "icon": "🛒",
+    "tags": [
+      "shopping",
+      "unit-price",
+      "calculator",
+      "comparison",
+      "budget",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "⚫ Reversi Pocket 98",
     "type": "game",
     "date": "2026-11-07",
