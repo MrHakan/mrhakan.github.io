@@ -48,10 +48,21 @@ try {
     for (let i = 0; i < 30; i++) { try { if ((await fetch('http://127.0.0.1:' + relayPort + '/healthz')).ok) break; } catch (_) {} await new Promise(r => setTimeout(r, 100)); }
     browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
     if (process.env.RR_ONLY !== 'phone') {
+    // A real delayed image response must not start a fight using placeholder art.
+    const loadingCtx = await context(); let releaseArt;
+    const artGate = new Promise(resolve => { releaseArt = resolve; });
+    await loadingCtx.route('**/games/rift-rumble/art/fighters-*.png', async route => { await artGate; await route.continue(); });
+    const loadingPage = await loadingCtx.newPage(); loadingPage.on('pageerror', e => errors.push(e.message));
+    await loadingPage.goto(GAME_URL, { waitUntil: 'domcontentloaded' }); await loadingPage.waitForSelector('.rr-menu');
+    await loadingPage.click('[data-act=solo]');
+    ok(await state(loadingPage, () => RIFT_ENGINE.screen() === 'loading' && RIFT_ENGINE.state() === null), 'slow art loading holds the match before its countdown');
+    releaseArt(); await loadingPage.waitForFunction(() => RIFT_ENGINE.state()?.s.phase === 'countdown');
+    ok(await state(loadingPage, () => RIFT_ART.ready()), 'a match starts only after every fixed animation rig is ready'); await loadingCtx.close();
     const ctx = await context(), p = await open(ctx);
     ok(await p.locator('.rr-char').count() === 12, 'twelve original cursed emoji fighters are selectable');
     ok(await p.locator('.app-window .rr-app').count() === 1 && !await p.locator('#rift-app').count(), 'the game lives inside the main desktop app window');
-    await p.waitForFunction(() => RIFT_ART.ready()); ok(true, 'all four generated atlases load with 48 animation poses');
+    await p.waitForFunction(() => RIFT_ART.ready());
+    ok(await state(p, () => RIFT_ART.metrics().length === 12 && RIFT_ART.metrics().every(r => r.frames === 50)), 'all twelve consistent rigs prepare their 600 cached animation frames');
     await p.click('[data-fighter="3"]'); await p.click('[data-mode="2"]'); await p.selectOption('#rr-arena', 'moon');
     await p.screenshot({ path: path.join(SHOTS, 'rr-menu.png') });
     await p.click('[data-act=help]'); ok(await p.locator('[role=dialog]').isVisible(), 'instructions open from the menu'); await p.click('[data-act=close-help]');
@@ -64,7 +75,9 @@ try {
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].jumps) === 2, 'real keyboard input double jumps');
     await p.keyboard.press('KeyJ'); await p.waitForTimeout(40); ok(await state(p, () => !!RIFT_ENGINE.state().s.players[0].attack), 'real keyboard input attacks');
     await p.keyboard.press('Escape'); const tick = await state(p, () => RIFT_ENGINE.state().s.tick); await p.waitForTimeout(200);
-    ok(await state(p, () => RIFT_ENGINE.state().s.tick) === tick, 'practice pauses without consuming match time'); await p.click('[data-act=resume]');
+    ok(await state(p, () => RIFT_ENGINE.state().s.tick) === tick, 'practice pauses without consuming match time');
+    const pausedPicture = await state(p, () => document.querySelector('.rr-canvas').toDataURL()); await p.waitForTimeout(160);
+    ok(await state(p, () => document.querySelector('.rr-canvas').toDataURL()) === pausedPicture, 'pause freezes fighter frames, invulnerability flashes and combat effects'); await p.click('[data-act=resume]');
     await state(p, () => {
         window.rrTestPad = { axes: [1, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false })) };
         Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.rrTestPad] });

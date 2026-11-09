@@ -4,11 +4,31 @@ Created with the built-in **imagegen** tool, using the site's own local cursed e
 images as facial reference. The selected original PNG outputs are copied into this
 directory, preserving their alpha channels. All game art is served locally.
 
-Each atlas has **four equal columns** (idle, run, jump, attack) and **three equal
-rows**. `rift-art.js` locates each frame and its opaque foot baseline, then renders
-it without smoothing. The runtime adds direction mirroring, breathing, running
-motion, attack wind-up, hit reaction, dodge afterimages and impact effects. Reduced
-motion stops ambient animation and camera shake.
+Each source atlas has **four equal columns** (idle, run, jump, attack) and **three
+equal rows**. These generated poses are the original concept assets. The runtime
+now uses one canonical texture per fighter, extracted from the idle column.
+
+`rift-art.js` removes disconnected alpha noise, fixes a single foot anchor and
+normalizes the texture to 76 world units. It builds a torso/limb rig and a separate
+rigid face patch. Animation never swaps independently generated faces or bodies.
+The face is rasterized once and copied at integer offsets, preserving identical
+face pixels in every pose. Weapons use rigid transforms. Animation textures are
+baked progressively during loading and only copied during gameplay.
+
+`rift-animation.js` defines **50 cached frames per fighter**: one neutral frame,
+four idle frames, eight run frames, four airborne frames, three eight-frame attack
+sequences, two hit reactions, four dodge frames and three landing frames. These are
+procedural skeletal frames from the existing art, not additional AI drawings.
+
+Run phase follows host-owned distance. Idle phase follows the simulation clock.
+Attack preparation, contact and recovery follow the actual startup, damage and
+cooldown ticks. Pause freezes the character animation. Reduced motion disables
+idle breathing and camera shake while keeping essential combat animation.
+
+`check-rift-animation.mjs` verifies timing, rigid transforms and frame-rate
+independence. `browser-rift-animation.mjs` checks all 600 rasterized frames, eight
+distinct run frames per fighter, identical face pixels, floor contact and clipping.
+It saves an animated review video, a frame strip and a JSON report in `.ci-shots/`.
 
 | Atlas | Rows, in order | Local reference images |
 | --- | --- | --- |

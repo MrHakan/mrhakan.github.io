@@ -14,7 +14,7 @@
     function spawn(s, p) {
         p.x = 435 + p.team * 410 + (p.slot > 1 ? (p.team ? 90 : -90) : 0);
         p.y = 420; p.vx = p.vy = 0; p.facing = p.team ? -1 : 1;
-        p.damage = 0; p.jumps = 0; p.recovered = false; p.grounded = false;
+        p.damage = 0; p.jumps = 0; p.recovered = false; p.grounded = false; p.travel = 0;
         p.invuln = 110; p.stun = p.dodge = p.dodgeCd = p.cooldown = p.drop = 0;
         p.attack = null; p.respawn = 0;
     }
@@ -133,7 +133,7 @@
                 else if (q.heavy) attack(s, p, 'heavy', o);
                 else if (q.light) attack(s, p, 'light', o);
             } else p.vx *= 0.985;
-            const oldY = p.y;
+            const oldY = p.y, oldX = p.x;
             if (o.down && p.grounded && p.platform > 0) { p.drop = 15; p.y += 5; }
             p.vy = Math.min(17, p.vy + D.GRAVITY * (o.down && !p.grounded ? 1.65 : 1));
             p.x += p.vx; p.y += p.vy; p.grounded = false;
@@ -143,6 +143,7 @@
                     p.y = f.y; p.vy = 0; p.grounded = true; p.platform = i; p.jumps = 0; p.recovered = false; break;
                 }
             }
+            if (p.grounded) p.travel += Math.abs(p.x - oldX);
             if (p.attack) {
                 const a = p.attack, f = D.FIGHTERS[p.character], spec = a.kind === 'special' && f.specialMelee ? f.specialMelee : D.ATTACKS[a.kind]; a.age++;
                 if (a.kind === 'special' && a.dir !== 'up' && !f.dash && a.age === spec.startup) {

@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v48';
+const CACHE = 'mrhakan98-v49';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -61,6 +61,7 @@ const PRECACHE_LATER = [
     '/games/rift-rumble/rift.js',
     '/games/rift-rumble/rift-ui.css',
     '/games/rift-rumble/rift-art.js',
+    '/games/rift-rumble/rift-animation.js',
     '/games/rift-rumble/rift-menu.js',
     '/games/rift-rumble/art/fighters-1.png',
     '/games/rift-rumble/art/fighters-2.png',

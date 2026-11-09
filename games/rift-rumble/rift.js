@@ -9,7 +9,7 @@
     const pref = read(PREF);
     let selected = S.character(pref.character), mode = pref.mode === 2 ? 2 : 1;
     let arena = D.ARENAS.some(a => a.id === pref.arena) ? pref.arena : 'sky', muted = pref.muted !== false;
-    let app, ui, canvas, renderer, winRef, frameId, timer, match = null, session = null, offs = [], screen = 'menu', overlay = null;
+    let app, ui, canvas, renderer, winRef, frameId, timer, match = null, session = null, offs = [], screen = 'menu', overlay = null, pendingStart = 0;
     let menuState, soundContext, lobbyBusy = false, connectionToken = 0, lobbyTimer = 0, gamepadPrevious = {};
     let lastPadAt = 0;
     const keys = new Set(), pad = new Set();
@@ -53,6 +53,7 @@
         timer = setInterval(tick, 1000 / 60); frameId = requestAnimationFrame(frame);
     }
     function cleanup() {
+        pendingStart++;
         connectionToken++; leave(); clearInterval(timer); clearInterval(lobbyTimer); cancelAnimationFrame(frameId);
         window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKey, true);
         window.removeEventListener('blur', clearInput); document.removeEventListener('visibilitychange', visibility);
@@ -69,6 +70,7 @@
         return '<div class="rr-bottom"><div class="rr-keys"><span><kbd>A</kbd> <kbd>D</kbd> move</span><span><kbd>Space</kbd> jump ×2</span><span><kbd>J</kbd> light</span><span><kbd>K</kbd> heavy</span><span><kbd>L</kbd> special</span><span><kbd>Shift</kbd> dodge</span></div><button type="button" class="rr-link" data-act="help">How to play</button></div>';
     }
     function buildMenu() {
+        pendingStart++;
         clearInterval(lobbyTimer);
         mount(); clearInput(); match = null; screen = 'menu'; overlay = null; renderer.reset();
         menuState = S.create({ arena, mode: 1 }); menuState.events = [];
@@ -146,6 +148,15 @@
         start(null, { seed: Math.floor(Math.random() * 1e9), at: Date.now(), options: { mode: String(mode), arena }, people: [{ id: 'you', name: 'You', character: selected, team: 0 }] });
     }
     function start(s, opts = {}) {
+        if (!RIFT_ART.ready()) {
+            mount(); session = s; screen = 'loading';
+            ui.innerHTML = topbar() + '<div class="rr-loading" role="status" aria-live="polite">Getting your fighters ready…</div>';
+            const attempt = ++pendingStart;
+            RIFT_ART.whenReady().then(() => {
+                if (app && pendingStart === attempt && (!s || s.alive)) start(s, opts);
+            }).catch(e => { if (app && pendingStart === attempt) { leave(); buildMenu(); dialog('<h2>Fighters could not load.</h2><p>' + esc(e.message) + '</p><button type="button" class="rr-primary" data-act="menu">Back to fighters</button>'); } });
+            return;
+        }
         mount(); unsubscribe(); clearInterval(lobbyTimer); clearInput();
         session = s; overlay = null; screen = 'play'; renderer.reset();
         const options = opts.options || {}, teamSize = options.mode === '2' || options.mode === 2 ? 2 : 1;
@@ -247,10 +258,13 @@
                     const old = match.previous.players[i], blend = Math.min(1, (now - match.snapAt) / 50);
                     if (!old || Math.abs(old.x - p.x) > 150 || old.stocks !== p.stocks) return p;
                     const me = p.id === match.me, lead = me ? Math.min(0.08, (now - match.snapAt) / 1000) * 60 : 0;
-                    return Object.assign({}, p, { x: me ? p.x + (Number(local.right) - Number(local.left)) * D.FIGHTERS[p.character].speed * lead : old.x + (p.x - old.x) * blend, y: old.y + (p.y - old.y) * blend });
+                    const attack = p.attack ? Object.assign({}, p.attack, { age: Math.min(D.ATTACKS[p.attack.kind].duration, p.attack.age + Math.min(3, (now - match.snapAt) * 0.06)) }) : null;
+                    const travel = me ? p.travel + Math.abs(Number(local.right) - Number(local.left)) * D.FIGHTERS[p.character].speed * lead : old.travel + (p.travel - old.travel) * blend;
+                    return Object.assign({}, p, { x: me ? p.x + (Number(local.right) - Number(local.left)) * D.FIGHTERS[p.character].speed * lead : old.x + (p.x - old.x) * blend, y: old.y + (p.y - old.y) * blend, travel, attack });
                 }) });
             }
-            renderer.draw(state, now / 1000, { me: match.me, reduced });
+            const clock = match.host ? state.tick + match.acc * 60 : state.tick + Math.min(3, Math.max(0, now - match.snapAt) * 0.06);
+            renderer.draw(state, now / 1000, { me: match.me, reduced, clock, paused: match.paused || match.netDown });
             if (now - match.hudAt > 100) { paintHud(); match.hudAt = now; }
         } else if (menuState) renderer.draw(menuState, now / 1000, { menu: true, reduced });
     }

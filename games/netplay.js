@@ -1377,7 +1377,7 @@
                 { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2']] },
                 { key: 'arena', label: 'arena', values: [['sky', 'The Taskbar'], ['moon', 'Recycle Rift'], ['sunset', 'Blue Screen']] }
             ],
-            scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-sim.js', 'games/rift-rumble/rift-art.js', 'games/rift-rumble/rift-fighters.js', 'games/rift-rumble/rift-stages.js', 'games/rift-rumble/rift-render.js', 'games/rift-rumble/rift-menu.js', 'games/rift-rumble/rift.js']
+            scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-sim.js', 'games/rift-rumble/rift-animation.js', 'games/rift-rumble/rift-art.js', 'games/rift-rumble/rift-fighters.js', 'games/rift-rumble/rift-stages.js', 'games/rift-rumble/rift-render.js', 'games/rift-rumble/rift-menu.js', 'games/rift-rumble/rift.js']
         }
     ];
     NP.games = {};

@@ -140,7 +140,7 @@ feed.json             the json feed, generated from feed.xml
 ## Running it
 
 **Brawlz 98** is a 2D platform fighter inside the desktop, with online 1v1/2v2,
-12 custom cursed emoji fighters, generated sprite animation poses, three desktop
+12 custom cursed emoji fighters, consistent skeletal animations, three desktop
 arenas, bots and keyboard/touch/gamepad controls. Open `?app=brawlz`; the legacy
 `/games/rift-rumble/` path redirects into the same desktop app window.
 Rules, controls and connection details are in [its guide](games/rift-rumble/README.md).

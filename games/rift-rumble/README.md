@@ -6,8 +6,11 @@ Wizardz and Dungeonz. Open `?app=brawlz` or its Start menu entry. The legacy
 page, build, account or install.
 
 Twelve fighters have different speed, weight, reach, power and special moves.
-Four locally served, generated sprite atlases contain 48 idle/run/jump/attack poses,
-based on the site's local cursed emoji references. [Art and prompts](art/README.md).
+Four locally served source atlases are based on the site's cursed emoji references.
+Each fighter now uses one fixed texture and skeleton, with an eight-step run,
+four airborne poses and attack preparation/contact/recovery synchronized to the
+simulation. Fifty procedural frames per fighter are cached during loading.
+[Art, animation pipeline and generation prompts](art/README.md).
 The Taskbar, Recycle Rift and Blue Screen are the three desktop arenas. There are
 1v1 and 2v2, three stocks per fighter, a three-minute limit, double jumps, directional
 light/heavy attacks, projectiles, an upward recovery special and invulnerable dodges.
@@ -56,14 +59,17 @@ competitive anti-cheat. Newcomers join the next match rather than an ongoing one
 ## Files and verification
 
 `rift-data.js` holds tuning, fighters and arenas. `rift-sim.js` is deterministic
-rules without browser dependencies. `rift-art.js` loads the generated atlases;
-`rift-fighters.js` supplies projectile art and a locally drawn loading fallback.
+rules without browser dependencies. `rift-animation.js` owns action timing and
+skeletal keyframes. `rift-art.js` prepares the fixed rigs and cached frames;
+`rift-fighters.js` supplies projectile art and the shared character draw entry point.
 `rift-stages.js` draws the desktop arenas. `rift-render.js` handles animation and
 combat effects. `rift-menu.js` and `rift-ui.css` define the responsive selection
 screen. `rift.js` owns the app window, input, persistence, audio and networking.
 
 ```sh
 node .github/scripts/check-rift-rumble.mjs
+node .github/scripts/check-rift-animation.mjs
+node .github/scripts/browser-rift-animation.mjs
 node .github/scripts/browser-rift-rumble.mjs
 ```
 
