@@ -1,5 +1,41 @@
 [
   {
+    "name": "🥥 Mancala Pocket 98",
+    "type": "game",
+    "date": "2026-11-09",
+    "url": "/games/mancala-pocket/",
+    "description": "Offline Kalah strategy with a computer opponent, two-player mode, extra turns, captures and undo.",
+    "icon": "🥥",
+    "tags": [
+      "mancala",
+      "kalah",
+      "strategy",
+      "board-game",
+      "computer",
+      "two-player",
+      "offline",
+      "touch"
+    ]
+  },
+  {
+    "name": "🪄 Filter Desk 98",
+    "type": "app",
+    "date": "2026-11-09",
+    "url": "/apps/filter-desk/",
+    "description": "Private CSS image filter workbench with local uploads, live sliders, copyable CSS and PNG export.",
+    "icon": "🪄",
+    "tags": [
+      "css",
+      "filters",
+      "image",
+      "design",
+      "developer",
+      "privacy",
+      "offline",
+      "export"
+    ]
+  },
+  {
     "name": "WAVESHAPER 98",
     "app": "waveshaper",
     "type": "game",
