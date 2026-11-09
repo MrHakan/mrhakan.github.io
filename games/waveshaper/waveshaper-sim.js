@@ -2,7 +2,7 @@
 (function (root) {
     'use strict';
     const WIDTH = 960, PLAYER = 140, HIT_WINDOW = 28;
-    const config = Object.freeze({ lives: 4, speed: 235, ramp: 5, cap: 620, floor: 140, penalty: 0.6, heal: 20 });
+    const config = Object.freeze({ lives: 4, speed: 235, ramp: 5, streakGrowth: 1.08, cap: 620, floor: 140, penalty: 0.6, heal: 20 });
     const actions = [
         { id: 'square-up', label: 'Square up', shape: 'square', direction: -1, key: 'W' },
         { id: 'square-down', label: 'Square down', shape: 'square', direction: 1, key: 'S' },
@@ -60,9 +60,14 @@
         game.longest = Math.max(game.longest, game.streak);
         const healed = !!(game.streak % config.heal === 0 && game.lives < config.lives);
         if (healed) game.lives++;
-        game.speed = Math.min(config.cap, game.speed + config.ramp);
+        const before = game.speed;
+        // Each consecutive clean hit earns 8% more acceleration than the last.
+        // A broken streak starts again at the base bonus; current speed keeps
+        // the existing mistake penalty rather than being rebuilt from score.
+        const bonus = Math.min(config.cap, config.ramp * Math.pow(config.streakGrowth, game.streak - 1));
+        game.speed = Math.min(config.cap, game.speed + bonus);
         fill(game, WIDTH + 180);
-        return { type: 'hit', obstacle: next, healed };
+        return { type: 'hit', obstacle: next, healed, speedBonus: game.speed - before };
     }
     function step(game, seconds) {
         if (game.over || !Number.isFinite(seconds) || seconds <= 0) return [];

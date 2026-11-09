@@ -108,7 +108,8 @@
         if (result.type === 'hit') {
             pulse = 1; burst(result.obstacle, true);
             note([440, 330, 660, 495][result.obstacle.action], 0.12, 'triangle');
-            if (result.healed) { note(880, 0.2); $('status').textContent = 'Life restored. ' + game.streak + ' clean matches.'; }
+            if (result.healed) note(880, 0.2);
+            $('status').textContent = (result.healed ? 'Life restored. ' : '') + game.streak + ' streak · ' + (result.speedBonus > 0 ? '+' + result.speedBonus.toFixed(1) + ' speed.' : 'Maximum speed.');
         } else {
             flash = 0.5; burst(result.obstacle, false); note(75, 0.18, 'sawtooth', 0.12);
             $('status').textContent = (result.type === 'early' ? 'Too early. Wait until the bend reaches the target.' : result.type === 'wrong' ? 'Wrong shape at the target.' : 'Missed the target.') + ' Speed −40% (minimum ' + W.config.floor + ').';

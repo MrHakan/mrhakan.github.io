@@ -31,6 +31,15 @@ test('hits increase current speed up to a limit; a mistake does not reset it to 
  g.obstacles[0].x=500;W.act(g,g.obstacles[0].action);assert.equal(g.speed,W.config.cap*.6);assert.equal(g.score,score);
  hit(g);assert.equal(g.speed,W.config.cap*.6+W.config.ramp);assert.ok(g.speed<W.config.cap);
 });
+test('streak acceleration compounds by 8% per hit and restarts after a mistake',()=>{
+ const g=W.create(42), gains=[];
+ for(let i=0;i<10;i++){const before=g.speed,result=hit(g);gains.push(g.speed-before);assert.ok(Math.abs(result.speedBonus-W.config.ramp*Math.pow(1.08,i))<1e-9);}
+ for(let i=1;i<gains.length;i++)assert.ok(Math.abs(gains[i]/gains[i-1]-1.08)<1e-9);
+ g.obstacles[0].x=500;g.cooldown=0;W.act(g,g.obstacles[0].action);assert.equal(g.streak,0);const penalized=g.speed;
+ assert.equal(hit(g).speedBonus,5);assert.equal(g.speed,penalized+5);
+ g.streak=1000000;const result=hit(g);assert.equal(g.speed,W.config.cap);assert.ok(Number.isFinite(result.speedBonus));
+ assert.equal(hit(g).speedBonus,0);
+});
 test('repeated penalties respect a playable minimum; twenty consecutive hits restore one life',()=>{
  const g=W.create(42);for(let i=0;i<3;i++){g.cooldown=0;W.act(g,g.obstacles[0].action);}assert.equal(g.speed,W.config.floor);assert.equal(g.lives,1);
  for(let i=0;i<19;i++)hit(g);assert.equal(g.lives,1);assert.equal(hit(g).healed,true);assert.equal(g.lives,2);
