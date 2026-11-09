@@ -4,76 +4,82 @@ import vm from 'node:vm';
 const world = vm.createContext({});
 for (const name of ['rift-data.js', 'rift-animation.js']) vm.runInContext(fs.readFileSync('games/rift-rumble/' + name, 'utf8'), world);
 const A = world.RIFT_ANIM, D = world.RIFT;
-const fighter = (extra = {}) => ({ x: 0, vx: 0, vy: 0, grounded: true, character: 0, attack: null, stun: 0, dodge: 0, ...extra });
-const rig = { split: 0, armSide: 1, headLeft: -28, headRight: 28, neck: -34 };
+const fighter = (extra = {}) => ({ x: 0, vx: 0, vy: 0, travel: 0, grounded: true, character: 0, attack: null, stun: 0, dodge: 0, ...extra });
 let n = 0;
 function test(name, fn) { fn(); n++; console.log('  ok    ' + name); }
-test('all 50 keyframes keep the face rigid, including left-hand weapons', () => {
-    for (const side of [-1, 1]) for (let frame = 0; frame < A.COUNT; frame++) {
-        const p = A.pose(frame), r = { ...rig, armSide: side };
-        const a = A.vertex(-8, -55, p, r), b = A.vertex(8, -55, p, r), c = A.vertex(-8, -45, p, r);
-        assert.equal(b.x - a.x, 16); assert.equal(b.y - a.y, 0); assert.equal(c.y - a.y, 10); assert.equal(c.x - a.x, 0);
-    }
-});
-test('the eight-step run alternates legs and always has a planted foot', () => {
-    const signatures = new Set();
-    for (let i = 5; i <= 12; i++) {
-        const p = A.pose(i); assert.ok(p.leftY <= 0 && p.rightY <= 0); assert.ok(p.leftY === 0 || p.rightY === 0);
-        signatures.add([p.leftX, p.leftY, p.rightX, p.rightY].join());
-    }
-    assert.equal(signatures.size, 8); assert.equal(A.pose(5).leftX, A.pose(9).rightX);
-});
-test('briefcases and pillows keep their shape throughout every attack', () => {
-    for (const character of [7, 8]) for (let frame = 17; frame <= 40; frame++) {
-        const r = { ...rig, character, armSide: -1, weaponBox: { left: -30, right: -14, top: -28, bottom: -5 } }, p = A.pose(frame);
-        p.weaponLift = A.weaponLift(p, r);
-        const a = A.vertex(-24, -23, p, r), b = A.vertex(-16, -18, p, r);
-        assert.ok(Math.abs(Math.hypot(b.x - a.x, b.y - a.y) - Math.hypot(8, 5)) < 1e-9);
-    }
-});
-test('no pose pushes a foot or weapon through the ground', () => {
-    for (let i = 0; i < A.COUNT; i++) for (let y = -76; y <= 0; y += 4) for (let x = -35; x <= 35; x += 5) assert.ok(A.vertex(x, y, A.pose(i), rig).y <= 0);
-});
-test('run phase follows distance and agrees at 30, 60 and 144 fps', () => {
-    const sample = fps => {
-        const t = A.create(); A.update(t, fighter({ vx: 5 }), 0);
-        for (let i = 1; i <= fps; i++) A.update(t, fighter({ x: 300 * i / fps, vx: 5 }), 60 * i / fps);
-        return t;
-    };
-    const states = [30, 60, 144].map(sample);
-    assert.ok(states.every(t => t.frame === states[0].frame && Math.abs(t.cycle - states[0].cycle) < 1e-9));
-});
-test('paused simulation freezes every animation clock', () => {
-    const t = A.create(); A.update(t, fighter({ vx: 5 }), 0); A.update(t, fighter({ x: 10, vx: 5 }), 2);
-    const before = [t.frame, t.cycle, t.time];
-    for (let i = 3; i < 100; i++) A.update(t, fighter({ x: 10, vx: 5 }), 2, { paused: true });
-    assert.deepEqual([t.frame, t.cycle, t.time], before);
-});
-test('late observers use the same host-owned stride and simulation phase', () => {
-    const host = A.create(), guest = A.create();
-    for (let tick = 0; tick <= 120; tick++) A.update(host, fighter({ x: tick * 5, vx: 5, travel: tick * 5 }), tick);
-    A.update(guest, fighter({ x: 600, vx: 5, travel: 600 }), 120);
-    assert.equal(guest.frame, host.frame); assert.equal(guest.cycle, host.cycle); assert.equal(guest.time, host.time);
-});
-test('attack contact frames coincide exactly with the damage window on every fighter', () => {
-    for (let character = 0; character < 12; character++) for (const kind of ['light', 'heavy', 'special']) {
-        const s = kind === 'special' && D.FIGHTERS[character].specialMelee || D.ATTACKS[kind];
-        for (let age = 0; age < s.duration; age++) {
-            const k = (A.attackFrame({ kind, age }, character) - 17) % 8;
-            assert.equal(k === 3 || k === 4, age >= s.startup && age <= s.startup + s.active, `${character}/${kind}/${age}`);
+const near = (a, b, message) => assert.ok(Math.abs(a - b) < 1e-5, message + ': ' + a + ' / ' + b);
+test('all limb lengths and weapon attachments stay rigid through every action', () => {
+    for (let character = 0; character < 12; character++) for (let tick = 0; tick < 180; tick++) {
+        const variants = [
+            fighter({ character, vx: 5, travel: tick * 5 }),
+            fighter({ character, grounded: false, vy: Math.sin(tick / 20) * 12 }),
+            fighter({ character, attack: { kind: 'heavy', dir: tick % 3 === 0 ? 'up' : tick % 3 === 1 ? 'side' : 'down', age: tick % 47 } })
+        ];
+        for (const p of variants) {
+            const b = A.solve(A.sample(p, tick).pose);
+            for (const side of ['f', 'b']) for (const [parent, child, length] of [['Upper', 'Lower', 11], ['Lower', 'Hand', 12], ['Thigh', 'Shin', 17], ['Shin', 'Foot', 16]]) near(Math.hypot(b[side + parent].x - b[side + child].x, b[side + parent].y - b[side + child].y), length, side + parent);
+            near(Math.hypot(b.weapon.x - b.fHand.x, b.weapon.y - b.fHand.y), 6, 'weapon wrist attachment');
+            assert.ok(Object.values(b).every(b => Number.isFinite(b.x + b.y + b.a)));
         }
-        assert.equal((A.attackFrame({ kind, age: s.duration - 1 }, character) - 17) % 8, 7);
     }
 });
-test('jump has separate takeoff, rising, apex and falling poses', () => {
-    const t = A.create(), out = [];
-    for (const [i, vy] of [-10, -4, 0, 8].entries()) { A.update(t, fighter({ grounded: false, vy }), i + 1); out.push(t.frame); }
-    assert.deepEqual(out, [13, 14, 15, 16]);
-    A.update(t, fighter(), 5); assert.equal(t.action, 'land'); assert.equal(t.frame, 47);
-    for (let tick = 6; tick <= 15; tick++) A.update(t, fighter(), tick); assert.equal(t.action, 'idle');
+test('planted feet remain fixed in world space while the body advances', () => {
+    for (const side of ['f', 'b']) {
+        let anchor;
+        const start = side === 'f' ? 0 : A.STRIDE / 2;
+        for (let i = 0; i <= 40; i++) {
+            const travel = start + i / 100 * A.STRIDE, pose = A.sample(fighter({ vx: 5, travel }), travel / 5).pose, foot = A.solve(pose)[side + 'Foot'];
+            near(foot.y, -6, 'flat sole'); near(foot.a, 0, 'level foot');
+            const x = travel + foot.x * A.SCALE * 1.5; anchor ??= x; near(x, anchor, 'world-space plant');
+        }
+    }
 });
-test('reduced motion removes idle breathing without removing combat poses', () => {
-    const t = A.create(); A.update(t, fighter(), 0, { reduced: true }); A.update(t, fighter(), 30, { reduced: true }); assert.equal(t.frame, 0);
-    A.update(t, fighter({ attack: { kind: 'heavy', age: 13 } }), 31, { reduced: true }); assert.equal(t.action, 'attack');
+test('stance-to-swing boundaries have continuous ankle positions', () => {
+    for (const phase of [0, A.STANCE, 1]) {
+        const before = A.foot(phase - 1e-7), after = A.foot(phase + 1e-7);
+        assert.ok(Math.hypot(before.x - after.x, before.y - after.y) < 0.001);
+    }
 });
-console.log(`Brawlz animation: ${n} consistency checks passed.`);
+test('the running gait includes brief flight between alternating contacts', () => {
+    for (const phase of [0.46, 0.96]) assert.ok(A.foot(phase).y < -6 && A.foot(phase + 0.5).y < -6);
+    assert.ok(A.foot(0).planted && A.foot(0.5).planted === false);
+});
+test('the two-bone solver reaches targets without stretching and bounds unreachable targets', () => {
+    const reach = A.ik(0, 0, 13, 14, 17, 16); near(reach.end.x, 13, 'target x'); near(reach.end.y, 14, 'target y');
+    const far = A.ik(0, 0, 1000, 1000, 17, 16); assert.ok(Math.hypot(far.end.x, far.end.y) < 33); assert.ok(far.error > 1000);
+    assert.ok(Number.isFinite(A.ik(0, 0, 0, 0, 17, 16).a));
+});
+test('stable run poses agree at 30, 60 and 144 fps and for a late observer', () => {
+    const sample = fps => { const t = A.create(); for (let i = 0; i <= fps; i++) A.update(t, fighter({ vx: 5, travel: 300 * i / fps }), 60 * i / fps); return t; };
+    const states = [30, 60, 144].map(sample), late = A.create(); A.update(late, fighter({ vx: 5, travel: 300 }), 60);
+    for (const s of [...states, late]) for (const k of Object.keys(s.pose)) near(s.pose[k], states[0].pose[k], k);
+});
+test('pose blending takes the short rotational path and preserves continuity when stopping', () => {
+    const mixed = A.blend({ fHand: 3 }, { fHand: -3 }, 0.5); near(mixed.fHand, Math.PI, 'angle wrap');
+    const t = A.create(); A.update(t, fighter({ vx: 5, travel: 100 }), 20); const before = { ...t.pose };
+    A.update(t, fighter({ travel: 100 }), 21); assert.deepEqual({ ...t.pose }, before);
+    A.update(t, fighter({ travel: 100 }), 30); assert.equal(t.action, 'idle');
+});
+test('pause freezes all bone transforms even when the caller advances time', () => {
+    const t = A.create(); A.update(t, fighter({ vx: 5, travel: 50 }), 10); const before = JSON.stringify(t);
+    for (let tick = 11; tick < 100; tick++) A.update(t, fighter({ vx: 5, travel: tick * 5 }), tick, { paused: true });
+    assert.equal(JSON.stringify(t), before);
+});
+test('contact phase matches every actual damage window and respects upward/downward aiming', () => {
+    for (let character = 0; character < 12; character++) for (const kind of ['light', 'heavy', 'special']) {
+        const spec = kind === 'special' && D.FIGHTERS[character].specialMelee || D.ATTACKS[kind];
+        for (let age = 0; age < spec.duration; age++) {
+            const sample = A.sample(fighter({ character, attack: { kind, dir: 'side', age } }), age);
+            assert.equal(!!sample.contact, age >= spec.startup && age <= spec.startup + spec.active);
+        }
+    }
+    for (const dir of ['up', 'down']) {
+        const pose = A.sample(fighter({ attack: { kind: 'heavy', dir, age: 13 } }), 13).pose, b = A.solve(pose);
+        assert.ok(dir === 'up' ? b.fHand.y < b.fUpper.y : b.fHand.y > b.fUpper.y);
+    }
+});
+test('reduced motion keeps breathing still while retaining essential running', () => {
+    const a = A.sample(fighter(), 0, true), b = A.sample(fighter(), 60, true); assert.deepEqual({ ...a.pose }, { ...b.pose });
+    assert.equal(A.sample(fighter({ vx: 5, travel: 100 }), 60, true).action, 'run');
+});
+console.log('Brawlz cutout animation: ' + n + ' kinematics and timing checks passed.');

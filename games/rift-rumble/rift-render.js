@@ -46,9 +46,10 @@
                 const key = p.id || p.slot;
                 if (!tracks.has(key) || tracks.get(key).character !== p.character) tracks.set(key, Object.assign(root.RIFT_ANIM.create(), { character: p.character }));
                 const animation = root.RIFT_ANIM.update(tracks.get(key), p, opts.menu ? time * 60 : opts.clock === undefined ? s.tick : opts.clock, { paused: opts.paused, reduced: opts.reduced });
+                const facing = p.attack ? p.attack.facing : p.facing;
                 if (p.grounded) { c.fillStyle = '#26395b66'; c.beginPath(); c.ellipse(px, py + 2, 28, 6, 0, 0, TAU); c.fill(); }
-                if (p.dodge) { c.globalAlpha = 0.25; sprite(c, px - p.vx * 3, py, p.character, { facing: p.facing, scale: 1.5, animation }); c.globalAlpha = 1; }
-                sprite(c, px, py, p.character, { team: p.team, scale: opts.menu ? 4.6 : 1.5, facing: p.facing, animation, time: t, walk: p.grounded && Math.abs(p.vx) > 0.3, airborne: !p.grounded, hurt: p.stun > 0, attack: p.attack, alpha: p.invuln && Math.floor(simulationTime * 12) % 2 ? 0.55 : 1 });
+                if (p.dodge) { c.globalAlpha = 0.25; sprite(c, px - p.vx * 3, py, p.character, { facing, scale: 1.5, animation }); c.globalAlpha = 1; }
+                sprite(c, px, py, p.character, { team: p.team, scale: opts.menu ? 4.6 : 1.5, facing, animation, time: t, walk: p.grounded && Math.abs(p.vx) > 0.3, airborne: !p.grounded, hurt: p.stun > 0, attack: p.attack, alpha: p.invuln && Math.floor(simulationTime * 12) % 2 ? 0.55 : 1 });
                 if (p.attack) {
                     const a = p.attack, spec = a.kind === 'special' && D.FIGHTERS[p.character].specialMelee ? D.FIGHTERS[p.character].specialMelee : D.ATTACKS[a.kind];
                     if (a.age >= spec.startup - 1 && a.age <= spec.startup + spec.active + 3 && a.kind !== 'special') {
@@ -58,10 +59,10 @@
                     }
                 }
                 if (!opts.menu) {
-                    c.fillStyle = D.COLORS[p.team]; c.beginPath(); c.moveTo(px, py - 85); c.lineTo(px - 7, py - 94); c.lineTo(px + 7, py - 94); c.fill();
+                    c.fillStyle = D.COLORS[p.team]; c.beginPath(); c.moveTo(px, py - 123); c.lineTo(px - 7, py - 132); c.lineTo(px + 7, py - 132); c.fill();
                     c.font = 'bold 13px Trebuchet MS, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#172544';
                     const label = p.id === opts.me ? 'YOU' : p.bot ? 'CPU' : p.name;
-                    const width = c.measureText(label).width + 14; rect(px - width / 2, py - 118, width, 19, D.COLORS[p.team]); c.fillStyle = '#172544'; c.fillText(label, px, py - 104);
+                    const width = c.measureText(label).width + 14; rect(px - width / 2, py - 155, width, 19, D.COLORS[p.team]); c.fillStyle = '#172544'; c.fillText(label, px, py - 141);
                     if (px < 18 || px > 1262 || py < 15) {
                         c.strokeStyle = D.COLORS[p.team]; c.lineWidth = 3; c.strokeRect(Math.max(8, Math.min(1235, px - 18)), Math.max(10, Math.min(620, py)), 36, 36);
                     }
@@ -79,7 +80,7 @@
             c.globalAlpha = 1;
 
         }
-        return { draw, reset: () => { seen = 0; particles = []; bursts = []; shake = 0; tracks.clear(); }, animations: () => [...tracks.values()].map(t => ({ action: t.action, frame: t.frame, cycle: t.cycle, character: t.character })) };
+        return { draw, reset: () => { seen = 0; particles = []; bursts = []; shake = 0; tracks.clear(); }, animations: () => [...tracks.values()].map(t => ({ action: t.action, phase: t.phase, contact: t.contact, character: t.character })) };
     }
     root.RIFT_RENDER = { create, sprite };
 })(typeof window === 'undefined' ? globalThis : window);

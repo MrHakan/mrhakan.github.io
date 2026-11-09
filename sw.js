@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v49';
+const CACHE = 'mrhakan98-v50';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -63,10 +63,18 @@ const PRECACHE_LATER = [
     '/games/rift-rumble/rift-art.js',
     '/games/rift-rumble/rift-animation.js',
     '/games/rift-rumble/rift-menu.js',
-    '/games/rift-rumble/art/fighters-1.png',
-    '/games/rift-rumble/art/fighters-2.png',
-    '/games/rift-rumble/art/fighters-3.png',
-    '/games/rift-rumble/art/fighters-4.png',
+    '/games/rift-rumble/art/rig-joe-cool.png',
+    '/games/rift-rumble/art/rig-dusung.png',
+    '/games/rift-rumble/art/rig-hothead.png',
+    '/games/rift-rumble/art/rig-bebetrol.png',
+    '/games/rift-rumble/art/rig-zirlak.png',
+    '/games/rift-rumble/art/rig-hehe.png',
+    '/games/rift-rumble/art/rig-nasiya.png',
+    '/games/rift-rumble/art/rig-patron.png',
+    '/games/rift-rumble/art/rig-sahur.png',
+    '/games/rift-rumble/art/rig-oleey.png',
+    '/games/rift-rumble/art/rig-yeter.png',
+    '/games/rift-rumble/art/rig-pffft.png',
     '/games/waveshaper/',
     '/games/waveshaper/?embed=1',
     '/games/waveshaper/waveshaper-sim.js',

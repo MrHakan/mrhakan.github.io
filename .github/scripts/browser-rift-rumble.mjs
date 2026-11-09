@@ -51,18 +51,18 @@ try {
     // A real delayed image response must not start a fight using placeholder art.
     const loadingCtx = await context(); let releaseArt;
     const artGate = new Promise(resolve => { releaseArt = resolve; });
-    await loadingCtx.route('**/games/rift-rumble/art/fighters-*.png', async route => { await artGate; await route.continue(); });
+    await loadingCtx.route('**/games/rift-rumble/art/rig-*.png', async route => { await artGate; await route.continue(); });
     const loadingPage = await loadingCtx.newPage(); loadingPage.on('pageerror', e => errors.push(e.message));
     await loadingPage.goto(GAME_URL, { waitUntil: 'domcontentloaded' }); await loadingPage.waitForSelector('.rr-menu');
     await loadingPage.click('[data-act=solo]');
     ok(await state(loadingPage, () => RIFT_ENGINE.screen() === 'loading' && RIFT_ENGINE.state() === null), 'slow art loading holds the match before its countdown');
     releaseArt(); await loadingPage.waitForFunction(() => RIFT_ENGINE.state()?.s.phase === 'countdown');
-    ok(await state(loadingPage, () => RIFT_ART.ready()), 'a match starts only after every fixed animation rig is ready'); await loadingCtx.close();
+    ok(await state(loadingPage, () => RIFT_ART.ready()), 'a match starts only after every cutout rig is ready'); await loadingCtx.close();
     const ctx = await context(), p = await open(ctx);
     ok(await p.locator('.rr-char').count() === 12, 'twelve original cursed emoji fighters are selectable');
     ok(await p.locator('.app-window .rr-app').count() === 1 && !await p.locator('#rift-app').count(), 'the game lives inside the main desktop app window');
     await p.waitForFunction(() => RIFT_ART.ready());
-    ok(await state(p, () => RIFT_ART.metrics().length === 12 && RIFT_ART.metrics().every(r => r.frames === 50)), 'all twelve consistent rigs prepare their 600 cached animation frames');
+    ok(await state(p, () => RIFT_ART.metrics().length === 12 && RIFT_ART.metrics().every(r => r.parts === 16)), 'all twelve fighters load their sixteen separate cutout attachments');
     await p.click('[data-fighter="3"]'); await p.click('[data-mode="2"]'); await p.selectOption('#rr-arena', 'moon');
     await p.screenshot({ path: path.join(SHOTS, 'rr-menu.png') });
     await p.click('[data-act=help]'); ok(await p.locator('[role=dialog]').isVisible(), 'instructions open from the menu'); await p.click('[data-act=close-help]');
@@ -92,6 +92,23 @@ try {
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].jumps === 2), 'a second gamepad press double jumps');
     await state(p, () => { window.rrTestPad = null; });
     await p.screenshot({ path: path.join(SHOTS, 'rr-fight.png') });
+    if (process.env.RR_RECORD) {
+        await p.evaluate(() => {
+            window.rrClips = [];
+            window.rrRecorder = new MediaRecorder(document.querySelector('.rr-canvas').captureStream(60), { mimeType: 'video/webm;codecs=vp9' });
+            rrRecorder.ondataavailable = e => rrClips.push(e.data); rrRecorder.start();
+        });
+        for (const direction of ['KeyD', 'KeyA']) {
+            await p.keyboard.down(direction); await p.waitForTimeout(550); await p.keyboard.up(direction);
+            await p.keyboard.press('KeyJ'); await p.waitForTimeout(550);
+            await p.keyboard.press('KeyK'); await p.waitForTimeout(850);
+            await p.keyboard.press('Space'); await p.waitForTimeout(850);
+        }
+        const clip = await p.evaluate(() => new Promise(resolve => {
+            rrRecorder.onstop = () => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(new Blob(rrClips)); }; rrRecorder.stop();
+        }));
+        fs.writeFileSync(path.join(SHOTS, 'brawlz-gameplay.webm'), Buffer.from(clip, 'base64'));
+    }
     await state(p, () => { RIFT_ENGINE.state().s.players.filter(p => p.team === 1).forEach(p => { p.stocks = 1; p.y = 1000; }); });
     await p.waitForSelector('[data-act=rematch]'); ok((await p.textContent('.rr-dialog h2')).includes('yours'), 'a win displays actual results');
     await p.click('[data-act=rematch]'); ok(await state(p, () => RIFT_ENGINE.state().s.phase === 'countdown'), 'practice rematch starts a fresh countdown');

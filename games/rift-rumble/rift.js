@@ -79,7 +79,7 @@
         menuState.players[1].x = 865; menuState.players[1].y = 365; menuState.players[1].character = (selected + 1) % D.FIGHTERS.length; menuState.players[1].invuln = 0;
         menuState.players.length = 1;
         ui.innerHTML = topbar() + RIFT_MENU(selected, mode, arena) + bottom();
-        ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; R.sprite(c, 54, 94, i, { scale: 1.25, team: 0 }); });
+        ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); R.sprite(c, 54, 94, i, { scale: 1.15, team: 0 }); });
     }
     function showHelp() {
         clearInput();
@@ -208,6 +208,9 @@
             match.acc += elapsed;
             while (match.acc >= 1 / 60) {
                 const p = match.s.players.find(p => p.id === match.me); if (p) S.setInput(match.s, p.slot, local);
+                // Retain one physics sample for render interpolation. Drawing
+                // only the latest 60 Hz position judders on faster displays.
+                match.drawPrevious = match.s.players.map(p => ({ x: p.x, y: p.y, travel: p.travel, stocks: p.stocks, respawn: p.respawn }));
                 S.step(match.s); match.acc -= 1 / 60;
             }
             if (session && now - match.sendAt > (slowWire() ? 130 : 50)) { sendSnapshot(); match.sendAt = now; }
@@ -241,7 +244,7 @@
         app.style.height = Math.max(180, Math.min(760, available)) + 'px';
         if (window.RIFT_ART && RIFT_ART.ready() && !portraitsReady) {
             portraitsReady = true;
-            ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height); R.sprite(c, 54, 94, i, { scale: 1.25 }); });
+            ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height); R.sprite(c, 54, 94, i, { scale: 1.15 }); });
         }
     }
     function frame(now) {
@@ -251,8 +254,17 @@
         fitStage(now);
         const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (match) {
-            // Interpolate remote fighters. Local movement is extrapolated for at most 80 ms.
+            // Draw between host physics samples; remote local movement is
+            // extrapolated for at most 80 ms. Never interpolate a respawn.
             let state = match.s;
+            if (match.host && match.drawPrevious && !match.paused) {
+                const blend = Math.min(1, match.acc * 60);
+                state = Object.assign({}, state, { players: state.players.map((p, i) => {
+                    const old = match.drawPrevious[i];
+                    if (!old || old.stocks !== p.stocks || old.respawn || p.respawn || Math.abs(old.x - p.x) > 100 || Math.abs(old.y - p.y) > 100) return p;
+                    return Object.assign({}, p, { x: old.x + (p.x - old.x) * blend, y: old.y + (p.y - old.y) * blend, travel: old.travel + (p.travel - old.travel) * blend });
+                }) });
+            }
             if (!match.host && match.previous && !match.netDown) {
                 state = Object.assign({}, state, { players: state.players.map((p, i) => {
                     const old = match.previous.players[i], blend = Math.min(1, (now - match.snapAt) / 50);
@@ -391,7 +403,7 @@
         }
     }
     window.startRiftRumble = function () { mount(); if (!match && screen !== 'lobby') { buildMenu(); if (new URLSearchParams(location.search).get('room')) lobby(); } };
-    Netplay.registerGame({ id: 'riftrumble', name: 'Brawlz 98', start: (s, opts) => { local = S.input(); start(s, opts); }, startSolo, soloLabel: 'Practice with bots', paintAvatar: cv => { const c = cv.getContext('2d'); c.fillStyle = '#243760'; c.fillRect(0, 0, cv.width, cv.height); R.sprite(c, cv.width / 2, cv.height * 0.92, selected, { scale: cv.height / 64 }); } });
+    Netplay.registerGame({ id: 'riftrumble', name: 'Brawlz 98', start: (s, opts) => { local = S.input(); start(s, opts); }, startSolo, soloLabel: 'Practice with bots', paintAvatar: cv => { const c = cv.getContext('2d'); c.fillStyle = '#243760'; c.fillRect(0, 0, cv.width, cv.height); R.sprite(c, cv.width / 2, cv.height * 0.92, selected, { scale: cv.height / 88 }); } });
     // Read-only diagnostics used by the browser suite; rules remain in RIFT_SIM.
     window.RIFT_ENGINE = { state: () => match, screen: () => screen, record: () => read(RECORD) };
 })();

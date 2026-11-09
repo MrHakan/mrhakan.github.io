@@ -1,0 +1,117 @@
+{
+  "tool": "built-in imagegen",
+  "transparent_background": true,
+  "layout": {
+    "columns": 4,
+    "rows": 4,
+    "parts": [
+      "head",
+      "torso",
+      "pelvis",
+      "weapon",
+      "front-upper-arm",
+      "front-forearm",
+      "back-upper-arm",
+      "back-forearm",
+      "front-thigh",
+      "front-shin",
+      "back-thigh",
+      "back-shin",
+      "front-hand",
+      "back-hand",
+      "front-foot",
+      "back-foot"
+    ]
+  },
+  "guide": "EDIT THE FIRST REFERENCE: it is an exact 4 COLUMN x4 ROW atlas of SIXTEEN separate CUTOUT BODY PARTS for a skeletal paper-doll game rig. Keep exactly these 16 cells, one separate solid part in every cell, same layout and part orientations. Replace Joe Cool's appearance in ALL SIXTEEN PARTS with the character from the SECOND reference described below. Second reference contains complete characters for identity ONLY, do NOT reproduce its animation poses or grid. Output must remain 4x4 separated PARTS, NOT assembled characters or animation frames. Transparent background. Clean illustrated cartoon cutout game art, dark outlines, cel shading. No text labels grid lines scenery shadows effects. Complete overlapping joint caps, no hollow gaps. Arms and legs straight DOWN. Hands and feet are SEPARATE. Row1 HEAD only with hat/hair/headphones if any / TORSO clothes only NO head or arms / PELVIS belt hips only NO legs / WEAPON only, horizontal GRIP LEFT tip RIGHT. Row2 FRONT upper arm shoulder-to-elbow / FRONT forearm elbow-to-wrist NO HAND / BACK upper arm / BACK forearm NO HAND. Row3 FRONT thigh hip-to-knee / FRONT shin knee-to-ankle NO FOOT / BACK thigh / BACK shin NO FOOT. Row4 FRONT empty clenched fist HAND ONLY / BACK empty clenched fist HAND ONLY / FRONT FOOT or BOOT ONLY toe RIGHT ankle cuff TOP sole BOTTOM / BACK FOOT or BOOT ONLY toe RIGHT. Generous transparent margins around every separate part. Same outfit palette throughout, match specific character face. No Joe sunglasses or biker clothes unless the character has them. Exactly SIXTEEN isolated parts, 4 across 4 down.\n",
+  "references": [
+    "cutout-joe-cool.png: preserve its separate 4x4 part layout",
+    "full-body character concept: preserve the named fighter identity"
+  ],
+  "fighters": [
+    {
+      "name": "dusung",
+      "character": "Ivory thinking asymmetric meme face, raised skeptical brow, purple longcoat, tan waistcoat, brown pants and boots, wooden question-mark cane weapon.",
+      "source": "cutout-dusung.png",
+      "runtime": "rig-dusung.png",
+      "originalDesign": "fighters-1.png"
+    },
+    {
+      "name": "hothead",
+      "character": "Orange yellow panicked sweaty emoji face, wide anxious eyes clenched teeth, sleeveless burnt-red vest, black shorts red boots, brass gauntlet gloves on the SEPARATE fists, bare muscular upper arms and red-wrapped forearms. Weapon slot: extra isolated brass gauntlet.",
+      "source": "cutout-hothead.png",
+      "runtime": "rig-hothead.png",
+      "originalDesign": "fighters-1.png"
+    },
+    {
+      "name": "bebetrol",
+      "character": "Ivory white trollface huge mischievous toothy grin squinting eyes, yellow propeller cap on HEAD, teal overalls and white diaper, bare arms and legs, bare feet. Weapon red prank mallet.",
+      "source": "cutout-bebetrol.png",
+      "runtime": "rig-bebetrol.png",
+      "originalDesign": "fighters-2.png"
+    },
+    {
+      "name": "zirlak",
+      "character": "Mustard yellow distressed crying emoji face with blue tears, blue hood on HEAD, blue hoodie torso, dark trousers, white sneakers, yellow hands. Weapon a tissue box with tissues.",
+      "source": "cutout-zirlak.png",
+      "runtime": "rig-zirlak.png",
+      "originalDesign": "fighters-2.png"
+    },
+    {
+      "name": "hehe",
+      "character": "Ivory smug sly meme face, half-lidded eyes and toothy grin, olive military vest, bare muscular upper arms with black wrist wraps, black fingerless gloves on fists, dark cargo pants brown boots. Weapon short silver dagger.",
+      "source": "cutout-hehe.png",
+      "runtime": "rig-hehe.png",
+      "originalDesign": "fighters-2.png"
+    },
+    {
+      "name": "nasiya",
+      "character": "Ivory confused asymmetric meme face one huge eye one squinting, crooked worried mouth, mauve purple jacket, light shirt, dark patched trousers and scuffed shoes. Weapon red rubber plunger on wood handle.",
+      "source": "cutout-nasiya.png",
+      "runtime": "rig-nasiya.png",
+      "originalDesign": "fighters-3.png"
+    },
+    {
+      "name": "patron",
+      "character": "Ivory stern businessman meme face, slick charcoal hair, rectangular black-rim glasses and thin moustache, navy suit white shirt red tie, dark trousers polished black shoes. Weapon brown briefcase, handle to LEFT of the bag.",
+      "source": "cutout-patron.png",
+      "runtime": "rig-patron.png",
+      "originalDesign": "fighters-3.png"
+    },
+    {
+      "name": "sahur",
+      "character": "Ivory sleepy half-lidded face with deep eye bags, purple nightcap included on HEAD, plum striped pajamas, pale fists, soft slippers. Weapon cream pillow.",
+      "source": "cutout-sahur.png",
+      "runtime": "rig-sahur.png",
+      "originalDesign": "fighters-3.png"
+    },
+    {
+      "name": "oleey",
+      "character": "Yellow ecstatic emoji head huge open smiling mouth, excited eyes, orange headphones and red headband on HEAD, tan orange varsity jacket red shirt, black athletic shorts bare yellow lower legs, red sneakers. Weapon wooden baseball bat.",
+      "source": "cutout-oleey.png",
+      "runtime": "rig-oleey.png",
+      "originalDesign": "fighters-4.png"
+    },
+    {
+      "name": "yeter",
+      "character": "Ivory angry exhausted trollface red irritated eyes clenched teeth, teal tracksuit white stripes, black fingerless gloves on fists, black boots. Weapon steel ban hammer with RED X.",
+      "source": "cutout-yeter.png",
+      "runtime": "rig-yeter.png",
+      "originalDesign": "fighters-4.png"
+    },
+    {
+      "name": "pffft",
+      "character": "Mustard yellow puffed-cheek annoyed face angled brows tiny puckered lips, olive padded parka fur collar, dark cargo pants brown boots, brass gauntlet gloves on separate fists. Weapon slot extra isolated brass gauntlet.",
+      "source": "cutout-pffft.png",
+      "runtime": "rig-pffft.png",
+      "originalDesign": "fighters-4.png"
+    }
+  ],
+  "pilot": {
+    "source": "cutout-joe-cool.png",
+    "runtime": "rig-joe-cool.png",
+    "generationOutput": "exec-6e160aea-3bf7-4fb8-b3d1-5bb24ecc20fb.png",
+    "initialPrompt": "Create a CUTOUT / SKELETAL ANIMATION PARTS ATLAS of JOE COOL from the reference. This is NOT an animation-frame sheet and NOT assembled characters. Disassemble this exact yellow emoji-headed biker character into TWELVE SEPARATE COMPLETE BODY PARTS for a 2D paper-doll rig. TRANSPARENT background. Exactly 4 equal columns by 3 equal rows, one isolated part centered in each cell. No text, labels, grid, assembled figures, extra hands, shadows or effects. Keep the reference character's recognizable face, black sunglasses, gold chain, black leather jacket, black trousers, brown boots. Clean hand-painted cartoon cutout game art, crisp dark outlines, subtle cel shading, same visual identity. Every arm and leg segment is a complete solid cutout with rounded overlapping joint caps: draw the areas that were hidden behind joints so rotations never leave holes. Each individual limb segment STRAIGHT, pointing DOWN in its neutral position. Hands empty, no other parts attached. Row1 left to right: (1) HEAD ONLY with face hair sunglasses, no torso hands or shoulders; (2) TORSO ONLY black jacket/shirt/gold chain complete shoulder-to-waist, no head arms hips or legs; (3) PELVIS ONLY belt/waist/trouser-hips, no legs or torso; (4) isolated gold CHAIN weapon laid horizontally, grip at LEFT and striking end at RIGHT. Row2: (5) FRONT upper arm only jacket sleeve from rounded shoulder cap to elbow; (6) FRONT forearm from elbow downward ending in complete clenched empty gloved fist, no upper arm; (7) BACK upper arm only shoulder-to-elbow sleeve; (8) BACK forearm plus empty fist only. Row3: (9) FRONT thigh only hip-to-knee in dark trousers; (10) FRONT shin plus boot only, knee at TOP, ankle/boot at BOTTOM, toe points RIGHT; (11) BACK thigh only hip-to-knee; (12) BACK shin plus boot only knee at TOP and boot at BOTTOM toe RIGHT. Proportions are varied by part: heads round, torso compact, limb segments short sturdy and capsule-like, not entire long arms or legs. Generous transparent space around EVERY part; parts never touch adjacent cells. Again 12 separate cutout parts, 4 columns x3 rows, no repeated full fighters.",
+    "revision": "Expanded the 12-piece Joe Cool kit to 4x4 sixteen pieces. Separate hands from forearms and boots from shins. Row1 head/torso/pelvis/chain. Row2 front upper arm/front forearm/back upper arm/back forearm. Row3 front thigh/front shin/back thigh/back shin. Row4 front fist/back fist/front boot/back boot. Complete overlapping joint caps, limbs straight down, feet toe-right, transparent background."
+  }
+}

@@ -1,93 +1,88 @@
-# Brawlz 98 fighter art
+# Brawlz 98 cutout fighters
 
-Created with the built-in **imagegen** tool, using the site's own local cursed emoji
-images as facial reference. The selected original PNG outputs are copied into this
-directory, preserving their alpha channels. All game art is served locally.
+The game uses twelve original emoji-inspired fighters with **16 separate rigid
+bitmap attachments each**, animated by the project's Canvas skeletal runtime.
+There are no whole-body animation frames, texture warps or static face patches.
 
-Each source atlas has **four equal columns** (idle, run, jump, attack) and **three
-equal rows**. These generated poses are the original concept assets. The runtime
-now uses one canonical texture per fighter, extracted from the idle column.
+## Art and layout
 
-`rift-art.js` removes disconnected alpha noise, fixes a single foot anchor and
-normalizes the texture to 76 world units. It builds a torso/limb rig and a separate
-rigid face patch. Animation never swaps independently generated faces or bodies.
-The face is rasterized once and copied at integer offsets, preserving identical
-face pixels in every pose. Weapons use rigid transforms. Animation textures are
-baked progressively during loading and only copied during gameplay.
+The built-in imagegen tool created `cutout-<name>.png`, using the existing fighter
+designs as identity references. Joe Cool was the rig pilot; his part layout was
+then supplied as the template for the other eleven characters. The prompts and
+file mapping are recorded in [cutout-prompts.json](cutout-prompts.json).
+Original imagegen outputs are preserved outside the project as well.
 
-`rift-animation.js` defines **50 cached frames per fighter**: one neutral frame,
-four idle frames, eight run frames, four airborne frames, three eight-frame attack
-sequences, two hit reactions, four dodge frames and three landing frames. These are
-procedural skeletal frames from the existing art, not additional AI drawings.
+Each raw source is a 4×4 grid:
 
-Run phase follows host-owned distance. Idle phase follows the simulation clock.
-Attack preparation, contact and recovery follow the actual startup, damage and
-cooldown ticks. Pause freezes the character animation. Reduced motion disables
-idle breathing and camera shake while keeping essential combat animation.
+| Row | Column 1 | Column 2 | Column 3 | Column 4 |
+| --- | --- | --- | --- | --- |
+| 1 | Head, including hat/hair | Torso | Pelvis | Weapon, grip left |
+| 2 | Front upper arm | Front forearm | Back upper arm | Back forearm |
+| 3 | Front thigh | Front shin | Back thigh | Back shin |
+| 4 | Front hand | Back hand | Front foot | Back foot |
 
-`check-rift-animation.mjs` verifies timing, rigid transforms and frame-rate
-independence. `browser-rift-animation.mjs` checks all 600 rasterized frames, eight
-distinct run frames per fighter, identical face pixels, floor contact and clipping.
-It saves an animated review video, a frame strip and a JSON report in `.ci-shots/`.
+Limbs point downward in their bind orientation. Feet point right with soles down.
+Rounded joint caps overlap adjacent pieces. Hands and feet have their own pivots.
+The raw sheets are editable source art; the game never requests them.
 
-| Atlas | Rows, in order | Local reference images |
-| --- | --- | --- |
-| `fighters-1.png` | Joe Cool, Dusung, Hothead | `joe-cool-114.webp`, `dusung-288.webp`, `hot-40.webp` |
-| `fighters-2.png` | Bebetrol, Zirlak, Hehe | `bebetrol.png`, `pffft.png` |
-| `fighters-3.png` | Nasiya, Patron, Sahur | `nasiya.png`, `patronedasiyla.png`, `sahurdudimi.png` |
-| `fighters-4.png` | Oleey, Yeter, Pffft | `oleyy.png`, `yeterartik.png`, `heh.png` |
+The four original `fighters-1.png` to `fighters-4.png` design sheets are retained
+as references, in roster order: Joe Cool/Dusung/Hothead, Bebetrol/Zirlak/Hehe,
+Nasiya/Patron/Sahur, and Oleey/Yeter/Pffft.
 
-The generation prompt set follows. Reference images were explicitly described as
-facial inspiration, not editing targets.
+## Preparation
 
-## Shared prompt
+Run `node .github/scripts/prepare-rift-art.mjs` with Playwright Chromium installed,
+or set `PW_CHROMIUM` to an installed Chromium executable. `ART_ONLY=joe-cool`
+prepares only the pilot. No AI call is required to rebuild the runtime textures.
 
-Use case: stylized-concept. Production 2D pixel-art GAME SPRITE ATLAS, genuinely
-transparent alpha background. Exactly 4 equal columns x 3 equal rows on a regular
-4:3 landscape grid. One full-body fighter per cell, centered with generous transparent
-margins, feet baseline 88% cell height, character occupies at most 76% cell height.
-All twelve sprites at the same scale. No text, labels, grid lines, shadows, floor or
-scenery. Facing right in all poses. Deliberate low-resolution arcade pixel clusters,
-1–2 pixel dark outlines, detailed expressive cursed internet meme faces, shaded
-late-1990s fighting-game pixel art, muted gold/ivory/navy/plum palettes. Every row is
-a different custom complete original fighter; the four columns are respectively
-idle ready stance, running right with separated legs, airborne jump right with knees
-tucked, and attack lunging right with extended weapon/fist. Consistent identity and
-outfit throughout each row. Supplied local images are facial inspiration references.
+The script removes disconnected alpha noise, crops each part, and uniformly fits
+it into a 128×128 cell. It writes lossless **512×512 `rig-<name>.png` atlases**,
+about 3.9 MiB total. The runtime reads the part bounds once after decoding and
+draws those attachments with normal Canvas translations and rotations.
 
-## Atlas 1 subjects
+## Skeleton and motion
 
-Joe Cool: oversized mustard-yellow meme head, reflective black sunglasses, cocky
-smirk, navy biker jacket, brass chain weapon and chunky boots. Dusung: ivory
-asymmetric thinking meme face, raised brow, chin-resting hand, lanky purple longcoat,
-wooden question-mark cane and worn boots. Hothead: orange-yellow panicked eyes,
-sweating cheeks, red boxing wraps, sleeveless burnt-red jacket, brass gauntlets,
-black shorts and red boots. Each has idle, running, airborne and forward melee poses.
+`rift-animation.js` implements a root with pelvis, torso and head; three bones
+per arm and per leg; and a weapon attached to the front hand. The 16 visible
+attachments follow 17 hierarchical transforms including the invisible root.
+Every limb keeps its length. Two-bone IK places the ankles without stretching.
+Feet have independent rotation, keeping the sole level during ground contact.
 
-## Atlas 2 subjects
+The 112-world-unit gait follows host-owned travel. A foot's stance occupies 42%
+of the cycle and moves backward relative to the body at exactly the world
+movement speed. Swing targets follow a continuous lifted arc. Brief flight
+intervals separate alternating contacts. Torso lean, counter-swinging arms and
+small hip motion complete the run; heavier fighters use smaller arm swings.
+Patron holds his briefcase higher while running.
 
-Bebetrol: ivory trollface, huge mischievous toothy grin, squinty eyes, tiny stocky
-body in teal overalls and diaper, yellow propeller cap and oversized red prank
-mallet. Zirlak: mustard-yellow distressed crying head, watery eyes and blue tears,
-blue hooded jacket, tissue box, small fists and white sneakers. Hehe: ivory smug
-head, half-lidded sideways eyes and wide toothy grin, olive surplus vest, cargo
-trousers, short silver dagger and boots. Hand-crafted expressive pixel sprites.
+Attack anticipation, contact and recovery use each move's actual simulation
+windows. The hand aims sideways, upward or downward; the weapon remains attached
+to the wrist. Rotation blending takes the shortest path. Action transitions use
+short eased blends, bounded by the remaining startup time for responsive attacks.
+The head counter-rotates slightly to keep the face readable.
 
-## Atlas 3 subjects
+`rift-art.js` handles slot order. The far upper arm stays behind the body, while
+its forearm and hand draw over the torso when they move across the chest. The
+weapon can pass behind the head during preparation and in front during contact.
+Head and clothing use the same rigid textures throughout every pose.
 
-Nasiya: ivory confused asymmetric meme face, one giant eye and one squinty eye,
-crooked mouth, raised brow, mauve jacket, shrugging arms, red rubber plunger and
-scuffed shoes. Patron: ivory stern businessman meme face, slick charcoal hair,
-black-rim spectacles, thin moustache, navy suit, red tie, brown briefcase weapon and
-polished shoes. Sahur: tired ivory half-lidded face, deep eye bags, crooked purple
-nightcap, striped plum pajamas, large cream pillow weapon and worn slippers.
+Animation uses the simulation clock, freezes on pause and disables idle breathing
+for reduced motion. Host positions interpolate between physics samples so faster
+displays do not repeat only the latest 60 Hz position.
 
-## Atlas 4 subjects
+## Validation
 
-Oleey: ecstatic yellow open-mouth face, excited eyes, orange headphones and red
-headband, tan varsity jacket over red shirt, black athletic shorts, red sneakers and
-wooden baseball bat. Yeter: off-white exhausted angry troll face, frown lines,
-bloodshot eyes, clenched teeth, teal tracksuit, fingerless gloves, steel ban hammer
-with a red X and black boots. Pffft: mustard-yellow puffed-cheek annoyed face,
-angled brows, puckered lips, olive padded jacket, brass gauntlets, stocky body, dark
-cargo trousers and chunky boots. Strong comic personality and distinct silhouettes.
+`check-rift-animation.mjs` covers fixed bone lengths, world-space foot plants,
+continuous swing boundaries, bounded IK, 30/60/144 Hz agreement, pause, pose
+transitions, aiming and contact timing.
+`browser-rift-animation.mjs` checks actual decoded parts, continuous rendered
+samples, clipping and floor penetration, and records a motion review with a
+bone-overlay option. `browser-rift-rumble.mjs` exercises the real desktop app,
+mobile controls and live 1v1/2v2 transports. Reviews are saved in `.ci-shots/`.
+Automated geometry checks do not establish perceptual quality; the recorded
+run, attack and transition sequences also need visual review.
+
+Design references for the hierarchy and IK concepts:
+[Spine bones](https://esotericsoftware.com/spine-bones) and
+[Spine IK constraints](https://esotericsoftware.com/spine-ik-constraints).
+The implementation is the project's own runtime and does not load Spine.

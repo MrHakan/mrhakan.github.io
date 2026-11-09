@@ -1,130 +1,84 @@
-// Runtime rigging of the generated characters. Every action reuses one texture.
-// The other generated poses remain in the source sheets as concept references.
+// Sixteen separate rigid bitmap attachments per fighter. Canvas transforms
+// follow the bone hierarchy; there are no full-body frames or mesh warps.
 (function (root) {
     'use strict';
-    const A = root.RIFT_ANIM, CELL = 144, ROOT_X = 72, ROOT_Y = 108, rigs = [], jobs = [];
-    let pumping = false;
+    const A = root.RIFT_ANIM, CELL = 128, fighters = [];
+    const names = ['joe-cool', 'dusung', 'hothead', 'bebetrol', 'zirlak', 'hehe', 'nasiya', 'patron', 'sahur', 'oleey', 'yeter', 'pffft'];
+    const weaponW = [24, 35, 0, 29, 16, 22, 32, 24, 27, 36, 35, 0], weaponH = [9, 12, 0, 27, 16, 9, 18, 27, 24, 9, 25, 0];
     let resolveReady, rejectReady;
     const loaded = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
     loaded.catch(() => {});
-    const ready = () => Array.from({ length: 12 }, (_, i) => rigs[i]?.frames === A.COUNT).every(Boolean);
-    const canvas = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h });
-    function components(w, h, accept) {
-        const labels = new Int32Array(w * h), queue = new Int32Array(w * h), list = [];
-        for (let start = 0; start < labels.length; start++) {
-            if (labels[start] || !accept(start)) continue;
-            const id = list.length + 1, box = { id, size: 0, left: w, top: h, right: 0, bottom: 0 };
-            let head = 0, tail = 1; queue[0] = start; labels[start] = id;
-            while (head < tail) {
-                const p = queue[head++], x = p % w, y = Math.floor(p / w);
-                box.size++; box.left = Math.min(box.left, x); box.right = Math.max(box.right, x); box.top = Math.min(box.top, y); box.bottom = Math.max(box.bottom, y);
-                for (let yy = Math.max(0, y - 1); yy <= Math.min(h - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(w - 1, x + 1); xx++) {
-                    const q = yy * w + xx;
-                    if (!labels[q] && accept(q)) { labels[q] = id; queue[tail++] = q; }
-                }
-            }
-            list.push(box);
+    const ready = () => names.every((_, i) => !!fighters[i]);
+    function regions(image) {
+        const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+        const c = cv.getContext('2d', { willReadFrequently: true }); c.drawImage(image, 0, 0);
+        const d = c.getImageData(0, 0, 512, 512).data, boxes = [];
+        for (let part = 0; part < 16; part++) {
+            const ox = part % 4 * CELL, oy = Math.floor(part / 4) * CELL;
+            let l = CELL, t = CELL, r = 0, b = 0;
+            for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) if (d[((oy + y) * 512 + ox + x) * 4 + 3] > 100) { l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y); }
+            if (l > r || t > b) throw new Error('Empty fighter attachment: ' + part);
+            boxes.push({ x: ox + l, y: oy + t, w: r - l + 1, h: b - t + 1 });
         }
-        return { labels, list: list.sort((a, b) => b.size - a.size) };
+        return boxes;
     }
-    function prepare(image, character, row) {
-        const w = Math.floor(image.naturalWidth / 4), y = Math.round(row * image.naturalHeight / 3), h = Math.round((row + 1) * image.naturalHeight / 3) - y;
-        const texture = canvas(w, h), c = texture.getContext('2d', { willReadFrequently: true });
-        c.drawImage(image, 0, y, w, h, 0, 0, w, h);
-        const pixels = c.getImageData(0, 0, w, h), data = pixels.data;
-        const all = components(w, h, p => data[p * 4 + 3] >= 96), main = all.list[0];
-        if (!main) throw new Error('Empty fighter texture: ' + character);
-        const keep = new Set(all.list.filter(b => b.size >= Math.max(90, main.size * 0.004) && b.left < main.right + 25 && b.right > main.left - 25 && b.top < main.bottom + 25 && b.bottom > main.top - 25).map(b => b.id));
-        const box = { left: w, right: 0, top: h, bottom: 0 };
-        for (let p = 0; p < w * h; p++) {
-            if (!keep.has(all.labels[p])) { data[p * 4 + 3] = 0; continue; }
-            const x = p % w, y = Math.floor(p / w);
-            box.left = Math.min(box.left, x); box.right = Math.max(box.right, x); box.top = Math.min(box.top, y); box.bottom = Math.max(box.bottom, y);
-        }
-        c.putImageData(pixels, 0, 0);
-        const ivory = [1, 3, 5, 6, 7, 8, 10].includes(character);
-        const faces = components(w, h, p => {
-            const y = Math.floor(p / w), r = data[p * 4], g = data[p * 4 + 1], b = data[p * 4 + 2];
-            return data[p * 4 + 3] > 150 && y < box.top + (box.bottom - box.top) * 0.62 && (ivory ? r > 155 && g > 145 && b > 120 && Math.max(r, g, b) - Math.min(r, g, b) < 95 : r > 160 && g > 95 && b < g * 0.88);
-        });
-        const face = faces.list[0], rootX = face ? (face.left + face.right) / 2 : (box.left + box.right) / 2;
-        const k = 76 / (box.bottom - box.top + 1);
-        const rig = { character, texture, box, k, rootX, rootY: box.bottom, split: 0, armSide: [7, 8, 9, 10].includes(character) ? -1 : 1, headLeft: face ? (face.left - rootX) * k - 2 : -18, headRight: face ? (face.right - rootX) * k + 2 : 18, forehead: face ? (face.top - box.bottom) * k : -65, neck: -32, frames: 0, atlas: canvas(CELL * 10, CELL * 5) };
-        for (let p = 0; p < w * h; p++) if (data[p * 4 + 3] > 96) {
-            const x = (p % w - rootX) * k, y = (Math.floor(p / w) - box.bottom) * k;
-            if (!A.isWeapon(x, y, rig)) continue;
-            if (!rig.weaponBox) rig.weaponBox = { left: x, right: x, top: y, bottom: y };
-            const b = rig.weaponBox; b.left = Math.min(b.left, x); b.right = Math.max(b.right, x); b.top = Math.min(b.top, y); b.bottom = Math.max(b.bottom, y);
-        }
-        const neutral = canvas(CELL, CELL), nc = neutral.getContext('2d'); nc.imageSmoothingEnabled = false;
-        nc.drawImage(texture, 0, 0, w, h, ROOT_X - rootX * k, ROOT_Y - box.bottom * k, w * k, h * k);
-        rig.head = canvas(CELL, CELL);
-        const left = Math.floor(ROOT_X + rig.headLeft), top = Math.floor(ROOT_Y + (box.top - box.bottom) * k), right = Math.ceil(ROOT_X + rig.headRight), bottom = ROOT_Y + rig.neck + 1;
-        rig.headBox = { left, top, width: right - left, height: bottom - top };
-        rig.head.getContext('2d').drawImage(neutral, left, top, right - left, bottom - top, left, top, right - left, bottom - top);
-        rig.xs = [...new Set([box.left, rootX - 30 / k, rootX - 20 / k, rootX - 12 / k, rootX - 6 / k, rootX, rootX + 6 / k, rootX + 12 / k, rootX + 20 / k, rootX + 30 / k, box.right + 1].filter(x => x >= box.left && x <= box.right + 1))].sort((a, b) => a - b);
-        rig.ys = [...new Set([box.top, box.bottom + rig.neck / k, box.bottom - 26 / k, box.bottom - 20 / k, box.bottom - 14 / k, box.bottom - 8 / k, box.bottom - 2 / k, box.bottom + 1].filter(y => y >= box.top && y <= box.bottom + 1))].sort((a, b) => a - b);
-        rigs[character] = rig;
-        bake(rig, 0);
-        for (let frame = 1; frame < A.COUNT; frame++) jobs.push(() => bake(rig, frame));
-        pump();
-    }
-    function triangle(c, texture, s, d) {
-        const den = s[0].x * (s[1].y - s[2].y) + s[1].x * (s[2].y - s[0].y) + s[2].x * (s[0].y - s[1].y);
-        if (Math.abs(den) < 0.0001) return;
-        const coeff = key => [
-            (d[0][key] * (s[1].y - s[2].y) + d[1][key] * (s[2].y - s[0].y) + d[2][key] * (s[0].y - s[1].y)) / den,
-            (d[0][key] * (s[2].x - s[1].x) + d[1][key] * (s[0].x - s[2].x) + d[2][key] * (s[1].x - s[0].x)) / den,
-            (d[0][key] * (s[1].x * s[2].y - s[2].x * s[1].y) + d[1][key] * (s[2].x * s[0].y - s[0].x * s[2].y) + d[2][key] * (s[0].x * s[1].y - s[1].x * s[0].y)) / den
-        ];
-        const x = coeff('x'), y = coeff('y'), cx = (d[0].x + d[1].x + d[2].x) / 3, cy = (d[0].y + d[1].y + d[2].y) / 3;
-        c.save(); c.beginPath();
-        d.forEach((p, i) => { const dx = p.x - cx, dy = p.y - cy, len = Math.hypot(dx, dy) || 1; const xx = p.x + dx / len * 0.22, yy = p.y + dy / len * 0.22; if (i) c.lineTo(xx, yy); else c.moveTo(xx, yy); });
-        c.closePath(); c.clip(); c.transform(x[0], y[0], x[1], y[1], x[2], y[2]); c.drawImage(texture, 0, 0); c.restore();
-    }
-    function bake(rig, frame) {
-        const c = rig.atlas.getContext('2d'), p = A.pose(frame);
-        p.weaponLift = A.weaponLift(p, rig);
-        c.setTransform(1, 0, 0, 1, frame % 10 * CELL + ROOT_X, Math.floor(frame / 10) * CELL + ROOT_Y); c.imageSmoothingEnabled = false;
-        c.save(); c.beginPath(); c.rect(-ROOT_X, -ROOT_Y, CELL, CELL); c.clip();
-        for (let y = 0; y < rig.ys.length - 1; y++) for (let x = 0; x < rig.xs.length - 1; x++) {
-            const s = [{ x: rig.xs[x], y: rig.ys[y] }, { x: rig.xs[x + 1], y: rig.ys[y] }, { x: rig.xs[x + 1], y: rig.ys[y + 1] }, { x: rig.xs[x], y: rig.ys[y + 1] }];
-            const d = s.map(q => A.vertex((q.x - rig.rootX) * rig.k, (q.y - rig.rootY) * rig.k, p, rig));
-            triangle(c, rig.texture, [s[0], s[1], s[2]], [d[0], d[1], d[2]]);
-            triangle(c, rig.texture, [s[0], s[2], s[3]], [d[0], d[2], d[3]]);
-        }
-        // Render the face as one rigid patch. This avoids triangle seam/rounding
-        // changes in eyes and mouths, even when the body is leaning or attacking.
-        const hx = Math.round(p.lean), hy = Math.round(p.lift + p.crouch), b = rig.headBox;
-        c.save(); c.globalCompositeOperation = 'destination-out'; c.fillRect(b.left - ROOT_X + hx, b.top - ROOT_Y + hy, b.width, b.height); c.restore();
-        c.drawImage(rig.head, -ROOT_X + hx, -ROOT_Y + hy);
-        c.restore();
-        rig.frames++;
-    }
-    function pump() {
-        if (pumping) return; pumping = true;
-        const work = () => {
-            const end = performance.now() + 7;
-            do { jobs.shift()?.(); } while (jobs.length && performance.now() < end);
-            if (jobs.length) requestAnimationFrame(work); else { pumping = false; if (ready()) resolveReady(); }
-        };
-        requestAnimationFrame(work);
-    }
-    for (let sheet = 0; sheet < 4; sheet++) {
+    names.forEach((name, character) => {
         const image = new Image(); image.decoding = 'async';
-        image.onload = () => { for (let row = 0; row < 3; row++) jobs.push(() => prepare(image, sheet * 3 + row, row)); pump(); };
-        image.onerror = () => rejectReady(new Error('Fighter art could not load. Reload the game to try again.'));
-        image.src = 'games/rift-rumble/art/fighters-' + (sheet + 1) + '.png';
-    }
+        image.onload = () => {
+            try {
+                if (image.naturalWidth !== 512 || image.naturalHeight !== 512) throw new Error('Invalid cutout atlas.');
+                fighters[character] = { image, boxes: regions(image) }; if (ready()) resolveReady();
+            } catch (error) { rejectReady(error); }
+        };
+        image.onerror = () => rejectReady(new Error('Fighter rig could not load. Reload the game to try again.'));
+        image.src = 'games/rift-rumble/art/rig-' + name + '.png';
+    });
     function paint(c, x, y, character, opts = {}) {
-        const rig = rigs[character]; if (!rig) return false;
-        let frame = opts.animation?.frame || (opts.attack ? A.attackFrame(opts.attack, character) : opts.airborne ? 14 : 0);
-        if (rig.frames < A.COUNT) frame = 0;
-        const scale = opts.scale || 1.25;
-        c.save(); c.translate(Math.round(x), Math.round(y)); c.scale((opts.facing || 1) * scale, scale);
-        c.globalAlpha *= opts.alpha === undefined ? 1 : opts.alpha; c.imageSmoothingEnabled = false;
-        c.drawImage(rig.atlas, frame % 10 * CELL, Math.floor(frame / 10) * CELL, CELL, CELL, -ROOT_X, -ROOT_Y, CELL, CELL);
+        const f = fighters[character]; if (!f) return false;
+        const animation = opts.animation, pose = animation?.pose || A.rest(character), bones = animation?.bones || A.solve(pose);
+        const scale = (opts.scale || 1.25) * A.SCALE;
+        c.save(); c.translate(x, y); c.scale((opts.facing || 1) * scale, scale);
+        c.globalAlpha *= opts.alpha === undefined ? 1 : opts.alpha;
+        c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+        function part(index, boneName, height, px = 0.5, py = 0, rotation = -Math.PI / 2, maxW = Infinity) {
+            const b = bones[boneName], box = f.boxes[index], k = Math.min(height / box.h, maxW / box.w), w = box.w * k, h = box.h * k;
+            c.save(); c.translate(b.x, b.y); c.rotate(b.a + rotation);
+            c.drawImage(f.image, box.x, box.y, box.w, box.h, -w * px, -h * py, w, h); c.restore();
+        }
+        const weapon = () => {
+            if (!weaponW[character]) return;
+            const b = bones.weapon, box = f.boxes[3], k = Math.min(weaponW[character] / box.w, weaponH[character] / box.h);
+            c.save(); c.translate(b.x, b.y); c.rotate(b.a);
+            c.drawImage(f.image, box.x, box.y, box.w, box.h, -box.w * k * 0.1, -box.h * k * 0.5, box.w * k, box.h * k); c.restore();
+        };
+        // The far upper arm stays behind the torso; its forearm and hand come
+        // in front when they swing across the chest, rather than disappearing.
+        const rearInFront = bones.bHand.x > bones.bUpper.x + 1;
+        const rearForearm = () => {
+            part(7, 'bLower', 16, 0.5, 2 / 16);
+            part(13, 'bHand', character === 2 || character === 11 ? 11 : 9, 0.5, 0.12);
+        };
+        part(6, 'bUpper', 16, 0.5, 3 / 16);
+        if (!rearInFront) rearForearm();
+        part(10, 'bThigh', 23, 0.5, 3 / 23); part(11, 'bShin', 21, 0.5, 3 / 21); part(15, 'bFoot', 10, 0.34, 0.4, 0);
+        part(8, 'fThigh', 23, 0.5, 3 / 23); part(9, 'fShin', 21, 0.5, 3 / 21); part(14, 'fFoot', 10, 0.34, 0.4, 0);
+        if (pose.weaponLayer < 0.5) weapon();
+        part(2, 'pelvis', 13, 0.5, 0.4, 0);
+        part(1, 'torso', 27, 0.5, 0.88, 0);
+        if (rearInFront) rearForearm();
+        part(0, 'head', 32, 0.5, 0.96, 0, 42);
+        part(4, 'fUpper', 16, 0.5, 3 / 16); part(5, 'fLower', 16, 0.5, 2 / 16);
+        part(12, 'fHand', character === 2 || character === 11 ? 11 : 9, 0.5, 0.12);
+        if (pose.weaponLayer >= 0.5) weapon();
+        if (opts.debug) {
+            c.strokeStyle = '#62f6d8'; c.fillStyle = '#fff1a8'; c.lineWidth = 0.65;
+            for (const b of Object.values(bones)) {
+                const parent = bones[b.parent];
+                if (parent) { c.beginPath(); c.moveTo(parent.x, parent.y); c.lineTo(b.x, b.y); c.stroke(); }
+                c.beginPath(); c.arc(b.x, b.y, 1.4, 0, Math.PI * 2); c.fill();
+            }
+        }
         c.restore(); return true;
     }
-    root.RIFT_ART = { paint, ready, whenReady: () => loaded, metrics: () => rigs.map((r, character) => ({ character, frames: r.frames, height: 76, neck: r.neck, anchorX: r.rootX, anchorY: r.rootY, headLeft: r.headLeft, headRight: r.headRight })) };
+    root.RIFT_ART = { paint, ready, whenReady: () => loaded, metrics: () => fighters.map((f, character) => ({ character, parts: f.boxes.length, width: 512, height: 512 })) };
 })(window);
