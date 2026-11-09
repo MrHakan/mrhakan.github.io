@@ -5,6 +5,60 @@ and JavaScript, served straight off GitHub Pages. **There is no build
 step** — what is in the repo is what the browser gets, and that is the
 whole point.
 
+## Explore the site
+
+**[Launch mrhakan 98](https://mrhakan.github.io/)** — the live desktop. This is a
+personal website, an interactive portfolio and a growing collection of small
+games and useful tools, all dressed up as a late-1990s PC.
+
+- **Desktop experience:** draggable windows, taskbar, Start menu, search,
+  themes, desktop toys, a faux browser/address bar and deep-linkable apps.
+  Mouse, keyboard and touch are supported.
+- **Playground:** standalone browser games and local-first utilities under
+  [`games/`](games/) and [`apps/`](apps/). The
+  [catalog](data/playground.json) drives the site's game/app listings; new
+  entries are added regularly.
+- **Bigger games:** [Wizardz 98](https://mrhakan.github.io/?app=wizardz)
+  (draw sigils in a PS1-style arena),
+  [Dungeonz 98](https://mrhakan.github.io/?app=dungeonz)
+  (co-op dungeon runs),
+  [Age of Troll](https://mrhakan.github.io/?app=ageoftroll)
+  (lane warfare),
+  [Sir, We Have a Troll Problem](https://mrhakan.github.io/?app=trollproblem)
+  (desktop-themed tower defense),
+  [Trailz 98](https://mrhakan.github.io/?app=trailz)
+  (light cycles, up to eight seats) and
+  [Waveshaper 98](https://mrhakan.github.io/?app=waveshaper)
+  (timed rhythm/reflex play).
+- **Multiplayer:** invite codes, public lobbies and quick match for supported
+  games, with direct connections and relay fallback. The optional
+  [relay server](server/) can be self-hosted.
+- **Music and nostalgia:** a Winamp-style player with audio-reactive concert
+  scenes, classic arcade windows, a trophy room, game records and save export.
+- **Personal corner:** project listings, `/now`, `/uses`, a colophon,
+  links, RSS/JSON feeds, plus Guestbook and Shoutbox. Both boards currently use
+  the original GitHub Gist comment flow; Giscus is configured but disabled.
+- **Installable and offline-aware:** a web manifest, root service worker,
+  lazy-loaded features and reduced-motion support.
+
+### Recent additions (November 2026)
+
+The playground now includes, among others,
+[Mancala Pocket 98](https://mrhakan.github.io/games/mancala-pocket/),
+[Connect Four 98](https://mrhakan.github.io/games/connect-four/),
+[Slide Fifteen 98](https://mrhakan.github.io/games/slide-fifteen/),
+[Filter Desk 98](https://mrhakan.github.io/apps/filter-desk/),
+[Unit Price Desk 98](https://mrhakan.github.io/apps/unit-price-desk/)
+and the maritime-focused
+[Voyage ETA 98](https://mrhakan.github.io/apps/voyage-eta/) and
+[GM Explorer 98](https://mrhakan.github.io/apps/gm-explorer/).
+
+For ongoing changes, see the desktop's **what's new** panel,
+[`data/news.json`](data/news.json), the [RSS feed](feed.xml) and
+the [commit history](https://github.com/MrHakan/mrhakan.github.io/commits/main/).
+The catalog, not a hardcoded README count, is the source of truth for the
+current playground entries.
+
 ## Layout
 
 ```
@@ -39,8 +93,8 @@ js/                   everything the pages load
   trophies.js           the trophy room: every achievement, each game's records
                         and time played, and a picture of it to share (on demand,
                         with css/trophies.css)
-  guestbook.js          composing and reading a board entry, and the
-                        giscus config for both boards
+  guestbook.js          composing and reading a board entry, with Gist
+                        boards active and optional Giscus config retained
   themes.js  theme-maker.js  theme-scan.js
   arcade.js             eight small games — tetris, breakout, 2048, simon,
                         hangman, whack, and two with an opponent that does
@@ -62,15 +116,17 @@ css/
                         npm run css and committed, like feed.json
   giscus-win98.css      the theme the giscus iframe loads, since style.css
                         cannot reach into another origin
-games/                one folder per game, plus the shared netplay layer
+apps/                 standalone tools (editors, calculators, visualizers,
+                      maritime utilities and small experiments)
+games/                standalone games, larger desktop games and the shared netplay layer
   echoes/  jokerz/  wizardz/  dungeonz/  age-of-troll/  become-user/  troll-problem/  trailz/
   ps1/                the PlayStation renderer and the height map world that
                       wizardz and dungeonz both stand on
   netplay.js
   lobbies.js          the open lobby list and quick match, on the same relays
-data/                 site content, board config, the projects list, the
-                      github snapshot, and news.json: the what's new panel on
-                      the home page, one line per thing
+data/                 site and board config, projects, GitHub snapshot,
+                      news.json (what's new) and playground.json (the
+                      standalone games/apps catalog)
 src/                  assets only: images, fonts, music, and icons/, the app
                       icons, drawn by .github/scripts/make-icons.py
 server/               the optional self-hosted netplay relay
@@ -84,12 +140,19 @@ feed.json             the json feed, generated from feed.xml
 ## Running it
 
 ```sh
-npm run serve      # python3 -m http.server 8099
-npm test           # the whole headless suite
-npm run css        # rewrite css/tailwind.css after using a new utility class
+npm run serve        # local HTTP server on http://localhost:8099
+npm test             # Node checks, simulations and relay smoke test
+npm run test:browser  # Playwright browser suite (requires Chromium)
+npm run css          # regenerate css/tailwind.css when utility classes change
+npm run feed         # regenerate feed.json from feed.xml
+npm run relays       # probe the public multiplayer relays
 ```
 
-Winamp's **enter concert mode** button opens the music room. All 23 tracks
+The static site has no runtime npm dependencies and does not need a bundler.
+Use a local HTTP server rather than opening `index.html` as a `file://` URL:
+service workers, URL routing and some browser features need an origin.
+
+Winamp's **enter concert mode** button opens the music room. Tracks
 have distinct sets and choreography: a rainy cathedral, bunny dancers,
 a robot factory, a walking line character, Persona's cut-paper poster,
 Portal's test chamber, Metin2's pagoda, a vintage television and a lane war at dusk, among others.
@@ -103,7 +166,10 @@ Reduced motion keeps a still scene, and hidden tabs stop drawing. Slower
 devices show the scene in concert mode at 20 fps with a smaller backing canvas;
 the background renderer rests while the desktop is open.
 
-The browser tests need Playwright's chromium and a server on :8099:
+For the browser suite, install Playwright and its Chromium browser if they are
+not already available (`npm install --no-save playwright` and
+`npx playwright install chromium`). Some individual browser scripts expect a
+local server on port 8099; several integration scripts start their own.
 
 ```sh
 python3 -m http.server 8099 &
@@ -120,6 +186,8 @@ exits non-zero if anything drifted.
 | script | what it holds to |
 | --- | --- |
 | `check-startup.mjs` | what the first visit costs: no remote or parser-blocking scripts, a `tailwind.css` with every class the markup asks for, windows that load when opened, and a size budget |
+| `check-playground.mjs` | catalog entries, paths, metadata and standalone playground integration |
+| `check-waveshaper.mjs` | Waveshaper's note timing, input handling and scoring rules |
 | `check-music-stage.mjs` | uploaded music catalog, audio-reactive lighting, scene lifecycle, pause, reduced motion, hidden tabs and concert controls |
 | `check-wizardz.mjs` | wizardz: the rules, the teams, the four maps, what goes over the wire, loadout ids, and a thousand bot matches against the balance targets, then more on every map at every team size and for all ten ready made loadouts |
 | `check-dungeonz.mjs` | dungeonz: the rules, every dungeon a seed can build being walkable, what goes over the wire, and a hundred runs of four bots against the balance targets: the difficulty curve, run and boss length, the level at the boss, and no skill or passive dominant or useless |
@@ -128,7 +196,7 @@ exits non-zero if anything drifted.
 | `check-sigils.mjs` | wizardz: every symbol drawn badly a few hundred times, and the confusion matrix held to its targets |
 | `check-offline.mjs` | offline fallbacks, stalled requests, cache scope, media streaming, responses that do not wait for their cache write, and files fetched only when asked |
 | `check-games.mjs` | every script parses, the fifty spells and their sigils, desktop wiring, my documents' backup envelope, the GitHub snapshot |
-| `check-guestbook.mjs` | composing and reading an entry, and the giscus config |
+| `check-guestbook.mjs` | composing and reading entries, the default Gist flow and the optional Giscus configuration |
 | `check-motion.mjs` | reduced motion means no motion, the charts, the stylesheet's own links |
 | `check-netplay.mjs` | the ways online against fake relays and a fake broker that misbehave the way real ones do: refusing, throttling, dropping, reordering, no route, a direct link dying mid-duel |
 | `check-lobbies.mjs` | the open lobby list against strangers: listings checked field by field and by signature, stale ones dropped, forged, broken and oversized ones changing nothing, one line per key, a flood held to a ceiling, and a relay that says no left alone |
@@ -139,6 +207,8 @@ exits non-zero if anything drifted.
 | `check-web.mjs` | the reading layer against a fake window, the route names in js/web.js, 404.html and sitemap.xml agreeing, and feed.json matching feed.xml |
 | `browser-check.mjs` | the site opens, two tabs duel, the guestbook works both ways |
 | `browser-arcade.mjs` | the thirty new windows played rather than opened: eight games of tic-tac-toe it expects to lose, tiles merged in 2048, the pet's clock wound back nine hours |
+| `browser-playground.mjs` | standalone playground pages and their browser behaviour (separate from the standard `test:browser` script) |
+| `browser-waveshaper.mjs` | Waveshaper played in a browser with its input and timing flow (separate from the standard `test:browser` script) |
 | `browser-web.mjs` | deep links open the right document, the address bar in every form a person writes one, back and forward, favorites surviving a reload, quoting, find-in-document, the layout and tap targets on a 412px phone, the fullscreen that works without the API, and /now and /uses resolving — it brings its own server for that last part |
 | `browser-echoes.mjs` | a character is rolled, a voyage is walked, a fight is won |
 | `browser-netplay.mjs` | two strangers into a duel with nothing picked: an invite link through the boot screen, direct when there is a route, the relays when there is not, a blocked cdn, a wrong code, and a direct link dying mid-duel. Runs on no outside server |
@@ -147,6 +217,8 @@ exits non-zero if anything drifted.
 | `browser-wizardz.mjs` | wizardz played with a real mouse through to the end of a match, old saves, the auto scaler, a phone with real touches, every map, a 4 v 4 with bots to the end, a 2 v 2 with two browsers and bots, loadout ids typed in and refused, a guest casting what it does not carry, and two browsers direct and over the relays, with the link dying, a player leaving and the bytes counted |
 | `browser-dungeonz.mjs` | dungeonz from the address bar to a cleared dungeon with the clock turned up: a card picked by key, a fireball drawn with the mouse, the boss through three phases, the frame rate with four wizards and a crowd, a phone with real touches, and two browsers direct and over the relays, with the line going quiet, the link dying and a guest walking out, and the bytes counted |
 | `browser-troll-problem.mjs` | the troll problem played: an old save moved over, towers put down on and beside the road with the mouse, both paths until one locks the other, selling, a map to the troll king with the clock turned up, a phone with real taps, two browsers direct and four over the relays with the bytes counted, a link dying, a guest walking out and a newcomer taking the empty seat. Brings its own server and relay |
+| `browser-ps1-feel.mjs` | the PS1-style renderer and presentation of the larger 3D games |
+| `browser-scale.mjs` | desktop scaling across viewport sizes |
 | `browser-trailz.mjs` | trailz 98 ridden: none of it in the first load, the start menu and the address bar, a match against a bot from the menu with real keys turning and braking, a crash, the clock turned up to the end; the picture checked for a perspective floor under a dark sky from every camera and the frame rate written down; a phone with real taps and sideways fullscreen; two browsers direct with a guest's turn landing where it was pressed even with 250ms of lag each way, the line going quiet, the link dying and a guest walking out; three over the relays with the bytes counted and a newcomer taking a seat; a full match of eight browsers over the relays with the bytes counted and a ninth turned away; a public lobby on a stranger's list. Brings its own server and relay |
 | `browser-mobile.mjs` | every app on a Pixel 7: nothing widens the page, a finger drags and closes a window, the troll problem asks before it builds, and the music is never handed to a sleeping audio graph |
 | `browser-trophies.mjs` | the trophy room opened from the desktop icon and the start menu, dungeonz handing out an achievement and the room showing it, a playground record in another tab, the share picture, an empty and a fully broken browser, a phone; the install button with a stand-in for Chrome's prompt, an iPhone, and the installed copy; Chrome's own installability verdict over CDP; and the cable out: a returning visitor offline, every on-demand game opened, the lobby refusing to wait. Brings its own server on localhost, since a service worker needs one |
