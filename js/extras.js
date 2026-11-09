@@ -446,6 +446,15 @@ function openWaveShaper() {
     }).catch(() => { body.innerHTML = lazyFail('the wave would not open bradar'); });
 }
 
+function openRiftRumble() {
+    if (window.startRiftRumble) { startRiftRumble(); return; }
+    const { body, win } = createAppWindow('Brawlz 98', { icon: 'sports_esports', width: 320 });
+    body.innerHTML = '<div class="bj-loading">booting brawlz.exe...</div>';
+    npLoadScripts().then(() => Netplay.loadGame('riftrumble')).then(() => {
+        replaceLazyWindow(win, () => startRiftRumble());
+    }).catch(() => { body.innerHTML = lazyFail('the rift would not open. try again?'); });
+}
+
 function openTrailz() {
     if (window.startTrailz) { startTrailz(); return; }
     const { body, win } = createAppWindow('trailz 98', { icon: 'bolt', width: 320 });
@@ -968,6 +977,7 @@ function siteSearchIndex() {
         ['wizardz 98', 'game', () => openWizardz(), 'wizard duel multiplayer 1v1 2v2 3v3 4v4 teams maps loadout id preset spells drawing sigils glyphs magic fireball online invite code avatar customise grimoire 3d shooter tps third person ps1 playstation low poly'],
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
+        ['Brawlz 98', 'game', () => openRiftRumble(), 'brawlz platform fighter smash brawlhalla cursed emoji troll 2d pixel multiplayer 1v1 2v2 arena'],
         ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
         ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],

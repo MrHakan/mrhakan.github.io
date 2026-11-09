@@ -139,6 +139,9 @@ jobs:
             - name: Check trailz
               run: node .github/scripts/check-trailz.mjs
 
+            - name: Check Brawlz 98 rules and bot matches
+              run: node .github/scripts/check-rift-rumble.mjs
+
             - name: Check the trophy room and the manifest
               run: node .github/scripts/check-trophies.mjs
 
@@ -297,6 +300,9 @@ jobs:
             # a phone with real taps, two browsers direct with lag on the line and the link dying,
             # three over the relays with the bytes counted and a newcomer taking a seat, eight
             # browsers in one match over the relays, and the open lobby list. It brings its own server and stand-ins for peerjs and the relays
+            - name: Play Brawlz 98 with four browsers
+              run: node .github/scripts/browser-rift-rumble.mjs
+
             - name: Ride trailz
               run: node .github/scripts/browser-trailz.mjs
 

@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v47';
+const CACHE = 'mrhakan98-v48';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -52,6 +52,20 @@ const PRECACHE = [
 // code on a page it might leave in ten seconds. js/lazy.js asks for it once
 // somebody has stayed a while, unless their connection asked it not to.
 const PRECACHE_LATER = [
+    '/games/rift-rumble/',
+    '/games/rift-rumble/rift-data.js',
+    '/games/rift-rumble/rift-sim.js',
+    '/games/rift-rumble/rift-fighters.js',
+    '/games/rift-rumble/rift-stages.js',
+    '/games/rift-rumble/rift-render.js',
+    '/games/rift-rumble/rift.js',
+    '/games/rift-rumble/rift-ui.css',
+    '/games/rift-rumble/rift-art.js',
+    '/games/rift-rumble/rift-menu.js',
+    '/games/rift-rumble/art/fighters-1.png',
+    '/games/rift-rumble/art/fighters-2.png',
+    '/games/rift-rumble/art/fighters-3.png',
+    '/games/rift-rumble/art/fighters-4.png',
     '/games/waveshaper/',
     '/games/waveshaper/?embed=1',
     '/games/waveshaper/waveshaper-sim.js',

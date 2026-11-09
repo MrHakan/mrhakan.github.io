@@ -1225,6 +1225,8 @@
         if (!this.isHost) return;
         const g = NP.byId(this.gameId);
         if (!g) return;
+        const problem = g.startProblem && g.startProblem(this);
+        if (problem) { this.emit('net:error', problem); toast('netplay', problem); return; }
         const slots = this.players.map(p => p.id);
         const d = { gameId: this.gameId, seed: Math.floor(Math.random() * 1e9), slots, at: Date.now() };
         if (g.options) d.options = this.gameOptions;
@@ -1360,6 +1362,22 @@
                 { key: 'rounds', label: 'rounds', values: [['5', '5 rounds'], ['3', '3 rounds'], ['9', '9 rounds']] }
             ],
             scripts: ['games/trailz/trailz-data.js', 'games/trailz/trailz-sim.js', 'games/trailz/trailz-gl.js', 'games/trailz/trailz.js']
+        },
+        {
+            id: 'riftrumble', name: 'Brawlz 98', icon: 'sports_esports',
+            min: 2, max: 4, teams: true,
+            blurb: 'a 2D pixel platform fighter: double jumps, big knockouts, online 1v1 and 2v2. bots fill empty seats',
+            seats: o => o.mode === '2' ? 4 : 2,
+            startProblem: s => {
+                const size = s.gameOptions.mode === '2' ? 2 : 1, counts = [0, 0];
+                s.players.forEach(p => counts[s.teamOf(p)]++);
+                return counts.some(n => n > size) ? 'Choose balanced teams before starting Brawlz 98.' : '';
+            },
+            options: [
+                { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2']] },
+                { key: 'arena', label: 'arena', values: [['sky', 'The Taskbar'], ['moon', 'Recycle Rift'], ['sunset', 'Blue Screen']] }
+            ],
+            scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-sim.js', 'games/rift-rumble/rift-art.js', 'games/rift-rumble/rift-fighters.js', 'games/rift-rumble/rift-stages.js', 'games/rift-rumble/rift-render.js', 'games/rift-rumble/rift-menu.js', 'games/rift-rumble/rift.js']
         }
     ];
     NP.games = {};

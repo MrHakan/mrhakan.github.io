@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brawlz 98 - launch on the desktop</title><meta name="description" content="12 custom cursed emoji fighters, online 1v1 and 2v2, three Windows 98 desktop arenas. Brawlz runs inside mrhakan's desktop with keyboard, touch and gamepad."><meta name="theme-color" content="#008080"><meta property="og:title" content="Brawlz 98 - the desktop has a troll problem"><meta property="og:description" content="Twelve cursed residents. Three desktop arenas. Invite a friend for 1v1 or 2v2, or let the bots handle your argument."><link rel="canonical" href="https://mrhakan.github.io/?app=brawlz"><style>body{background:#008080;color:#fff;font:14px Tahoma,sans-serif;display:grid;min-height:90vh;place-items:center}a{color:#fff}a:focus-visible{outline:3px solid #fff;outline-offset:5px}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style><script>
+(function () {
+    var q = new URLSearchParams(location.search), target = new URL('../../', location.href);
+    target.searchParams.set('app', 'brawlz');
+    var room = (q.get('room') || '').replace(/[^a-z0-9]/gi, '').slice(0, 5);
+    if (room.length >= 4) target.searchParams.set('room', room);
+    if (q.get('connection') === 'local') target.searchParams.set('connection', 'local');
+    location.replace(target.href);
+})();
+</script></head><body><main><h1>brawlz.exe</h1><p>Opening on the desktop...</p><a href="../../" aria-label="Back to Playground">Open Brawlz 98</a></main></body></html>
