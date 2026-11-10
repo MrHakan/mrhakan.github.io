@@ -574,14 +574,17 @@ try {
         await p.waitForTimeout(100);
         expect(await state(p, g => g.view.cam) > cam0 + 100, 'a finger drags the lane', cam0 + ' to ' + Math.round(await state(p, g => g.view.cam)));
 
-        await p.evaluate(() => AOT_ENGINE.speed(12));
-        const presses = await playUntilOver([p], 240000, 'tap');
+        // The desktop case already plays a whole battle to a natural finish.
+        // Here exercise the phone's surrender/confirmation/end-screen flow;
+        // a random bot match can outlast a CI runner's wall-clock allowance.
+        await p.locator('#aot-resign').tap();
+        await p.locator('.retro-dialog-btn:has-text("yes")').tap();
         await p.waitForSelector('#aot-end:not([hidden]) #aot-menu', { timeout: 5000 });
         await p.screenshot({ path: SHOTS + '/aot-phone-end.png' });
         const reachable = await p.evaluate(() => [...document.querySelectorAll('#aot-end button')].every(b => { const r = b.getBoundingClientRect(); return r.bottom <= innerHeight && r.right <= document.documentElement.clientWidth && r.height >= 40; }));
         expect(reachable, 'the end screen\'s buttons are on the screen and big enough to tap');
-        const end = await state(p, (g, A) => ({ over: g.s.over, winner: g.s.winner, t: A.seconds(g.s) }));
-        expect(end.over, 'a whole match plays through on a phone', presses + ' taps, ' + Math.round(end.t / 60) + ' game minutes, winner ' + end.winner);
+        const end = await state(p, g => ({ over: g.s.over, winner: g.s.winner, why: g.s.endWhy, me: g.me }));
+        expect(end.over && end.why === 'resign' && end.winner === 1 - end.me, 'a phone tap confirms surrender and shows the actual result');
         expect(await p.locator('#aot-menu').count() === 1, 'and the end screen fits something to tap');
         expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'and it still has not widened the page');
         await ctx.close();
