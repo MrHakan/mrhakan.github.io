@@ -1,5 +1,40 @@
 [
   {
+    "name": "🔎 Word Hunt 98",
+    "type": "game",
+    "date": "2026-11-10",
+    "url": "/games/word-hunt/",
+    "description": "Offline seeded daily word search with keyboard-accessible endpoint selection, hints and practice puzzles.",
+    "icon": "🔎",
+    "tags": [
+      "word-search",
+      "puzzle",
+      "daily",
+      "words",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "🧭 Great Circle Desk 98",
+    "type": "app",
+    "date": "2026-11-10",
+    "url": "/apps/great-circle-desk/",
+    "description": "Private spherical great-circle distance, initial true course and equal-distance waypoint calculator.",
+    "icon": "🧭",
+    "tags": [
+      "maritime",
+      "navigation",
+      "great-circle",
+      "distance",
+      "bearing",
+      "waypoints",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "Brawlz 98",
     "app": "brawlz",
     "type": "game",
