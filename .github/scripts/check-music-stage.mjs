@@ -120,9 +120,9 @@ test('every scene reacts to audio levels through its own artwork', () => {
         assert.notEqual(render(0), render(1), mode + ' should react to the music');
     }
 });
-test('all 23 songs have distinct, registered scenes and produce distinct artwork', () => {
+test('all 24 songs have distinct, registered scenes and produce distinct artwork', () => {
     const env = setup(), modes = new Set(), fingerprints = new Set();
-    assert.equal(tracks.length, 23);
+    assert.equal(tracks.length, 24);
     for (const song of tracks) {
         const profile = env.stage.profileFor(song);
         assert.ok(env.scenes.modes.includes(profile.mode));
@@ -140,7 +140,7 @@ test('all 23 songs have distinct, registered scenes and produce distinct artwork
         const art = JSON.stringify(env.drawingCommands.filter(cmd => cmd[0] !== 'fillText'));
         fingerprints.add(createHash('sha256').update(art).digest('hex'));
     }
-    assert.equal(modes.size, 23); assert.equal(fingerprints.size, 23);
+    assert.equal(modes.size, 24); assert.equal(fingerprints.size, 24);
 });
 test('slow devices draw in concert mode but rest behind the desktop', () => {
     const env = setup(); env.slow(true); env.mount(tracks[15]); env.play();

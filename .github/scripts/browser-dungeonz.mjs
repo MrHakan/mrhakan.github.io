@@ -428,13 +428,25 @@ try {
         const cast = await host.waitForFunction(() => DZ_ENGINE.state().s.heroes[1].skills[0].cd > 0, null, { timeout: 8000 }).then(() => true, () => false);
         expect(cast, 'and a guest\'s skill is cast on the host');
         await intoAFight(host, guest);
-        await host.waitForTimeout(2500);
-        const awakeH = await state(host, g => g.s.minions.filter(m => m.state === 1).map(m => m.id).sort().join());
-        const awakeG = await state(guest, g => g.s.minions.filter(m => m.state === 1).map(m => m.id).sort().join());
-        expect(awakeH.length > 0 && awakeH === awakeG, 'a guest sees the same minions awake as the host', awakeH.split(',').length + ' of them');
-        const hp = p => state(p, g => g.s.heroes.map(h => Math.round(h.hp)));
-        const [ha, ga] = [await hp(host), await hp(guest)];
-        expect(ha.every((v, i) => Math.abs(v - ga[i]) <= 25), 'and roughly the same health on everybody', JSON.stringify([ha, ga]));
+        // Compare one authoritative checkpoint, not two moving battle frames.
+        // Pausing physics keeps the normal snapshot transport running.
+        const checkpoint = await (await host.waitForFunction(() => {
+            const g = DZ_ENGINE.state(), awake = g.s.minions.filter(m => m.state === 1).map(m => m.id).sort().join();
+            if (!awake) return false;
+            g.paused = true; g.snapAcc = 1;
+            return { tick: g.s.tick, awake };
+        }, null, { timeout: 10000 })).jsonValue();
+        let synced;
+        try {
+            synced = await guest.waitForFunction(({ tick, awake }) => {
+                const g = DZ_ENGINE.state();
+                return g.snapTick === tick && g.s.minions.filter(m => m.state === 1).map(m => m.id).sort().join() === awake;
+            }, checkpoint, { timeout: 8000 }).then(() => true, () => false);
+            expect(synced, 'a guest sees the same minions awake as the host at the same tick', checkpoint.awake.split(',').length + ' at tick ' + checkpoint.tick);
+            const hp = p => state(p, g => g.s.heroes.map(h => Math.round(h.hp)));
+            const [ha, ga] = [await hp(host), await hp(guest)];
+            expect(ha.every((v, i) => Math.abs(v - ga[i]) <= 25), 'and roughly the same health on everybody', JSON.stringify([ha, ga]));
+        } finally { await host.evaluate(() => { DZ_ENGINE.state().paused = false; }); }
         await host.screenshot({ path: SHOTS + '/dz-duo-host.png' });
         await guest.screenshot({ path: SHOTS + '/dz-duo-guest.png' });
 

@@ -605,6 +605,63 @@
             text('LAST CALL', 1204, 595, 16, rgba(b, 0.5 + bass * 0.15), 'Georgia', 'center');
             text('TONIGHT / ONE MORE SONG', 1030, 782, 18, rgba(b, 0.55), 'Georgia', 'center');
         },
+        ultrachurch() {
+            gradient(0, 0, 1440, 900, '#24202b', '#0d111b');
+            // A pipe-organ cathedral built into a floating industrial arena.
+            glow(1050, 330, 360 + bass * 45, a, .16 + bass * .13);
+            for (let i = 0; i < 5; i++) {
+                const x = 570 + i * 205;
+                path([[x - 65, 690], [x - 65, 155], [x, 60], [x + 65, 155], [x + 65, 690]], '#2d2b35', '#54515c', 3);
+                path([[x - 42, 630], [x - 42, 174], [x, 108], [x + 42, 174], [x + 42, 630]], '#101522');
+                line([[x - 92, 692], [x - 92, 274], [x - 65, 190]], '#3d3945', 9);
+            }
+            // The rose window turns slowly; the light, not the whole scene, swells.
+            transformed(1040, 280, t * .035, 1, () => {
+                for (let i = 0; i < 12; i++) {
+                    const angle = i * TAU / 12, next = angle + TAU / 12;
+                    path([[0, 0], [Math.cos(angle) * 146, Math.sin(angle) * 146],
+                        [Math.cos(next) * 146, Math.sin(next) * 146]], rgba(i % 3 ? a : c, .18 + bass * .16), '#84705c', 3);
+                }
+                ellipse(0, 0, 150, 150, null, b, 7); ellipse(0, 0, 115, 115, null, '#61534e', 3);
+                ellipse(0, 0, 36, 36, '#171923', b, 4);
+                star(0, 0, 24 + bass * 4, c, -t * .035, 4);
+            });
+            // Rank upon rank of organ pipes: alternating mouths open with treble.
+            for (let side = 0; side < 2; side++) for (let i = 0; i < 9; i++) {
+                const x = (side ? 1200 : 620) + i * 19, y = 210 + Math.abs(i - 4) * 32;
+                gradient(x, y, 14, 610 - y, '#68626c', '#343442', true);
+                rect(x + 3, y + 8, 8, 610 - y - 16, '#9a8d813b');
+                rect(x + 2, y + 39, 10, 5 + air * 8, rgba(b, .3 + air * .4));
+                ellipse(x + 7, y, 7, 3, '#181b25', '#80756d');
+            }
+            path([[845, 435], [1040, 388], [1240, 435], [1170, 662], [905, 662]], '#1d202b', '#746253', 3);
+            for (let i = 0; i < 3; i++) {
+                const y = 493 + i * 31;
+                path([[928, y], [1149, y], [1160, y + 23], [917, y + 23]], '#b8b5ae');
+                for (let key = 0; key < 18; key++) {
+                    const x = 928 + key * 12;
+                    line([[x, y], [x - 9, y + 21]], '#34333b', 1);
+                    if (![2, 6].includes(key % 7)) rect(x + 4, y, 6, 13, '#171a24');
+                }
+            }
+            for (let i = 0; i < 6; i++) {
+                const x = 874 + i * 63, lit = .18 + bass * (.15 + noise(i) * .4);
+                rect(x, 447, 14, 8, rgba(a, lit));
+            }
+            // Three suspended slabs and their reflections on the wire floor.
+            perspective('#9fbad0', 680);
+            for (let i = 0; i < 3; i++) {
+                const x = 740 + i * 260, y = 714 + (i % 2) * 45;
+                path([[x - 90, y], [x + 70, y - 23], [x + 120, y + 13], [x - 40, y + 40]], '#3b3844', '#7a6e69', 2);
+                path([[x - 40, y + 40], [x + 120, y + 13], [x + 120, y + 32], [x - 40, y + 59]], '#181c29');
+                line([[x - 85, y + 4], [x + 68, y - 18]], rgba(a, .4 + bass * .4), 4);
+            }
+            for (let i = 0; i < 24; i++) {
+                const x = 610 + noise(i + 10) * 800, y = 780 - (noise(i) * 720 + t * (14 + air * 13)) % 720;
+                rect(x, y, 2, 5 + air * 6, rgba(i % 3 ? b : a, .28 + air * .2));
+            }
+            text('ULTRACHURCH', 1040, 865, 21, rgba(b, .5), 'Georgia', 'center');
+        },
         lanewar() {
             gradient(0, 0, 1440, 660, '#25150f', '#8a4a1f');
             glow(1000, 470, 300 + bass * 90, a, 0.5 + bass * 0.25);

@@ -893,7 +893,7 @@
         "bg": "A dusk battlefield seen from the side: a dial-up desk on the left, a server tower on the right, two lines of trolls marching into each other in the middle.",
         "stage": {
             "label": "AGE OF TROLL / THE LANE AT DUSK",
-            "speed": 1,
+            "speed": 1.0,
             "font": "Georgia, Times New Roman, serif",
             "mode": "lanewar",
             "description": "Two bases. One lane. Nobody remembers who started it."
@@ -934,6 +934,35 @@
             "your desktop is staring at an old photograph again",
             "the neon is on, the glass is half full, the save file can wait",
             "confidence: legendary. emotional damage: also legendary."
+        ]
+    },
+    {
+        "id": 24,
+        "filename": "KEYGEN CHURCH - UltraChurch (ULTRAKILL - CYBER GRIND Soundtrack).mp3",
+        "title": "UltraChurch",
+        "artist": "KEYGEN CHURCH",
+        "theme": {
+            "primaryColor": "#c44338",
+            "accentColor": "#d7b578",
+            "backgroundColor": "#100f18",
+            "fontStyle": "Georgia, Times New Roman, serif"
+        },
+        "effect": "cyber_cathedral",
+        "bg": "A mechanical cathedral suspended over the Cyber Grind: brass organ pipes, a rotating stained-glass rose window, red-lit stone platforms and a steel-blue wire floor.",
+        "stage": {
+            "label": "ULTRACHURCH / CYBER GRIND",
+            "mode": "ultrachurch",
+            "speed": 0.85,
+            "font": "Georgia, Times New Roman, serif",
+            "description": "Pipe organ thunder. Stained glass and steel. A cathedral above the grind."
+        },
+        "memes": [
+            "the cathedral has installed a sound card and immediately voided the warranty",
+            "the organist has discovered the graphics settings",
+            "your desktop now has a boss phase",
+            "the pipe organ is doing more damage than your entire inventory",
+            "the sermon has been replaced by a benchmark",
+            "one more wave before closing the browser"
         ]
     }
 ]

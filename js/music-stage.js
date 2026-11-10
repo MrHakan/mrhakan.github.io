@@ -26,7 +26,8 @@
         eastern_mist: ['eastern', 'ENTER THE EAST / VILLAGE 01', '#58c6ae', '#ffb6c5', '#ead7a0'],
         retro_tv_stage: ['retro', 'LIVE FROM STUDIO 1976', '#ffb85c', '#81d6c7', '#fff0bd'],
         lane_war: ['lanewar', 'THE LANE AT DUSK', '#e0a23c', '#8fd14f', '#ffe9b0'],
-        midnight_karaoke: ['karaoke', 'KAMUROCHO / LAST CALL', '#d34e78', '#f2c879', '#77c7db']
+        midnight_karaoke: ['karaoke', 'KAMUROCHO / LAST CALL', '#d34e78', '#f2c879', '#77c7db'],
+        cyber_cathedral: ['ultrachurch', 'ULTRACHURCH / CYBER GRIND', '#c44338', '#d7b578', '#9fbad0']
     };
     const modes = new Set(Object.values(presets).map(p => p[0]));
     let canvas, ctx, container, track, profile, raf = 0;
@@ -80,7 +81,7 @@
         if (!concert || !playing || !motionOn() || document.hidden || !window.Motion) return;
         const { animate, stagger } = window.Motion;
         const words = hud.querySelectorAll('.music-stage-word');
-        const punchy = ['phantom', 'comic', 'metal', 'hypercam', 'circuit'].includes(profile.mode);
+        const punchy = ['phantom', 'comic', 'metal', 'hypercam', 'circuit', 'ultrachurch'].includes(profile.mode);
         // A finite, overlapping timeline: curtain → label → artist → words.
         // Motion controls are cancelled on replacement, pause and reduced motion.
         reveals.push(animate([
@@ -213,7 +214,7 @@
         title.replaceChildren(...words);
         hud.querySelector('.music-stage-label').textContent = profile.label;
         hud.querySelector('.music-stage-description').textContent = profile.description;
-        hud.querySelector('.music-stage-number').textContent = `SET ${String(song.id).padStart(2, '0')} / 23`;
+        hud.querySelector('.music-stage-number').textContent = `SET ${String(song.id).padStart(2, '0')} / 24`;
         hud.dataset.scene = profile.mode;
         container.dataset.scene = profile.mode;
         resize(); sync(); reveal();
@@ -252,7 +253,7 @@
         const control = document.getElementById('winamp-setlist');
         if (control) {
             control.setAttribute('aria-expanded', String(next));
-            control.textContent = next ? 'close setlist ↓' : 'setlist / 23 tracks ↑';
+            control.textContent = next ? 'close setlist ↓' : 'setlist / 24 tracks ↑';
         }
     }
     function init() {
