@@ -875,10 +875,24 @@ try {
     async function hostLobby(p) {
         await lobbyOf(p);
         await p.click('#np-host');
-        await p.waitForSelector('.np-code', { timeout: 20000 });
-        // the code shows as soon as one road is open, and the direct one takes a moment longer
-        await p.waitForTimeout(1200);
-        return (await p.textContent('.np-code')).trim();
+        // The lobby and its lazily loaded avatar renderer settle independently.
+        // Capture the code in the same page evaluation that validates readiness,
+        // rather than sleeping and looking up a potentially replaced DOM node.
+        try {
+            return await (await p.waitForFunction(() => {
+                const np = window.Netplay, s = np && np.current, body = np && np.lobbyWin && np.lobbyWin.body;
+                const code = body && body.querySelector('.np-code');
+                return s && s.alive && s.state === 'lobby' && body && body.isConnected && np.games.wizardz &&
+                    code && code.textContent.trim() === s.code ? s.code : false;
+            }, null, { timeout: 20000 })).jsonValue();
+        } catch (error) {
+            const info = await p.evaluate(() => ({
+                url: location.href,
+                session: window.Netplay && Netplay.current && { code: Netplay.current.code, state: Netplay.current.state, alive: Netplay.current.alive },
+                lobby: window.Netplay && Netplay.lobbyWin && Netplay.lobbyWin.body.innerText
+            }));
+            throw new Error('Wizardz lobby did not become ready: ' + JSON.stringify(info), { cause: error });
+        }
     }
     async function joinLobby(p, code) {
         await lobbyOf(p);
