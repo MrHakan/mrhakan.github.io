@@ -10,6 +10,7 @@
 // browser-netplay.mjs, and the public relays are server/nostr-test-relay.mjs.
 //
 //   SITE_URL=http://localhost:8104 node .github/scripts/browser-wizardz.mjs
+//   WZ_ONLY_MAPS=1 runs the same map checks without the rest of the suite.
 // ===================================================================
 import { chromium, devices } from 'playwright';
 import { spawn } from 'child_process';
@@ -129,6 +130,61 @@ async function open(ctx, url) {
 const state = (p, fn, arg) => p.evaluate(`(${fn})(WZ_ENGINE.state(), ${JSON.stringify(arg === undefined ? null : arg)})`);
 const tick = p => state(p, g => g.s.tick);
 
+async function checkEveryMap() {
+    section('every map');
+    const ctx = await context({ viewport: { width: 1280, height: 860 } });
+    const p = await open(ctx);
+    await p.evaluate(() => openWizardz());
+    await p.waitForSelector('#wz-mappick', { timeout: 30000 });
+    const maps = await p.evaluate(() => WZ.MAPS.map(m => m.id));
+    expect(maps.length >= 4, 'the menu has maps to pick from', maps.join(', '));
+    for (const map of maps) {
+        await p.evaluate(() => startWizardz());
+        await p.waitForSelector('#wz-mappick', { timeout: 5000 });
+        await p.selectOption('#wz-modepick', '2');
+        await p.selectOption('#wz-mappick', map);
+        expect((await p.textContent('#wz-mapnote')).length > 20, map + ': the menu says what it is like');
+        await p.click('#wz-quick');
+        await p.waitForSelector('#wz-canvas', { timeout: 10000 });
+        await live(p);
+        const start = await state(p, g => ({ map: g.map, seats: g.wiz.length, at: g.wiz.map(w => [w.x, w.z]), st: g.R.stats(), mode: g.mode }));
+        expect(start.map === map && start.seats === 4 && start.mode === 2, map + ': the menu got you the map and the size you asked for', JSON.stringify({ map: start.map, seats: start.seats }));
+        expect(start.st.triangles > 800 && start.st.triangles < 16000, map + ': it draws', start.st.triangles + ' triangles');
+        await p.evaluate(() => { WZ_ENGINE.state().speed = 4; });
+        await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g.s.t > 9 && (g.ents.length > 0 || g.wiz.some(w => w.hp < 100) || g.s.t > 25); }, null, { timeout: 30000 });
+        await p.evaluate(() => { WZ_ENGINE.state().speed = 1; });
+        const later = await state(p, g => ({ at: g.wiz.map(w => [w.x, w.z]), t: g.s.t }));
+        const moved = later.at.filter((q, i) => i !== 0 && Math.hypot(q[0] - start.at[i][0], q[1] - start.at[i][1]) > 2).length;
+        expect(moved >= 2, map + ': the bots get moving', moved + ' of 3 moved in ' + Math.round(later.t) + 's');
+
+        // A hostile stun correctly cancels drawing. After proving the bots act,
+        // exercise real input in a fresh round without random attacks in flight.
+        await p.evaluate(map => {
+            startWizardz('solo', 'cinder', { mode: 2, map, seed: 711 });
+            WZ_ENGINE.state().brains = {};
+        }, map);
+        await live(p);
+        await takeMouse(p);
+        const before = await state(p, g => ({ x: g.wiz[g.me].x, z: g.wiz[g.me].z }));
+        await p.keyboard.down('w');
+        const walked = await p.waitForFunction(before => {
+            const g = WZ_ENGINE.state(), me = g.wiz[g.me];
+            return Math.hypot(me.x - before.x, me.z - before.z) > 0.2;
+        }, before, { timeout: 8000 }).then(() => true, () => false);
+        await p.keyboard.up('w');
+        expect(walked, map + ': real movement input changes the player position');
+        await inkDraw(p, TRIANGLE);
+        const drawn = await p.waitForFunction(() => {
+            const g = WZ_ENGINE.state();
+            return g.wiz[g.me].chamber?.s === 'fireball' && g.lastRead?.ok && g.lastRead.id === 'fireball';
+        }, null, { timeout: 5000 }).then(() => true, () => false);
+        const detail = await state(p, g => ({ chamber: g.wiz[g.me].chamber?.s, dead: g.wiz[g.me].dead, read: g.lastRead && { id: g.lastRead.id, ok: g.lastRead.ok, why: g.lastRead.why }, hint: g.hint?.text }));
+        expect(drawn, map + ': the real drawing loads a fireball', JSON.stringify(detail));
+        await p.screenshot({ path: SHOTS + '/wz-map-' + map + '.png' });
+    }
+    await p.close(); await ctx.close();
+}
+
 // a person who knows what the buttons do, at whatever speed the clock is on. The
 // aiming is written in, and the drawing goes through the real reading of the ink.
 const PLAY = `(function () {
@@ -168,6 +224,9 @@ const PLAY = `(function () {
 })()`;
 
 try {
+    if (process.env.WZ_ONLY_MAPS) {
+        await checkEveryMap();
+    } else {
     // ===================================================================
     section('one wizard, against a bot, with a real mouse');
     // ===================================================================
@@ -758,45 +817,7 @@ try {
         await ctx.close();
     }
 
-    // ===================================================================
-    section('every map');
-    // ===================================================================
-    {
-        const ctx = await context({ viewport: { width: 1280, height: 860 } });
-        const p = await open(ctx);
-        await p.evaluate(() => openWizardz());
-        await p.waitForSelector('#wz-mappick', { timeout: 30000 });
-        const maps = await p.evaluate(() => WZ.MAPS.map(m => m.id));
-        expect(maps.length >= 4, 'the menu has maps to pick from', maps.join(', '));
-        for (const map of maps) {
-            await p.evaluate(() => startWizardz());
-            await p.waitForSelector('#wz-mappick', { timeout: 5000 });
-            await p.selectOption('#wz-modepick', '2');
-            await p.selectOption('#wz-mappick', map);
-            expect((await p.textContent('#wz-mapnote')).length > 20, map + ': the menu says what it is like');
-            await p.click('#wz-quick');
-            await p.waitForSelector('#wz-canvas', { timeout: 10000 });
-            await live(p);
-            const start = await state(p, g => ({ map: g.map, s: g.s.map, seats: g.wiz.length, at: g.wiz.map(w => [w.x, w.z]), st: g.R.stats(), mode: g.mode }));
-            expect(start.map === map && start.seats === 4 && start.mode === 2, map + ': the menu got you the map and the size you asked for', JSON.stringify({ map: start.map, seats: start.seats }));
-            expect(start.st.triangles > 800 && start.st.triangles < 16000, map + ': it draws', start.st.triangles + ' triangles');
-            await p.evaluate(() => { WZ_ENGINE.state().speed = 4; });
-            await p.waitForFunction(() => { const g = WZ_ENGINE.state(); return g.s.t > 9 && (g.ents.length > 0 || g.wiz.some(w => w.hp < 100) || g.s.t > 25); }, null, { timeout: 30000 });
-            await p.evaluate(() => { WZ_ENGINE.state().speed = 1; });
-            const later = await state(p, g => ({ at: g.wiz.map(w => [w.x, w.z]), t: g.s.t, hurt: g.wiz.filter(w => w.hp < 100).length }));
-            const moved = later.at.filter((q, i) => i !== 0 && Math.hypot(q[0] - start.at[i][0], q[1] - start.at[i][1]) > 2).length;
-            expect(moved >= 2, map + ': the bots get moving', moved + ' of 3 moved in ' + Math.round(later.t) + 's');
-            await takeMouse(p);
-            await p.keyboard.down('w');
-            await p.waitForTimeout(300);
-            await p.keyboard.up('w');
-            await inkDraw(p, TRIANGLE);
-            expect(await state(p, g => { const c = g.wiz[g.me].chamber; return !!(c && c.s === 'fireball') || g.wiz[g.me].dead; }), map + ': and you can walk about and draw');
-            await p.screenshot({ path: SHOTS + '/wz-map-' + map + '.png' });
-        }
-        await p.close();
-        await ctx.close();
-    }
+    await checkEveryMap();
 
     // ===================================================================
     section('4 v 4 against bots, to the end');
@@ -1558,6 +1579,7 @@ try {
         await ctx.close();
     }
 
+    }
     section('page errors');
     expect(!errors.length, 'nothing threw the whole way through', [...new Set(errors)].slice(0, 6).join('\n        '));
 } catch (e) {
