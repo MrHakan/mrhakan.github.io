@@ -113,5 +113,40 @@
     "generationOutput": "exec-6e160aea-3bf7-4fb8-b3d1-5bb24ecc20fb.png",
     "initialPrompt": "Create a CUTOUT / SKELETAL ANIMATION PARTS ATLAS of JOE COOL from the reference. This is NOT an animation-frame sheet and NOT assembled characters. Disassemble this exact yellow emoji-headed biker character into TWELVE SEPARATE COMPLETE BODY PARTS for a 2D paper-doll rig. TRANSPARENT background. Exactly 4 equal columns by 3 equal rows, one isolated part centered in each cell. No text, labels, grid, assembled figures, extra hands, shadows or effects. Keep the reference character's recognizable face, black sunglasses, gold chain, black leather jacket, black trousers, brown boots. Clean hand-painted cartoon cutout game art, crisp dark outlines, subtle cel shading, same visual identity. Every arm and leg segment is a complete solid cutout with rounded overlapping joint caps: draw the areas that were hidden behind joints so rotations never leave holes. Each individual limb segment STRAIGHT, pointing DOWN in its neutral position. Hands empty, no other parts attached. Row1 left to right: (1) HEAD ONLY with face hair sunglasses, no torso hands or shoulders; (2) TORSO ONLY black jacket/shirt/gold chain complete shoulder-to-waist, no head arms hips or legs; (3) PELVIS ONLY belt/waist/trouser-hips, no legs or torso; (4) isolated gold CHAIN weapon laid horizontally, grip at LEFT and striking end at RIGHT. Row2: (5) FRONT upper arm only jacket sleeve from rounded shoulder cap to elbow; (6) FRONT forearm from elbow downward ending in complete clenched empty gloved fist, no upper arm; (7) BACK upper arm only shoulder-to-elbow sleeve; (8) BACK forearm plus empty fist only. Row3: (9) FRONT thigh only hip-to-knee in dark trousers; (10) FRONT shin plus boot only, knee at TOP, ankle/boot at BOTTOM, toe points RIGHT; (11) BACK thigh only hip-to-knee; (12) BACK shin plus boot only knee at TOP and boot at BOTTOM toe RIGHT. Proportions are varied by part: heads round, torso compact, limb segments short sturdy and capsule-like, not entire long arms or legs. Generous transparent space around EVERY part; parts never touch adjacent cells. Again 12 separate cutout parts, 4 columns x3 rows, no repeated full fighters.",
     "revision": "Expanded the 12-piece Joe Cool kit to 4x4 sixteen pieces. Separate hands from forearms and boots from shins. Row1 head/torso/pelvis/chain. Row2 front upper arm/front forearm/back upper arm/back forearm. Row3 front thigh/front shin/back thigh/back shin. Row4 front fist/back fist/front boot/back boot. Complete overlapping joint caps, limbs straight down, feet toe-right, transparent background."
-  }
+  },
+  "repairs": [
+    {
+      "source": "cutout-bebetrol.png",
+      "runtime": "rig-bebetrol.png",
+      "generationOutput": "exec-6f105bbc-b283-40d2-8a81-c9c6c3791f56.png",
+      "sourceRows": [
+        0,
+        0.3,
+        0.53,
+        0.8,
+        1
+      ],
+      "prompt": "Edit the exact 4x4 sixteen-part cutout atlas. Preserve the trollface with huge toothy grin and propeller cap. Give the tiny mischievous troll baby short chubby toddler arms and legs, small pudgy fists and feet, without adult muscles, biceps, veins, six-pack or long legs. Row1: head / teal bib torso without any diaper rim / one complete white diaper pelvis / red mallet horizontal, handle left. Row2: front upper arm / front forearm without hand / back upper arm / back forearm without hand. Row3: front thigh / front shin without foot / back thigh / back shin without foot. Row4: front fist / back fist / front foot toe right / back foot toe right. Use overlapping rounded joint caps, straight downward segments, isolated parts with margins, matching cel shading and outlines, transparent background, no assembled characters, labels, grid or shadows."
+    },
+    {
+      "source": "weapon-patron.png",
+      "reference": "cutout-patron.png",
+      "runtime": "rig-patron.png",
+      "part": 3,
+      "generationOutput": "exec-aa0545f5-156a-49d5-b082-4e9e8bdf4582.png",
+      "prompt": "Create one isolated brown leather business briefcase based on the reference prop. Wide horizontal landscape rectangle with its single carry handle at the top center, not on its side. Width about 1.5 times the bag height. Subtle three-quarter perspective, dark brown leather, gold buckle and corner hardware, clean bold dark outline and cel shading matching the character. Complete handle with visible hole for a fist to hold. Centered on a genuine transparent background with generous margins, no character, grid, text, floor or shadow."
+    },
+    {
+      "source": "cutout-bebetrol.png",
+      "generationOutput": "exec-50f11de1-c3dc-4661-9eee-58c4a1a20e78.png",
+      "sourceRows": [
+        0,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "prompt": "Repair the baby troll cutout atlas: equal 4x4 square grid; preserve trollface, propeller cap, teal bib, white diaper and red mallet. Simple smooth tapered short toddler limbs, no balloon bulges, muscles, hollow sockets or dark cross-section lines. Filled rounded ends for overlap; simple matte two-tone shading. Teal short sleeves and toddler shoes cover shoulder/ankle joins. Separate hands and feet. Transparent background; no assembled figure, labels or grid."
+    }
+  ]
 }

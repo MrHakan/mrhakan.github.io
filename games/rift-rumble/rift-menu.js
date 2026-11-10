@@ -8,7 +8,7 @@
             <section class="rr-intro" aria-label="Selected fighter">
                 <div class="rr-game-logo">BRAWLZ<span>98</span></div>
                 <p class="rr-tagline">The desktop has a troll problem.</p>
-                <div class="rr-selected-name"><img src="src/emoj/${f.reference}" alt="${f.name} emoji inspiration"><div><span>Your fighter</span><h1>${f.name}</h1></div></div>
+                <div class="rr-selected-name"><canvas width="80" height="80" aria-label="${f.name} face"></canvas><div><span>Your fighter</span><h1>${f.name}</h1></div></div>
                 <p class="rr-fighter-kind">${f.kind}</p><p class="rr-fighter-tip">${f.tip}</p>
                 <div class="rr-stats">${stat('Speed', Math.round(f.speed / 6 * 100))}${stat('Weight', Math.round(f.weight / 1.4 * 100))}${stat('Reach', Math.round(f.reach / 85 * 100))}</div>
                 <div class="rr-special-name"><span>Special move</span><b>${f.special}</b></div>

@@ -48,22 +48,38 @@ attachments follow 17 hierarchical transforms including the invisible root.
 Every limb keeps its length. Two-bone IK places the ankles without stretching.
 Feet have independent rotation, keeping the sole level during ground contact.
 
-The 112-world-unit gait follows host-owned travel. A foot's stance occupies 42%
+Each fighter has calibrated arm, leg, torso, hand and head sizes, hand targets
+and standing posture. Bebetrol has short toddler limbs and one diaper pelvis;
+Patron's separate `weapon-patron.png` has its carry handle at the top. The
+revised Bebetrol kit uses equal rows, smooth limb contours and teal shoes.
+
+Resting hands use two-bone IK. Joe rests a hand on his hip, Dusung thinks with a
+hand at his chin, Hothead guards nervously, Bebetrol carries a prank mallet,
+Zirlak wipes a tear, Hehe holds his knife low, Nasiya shrugs, Patron stands
+straight with his case, Sahur hugs a pillow, Oleey touches his headphones,
+Yeter carries his hammer low and Pffft folds his arms. These targets blend into
+the combat and running arm rotations, rather than snapping between poses.
+
+Each character's gait (76–116 world units) follows host-owned travel. A foot's
+stance occupies 42%
 of the cycle and moves backward relative to the body at exactly the world
 movement speed. Swing targets follow a continuous lifted arc. Brief flight
 intervals separate alternating contacts. Torso lean, counter-swinging arms and
 small hip motion complete the run; heavier fighters use smaller arm swings.
-Patron holds his briefcase higher while running.
+The pelvis yields enough to reach the planted ankle targets with rigid legs.
 
 Attack anticipation, contact and recovery use each move's actual simulation
 windows. The hand aims sideways, upward or downward; the weapon remains attached
 to the wrist. Rotation blending takes the shortest path. Action transitions use
 short eased blends, bounded by the remaining startup time for responsive attacks.
-The head counter-rotates slightly to keep the face readable.
+The head counter-rotates slightly to keep the face readable. Anticipation keeps
+the held prop near the chest and waist instead of crossing the face.
 
 `rift-art.js` handles slot order. The far upper arm stays behind the body, while
 its forearm and hand draw over the torso when they move across the chest. The
-weapon can pass behind the head during preparation and in front during contact.
+weapon uses a calibrated grip pivot and draws below the holding fingers. Large
+weapons stay visible beside the body. Face gestures draw over the head, while
+Sahur's pillow sits over the torso and below his arms.
 Head and clothing use the same rigid textures throughout every pose.
 
 Animation uses the simulation clock, freezes on pause and disables idle breathing
@@ -75,6 +91,7 @@ displays do not repeat only the latest 60 Hz position.
 `check-rift-animation.mjs` covers fixed bone lengths, world-space foot plants,
 continuous swing boundaries, bounded IK, 30/60/144 Hz agreement, pause, pose
 transitions, aiming and contact timing.
+It also checks all twelve hand targets, child proportions and individual gaits.
 `browser-rift-animation.mjs` checks actual decoded parts, continuous rendered
 samples, clipping and floor penetration, and records a motion review with a
 bone-overlay option. `browser-rift-rumble.mjs` exercises the real desktop app,

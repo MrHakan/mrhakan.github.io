@@ -16,7 +16,7 @@ for(let i=0;i<12;i++){const p={x:review.tick*5,travel:review.tick*5,vx:action===
 if(['light','heavy','special','up','down'].includes(action)){const kind=action==='up'||action==='down'?'heavy':action,s=kind==='special'&&RIFT.FIGHTERS[i].specialMelee||RIFT.ATTACKS[kind];p.attack={kind,dir:action==='up'||action==='down'?action:'side',age:review.tick%s.duration};}
 if(action==='jump')p.vy=Math.sin(review.tick/60*4)*12;const a=RIFT_ANIM.update(tracks[i],p,review.tick,{paused:review.paused});const bx=i%4*320,by=Math.floor(i/4)*300;
 c.fillStyle='#203e56';c.fillRect(bx+8,by+8,304,284);c.strokeStyle='#78b5b2';c.beginPath();c.moveTo(bx+30,by+246);c.lineTo(bx+290,by+246);c.stroke();
-RIFT_ART.paint(c,bx+160,by+246,i,{scale:2.5,animation:a,debug:review.debug});c.fillStyle='#f1dfab';c.textAlign='center';c.font='bold 17px Tahoma';c.fillText(RIFT.FIGHTERS[i].name,bx+160,by+35);c.fillStyle='#9db9c6';c.font='12px Tahoma';c.fillText(a.action+' / '+(typeof a.phase==='number'?a.phase.toFixed(2):a.phase),bx+160,by+274);}}
+RIFT_ART.paint(c,bx+160,by+246,i,{scale:2.5,animation:a,debug:review.debug,facing:review.facing||1});c.fillStyle='#f1dfab';c.textAlign='center';c.font='bold 17px Tahoma';c.fillText(RIFT.FIGHTERS[i].name,bx+160,by+35);c.fillStyle='#9db9c6';c.font='12px Tahoma';c.fillText(a.action+' / '+(typeof a.phase==='number'?a.phase.toFixed(2):a.phase),bx+160,by+274);}}
 requestAnimationFrame(loop);</script></html>`;
 const server = http.createServer((req, res) => {
     const name = new URL(req.url, 'http://x').pathname;
@@ -32,6 +32,12 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('http://127.0.0.1:' + server.address().port + '/review');
     await page.waitForFunction(() => RIFT_ART.ready(), null, { timeout: 60000 });
+    await page.selectOption('#action', 'idle'); await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(SHOTS, 'brawlz-idle-review.png') });
+    await page.evaluate(() => review.facing = -1); await page.waitForTimeout(100);
+    await page.screenshot({ path: path.join(SHOTS, 'brawlz-idle-mirrored.png') });
+    await page.evaluate(() => review.facing = 1);
+    await page.selectOption('#action', 'run'); await page.waitForTimeout(250);
     const result = await page.evaluate(() => {
         const metrics = RIFT_ART.metrics(), cv = document.createElement('canvas'); cv.width = 240; cv.height = 200;
         const c = cv.getContext('2d', { willReadFrequently: true }), reports = [];
@@ -39,7 +45,7 @@ try {
         for (let character = 0; character < 12; character++) {
             const run = new Set(), clipped = [], belowFloor = [];
             for (let sample = 0; sample < 60; sample++) {
-                const p = { character, grounded: true, vx: 5, vy: 0, travel: sample / 60 * RIFT_ANIM.STRIDE };
+                const p = { character, grounded: true, vx: 5, vy: 0, travel: sample / 60 * RIFT_ANIM.profile(character).stride };
                 if (sample >= 30) { p.vx = 0; p.attack = { kind: 'heavy', dir: 'side', age: (sample - 30) / 30 * 47 }; }
                 const state = RIFT_ANIM.sample(p, sample), animation = { pose: state.pose, bones: RIFT_ANIM.solve(state.pose) };
                 c.clearRect(0, 0, 240, 200); RIFT_ART.paint(c, 120, 160, character, { scale: 1, animation });
@@ -60,13 +66,24 @@ try {
             RIFT_ART.paint(c, 120, 160, 0, { scale: 1, animation: { pose, bones: RIFT_ANIM.solve(pose) } });
             c.drawImage = original; return order;
         });
-        return { metrics, reports, orders };
+        const idleOrders = Array.from({ length: 12 }, (_, character) => {
+            const pose = RIFT_ANIM.sample({ character, grounded: true }, 0, true).pose, order = [], original = c.drawImage;
+            c.drawImage = function (image, sx, sy, ...args) { order.push(Math.floor(sy / 128) * 4 + Math.floor(sx / 128)); return original.call(this, image, sx, sy, ...args); };
+            RIFT_ART.paint(c, 120, 160, character, { scale: 1, animation: { pose, bones: RIFT_ANIM.solve(pose) } });
+            c.drawImage = original; return order;
+        });
+        return { metrics, reports, orders, idleOrders };
     });
     fs.writeFileSync(path.join(SHOTS, 'brawlz-animation-report.json'), JSON.stringify(result, null, 2));
     assert.ok(result.orders[0].indexOf(6) < result.orders[0].indexOf(1), 'far upper arm stays behind the jacket');
     for (const part of [7, 13]) {
         assert.ok(result.orders[0].indexOf(part) > result.orders[0].indexOf(1), 'forward-swinging forearm/hand draws across the chest');
         assert.ok(result.orders[1].indexOf(part) < result.orders[1].indexOf(1), 'backward-swinging forearm/hand moves behind the torso');
+    }
+    for (const character of [1, 4, 9]) for (const part of [7, 13]) assert.ok(result.idleOrders[character].indexOf(part) > result.idleOrders[character].indexOf(0), 'face gestures stay over the head');
+    for (const character of [0, 1, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        const order = result.idleOrders[character];
+        assert.ok(order.indexOf(3) > order.indexOf(1) && order.indexOf(3) < order.indexOf(12), 'the prop is visible above the torso and below the gripping hand');
     }
     for (const [i, r] of result.reports.entries()) {
         assert.equal(result.metrics[i].parts, 16, r.name + ': sixteen separate attachments');
@@ -84,7 +101,7 @@ try {
             window.recorded = []; window.recorder = new MediaRecorder(document.querySelector('#stage').captureStream(60), { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 2200000 });
             recorder.ondataavailable = e => recorded.push(e.data); recorder.start();
         });
-        for (const action of ['run', 'heavy', 'up', 'jump']) { await page.selectOption('#action', action); await page.waitForTimeout(1700); }
+        for (const action of ['idle', 'run', 'heavy', 'up', 'jump']) { await page.selectOption('#action', action); await page.waitForTimeout(1700); }
         const base64 = await page.evaluate(() => new Promise(resolve => {
             recorder.onstop = () => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(new Blob(recorded, { type: recorder.mimeType })); }; recorder.stop();
         }));

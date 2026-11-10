@@ -11,11 +11,32 @@
     let arena = D.ARENAS.some(a => a.id === pref.arena) ? pref.arena : 'sky', muted = pref.muted !== false;
     let app, ui, canvas, renderer, winRef, frameId, timer, match = null, session = null, offs = [], screen = 'menu', overlay = null, pendingStart = 0;
     let menuState, soundContext, lobbyBusy = false, connectionToken = 0, lobbyTimer = 0, gamepadPrevious = {};
-    let lastPadAt = 0;
+    let lastPadAt = 0, musicOn = pref.music !== false, musicRelease = null, musicTimer = 0, lastSong = '';
     const keys = new Set(), pad = new Set();
     let local = S.input();
     const coarse = () => matchMedia('(pointer: coarse)').matches;
-    const save = () => write(PREF, { character: selected, mode, arena, muted });
+    const save = () => write(PREF, { character: selected, mode, arena, muted, music: musicOn });
+    function stopMatchMusic() {
+        clearTimeout(musicTimer); musicTimer = 0;
+        if (musicRelease) musicRelease(); musicRelease = null;
+    }
+    function startMatchMusic() {
+        stopMatchMusic();
+        if (!musicOn || !match || typeof holdTrack !== 'function') return;
+        const owner = match;
+        function choose() {
+            if (match !== owner || !musicOn) return;
+            const songs = typeof tracks === 'undefined' ? [] : tracks.filter(t => typeof t.filename === 'string' && t.filename);
+            if (!songs.length) { musicTimer = setTimeout(choose, 150); return; }
+            const fresh = songs.filter(t => t.filename !== lastSong), pool = fresh.length ? fresh : songs;
+            lastSong = pool[Math.floor(Math.random() * pool.length)].filename;
+            musicRelease = holdTrack(lastSong);
+        }
+        choose();
+    }
+    function audioButtons() {
+        return `<button type="button" class="rr-icon-btn" data-act="music" aria-pressed="${musicOn}">Music ${musicOn ? 'on' : 'off'}</button><button type="button" class="rr-icon-btn" data-act="sound" aria-pressed="${!muted}">Effects ${muted ? 'off' : 'on'}</button>`;
+    }
     function tone(type) {
         if (muted || (typeof soundEnabled !== 'undefined' && !soundEnabled)) return;
         try {
@@ -54,6 +75,7 @@
     }
     function cleanup() {
         pendingStart++;
+        stopMatchMusic();
         connectionToken++; leave(); clearInterval(timer); clearInterval(lobbyTimer); cancelAnimationFrame(frameId);
         window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKey, true);
         window.removeEventListener('blur', clearInput); document.removeEventListener('visibilitychange', visibility);
@@ -64,13 +86,14 @@
     function unsubscribe() { offs.forEach(off => off()); offs = []; }
     function leave() { unsubscribe(); if (session && session.alive) session.leave(); session = null; }
     function topbar() {
-        return `<div class="rr-top"><div class="rr-brand"><span class="rr-mark">98</span> brawlz.exe</div><div class="rr-top-right"><span><i class="rr-online-dot"></i> 12 local problems. One desktop.</span><button type="button" class="rr-icon-btn" data-act="sound" aria-label="${muted ? 'Enable' : 'Mute'} sound">${muted ? 'Sound off' : 'Sound on'}</button><button type="button" class="rr-icon-btn" data-act="help" aria-label="How to play">?</button></div></div>`;
+        return `<div class="rr-top"><div class="rr-brand"><span class="rr-mark">98</span> brawlz.exe</div><div class="rr-top-right"><span><i class="rr-online-dot"></i> 12 local problems. One desktop.</span>${audioButtons()}<button type="button" class="rr-icon-btn" data-act="help" aria-label="How to play">?</button></div></div>`;
     }
     function bottom() {
-        return '<div class="rr-bottom"><div class="rr-keys"><span><kbd>A</kbd> <kbd>D</kbd> move</span><span><kbd>Space</kbd> jump ×2</span><span><kbd>J</kbd> light</span><span><kbd>K</kbd> heavy</span><span><kbd>L</kbd> special</span><span><kbd>Shift</kbd> dodge</span></div><button type="button" class="rr-link" data-act="help">How to play</button></div>';
+        return '<div class="rr-bottom"><div class="rr-keys"><span><kbd>A</kbd> <kbd>D</kbd> move</span><span><kbd>Space</kbd> jump ×2</span><span><kbd>E</kbd> light</span><span><kbd>F</kbd> heavy</span><span><kbd>R</kbd> special</span><span><kbd>Shift</kbd> dodge</span></div><button type="button" class="rr-link" data-act="help">How to play</button></div>';
     }
     function buildMenu() {
         pendingStart++;
+        stopMatchMusic();
         clearInterval(lobbyTimer);
         mount(); clearInput(); match = null; screen = 'menu'; overlay = null; renderer.reset();
         menuState = S.create({ arena, mode: 1 }); menuState.events = [];
@@ -79,13 +102,17 @@
         menuState.players[1].x = 865; menuState.players[1].y = 365; menuState.players[1].character = (selected + 1) % D.FIGHTERS.length; menuState.players[1].invuln = 0;
         menuState.players.length = 1;
         ui.innerHTML = topbar() + RIFT_MENU(selected, mode, arena) + bottom();
-        ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); R.sprite(c, 54, 94, i, { scale: 1.15, team: 0 }); });
+        paintPortraits();
+    }
+    function paintPortraits() {
+        ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height); R.sprite(c, 54, 94, i, { scale: 82 / RIFT_ANIM.height(i) }); });
+        const head = ui.querySelector('.rr-selected-name canvas'); if (head) RIFT_ART.portrait(head.getContext('2d'), selected);
     }
     function showHelp() {
         clearInput();
         const wasPaused = match && match.paused;
         if (match && !session) match.paused = true;
-        dialog(`<h2>Stay on the island.</h2><p>Deal damage to launch rivals farther. Knock them out of the arena three times to win. In 2v2, the last surviving team wins. Teammates cannot hurt each other.</p><div class="rr-help"><span>Move</span><span><kbd>A</kbd> <kbd>D</kbd> or arrow keys</span><span>Double jump</span><span><kbd>Space</kbd> / <kbd>W</kbd> / <kbd>↑</kbd></span><span>Light / heavy</span><span><kbd>J</kbd> / <kbd>K</kbd></span><span>Special</span><span><kbd>L</kbd> · hold <kbd>W</kbd> for recovery</span><span>Dodge / drop</span><span><kbd>Shift</kbd> / <kbd>S</kbd></span><span>Gamepad</span><span>Stick · A jump · X light · Y heavy · B special · RB dodge</span></div><p>Hold up or down to aim attacks. Two jumps and an upward special can save a fall. Land to regain them. Lower total damage wins a stock tie at 3:00.</p><button type="button" class="rr-primary" data-act="close-help">Got it. Let's rumble.</button>`);
+        dialog(`<h2>Stay on the island.</h2><p>Deal damage to launch rivals farther. Knock them out of the arena three times to win. In 2v2, the last surviving team wins. Teammates cannot hurt each other.</p><div class="rr-help"><span>Move</span><span><kbd>A</kbd> <kbd>D</kbd> or arrow keys</span><span>Double jump</span><span><kbd>Space</kbd> / <kbd>W</kbd> / <kbd>↑</kbd></span><span>Light / heavy</span><span><kbd>E</kbd> / <kbd>F</kbd></span><span>Special</span><span><kbd>R</kbd> · hold <kbd>W</kbd> for recovery</span><span>Dodge / drop</span><span><kbd>Shift</kbd> / <kbd>S</kbd></span><span>Gamepad</span><span>Stick · A jump · X light · Y heavy · B special · RB dodge</span></div><p>Hold up or down to aim attacks. Two jumps and an upward special can save a fall. Land to regain them. Lower total damage wins a stock tie at 3:00.</p><button type="button" class="rr-primary" data-act="close-help">Got it. Let's rumble.</button>`);
         overlay.dataset.wasPaused = wasPaused ? '1' : '0';
     }
     function dialog(html) {
@@ -166,7 +193,7 @@
         });
         const state = S.create({ mode: teamSize, arena: options.arena, seed: opts.seed, people });
         match = { s: state, id: String(opts.at) + ':' + opts.seed, me: s ? s.id : 'you', host: !s || s.isHost, last: performance.now(), acc: 0, sendAt: 0, inputAt: 0, hudAt: 0, rxAt: performance.now(), soundId: 0, paused: false, netDown: false, saved: false, previous: null, snapAt: 0, inputSeq: 0, lastSeq: {}, opts };
-        ui.innerHTML = `<div class="rr-match-hud"><div class="rr-hud-team" id="rr-hud-0"></div><div class="rr-clock" aria-label="Match time">3:00</div><div class="rr-hud-team" id="rr-hud-1"></div></div><div class="rr-count" aria-live="polite"></div><div class="rr-match-tools"><button type="button" class="rr-icon-btn" data-act="pause">${s ? 'Menu' : 'Pause'}</button><button type="button" class="rr-icon-btn" data-act="help" aria-label="How to play">?</button><button type="button" class="rr-icon-btn" data-act="sound">${muted ? 'Sound off' : 'Sound on'}</button></div><div class="rr-net-status"></div>${coarse() ? touchHTML() : ''}`;
+        ui.innerHTML = `<div class="rr-match-hud"><div class="rr-hud-team" id="rr-hud-0"></div><div class="rr-clock" aria-label="Match time">3:00</div><div class="rr-hud-team" id="rr-hud-1"></div></div><div class="rr-count" aria-live="polite"></div><div class="rr-match-tools"><button type="button" class="rr-icon-btn" data-act="pause">${s ? 'Menu' : 'Pause'}</button><button type="button" class="rr-icon-btn" data-act="help" aria-label="How to play">?</button>${audioButtons()}</div><div class="rr-net-status"></div>${coarse() ? touchHTML() : ''}`;
         if (s) {
             const hostId = s.players.find(p => p.host)?.id;
             offs.push(s.on('rr:input', (d, from) => {
@@ -186,7 +213,7 @@
             if (!match.host) s.sendToHost('rr:sync', { match: match.id });
             else sendSnapshot();
         }
-        paintHud();
+        startMatchMusic(); paintHud();
     }
     function validSnapshot(v) {
         return !!v && v.version === 1 && Number.isSafeInteger(v.tick) && ['countdown', 'fight', 'over'].includes(v.phase) && Array.isArray(v.players) && v.players.length === match.s.players.length && D.ARENAS.some(a => a.id === v.arena) && Array.isArray(v.shots) && v.shots.length <= 32 && Array.isArray(v.events) && v.events.length <= 20 && v.players.every(p => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.vx) && Number.isFinite(p.vy) && Number.isFinite(p.damage) && Number.isInteger(p.character) && p.character >= 0 && p.character < D.FIGHTERS.length && (p.team === 0 || p.team === 1) && Number.isInteger(p.stocks) && p.stocks >= 0 && p.stocks <= 3);
@@ -244,7 +271,7 @@
         app.style.height = Math.max(180, Math.min(760, available)) + 'px';
         if (window.RIFT_ART && RIFT_ART.ready() && !portraitsReady) {
             portraitsReady = true;
-            ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height); R.sprite(c, 54, 94, i, { scale: 1.15 }); });
+            paintPortraits();
         }
     }
     function frame(now) {
@@ -308,9 +335,9 @@
         dialog(`<h2>${won ? 'The rift is yours.' : 'One more round?'}</h2><p>${match.s.winner === 0 ? 'Mint' : 'Coral'} team wins. ${session ? 'The host can start a rematch with the same fighters.' : 'A fresh arena. A fresh chance.'}</p><div class="rr-results">${match.s.players.map(p => `<div class="rr-result"><span>${esc(p.name)}${p.id === match.me ? ' (you)' : ''}</span><span>${p.kos} KO · ${Math.round(p.dealt)} damage</span></div>`).join('')}</div>${match.host ? '<button type="button" class="rr-primary" data-act="rematch">Run it back</button>' : '<p>Waiting for the host to rematch…</p>'}<button type="button" class="rr-secondary" data-act="menu">Back to fighters</button>`);
     }
     function touchHTML() {
-        return '<div class="rr-touch"><div class="rr-touch-group"><button type="button" data-control="left" aria-label="Move left">◀</button><button type="button" data-control="right" aria-label="Move right">▶</button><button type="button" data-control="down" aria-label="Drop down">↓</button></div><div class="rr-touch-group"><button type="button" data-control="up" aria-label="Aim up">↑</button><button type="button" data-control="dodge" aria-label="Dodge">⤳</button><button type="button" data-control="light" aria-label="Light attack">J</button><button type="button" data-control="heavy" aria-label="Heavy attack">K</button><button type="button" data-control="special" aria-label="Special attack">L</button><button type="button" data-control="jump" aria-label="Jump">↑↑</button></div></div>';
+        return '<div class="rr-touch"><div class="rr-touch-group"><button type="button" data-control="left" aria-label="Move left">◀</button><button type="button" data-control="right" aria-label="Move right">▶</button><button type="button" data-control="down" aria-label="Drop down">↓</button></div><div class="rr-touch-group"><button type="button" data-control="up" aria-label="Aim up">↑</button><button type="button" data-control="dodge" aria-label="Dodge">⤳</button><button type="button" data-control="light" aria-label="Light attack">E</button><button type="button" data-control="heavy" aria-label="Heavy attack">F</button><button type="button" data-control="special" aria-label="Special attack">R</button><button type="button" data-control="jump" aria-label="Jump">↑↑</button></div></div>';
     }
-    const keyControls = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyS: 'down', ArrowDown: 'down', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyJ: 'light', KeyK: 'heavy', KeyL: 'special', ShiftLeft: 'dodge', ShiftRight: 'dodge' };
+    const keyControls = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyS: 'down', ArrowDown: 'down', KeyW: 'up', ArrowUp: 'up', Space: 'jump', KeyE: 'light', KeyF: 'heavy', KeyR: 'special', ShiftLeft: 'dodge', ShiftRight: 'dodge' };
     function focused() {
         if (!winRef) return true;
         const win = winRef.win, z = Number(win.style.zIndex) || 0;
@@ -399,11 +426,12 @@
             case 'pause': pause(); break;
             case 'resume': resume(); break;
             case 'rematch': local = S.input(); if (session?.isHost) session.startGame(); else if (!session) startSolo(); break;
-            case 'sound': muted = !muted; save(); b.textContent = muted ? 'Sound off' : 'Sound on'; b.setAttribute('aria-label', muted ? 'Enable sound' : 'Mute sound'); if (!muted) tone('go'); break;
+            case 'sound': muted = !muted; save(); b.textContent = muted ? 'Effects off' : 'Effects on'; b.setAttribute('aria-pressed', String(!muted)); if (!muted) tone('go'); break;
+            case 'music': musicOn = !musicOn; save(); b.textContent = musicOn ? 'Music on' : 'Music off'; b.setAttribute('aria-pressed', String(musicOn)); if (musicOn) startMatchMusic(); else stopMatchMusic(); break;
         }
     }
     window.startRiftRumble = function () { mount(); if (!match && screen !== 'lobby') { buildMenu(); if (new URLSearchParams(location.search).get('room')) lobby(); } };
-    Netplay.registerGame({ id: 'riftrumble', name: 'Brawlz 98', start: (s, opts) => { local = S.input(); start(s, opts); }, startSolo, soloLabel: 'Practice with bots', paintAvatar: cv => { const c = cv.getContext('2d'); c.fillStyle = '#243760'; c.fillRect(0, 0, cv.width, cv.height); R.sprite(c, cv.width / 2, cv.height * 0.92, selected, { scale: cv.height / 88 }); } });
+    Netplay.registerGame({ id: 'riftrumble', name: 'Brawlz 98', start: (s, opts) => { local = S.input(); start(s, opts); }, startSolo, soloLabel: 'Practice with bots', paintAvatar: cv => { const c = cv.getContext('2d'); c.fillStyle = '#243760'; c.fillRect(0, 0, cv.width, cv.height); R.sprite(c, cv.width / 2, cv.height * 0.92, selected, { scale: cv.height * .84 / RIFT_ANIM.height(selected) }); } });
     // Read-only diagnostics used by the browser suite; rules remain in RIFT_SIM.
     window.RIFT_ENGINE = { state: () => match, screen: () => screen, record: () => read(RECORD) };
 })();

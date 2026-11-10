@@ -73,7 +73,17 @@ try {
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].x) > x + 10, 'real keyboard input moves the fighter');
     await p.keyboard.press('Space'); await p.waitForTimeout(75); await p.keyboard.press('Space'); await p.waitForTimeout(75);
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].jumps) === 2, 'real keyboard input double jumps');
-    await p.keyboard.press('KeyJ'); await p.waitForTimeout(40); ok(await state(p, () => !!RIFT_ENGINE.state().s.players[0].attack), 'real keyboard input attacks');
+    for (const [code, kind] of [['KeyE', 'light'], ['KeyF', 'heavy'], ['KeyR', 'special']]) {
+        await state(p, () => {
+            const s = RIFT_ENGINE.state().s, f = s.players[0];
+            Object.assign(f, { x: 500, y: 524, vx: 0, vy: 0, grounded: true, stun: 0, dodge: 0, cooldown: 0, attack: null, invuln: 600 });
+            s.players.slice(1).forEach((p, i) => { p.x = 930 + i * 25; p.y = 524; });
+        });
+        await p.keyboard.press(code); await p.waitForTimeout(40);
+        ok(await state(p, () => RIFT_ENGINE.state().s.players[0].attack?.kind) === kind, code + ' triggers the actual ' + kind + ' attack');
+    }
+    await p.waitForFunction(() => typeof heldTrack !== 'undefined' && !!heldTrack);
+    ok(await state(p, () => tracks.some(t => t.filename === heldTrack.filename) && document.getElementById('audio-player').paused), 'match music chooses a library track and respects the site mute');
     await p.keyboard.press('Escape'); const tick = await state(p, () => RIFT_ENGINE.state().s.tick); await p.waitForTimeout(200);
     ok(await state(p, () => RIFT_ENGINE.state().s.tick) === tick, 'practice pauses without consuming match time');
     const pausedPicture = await state(p, () => document.querySelector('.rr-canvas').toDataURL()); await p.waitForTimeout(160);
@@ -100,8 +110,8 @@ try {
         });
         for (const direction of ['KeyD', 'KeyA']) {
             await p.keyboard.down(direction); await p.waitForTimeout(550); await p.keyboard.up(direction);
-            await p.keyboard.press('KeyJ'); await p.waitForTimeout(550);
-            await p.keyboard.press('KeyK'); await p.waitForTimeout(850);
+            await p.keyboard.press('KeyE'); await p.waitForTimeout(550);
+            await p.keyboard.press('KeyF'); await p.waitForTimeout(850);
             await p.keyboard.press('Space'); await p.waitForTimeout(850);
         }
         const clip = await p.evaluate(() => new Promise(resolve => {
@@ -121,6 +131,53 @@ try {
     const desktop = await open(ctx, BASE + '/games/rift-rumble/');
     ok(await desktop.locator('.app-window .rr-menu').isVisible() && new globalThis.URL(desktop.url()).pathname === '/', 'the old game URL redirects into the main desktop'); await desktop.close();
     await ctx.close();
+
+    // Exercise the real Winamp ownership and playback API. A short PCM tone
+    // replaces media bytes only; selection, autoplay, mute and cleanup are real.
+    const musicCtx = await context();
+    await musicCtx.addInitScript(() => localStorage.setItem('sound-enabled', 'true'));
+    const rate = 8000, wav = Buffer.alloc(44 + rate * 2);
+    wav.write('RIFF', 0); wav.writeUInt32LE(36 + rate * 2, 4); wav.write('WAVEfmt ', 8);
+    wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+    wav.write('data', 36); wav.writeUInt32LE(rate * 2, 40);
+    for (let i = 0; i < rate; i++) wav.writeInt16LE(Math.round(Math.sin(i / 8) * 2000), 44 + i * 2);
+    await musicCtx.route(/\/src\/music\/.*\.(mp3|mp4|ogg|wav)(?:\?.*)?$/i, route => route.fulfill({ contentType: 'audio/wav', body: wav }));
+    let releaseSongs;
+    const songGate = new Promise(resolve => { releaseSongs = resolve; });
+    await musicCtx.route('**/src/music/music.json', async route => { await songGate; await route.continue(); });
+    const music = await open(musicCtx), closeMusicGame = () => music.evaluate(() => closeAppWindow(document.querySelector('.rr-app').closest('.app-window').id));
+    await music.click('[data-act=solo]'); await music.waitForFunction(() => !!RIFT_ENGINE.state());
+    await closeMusicGame(); releaseSongs();
+    await music.waitForFunction(() => tracks.length > 1); await music.waitForTimeout(250);
+    ok(await music.evaluate(() => !heldTrack), 'closing before the music list loads cancels the pending song');
+    await music.evaluate(() => startMenuAction('brawlz')); await music.waitForSelector('.rr-menu'); await music.click('[data-act=solo]');
+    const playing = () => music.waitForFunction(() => !!heldTrack && !document.getElementById('audio-player').paused && document.getElementById('audio-player').currentTime > 0, null, { timeout: 10000 });
+    await playing();
+    const song = await music.evaluate(() => heldTrack.filename);
+    ok(await music.evaluate(() => tracks.some(t => t.filename === heldTrack.filename) && document.getElementById('audio-player').loop), 'a match automatically plays a random library song through Winamp');
+    await music.click('[data-act=music]');
+    ok(await music.evaluate(() => !heldTrack && document.getElementById('audio-player').paused), 'music can be muted independently of attack effects');
+    await music.click('[data-act=music]'); await playing();
+    ok(await music.evaluate(() => heldTrack.filename) !== song, 'starting music again chooses a different song');
+    const beforeRematch = await music.evaluate(() => { const g = RIFT_ENGINE.state(); g.s.players.filter(p => p.team === 1).forEach(p => { p.stocks = 1; p.y = 1000; }); return heldTrack.filename; });
+    await music.waitForSelector('[data-act=rematch]'); await music.click('[data-act=rematch]'); await playing();
+    ok(await music.evaluate(() => heldTrack.filename) !== beforeRematch, 'a rematch gets a fresh random song');
+    await music.evaluate(() => toggleSound());
+    ok(await music.evaluate(() => document.getElementById('audio-player').paused), 'the global sound switch also mutes match music');
+    await music.evaluate(() => toggleSound()); await playing();
+    await music.evaluate(() => pauseTrack()); await music.waitForTimeout(300);
+    ok(await music.evaluate(() => document.getElementById('audio-player').paused), 'manual Winamp pause stays paused');
+    await music.click('[data-act=pause]'); await music.click('[data-act=menu]');
+    ok(await music.evaluate(() => !heldTrack && !document.getElementById('audio-player').loop), 'leaving a match releases its music');
+    await music.click('[data-act=music]'); await music.click('[data-act=solo]'); await music.waitForTimeout(250);
+    ok(await music.evaluate(() => !heldTrack && JSON.parse(localStorage.getItem('mrhakan98-rift-prefs')).music === false), 'the saved music-off preference prevents automatic playback');
+    await music.click('[data-act=music]'); await playing();
+    await music.evaluate(() => { const i = tracks.findIndex(t => t.filename !== heldTrack.filename); currentTrackIndex = i; loadTrack(i); playTrack(); });
+    await music.waitForFunction(() => !heldTrack && !document.getElementById('audio-player').paused);
+    await closeMusicGame();
+    ok(await music.evaluate(() => !document.getElementById('audio-player').paused), 'closing the game preserves a song the visitor chose manually');
+    await musicCtx.close();
 
     const localCtx = await context(), host = await open(localCtx), guest = await open(localCtx);
     const code = await hosted(host); await join(guest, code);

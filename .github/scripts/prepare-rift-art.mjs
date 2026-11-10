@@ -24,13 +24,17 @@ try {
     for (const name of names) {
         const base64 = await page.evaluate(async name => {
             const image = new Image(); image.src = '/games/rift-rumble/art/cutout-' + name + '.png'; await image.decode();
+            const replacement = name === 'patron' ? new Image() : null;
+            if (replacement) { replacement.src = '/games/rift-rumble/art/weapon-patron.png'; await replacement.decode(); }
+            const rows = [0, .25, .5, .75, 1];
             const atlas = document.createElement('canvas'); atlas.width = atlas.height = 512;
             const ac = atlas.getContext('2d'); ac.imageSmoothingEnabled = true; ac.imageSmoothingQuality = 'high';
             for (let part = 0; part < 16; part++) {
-                const x = Math.round(part % 4 * image.naturalWidth / 4), y = Math.round(Math.floor(part / 4) * image.naturalHeight / 4);
-                const w = Math.round((part % 4 + 1) * image.naturalWidth / 4) - x, h = Math.round((Math.floor(part / 4) + 1) * image.naturalHeight / 4) - y;
+                const source = part === 3 && replacement ? replacement : image, separate = source !== image, row = Math.floor(part / 4);
+                const x = separate ? 0 : Math.round(part % 4 * image.naturalWidth / 4), y = separate ? 0 : Math.round(rows[row] * image.naturalHeight);
+                const w = separate ? source.naturalWidth : Math.round((part % 4 + 1) * image.naturalWidth / 4) - x, h = separate ? source.naturalHeight : Math.round(rows[row + 1] * image.naturalHeight) - y;
                 const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-                const c = cv.getContext('2d', { willReadFrequently: true }); c.drawImage(image, x, y, w, h, 0, 0, w, h);
+                const c = cv.getContext('2d', { willReadFrequently: true }); c.drawImage(source, x, y, w, h, 0, 0, w, h);
                 const pixels = c.getImageData(0, 0, w, h), d = pixels.data, labels = new Int32Array(w * h), queue = new Int32Array(w * h), groups = [];
                 for (let start = 0; start < w * h; start++) {
                     if (labels[start] || d[start * 4 + 3] < 110) continue;

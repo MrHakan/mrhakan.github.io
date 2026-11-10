@@ -16,33 +16,50 @@ test('all limb lengths and weapon attachments stay rigid through every action', 
             fighter({ character, attack: { kind: 'heavy', dir: tick % 3 === 0 ? 'up' : tick % 3 === 1 ? 'side' : 'down', age: tick % 47 } })
         ];
         for (const p of variants) {
-            const b = A.solve(A.sample(p, tick).pose);
-            for (const side of ['f', 'b']) for (const [parent, child, length] of [['Upper', 'Lower', 11], ['Lower', 'Hand', 12], ['Thigh', 'Shin', 17], ['Shin', 'Foot', 16]]) near(Math.hypot(b[side + parent].x - b[side + child].x, b[side + parent].y - b[side + child].y), length, side + parent);
-            near(Math.hypot(b.weapon.x - b.fHand.x, b.weapon.y - b.fHand.y), 6, 'weapon wrist attachment');
+            const b = A.solve(A.sample(p, tick).pose), rig = A.profile(character);
+            for (const side of ['f', 'b']) for (const [parent, child, length] of [['Upper', 'Lower', rig.arm], ['Lower', 'Hand', rig.forearm], ['Thigh', 'Shin', rig.thigh], ['Shin', 'Foot', rig.shin]]) near(Math.hypot(b[side + parent].x - b[side + child].x, b[side + parent].y - b[side + child].y), length, side + parent);
+            near(Math.hypot(b.weapon.x - b.fHand.x, b.weapon.y - b.fHand.y), rig.handH * .45, 'weapon wrist attachment');
             assert.ok(Object.values(b).every(b => Number.isFinite(b.x + b.y + b.a)));
         }
     }
 });
 test('planted feet remain fixed in world space while the body advances', () => {
-    for (const side of ['f', 'b']) {
+    for (let character = 0; character < 12; character++) for (const side of ['f', 'b']) {
         let anchor;
-        const start = side === 'f' ? 0 : A.STRIDE / 2;
+        const rig = A.profile(character), start = side === 'f' ? 0 : rig.stride / 2;
         for (let i = 0; i <= 40; i++) {
-            const travel = start + i / 100 * A.STRIDE, pose = A.sample(fighter({ vx: 5, travel }), travel / 5).pose, foot = A.solve(pose)[side + 'Foot'];
-            near(foot.y, -6, 'flat sole'); near(foot.a, 0, 'level foot');
+            const travel = start + i / 100 * rig.stride, pose = A.sample(fighter({ character, vx: 5, travel }), travel / 5).pose, foot = A.solve(pose)[side + 'Foot'];
+            near(foot.y, -rig.footH * .6, 'flat sole'); near(foot.a, 0, 'level foot');
             const x = travel + foot.x * A.SCALE * 1.5; anchor ??= x; near(x, anchor, 'world-space plant');
         }
     }
 });
 test('stance-to-swing boundaries have continuous ankle positions', () => {
-    for (const phase of [0, A.STANCE, 1]) {
-        const before = A.foot(phase - 1e-7), after = A.foot(phase + 1e-7);
+    for (let character = 0; character < 12; character++) for (const phase of [0, A.STANCE, 1]) {
+        const before = A.foot(phase - 1e-7, character), after = A.foot(phase + 1e-7, character);
         assert.ok(Math.hypot(before.x - after.x, before.y - after.y) < 0.001);
     }
 });
 test('the running gait includes brief flight between alternating contacts', () => {
-    for (const phase of [0.46, 0.96]) assert.ok(A.foot(phase).y < -6 && A.foot(phase + 0.5).y < -6);
+    for (let character = 0; character < 12; character++) for (const phase of [.46, .96]) assert.ok(A.foot(phase, character).y < -A.profile(character).footH * .6 && A.foot(phase + .5, character).y < -A.profile(character).footH * .6);
     assert.ok(A.foot(0).planted && A.foot(0.5).planted === false);
+});
+test('standing poses express distinct gestures and the baby has child proportions', () => {
+    const poses = Array.from({ length: 12 }, (_, character) => A.sample(fighter({ character }), 0, true).pose), bones = poses.map(A.solve);
+    assert.equal(new Set(poses.map(p => [p.fX, p.fY, p.bX, p.bY, p.body, p.head].join(','))).size, 12);
+    assert.ok(A.height(3) < A.height(7) * .85, 'the baby is visibly shorter than Patron');
+    assert.ok(A.profile(3).arm < A.profile(0).arm * .8 && A.profile(3).thigh < A.profile(0).thigh * .75);
+    for (const i of [1, 4, 9]) assert.ok(bones[i].bHand.y < bones[i].bUpper.y - 4, 'thinking, crying and headphone hands reach the face');
+    assert.ok(bones[7].fHand.y > bones[7].fUpper.y + 15, 'Patron carries his case below his shoulder');
+    for (const i of [3, 9, 10]) assert.ok(bones[i].weapon.x > bones[i].head.x + 16 && poses[i].weaponLayer === 1, 'large weapons remain beside the body');
+    for (let i = 0; i < 12; i++) {
+        const p = poses[i], r = A.profile(i), b = bones[i];
+        for (const side of ['f', 'b']) {
+            const tx = b.torso.x + Math.cos(b.torso.a) * p[side + 'X'] - Math.sin(b.torso.a) * p[side + 'Y'];
+            const ty = b.torso.y + Math.sin(b.torso.a) * p[side + 'X'] + Math.cos(b.torso.a) * p[side + 'Y'];
+            assert.ok(Math.hypot(b[side + 'Hand'].x - tx, b[side + 'Hand'].y - ty) < .01, r.stance + ': reachable hand target');
+        }
+    }
 });
 test('the two-bone solver reaches targets without stretching and bounds unreachable targets', () => {
     const reach = A.ik(0, 0, 13, 14, 17, 16); near(reach.end.x, 13, 'target x'); near(reach.end.y, 14, 'target y');

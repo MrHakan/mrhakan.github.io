@@ -59,10 +59,11 @@
                     }
                 }
                 if (!opts.menu) {
-                    c.fillStyle = D.COLORS[p.team]; c.beginPath(); c.moveTo(px, py - 123); c.lineTo(px - 7, py - 132); c.lineTo(px + 7, py - 132); c.fill();
+                    const markerY = py - root.RIFT_ANIM.height(p.character) * 1.5 - 8;
+                    c.fillStyle = D.COLORS[p.team]; c.beginPath(); c.moveTo(px, markerY); c.lineTo(px - 7, markerY - 9); c.lineTo(px + 7, markerY - 9); c.fill();
                     c.font = 'bold 13px Trebuchet MS, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#172544';
                     const label = p.id === opts.me ? 'YOU' : p.bot ? 'CPU' : p.name;
-                    const width = c.measureText(label).width + 14; rect(px - width / 2, py - 155, width, 19, D.COLORS[p.team]); c.fillStyle = '#172544'; c.fillText(label, px, py - 141);
+                    const width = c.measureText(label).width + 14; rect(px - width / 2, markerY - 32, width, 19, D.COLORS[p.team]); c.fillStyle = '#172544'; c.fillText(label, px, markerY - 18);
                     if (px < 18 || px > 1262 || py < 15) {
                         c.strokeStyle = D.COLORS[p.team]; c.lineWidth = 3; c.strokeRect(Math.max(8, Math.min(1235, px - 18)), Math.max(10, Math.min(620, py)), 36, 36);
                     }
