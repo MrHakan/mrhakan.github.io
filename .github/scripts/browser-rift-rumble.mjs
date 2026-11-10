@@ -73,19 +73,47 @@ try {
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].x) > x + 10, 'real keyboard input moves the fighter');
     await p.keyboard.press('Space'); await p.waitForTimeout(75); await p.keyboard.press('Space'); await p.waitForTimeout(75);
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].jumps) === 2, 'real keyboard input double jumps');
+    const readyAttack = () => state(p, () => {
+        const s = RIFT_ENGINE.state().s, f = s.players[0];
+        Object.assign(f, { x: 500, y: 524, vx: 0, vy: 0, grounded: true, stun: 0, dodge: 0, cooldown: 0, attack: null, invuln: 600 });
+        s.players.slice(1).forEach((p, i) => { p.x = 930 + i * 25; p.y = 524; });
+    });
     for (const [code, kind] of [['KeyE', 'light'], ['KeyF', 'heavy'], ['KeyR', 'special']]) {
-        await state(p, () => {
-            const s = RIFT_ENGINE.state().s, f = s.players[0];
-            Object.assign(f, { x: 500, y: 524, vx: 0, vy: 0, grounded: true, stun: 0, dodge: 0, cooldown: 0, attack: null, invuln: 600 });
-            s.players.slice(1).forEach((p, i) => { p.x = 930 + i * 25; p.y = 524; });
-        });
+        await readyAttack();
         await p.keyboard.press(code); await p.waitForTimeout(40);
         ok(await state(p, () => RIFT_ENGINE.state().s.players[0].attack?.kind) === kind, code + ' triggers the actual ' + kind + ' attack');
     }
+    await p.evaluate(() => document.querySelector('.rr-app').addEventListener('contextmenu', e => { window.rrContextBlocked = e.defaultPrevented; }));
+    for (const [button, kind] of [['left', 'light'], ['right', 'heavy']]) {
+        await readyAttack();
+        await p.locator('.rr-ui').click({ position: { x: 320, y: 280 }, button }); await p.waitForTimeout(40);
+        ok(await state(p, () => RIFT_ENGINE.state().s.players[0].attack?.kind) === kind, button + ' mouse button triggers the actual ' + kind + ' attack');
+    }
+    ok(await p.evaluate(() => window.rrContextBlocked === true), 'right-click attacks suppress the browser context menu inside the arena');
+    const focusWindow = await p.evaluate(() => {
+        const w = createAppWindow('Mouse focus check', { width: 120 });
+        w.win.style.left = '0px'; w.win.style.top = '0px'; return w.win.id;
+    });
+    await readyAttack();
+    await p.locator('.rr-ui').click({ position: { x: 320, y: 280 } });
+    ok(await p.evaluate(id => Number(document.querySelector('.rr-app').closest('.app-window').style.zIndex) > Number(document.getElementById(id).style.zIndex), focusWindow), 'clicking the arena also brings its desktop window forward');
+    await p.evaluate(id => closeAppWindow(id), focusWindow);
+    await readyAttack();
+    const arenaBox = await p.locator('.rr-ui').boundingBox();
+    await p.mouse.move(arenaBox.x + 320, arenaBox.y + 280); await p.mouse.down();
+    const held = await state(p, () => RIFT_ENGINE.state().s.players[0].input.light);
+    await p.waitForTimeout(400); await p.mouse.up();
+    ok(await state(p, () => RIFT_ENGINE.state().s.players[0].input.light) === held, 'holding a mouse button queues one attack per press');
+    const beforeTools = await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input));
+    await p.click('[data-act=sound]');
+    ok(await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input)) === beforeTools, 'clicking match tools does not trigger an attack');
     await p.waitForFunction(() => typeof heldTrack !== 'undefined' && !!heldTrack);
     ok(await state(p, () => tracks.some(t => t.filename === heldTrack.filename) && document.getElementById('audio-player').paused), 'match music chooses a library track and respects the site mute');
     await p.keyboard.press('Escape'); const tick = await state(p, () => RIFT_ENGINE.state().s.tick); await p.waitForTimeout(200);
     ok(await state(p, () => RIFT_ENGINE.state().s.tick) === tick, 'practice pauses without consuming match time');
+    const beforeDialog = await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input));
+    await p.locator('.rr-dialog h2').click();
+    ok(await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input)) === beforeDialog, 'clicking a pause dialog does not queue an attack');
     const pausedPicture = await state(p, () => document.querySelector('.rr-canvas').toDataURL()); await p.waitForTimeout(160);
     ok(await state(p, () => document.querySelector('.rr-canvas').toDataURL()) === pausedPicture, 'pause freezes fighter frames, invulnerability flashes and combat effects'); await p.click('[data-act=resume]');
     await state(p, () => {
@@ -187,6 +215,15 @@ try {
     const gx = await state(guest, () => { const g = RIFT_ENGINE.state(); return g.s.players.find(p => p.id === g.me).x; });
     await guest.keyboard.down('KeyA'); await guest.waitForTimeout(250); await guest.keyboard.up('KeyA');
     ok(await state(host, () => { const g = RIFT_ENGINE.state(); return g.s.players.find(p => p.id !== g.me).x; }) < gx - 15, 'guest input changes the host-authoritative fighter');
+    for (const [button, kind] of [['left', 'light'], ['right', 'heavy']]) {
+        await state(host, () => {
+            const g = RIFT_ENGINE.state(), f = g.s.players.find(p => p.id !== g.me);
+            Object.assign(f, { x: 500, y: 524, vx: 0, vy: 0, grounded: true, stun: 0, dodge: 0, cooldown: 0, attack: null, invuln: 600 });
+        });
+        await guest.locator('.rr-ui').click({ position: { x: 320, y: 280 }, button });
+        await host.waitForFunction(kind => { const g = RIFT_ENGINE.state(); return g.s.players.find(p => p.id !== g.me).attack?.kind === kind; }, kind);
+        ok(true, 'guest ' + button + '-click reaches the host as a ' + kind + ' attack');
+    }
     await state(host, () => { const g = RIFT_ENGINE.state(); g.s.players[1].stocks = 1; g.s.players[1].y = 1000; });
     await host.waitForSelector('[data-act=rematch]'); await guest.waitForSelector('.rr-dialog');
     const matchId = await state(guest, () => RIFT_ENGINE.state().id); await host.click('[data-act=rematch]');

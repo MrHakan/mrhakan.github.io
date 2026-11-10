@@ -71,6 +71,7 @@
         window.addEventListener('blur', clearInput); document.addEventListener('visibilitychange', visibility);
         window.addEventListener('resize', onResize);
         app.addEventListener('pointerdown', onPointer); app.addEventListener('pointerup', onPointer); app.addEventListener('pointercancel', onPointer); app.addEventListener('lostpointercapture', onPointer);
+        app.addEventListener('contextmenu', onContextMenu);
         timer = setInterval(tick, 1000 / 60); frameId = requestAnimationFrame(frame);
     }
     function cleanup() {
@@ -89,7 +90,7 @@
         return `<div class="rr-top"><div class="rr-brand"><span class="rr-mark">98</span> brawlz.exe</div><div class="rr-top-right"><span><i class="rr-online-dot"></i> 12 local problems. One desktop.</span>${audioButtons()}<button type="button" class="rr-icon-btn" data-act="help" aria-label="How to play">?</button></div></div>`;
     }
     function bottom() {
-        return '<div class="rr-bottom"><div class="rr-keys"><span><kbd>A</kbd> <kbd>D</kbd> move</span><span><kbd>Space</kbd> jump ×2</span><span><kbd>E</kbd> light</span><span><kbd>F</kbd> heavy</span><span><kbd>R</kbd> special</span><span><kbd>Shift</kbd> dodge</span></div><button type="button" class="rr-link" data-act="help">How to play</button></div>';
+        return '<div class="rr-bottom"><div class="rr-keys"><span><kbd>A</kbd> <kbd>D</kbd> move</span><span><kbd>Space</kbd> jump ×2</span><span><kbd>E</kbd>/<kbd>LMB</kbd> light</span><span><kbd>F</kbd>/<kbd>RMB</kbd> heavy</span><span><kbd>R</kbd> special</span><span><kbd>Shift</kbd> dodge</span></div><button type="button" class="rr-link" data-act="help">How to play</button></div>';
     }
     function buildMenu() {
         pendingStart++;
@@ -112,7 +113,7 @@
         clearInput();
         const wasPaused = match && match.paused;
         if (match && !session) match.paused = true;
-        dialog(`<h2>Stay on the island.</h2><p>Deal damage to launch rivals farther. Knock them out of the arena three times to win. In 2v2, the last surviving team wins. Teammates cannot hurt each other.</p><div class="rr-help"><span>Move</span><span><kbd>A</kbd> <kbd>D</kbd> or arrow keys</span><span>Double jump</span><span><kbd>Space</kbd> / <kbd>W</kbd> / <kbd>↑</kbd></span><span>Light / heavy</span><span><kbd>E</kbd> / <kbd>F</kbd></span><span>Special</span><span><kbd>R</kbd> · hold <kbd>W</kbd> for recovery</span><span>Dodge / drop</span><span><kbd>Shift</kbd> / <kbd>S</kbd></span><span>Gamepad</span><span>Stick · A jump · X light · Y heavy · B special · RB dodge</span></div><p>Hold up or down to aim attacks. Two jumps and an upward special can save a fall. Land to regain them. Lower total damage wins a stock tie at 3:00.</p><button type="button" class="rr-primary" data-act="close-help">Got it. Let's rumble.</button>`);
+        dialog(`<h2>Stay on the island.</h2><p>Deal damage to launch rivals farther. Knock them out of the arena three times to win. In 2v2, the last surviving team wins. Teammates cannot hurt each other.</p><div class="rr-help"><span>Move</span><span><kbd>A</kbd> <kbd>D</kbd> or arrow keys</span><span>Double jump</span><span><kbd>Space</kbd> / <kbd>W</kbd> / <kbd>↑</kbd></span><span>Light / heavy</span><span><kbd>E</kbd> / <kbd>F</kbd> or left / right click</span><span>Special</span><span><kbd>R</kbd> · hold <kbd>W</kbd> for recovery</span><span>Dodge / drop</span><span><kbd>Shift</kbd> / <kbd>S</kbd></span><span>Gamepad</span><span>Stick · A jump · X light · Y heavy · B special · RB dodge</span></div><p>Hold up or down to aim attacks. Two jumps and an upward special can save a fall. Land to regain them. Lower total damage wins a stock tie at 3:00.</p><button type="button" class="rr-primary" data-act="close-help">Got it. Let's rumble.</button>`);
         overlay.dataset.wasPaused = wasPaused ? '1' : '0';
     }
     function dialog(html) {
@@ -369,8 +370,24 @@
         } else keys.delete(e.code);
         controls();
     }
+    function arenaInput(e) {
+        return screen === 'play' && match && !match.paused && !overlay &&
+            !e.target.closest('button,a,input,textarea,select,[data-control],.rr-match-tools,.rr-touch');
+    }
+    function onContextMenu(e) {
+        if (arenaInput(e)) { e.preventDefault(); e.stopPropagation(); }
+    }
     function onPointer(e) {
-        const b = e.target.closest('[data-control]'); if (!b || screen !== 'play' || overlay) return;
+        if (screen !== 'play' || !match || match.paused || overlay) return;
+        const b = e.target.closest('[data-control]');
+        if (!b) {
+            if (e.type === 'pointerdown' && e.pointerType === 'mouse' && arenaInput(e) && (e.button === 0 || e.button === 2)) {
+                // Let the desktop's mousedown handler bring this window forward.
+                action(e.button === 0 ? 'light' : 'heavy'); controls();
+            }
+            return;
+        }
+        if (e.type === 'pointerdown' && e.button !== 0) return;
         e.preventDefault(); const k = b.dataset.control;
         if (e.type === 'pointerdown') { b.setPointerCapture(e.pointerId); pad.add(k); action(k); }
         else pad.delete(k);
