@@ -1,15 +1,66 @@
 // The desktop is the arena. Original pixel backgrounds and solid Win98 fragments.
 (function (root) {
     'use strict';
+    const D = root.RIFT;
+    function teamBackdrop(c, arena, t, r) {
+        c.save();
+        c.globalAlpha = 0.34;
+        if (arena.id === 'lan') {
+            c.lineWidth = 5;
+            c.strokeStyle = '#62b7a4';
+            for (const x of [230, 1100]) {
+                r(x, 107, 190, 206, '#142e45');
+                r(x + 6, 113, 178, 194, '#3d7180');
+                for (let row = 0; row < 5; row++) {
+                    const y = 126 + row * 34;
+                    r(x + 18, y, 154, 26, '#182e44');
+                    r(x + 27, y + 10, 86, 5, '#5c8892');
+                    r(x + 145, y + 9, 8, 8, Math.sin(t * 3 + row) > 0 ? '#a0f5a8' : '#45866c');
+                }
+                c.beginPath(); c.moveTo(x + 95, 313); c.lineTo(x + 95, 350); c.lineTo(760, 350); c.lineTo(760, 231); c.stroke();
+            }
+            r(646, 145, 228, 86, '#1a344c');
+            r(654, 153, 212, 27, '#4e8f8d');
+            for (let port = 0; port < 8; port++) r(665 + port * 25, 194, 14, 14, '#a5c7a1');
+        } else if (arena.id === 'defrag') {
+            r(390, 86, 740, 244, '#27203e');
+            r(398, 94, 724, 26, '#8d70b2');
+            const colors = ['#a785c8', '#514870', '#5ca4a4', '#d0ac8b'];
+            const cursor = Math.floor(t * 8) % 112;
+            for (let row = 0; row < 7; row++) for (let col = 0; col < 16; col++) {
+                const i = row * 16 + col;
+                r(418 + col * 43, 137 + row * 22, 38, 17, i === cursor ? '#e7f0d2' : colors[(row * 3 + col * col + Math.floor(col / 4)) % colors.length]);
+            }
+            r(418, 301, 683, 11, '#514870');
+            r(418, 301, 683 * cursor / 112, 11, '#a7d4bb');
+        } else {
+            r(592, 137, 336, 133, '#3b2947');
+            r(612, 113, 296, 105, '#c3a4a2');
+            r(632, 159, 256, 20, '#493550');
+            r(844, 125, 32, 9, '#afe5b1');
+            for (const x of [250, 1070]) {
+                for (let sheet = 0; sheet < 4; sheet++) {
+                    const y = 170 - sheet * 11 + Math.sin(t + sheet) * 4;
+                    r(x + sheet * 9, y, 158, 111, '#e7d0be');
+                    for (let line = 0; line < 4; line++) r(x + sheet * 9 + 15, y + 19 + line * 15, 104 - line * 8, 4, '#936779');
+                }
+            }
+            r(657, 180, 206, 83, '#ecd4bf');
+            for (let line = 0; line < 4; line++) r(675, 191 + line * 14, 138 - line * 9, 4, '#9b7585');
+        }
+        c.restore();
+    }
     function background(c, arena, t) {
         const r = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
-        const gradient = c.createLinearGradient(0, 0, 0, 720);
-        arena.sky.forEach((color, i) => gradient.addColorStop(i / 2, color)); c.fillStyle = gradient; c.fillRect(0, 0, 1280, 720);
+        const width = arena.width || D.W;
+        const gradient = c.createLinearGradient(0, 0, 0, D.H);
+        arena.sky.forEach((color, i) => gradient.addColorStop(i / 2, color)); c.fillStyle = gradient; c.fillRect(0, 0, width, D.H);
         // Sparse Bayer-like pixels, familiar from low-color desktop wallpapers.
         c.globalAlpha = 0.12;
-        for (let y = 0; y < 720; y += 16) for (let x = (y % 32 ? 8 : 0); x < 1280; x += 16) r(x, y, 2, 2, '#e0f5db');
+        for (let y = 0; y < D.H; y += 16) for (let x = (y % 32 ? 8 : 0); x < width; x += 16) r(x, y, 2, 2, '#e0f5db');
         c.globalAlpha = 1;
-        if (arena.id === 'sunset') {
+        if (arena.mode === 2) teamBackdrop(c, arena, t, r);
+        else if (arena.id === 'sunset') {
             c.font = 'bold 25px Courier New, monospace'; c.fillStyle = '#d8e6ff'; c.textAlign = 'left';
             r(426, 80, 428, 38, '#c0c0c0'); c.fillStyle = '#000080'; c.fillText(' BRAWLZ 98 ', 544, 108);
             c.fillStyle = '#e2e4fc'; c.font = '17px Courier New, monospace';
@@ -34,8 +85,8 @@
             }
         }
         // Floating deleted pixels keep the world alive without burying the fight.
-        for (let i = 0; i < 18; i++) { const y = (i * 87 + t * 8) % 720, x = (i * 193 + 33) % 1280; r(x, y, 3, 3, i % 2 ? '#b9d5bb' : '#b5c8c6'); }
-        c.globalAlpha = 0.12; r(0, 695, 1280, 25, '#1c3f55'); c.globalAlpha = 1;
+        for (let i = 0; i < 18; i++) { const y = (i * 87 + t * 8) % D.H, x = (i * 193 + 33) % width; r(x, y, 3, 3, i % 2 ? '#b9d5bb' : '#b5c8c6'); }
+        c.globalAlpha = 0.12; r(0, 695, width, 25, '#1c3f55'); c.globalAlpha = 1;
     }
     function platform(c, p, i, t, arena) {
         const r = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
@@ -48,7 +99,7 @@
             // Four-color Start flag, pixel-drawn without an external font glyph.
             r(p.x + 15, p.y + 12, 6, 5, '#a8413d'); r(p.x + 23, p.y + 12, 6, 5, '#5a8659'); r(p.x + 15, p.y + 19, 6, 5, '#4c69a0'); r(p.x + 23, p.y + 19, 6, 5, '#d7b25d');
             c.font = 'bold 12px Tahoma,sans-serif'; c.textAlign = 'left'; c.fillStyle = '#202b33'; c.fillText('Start', p.x + 35, p.y + 24);
-            const names = arena.id === 'moon' ? ['Recycle Bin', 'bad_decisions.zip', 'friendship.txt'] : arena.id === 'sunset' ? ['Not Responding', 'End Task', 'Abort, Retry, Fight'] : ['brawlz.exe', 'My Documents', 'Winamp'];
+            const names = arena.tasks || (arena.id === 'moon' ? ['Recycle Bin', 'bad_decisions.zip', 'friendship.txt'] : arena.id === 'sunset' ? ['Not Responding', 'End Task', 'Abort, Retry, Fight'] : ['brawlz.exe', 'My Documents', 'Winamp']);
             for (let k = 0; k < 3; k++) { const x = p.x + 97 + k * (p.w - 200) / 3, width = (p.w - 220) / 3; border(x, p.y + 9, width, 21, k ? '#c0c3ba' : '#d8dbcf'); c.fillStyle = '#2d3c46'; c.font = '11px Tahoma,sans-serif'; c.fillText(names[k], x + 8, p.y + 24); }
             border(p.x + p.w - 78, p.y + 9, 68, 21, '#b2b7ac'); c.fillStyle = '#3c444a'; c.fillText('19:98', p.x + p.w - 61, p.y + 24);
             // The underside is a broken motherboard, not earth or a fantasy island.
@@ -56,8 +107,8 @@
             for (let k = 0; k < 11; k++) { const x = p.x + 45 + k * (p.w - 95) / 10; r(x, p.y + 42, 11, 5, '#a9b992'); r(x + 2, p.y + 55, 4, 10 + k % 3 * 5, '#c0a974'); }
             r(p.x + p.w * 0.5, p.y + 53, 38, 18, '#223b42'); r(p.x + p.w * 0.5 + 3, p.y + 55, 32, 2, '#607f76');
         } else {
-            r(p.x + 5, p.y + 7, p.w - 10, 14, arena.id === 'sunset' ? '#425eab' : '#143f7d');
-            c.fillStyle = '#eaf0e4'; c.font = '10px Tahoma,sans-serif'; c.textAlign = 'left'; c.fillText(['', 'My Documents', 'Recycle Bin', 'new_folder (12)'][i] || 'Untitled', p.x + 11, p.y + 18);
+            r(p.x + 5, p.y + 7, p.w - 10, 14, arena.trim || (arena.id === 'sunset' ? '#425eab' : '#143f7d'));
+            c.fillStyle = '#eaf0e4'; c.font = '10px Tahoma,sans-serif'; c.textAlign = 'left'; c.fillText(p.label || ['', 'My Documents', 'Recycle Bin', 'new_folder (12)'][i] || 'Untitled', p.x + 11, p.y + 18);
             border(p.x + p.w - 22, p.y + 8, 12, 11, '#b9beb6'); c.fillStyle = '#243b4b'; c.fillText('×', p.x + p.w - 19, p.y + 17);
             r(p.x + 12, p.y + 25, p.w - 24, 10, '#405a62'); for (let k = 0; k < 5; k++) r(p.x + 22 + k * 27, p.y + 29, 4, 13, '#b5a66e');
         }

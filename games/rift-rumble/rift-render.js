@@ -3,6 +3,10 @@
     'use strict';
     const D = root.RIFT, TAU = Math.PI * 2;
     const sprite = (...args) => root.RIFT_FIGHTERS.draw(...args);
+    const swingAngles = {
+        hook: [-1.28, 1.25], sweep: [-.12, 1.08], uppercut: [-1.72, .1],
+        overhead: [-1.53, .85], shove: [-.5, .5], rush: [-.66, .66], pounce: [.12, 1.25]
+    };
     function create(canvas) {
         const c = canvas.getContext('2d', { alpha: false });
         let seen = 0, particles = [], lastT = 0, shake = 0, bursts = [];
@@ -13,21 +17,22 @@
             const t = opts.reduced ? 0 : simulationTime, dt = opts.paused ? 0 : Math.min(0.05, Math.max(0, time - lastT)); lastT = time;
             const w = canvas.clientWidth || 1280, h = canvas.clientHeight || 720, dpr = Math.min(2, root.devicePixelRatio || 1);
             if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
-            c.setTransform(canvas.width / 1280, 0, 0, canvas.height / 720, 0, 0); c.imageSmoothingEnabled = false;
             const arena = D.ARENAS.find(a => a.id === s.arena) || D.ARENAS[0];
+            const width = arena.width || D.W;
+            c.setTransform(canvas.width / width, 0, 0, canvas.height / D.H, 0, 0); c.imageSmoothingEnabled = false;
             root.RIFT_STAGES.background(c, arena, t);
             // Preserve pixel proportions in a tall phone viewport. The sky fills the
             // margins; the entire arena stays visible above the touch controls.
             if (w / h < 1.4) {
-                const scale = canvas.width / (opts.menu ? 1180 : s.mode === 2 ? 1000 : 900);
-                c.setTransform(scale, 0, 0, scale, (canvas.width - 1280 * scale) / 2, canvas.height * (opts.menu ? 0.11 : 0.22));
+                const scale = canvas.width / (arena.width || (opts.menu ? 1180 : 900));
+                c.setTransform(scale, 0, 0, scale, (canvas.width - width * scale) / 2, canvas.height * (opts.menu ? 0.11 : 0.22));
             } else {
-                const scale = Math.min(canvas.width / 1280, canvas.height / 720);
-                c.setTransform(scale, 0, 0, scale, (canvas.width - 1280 * scale) / 2, (canvas.height - 720 * scale) / 2);
+                const scale = Math.min(canvas.width / width, canvas.height / D.H);
+                c.setTransform(scale, 0, 0, scale, (canvas.width - width * scale) / 2, (canvas.height - D.H * scale) / 2);
             }
             if (!opts.reduced && !opts.paused && shake > 0) { c.translate(Math.sin(t * 150) * shake * 24, Math.cos(t * 120) * shake * 14); shake = Math.max(0, shake - dt); }
             arena.platforms.forEach((p, i) => root.RIFT_STAGES.platform(c, p, i, t, arena));
-            if (opts.menu) { const g = c.createLinearGradient(0, 0, 1280, 0); g.addColorStop(0, '#102d4bcb'); g.addColorStop(0.52, '#12304410'); g.addColorStop(1, '#112b4a99'); c.fillStyle = g; c.fillRect(0, 0, 1280, 720); }
+            if (opts.menu) { const g = c.createLinearGradient(0, 0, width, 0); g.addColorStop(0, '#102d4bcb'); g.addColorStop(0.52, '#12304410'); g.addColorStop(1, '#112b4a99'); c.fillStyle = g; c.fillRect(0, 0, width, D.H); }
             for (const e of s.events || []) if (e.id > seen) {
                 if (e.type === 'hit') shake = e.heavy ? 0.15 : 0.075;
                 if (e.type === 'ko') { shake = 0.2; bursts.push({ x: e.x, y: e.y - 35, life: 0.85, team: e.team }); }
@@ -51,11 +56,21 @@
                 if (p.dodge) { c.globalAlpha = 0.25; sprite(c, px - p.vx * 3, py, p.character, { facing, scale: 1.5, animation }); c.globalAlpha = 1; }
                 sprite(c, px, py, p.character, { team: p.team, scale: opts.menu ? 4.6 : 1.5, facing, animation, time: t, walk: p.grounded && Math.abs(p.vx) > 0.3, airborne: !p.grounded, hurt: p.stun > 0, attack: p.attack, alpha: p.invuln && Math.floor(simulationTime * 12) % 2 ? 0.55 : 1 });
                 if (p.attack) {
-                    const a = p.attack, spec = a.kind === 'special' && D.FIGHTERS[p.character].specialMelee ? D.FIGHTERS[p.character].specialMelee : D.ATTACKS[a.kind];
-                    if (a.age >= spec.startup - 1 && a.age <= spec.startup + spec.active + 3 && a.kind !== 'special') {
+                    const a = p.attack, fighter = D.FIGHTERS[p.character], spec = D.attackFor(p.character, a.kind, a.dir);
+                    const melee = a.kind !== 'special' || (fighter.specialMelee && a.dir !== 'up');
+                    if (melee && a.age >= spec.startup && a.age <= spec.startup + spec.active + 2) {
                         c.save(); c.translate(px, py - 28); if (a.dir === 'up') c.rotate(-Math.PI / 2); else if (a.dir === 'down') c.rotate(Math.PI / 2); else c.scale(a.facing, 1);
-                        c.strokeStyle = a.kind === 'heavy' ? '#fff1ba' : '#d8fff4'; c.lineWidth = a.kind === 'heavy' ? 10 : 6;
-                        c.beginPath(); c.arc(10, 0, a.kind === 'heavy' ? 66 : 48, -1.12, 1.12); c.stroke(); c.restore();
+                        c.strokeStyle = a.kind === 'light' ? '#d8fff4' : fighter.light;
+                        c.lineWidth = a.kind === 'light' ? 6 : 9;
+                        c.globalAlpha = Math.min(1, (spec.startup + spec.active + 3 - a.age) / 4);
+                        c.beginPath();
+                        if (a.dir === 'side' && (spec.pose === 'thrust' || spec.pose === 'jab')) {
+                            c.moveTo(21, 1); c.lineTo(spec.reach, -3);
+                        } else {
+                            const angles = a.dir === 'side' && swingAngles[spec.pose] || [-1.12, 1.12];
+                            c.arc(10, 0, spec.reach - 10, ...angles);
+                        }
+                        c.stroke(); c.restore();
                     }
                 }
                 if (!opts.menu) {
@@ -63,9 +78,9 @@
                     c.fillStyle = D.COLORS[p.team]; c.beginPath(); c.moveTo(px, markerY); c.lineTo(px - 7, markerY - 9); c.lineTo(px + 7, markerY - 9); c.fill();
                     c.font = 'bold 13px Trebuchet MS, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#172544';
                     const label = p.id === opts.me ? 'YOU' : p.bot ? 'CPU' : p.name;
-                    const width = c.measureText(label).width + 14; rect(px - width / 2, markerY - 32, width, 19, D.COLORS[p.team]); c.fillStyle = '#172544'; c.fillText(label, px, markerY - 18);
-                    if (px < 18 || px > 1262 || py < 15) {
-                        c.strokeStyle = D.COLORS[p.team]; c.lineWidth = 3; c.strokeRect(Math.max(8, Math.min(1235, px - 18)), Math.max(10, Math.min(620, py)), 36, 36);
+                    const labelWidth = c.measureText(label).width + 14; rect(px - labelWidth / 2, markerY - 32, labelWidth, 19, D.COLORS[p.team]); c.fillStyle = '#172544'; c.fillText(label, px, markerY - 18);
+                    if (px < 18 || px > width - 18 || py < 15) {
+                        c.strokeStyle = D.COLORS[p.team]; c.lineWidth = 3; c.strokeRect(Math.max(8, Math.min(width - 45, px - 18)), Math.max(10, Math.min(620, py)), 36, 36);
                     }
                 }
             }

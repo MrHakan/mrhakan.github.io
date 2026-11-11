@@ -8,14 +8,18 @@
     function write(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); } catch (_) { /* private browsing */ } }
     const pref = read(PREF);
     let selected = S.character(pref.character), mode = pref.mode === 2 ? 2 : 1;
-    let arena = D.ARENAS.some(a => a.id === pref.arena) ? pref.arena : 'sky', muted = pref.muted !== false;
+    const arenas = {
+        1: D.arenaFor(1, pref.arenas?.[1] ?? pref.arena).id,
+        2: D.arenaFor(2, pref.arenas?.[2] ?? pref.arena).id
+    };
+    let muted = pref.muted !== false;
     let app, ui, canvas, renderer, winRef, frameId, timer, match = null, session = null, offs = [], screen = 'menu', overlay = null, pendingStart = 0;
     let menuState, soundContext, lobbyBusy = false, connectionToken = 0, lobbyTimer = 0, gamepadPrevious = {};
     let lastPadAt = 0, musicOn = pref.music !== false, musicRelease = null, musicTimer = 0, lastSong = '';
     const keys = new Set(), pad = new Set();
     let local = S.input();
     const coarse = () => matchMedia('(pointer: coarse)').matches;
-    const save = () => write(PREF, { character: selected, mode, arena, muted, music: musicOn });
+    const save = () => write(PREF, { character: selected, mode, arenas, muted, music: musicOn });
     function stopMatchMusic() {
         clearTimeout(musicTimer); musicTimer = 0;
         if (musicRelease) musicRelease(); musicRelease = null;
@@ -97,13 +101,19 @@
         stopMatchMusic();
         clearInterval(lobbyTimer);
         mount(); clearInput(); match = null; screen = 'menu'; overlay = null; renderer.reset();
-        menuState = S.create({ arena, mode: 1 }); menuState.events = [];
-        menuState.players[0].x = 670; menuState.players[0].y = 524; menuState.players[0].character = selected; menuState.players[0].invuln = 0;
+        menuState = S.create({ arena: arenas[mode], mode }); menuState.events = [];
+        menuState.players[0].character = selected; menuState.players[0].invuln = 0;
         menuState.players[0].grounded = true;
-        menuState.players[1].x = 865; menuState.players[1].y = 365; menuState.players[1].character = (selected + 1) % D.FIGHTERS.length; menuState.players[1].invuln = 0;
         menuState.players.length = 1;
-        ui.innerHTML = topbar() + RIFT_MENU(selected, mode, arena) + bottom();
+        placePreview();
+        ui.innerHTML = topbar() + RIFT_MENU(selected, mode, arenas[mode]) + bottom();
         paintPortraits();
+    }
+    function placePreview() {
+        const stage = D.arenaFor(mode, arenas[mode]);
+        menuState.arena = stage.id;
+        menuState.players[0].x = (stage.width || D.W) / 2 + 30;
+        menuState.players[0].y = stage.platforms[0].y;
     }
     function paintPortraits() {
         ui.querySelectorAll('.rr-char canvas').forEach((cv, i) => { const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height); R.sprite(c, 54, 94, i, { scale: 82 / RIFT_ANIM.height(i) }); });
@@ -149,7 +159,7 @@
             const s = host ? await Netplay.host(transport, 'riftrumble', undefined, m => status(m)) : await Netplay.join(transport, code, m => status(m));
             if (token !== connectionToken || screen !== 'lobby') { s.leave(); return; }
             session = s;
-            if (host) { s.gameOptions = { mode: String(mode), arena }; }
+            if (host) { s.gameOptions = { mode: String(mode), arena: arenas[mode] }; }
             offs.push(s.on('roster', paintLobby), s.on('options', paintLobby), s.on('game-pick', () => {
                 if (s.gameId && s.gameId !== 'riftrumble') { leave(); lobby(); status('That room is playing a different game. Try another code.', true); }
             }), s.on('net:error', m => status(m, true)), s.on('net:down', m => status(m + '. Leave and reconnect to try again.', true)));
@@ -161,9 +171,10 @@
     function paintLobby() {
         if (screen !== 'lobby' || !session) return;
         const s = session, content = ui.querySelector('#rr-lobby-content'); if (!content) return;
-        const opts = s.gameOptions || {}, size = opts.mode === '2' ? 2 : 1;
+        const opts = s.gameOptions || {}, size = Number(opts.mode) === 2 ? 2 : 1;
+        const stage = D.arenaFor(size, opts.arena);
         const players = s.players;
-        content.innerHTML = `<label class="rr-label" style="margin-top:12px">Your room code</label><div class="rr-room-code">${esc(s.code)}</div><div class="rr-roster">${players.map(p => `<div class="rr-player" data-team="${s.teamOf(p)}"><span>${esc(p.name)}${p.me ? ' (you)' : ''}${p.host ? ' · host' : ''}</span><small>${s.teamOf(p) ? 'Coral' : 'Mint'} ${p.me ? '<button type="button" class="rr-team-btn" data-act="team">Switch</button>' : ''}</small></div>`).join('')}${Array.from({ length: Math.max(0, size * 2 - players.length) }, () => '<div class="rr-player"><span>Open seat</span><small>A bot will fill in</small></div>').join('')}</div><p class="rr-status" role="status" aria-live="polite">${size}v${size} in ${esc((D.ARENAS.find(a => a.id === opts.arena) || D.ARENAS[0]).name)}. ${s.isHost ? 'Start whenever everyone is here.' : 'Waiting for the host to start.'}</p><div class="rr-lobby-actions"><button type="button" class="rr-secondary" data-act="copy">Copy invite</button>${s.isHost ? '<button type="button" class="rr-primary" data-act="start">Start match</button>' : ''}</div>`;
+        content.innerHTML = `<label class="rr-label" style="margin-top:12px">Your room code</label><div class="rr-room-code">${esc(s.code)}</div><div class="rr-roster">${players.map(p => `<div class="rr-player" data-team="${s.teamOf(p)}"><span>${esc(p.name)}${p.me ? ' (you)' : ''}${p.host ? ' · host' : ''}</span><small>${s.teamOf(p) ? 'Coral' : 'Mint'} ${p.me ? '<button type="button" class="rr-team-btn" data-act="team">Switch</button>' : ''}</small></div>`).join('')}${Array.from({ length: Math.max(0, size * 2 - players.length) }, () => '<div class="rr-player"><span>Open seat</span><small>A bot will fill in</small></div>').join('')}</div><p class="rr-status" role="status" aria-live="polite">${size}v${size} in ${esc(stage.name)}. ${s.isHost ? 'Start whenever everyone is here.' : 'Waiting for the host to start.'}</p><div class="rr-lobby-actions"><button type="button" class="rr-secondary" data-act="copy">Copy invite</button>${s.isHost ? '<button type="button" class="rr-primary" data-act="start">Start match</button>' : ''}</div>`;
         ui.querySelector('#rr-transport').disabled = true; ui.querySelector('#rr-name').disabled = true;
         ui.querySelector('.rr-lobby > .rr-status').textContent = s.mode === 'local' ? 'This connection works between tabs of the same browser.' : 'Keep the host tab open during the match.';
     }
@@ -173,7 +184,7 @@
     }
     function startSolo() {
         leave();
-        start(null, { seed: Math.floor(Math.random() * 1e9), at: Date.now(), options: { mode: String(mode), arena }, people: [{ id: 'you', name: 'You', character: selected, team: 0 }] });
+        start(null, { seed: Math.floor(Math.random() * 1e9), at: Date.now(), options: { mode: String(mode), arena: arenas[mode] }, people: [{ id: 'you', name: 'You', character: selected, team: 0 }] });
     }
     function start(s, opts = {}) {
         if (!RIFT_ART.ready()) {
@@ -217,7 +228,7 @@
         startMatchMusic(); paintHud();
     }
     function validSnapshot(v) {
-        return !!v && v.version === 1 && Number.isSafeInteger(v.tick) && ['countdown', 'fight', 'over'].includes(v.phase) && Array.isArray(v.players) && v.players.length === match.s.players.length && D.ARENAS.some(a => a.id === v.arena) && Array.isArray(v.shots) && v.shots.length <= 32 && Array.isArray(v.events) && v.events.length <= 20 && v.players.every(p => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.vx) && Number.isFinite(p.vy) && Number.isFinite(p.damage) && Number.isInteger(p.character) && p.character >= 0 && p.character < D.FIGHTERS.length && (p.team === 0 || p.team === 1) && Number.isInteger(p.stocks) && p.stocks >= 0 && p.stocks <= 3);
+        return !!v && v.version === 1 && Number.isSafeInteger(v.tick) && ['countdown', 'fight', 'over'].includes(v.phase) && Array.isArray(v.players) && v.players.length === match.s.players.length && v.arena === match.s.arena && v.mode === match.s.mode && Array.isArray(v.shots) && v.shots.length <= 32 && Array.isArray(v.events) && v.events.length <= 20 && v.players.every(p => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.vx) && Number.isFinite(p.vy) && Number.isFinite(p.damage) && Number.isInteger(p.character) && p.character >= 0 && p.character < D.FIGHTERS.length && (p.team === 0 || p.team === 1) && Number.isInteger(p.stocks) && p.stocks >= 0 && p.stocks <= 3);
     }
     function sendSnapshot(to) { if (session && match?.host) session.send('rr:state', { match: match.id, state: S.snapshot(match.s) }, to); }
     function slowWire() { return session && (session.mode === 'bus' || (session.mode === 'auto' && session.transport?.kind === 'bus')); }
@@ -298,7 +309,7 @@
                     const old = match.previous.players[i], blend = Math.min(1, (now - match.snapAt) / 50);
                     if (!old || Math.abs(old.x - p.x) > 150 || old.stocks !== p.stocks) return p;
                     const me = p.id === match.me, lead = me ? Math.min(0.08, (now - match.snapAt) / 1000) * 60 : 0;
-                    const attack = p.attack ? Object.assign({}, p.attack, { age: Math.min(D.ATTACKS[p.attack.kind].duration, p.attack.age + Math.min(3, (now - match.snapAt) * 0.06)) }) : null;
+                    const attack = p.attack ? Object.assign({}, p.attack, { age: Math.min(D.attackFor(p.character, p.attack.kind, p.attack.dir).duration, p.attack.age + Math.min(3, (now - match.snapAt) * 0.06)) }) : null;
                     const travel = me ? p.travel + Math.abs(Number(local.right) - Number(local.left)) * D.FIGHTERS[p.character].speed * lead : old.travel + (p.travel - old.travel) * blend;
                     return Object.assign({}, p, { x: me ? p.x + (Number(local.right) - Number(local.left)) * D.FIGHTERS[p.character].speed * lead : old.x + (p.x - old.x) * blend, y: old.y + (p.y - old.y) * blend, travel, attack });
                 }) });
@@ -375,7 +386,9 @@
             !e.target.closest('button,a,input,textarea,select,[data-control],.rr-match-tools,.rr-touch');
     }
     function onContextMenu(e) {
-        if (arenaInput(e)) { e.preventDefault(); e.stopPropagation(); }
+        if (screen !== 'play' || !match) return;
+        e.preventDefault();
+        e.stopPropagation();
     }
     function onPointer(e) {
         if (screen !== 'play' || !match || match.paused || overlay) return;
@@ -416,7 +429,7 @@
     }
     function resume() { if (overlay) overlay.remove(); overlay = null; if (match) { match.paused = false; match.last = performance.now(); } clearInput(); }
     function onChange(e) {
-        if (e.target.id === 'rr-arena') { arena = e.target.value; save(); menuState.arena = arena; }
+        if (e.target.id === 'rr-arena') { arenas[mode] = D.arenaFor(mode, e.target.value).id; save(); placePreview(); }
         if (e.target.id === 'rr-transport') ui.querySelector('#rr-relay').hidden = e.target.value !== 'relay';
     }
     async function onClick(e) {

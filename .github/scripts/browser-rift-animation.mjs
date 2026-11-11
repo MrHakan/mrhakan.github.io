@@ -13,7 +13,7 @@ document.getElementById('action').onchange=e=>{review.action=e.target.value};doc
 function loop(now){requestAnimationFrame(loop);const dt=Math.min(.04,(now-last)/1000);last=now;if(!review.paused)review.tick+=dt*60;const action=review.action;
 c.fillStyle='#152b42';c.fillRect(0,0,1280,900);document.getElementById('ready').textContent=RIFT_ART.ready()?'12 fighters / 16 rigid parts each':'Loading cutouts…';
 for(let i=0;i<12;i++){const p={x:review.tick*5,travel:review.tick*5,vx:action==='run'?5:0,vy:0,grounded:action!=='jump',stun:action==='hurt'?10:0,dodge:action==='dodge'?12-review.tick%12:0,attack:null,character:i};
-if(['light','heavy','special','up','down'].includes(action)){const kind=action==='up'||action==='down'?'heavy':action,s=kind==='special'&&RIFT.FIGHTERS[i].specialMelee||RIFT.ATTACKS[kind];p.attack={kind,dir:action==='up'||action==='down'?action:'side',age:review.tick%s.duration};}
+if(['light','heavy','special','up','down'].includes(action)){const kind=action==='up'||action==='down'?'heavy':action,dir=action==='up'||action==='down'?action:'side',s=RIFT.attackFor(i,kind,dir);p.attack={kind,dir,age:review.tick%s.duration};}
 if(action==='jump')p.vy=Math.sin(review.tick/60*4)*12;const a=RIFT_ANIM.update(tracks[i],p,review.tick,{paused:review.paused});const bx=i%4*320,by=Math.floor(i/4)*300;
 c.fillStyle='#203e56';c.fillRect(bx+8,by+8,304,284);c.strokeStyle='#78b5b2';c.beginPath();c.moveTo(bx+30,by+246);c.lineTo(bx+290,by+246);c.stroke();
 RIFT_ART.paint(c,bx+160,by+246,i,{scale:2.5,animation:a,debug:review.debug,facing:review.facing||1});c.fillStyle='#f1dfab';c.textAlign='center';c.font='bold 17px Tahoma';c.fillText(RIFT.FIGHTERS[i].name,bx+160,by+35);c.fillStyle='#9db9c6';c.font='12px Tahoma';c.fillText(a.action+' / '+(typeof a.phase==='number'?a.phase.toFixed(2):a.phase),bx+160,by+274);}}
@@ -46,7 +46,7 @@ try {
             const run = new Set(), clipped = [], belowFloor = [];
             for (let sample = 0; sample < 60; sample++) {
                 const p = { character, grounded: true, vx: 5, vy: 0, travel: sample / 60 * RIFT_ANIM.profile(character).stride };
-                if (sample >= 30) { p.vx = 0; p.attack = { kind: 'heavy', dir: 'side', age: (sample - 30) / 30 * 47 }; }
+                if (sample >= 30) { p.vx = 0; p.attack = { kind: 'heavy', dir: 'side', age: (sample - 30) / 30 * RIFT.attackFor(character, 'heavy').duration }; }
                 const state = RIFT_ANIM.sample(p, sample), animation = { pose: state.pose, bones: RIFT_ANIM.solve(state.pose) };
                 c.clearRect(0, 0, 240, 200); RIFT_ART.paint(c, 120, 160, character, { scale: 1, animation });
                 const pixels = c.getImageData(0, 0, 240, 200).data; let count = 0, bad = 0, floor = 0;

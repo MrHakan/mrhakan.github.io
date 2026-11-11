@@ -19,16 +19,59 @@ test('all 12 fighters have unique identities, weapons and legal profiles', () =>
 test('all fighters can perform their distinct special, including dash and triple tears', () => {
     for (let character = 0; character < 12; character++) {
         const s = duel(), p = s.players[0]; p.character = character; s.players[1].x = 1000;
-        S.setInput(s, 0, { special: 1 }); step(s, D.FIGHTERS[character].specialMelee?.startup || 9);
-        if (character === 9) { assert.equal(s.shots.length, 0); assert.ok(p.x > 625); }
+        S.setInput(s, 0, { special: 1 }); step(s, D.attackFor(character, 'special').startup);
+        if (D.FIGHTERS[character].specialMelee) { assert.equal(s.shots.length, 0); assert.ok(p.x > 625); }
         else assert.equal(s.shots.length, character === 4 ? 3 : 1, D.FIGHTERS[character].name);
     }
+});
+test('each fighter has distinct light and heavy timings, reach or hit behavior', () => {
+    for (const kind of ['light', 'heavy']) {
+        const attacks = D.FIGHTERS.map((_, character) => D.attackFor(character, kind));
+        const signatures = attacks.map(a => [a.pose, a.reach, a.startup, a.active, a.damage, a.force, a.lift].join('/'));
+        assert.equal(new Set(signatures).size, D.FIGHTERS.length);
+    }
+    const jab = duel(), cane = duel();
+    jab.players[0].character = 2; cane.players[0].character = 1;
+    for (const s of [jab, cane]) { s.players[1].x = 680; S.setInput(s, 0, { light: 1 }); step(s, 12); }
+    assert.equal(jab.players[1].damage, 0);
+    assert.ok(cane.players[1].damage > 0);
+});
+test('Hehe leaps forward and connects while descending, facing either direction', () => {
+    for (const facing of [-1, 1]) {
+        const s = duel(), [hehe, rival] = s.players;
+        Object.assign(hehe, { character: 5, facing });
+        rival.x = hehe.x + facing * 207;
+        S.setInput(s, 0, { special: 1 }); step(s, 10);
+        assert.ok(hehe.y < 492 && (hehe.x - 600) * facing > 40);
+        assert.equal(rival.damage, 0);
+        step(s, 12);
+        assert.ok(hehe.vy > 0 && rival.damage > 0);
+        assert.equal(s.shots.length, 0);
+    }
+    const s = duel(); s.players[0].character = 5;
+    S.setInput(s, 0, { up: true, special: 1 }); step(s);
+    assert.ok(s.players[0].recovered && s.players[0].vy < -14);
 });
 test('countdown freezes all fighters for three seconds', () => {
     const s = S.create({ seed: 4 }); const x = s.players[0].x; step(s, 179); assert.equal(s.phase, 'countdown'); assert.equal(s.players[0].x, x); step(s); assert.equal(s.phase, 'fight');
 });
 test('one player and three bots fill a balanced 2v2', () => {
     const s = S.create({ mode: 2, people: [{ id: 'me', team: 0, character: 3 }] }); assert.equal(s.players.length, 4); assert.equal(s.players.filter(p => p.bot).length, 3); assert.equal(s.players.filter(p => p.team === 0).length, 2);
+});
+test('team arenas are wider with distinct safe spawn seats and extended right edges', () => {
+    assert.equal(S.create({ mode: 2, arena: 'moon' }).arena, 'lan');
+    assert.equal(S.create({ mode: 1, arena: 'defrag' }).arena, 'sky');
+    for (const arena of D.arenasFor(2)) {
+        const main = arena.platforms[0];
+        assert.ok(arena.width > D.W && main.w > Math.max(...D.arenasFor(1).map(stage => stage.platforms[0].w)));
+        const s = S.create({ mode: 2, arena: arena.id, people: [0, 0, 1, 1].map((team, slot) => ({ id: `p${slot}`, team })) });
+        assert.equal(s.arena, arena.id);
+        assert.equal(new Set(s.players.map(p => p.x)).size, 4);
+        assert.ok(s.players.every(p => p.x > main.x && p.x < main.x + main.w && p.y < main.y));
+        const p = s.players[0]; s.phase = 'fight'; p.x = 1500;
+        step(s); assert.equal(p.stocks, 3);
+        p.x = arena.width + 171; step(s); assert.equal(p.stocks, 2);
+    }
 });
 test('input rejects non-booleans, hostile counters and missing payloads', () => {
     assert.equal(S.input(null).jump, 0); assert.equal(S.input({ left: 'yes', right: 1 }).left, false); assert.equal(S.input({ jump: Infinity, light: -1 }).jump, 0); assert.equal(S.input({ jump: 2 }).jump, 2);
@@ -82,9 +125,9 @@ test('snapshots are detached, bounded and omit input counters', () => {
 test('same seed and inputs produce the same complete match', () => {
     const a = S.create({ seed: 882, mode: 2 }), b = S.create({ seed: 882, mode: 2 }); step(a, 8000); step(b, 8000); assert.equal(JSON.stringify(a), JSON.stringify(b));
 });
-test('bots fight, recover and finish on every arena in both modes', () => {
+test('bots fight, recover and finish on every arena in its intended mode', () => {
     let hits = 0, kos = 0;
-    for (const arena of D.ARENAS) for (const mode of [1, 2]) for (let seed = 1; seed <= 5; seed++) {
+    for (const mode of [1, 2]) for (const arena of D.arenasFor(mode)) for (let seed = 1; seed <= 5; seed++) {
         const s = S.create({ arena: arena.id, mode, seed }); let n = 0;
         while (s.phase !== 'over' && n++ < 24000) S.step(s);
         assert.equal(s.phase, 'over', arena.id + '/' + mode + '/' + seed); assert.ok(s.players.every(p => Number.isFinite(p.x) && Number.isFinite(p.damage))); hits += s.players.reduce((n, p) => n + p.dealt, 0); kos += s.players.reduce((n, p) => n + p.kos, 0);

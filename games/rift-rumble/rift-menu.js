@@ -11,13 +11,17 @@
                 <div class="rr-selected-name"><canvas width="80" height="80" aria-label="${f.name} face"></canvas><div><span>Your fighter</span><h1>${f.name}</h1></div></div>
                 <p class="rr-fighter-kind">${f.kind}</p><p class="rr-fighter-tip">${f.tip}</p>
                 <div class="rr-stats">${stat('Speed', Math.round(f.speed / 6 * 100))}${stat('Weight', Math.round(f.weight / 1.4 * 100))}${stat('Reach', Math.round(f.reach / 85 * 100))}</div>
-                <div class="rr-special-name"><span>Special move</span><b>${f.special}</b></div>
+                <div class="rr-special-name">
+                    <div><span>Light</span><b>${f.moves.light.name}</b></div>
+                    <div><span>Heavy</span><b>${f.moves.heavy.name}</b></div>
+                    <div><span>Special</span><b>${f.special}</b></div>
+                </div>
             </section>
             <div class="rr-spotlight" aria-hidden="true"><div class="rr-player-badge">P1 <span>Ready to cause problems</span></div></div>
             <section class="rr-panel" aria-label="Match setup">
                 <h2>Settle it in the arena.</h2><span class="rr-label">Game mode</span>
                 <div class="rr-modes">${[1, 2].map(n => `<button type="button" class="rr-mode" data-mode="${n}" aria-pressed="${mode === n}"><b>${n}v${n}</b><small>${n === 1 ? 'Duel' : 'Team battle'}</small></button>`).join('')}</div>
-                <label class="rr-label" for="rr-arena">Battleground</label><select id="rr-arena" class="rr-select">${D.ARENAS.map(a => `<option value="${a.id}" ${a.id === arena ? 'selected' : ''}>${a.name}</option>`).join('')}</select>
+                <label class="rr-label" for="rr-arena">Battleground</label><select id="rr-arena" class="rr-select">${D.arenasFor(mode).map(a => `<option value="${a.id}" ${a.id === arena ? 'selected' : ''}>${a.name}</option>`).join('')}</select>
                 <div class="rr-match-rules"><span>◆ ◆ ◆ <b>3 stocks</b></span><span>◷ <b>3 minutes</b></span></div>
                 <button type="button" class="rr-primary" data-act="solo">BRAWL! <small>Play against bots</small></button>
                 <button type="button" class="rr-secondary" data-act="online">Play with friends <span>1–4 players</span></button>

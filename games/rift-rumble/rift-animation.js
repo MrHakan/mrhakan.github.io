@@ -63,7 +63,18 @@
         pose.hipY = -32 * size; pose.body = mix(-.04, .14, rise); pose.armIK = 0; pose.backLayer = 0;
         return pose;
     }
-    function attackSpec(a, character) { return a.kind === 'special' && D.FIGHTERS[character].specialMelee || D.ATTACKS[a.kind]; }
+    const attackStyles = {
+        thrust: { wind: { fUpper: 1.2, fElbow: -2, body: -.13 }, impact: { fUpper: -.23, fElbow: .05, fHand: -.08, body: .22 } },
+        jab: { wind: { fUpper: 1.25, fElbow: -2.4, bUpper: .65, bElbow: -1.9 }, impact: { fUpper: -.26, fElbow: .16, fHand: -.15, bUpper: .68, bElbow: -1.95 } },
+        hook: { wind: { fUpper: 2.85, fElbow: -1.8, body: -.42 }, impact: { fUpper: -.47, fElbow: .63, fHand: .39, body: .4 } },
+        sweep: { wind: { fUpper: 1.95, fElbow: -1.25, body: -.3 }, impact: { fUpper: .26, fElbow: .25, fHand: .37, body: .36 } },
+        uppercut: { wind: { fUpper: 1.8, fElbow: -1.35, body: -.15 }, impact: { fUpper: -.95, fElbow: -.5, fHand: -1.12, body: .15, head: -.16 } },
+        overhead: { wind: { fUpper: -1.9, fElbow: -.6, fHand: -1.85, body: -.24 }, impact: { fUpper: -.32, fElbow: .18, fHand: .58, body: .39 } },
+        shove: { wind: { fUpper: 1.45, fElbow: -2.15, bUpper: 1.3, bElbow: -2.1 }, impact: { fUpper: -.28, fElbow: .26, bUpper: -.31, bElbow: .28, fHand: .06, body: .31 } },
+        rush: { wind: { fUpper: 2.1, fElbow: -1.55, body: .34 }, impact: { fUpper: -.58, fElbow: .25, fHand: .12, body: .46 } },
+        pounce: { wind: { fUpper: -1.4, fElbow: -.95, fHand: -1.26, bUpper: 2.55, bElbow: -1.1, body: .31 }, impact: { fUpper: .6, fElbow: .18, fHand: .9, bUpper: 2.7, bElbow: -.8, body: .42, head: .12 } }
+    };
+    function attackSpec(a, character) { return D.attackFor(character, a.kind, a.dir); }
     function attackPose(p) {
         const base = rest(p.character), a = p.attack, s = attackSpec(a, p.character), heavy = a.kind === 'heavy', r = profile(p.character);
         if (!p.grounded) airborne(base, p.vy);
@@ -73,7 +84,18 @@
         const impact = { ...base, armIK: 0, backLayer: 1, hipX: heavy ? 4 : 2.5, body: heavy ? .3 : .2, head: -.05,
             fUpper: aim - (heavy ? .3 : .2), fElbow: .12, fHand: aim, bUpper: 2.4, bElbow: -1.3,
             fFootX: p.grounded ? spread : base.fFootX, bFootX: p.grounded ? -spread : base.bFootX, weapon: 0, weaponLayer: 1 };
-        const follow = { ...impact, body: impact.body + .08, fUpper: impact.fUpper + .16, fHand: aim + (heavy ? .3 : .08) };
+        const style = a.dir === 'side' && attackStyles[s.pose];
+        if (style) {
+            Object.assign(wind, style.wind);
+            Object.assign(impact, style.impact);
+        }
+        if (s.pose === 'pounce') {
+            wind.hipY += p.grounded ? 5 : 0;
+            wind.fFootY -= p.grounded ? 0 : 6;
+            impact.fFootX = p.grounded ? spread : 15;
+            impact.bFootX = p.grounded ? -spread : -20;
+        }
+        const follow = { ...impact, body: impact.body + .08, fUpper: impact.fUpper + .16, fHand: impact.fHand + (heavy ? .3 : .08) };
         let pose, phase;
         if (a.age < s.startup) {
             const u = a.age / s.startup;

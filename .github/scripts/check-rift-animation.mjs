@@ -84,7 +84,7 @@ test('pause freezes all bone transforms even when the caller advances time', () 
 });
 test('contact phase matches every actual damage window and respects upward/downward aiming', () => {
     for (let character = 0; character < 12; character++) for (const kind of ['light', 'heavy', 'special']) {
-        const spec = kind === 'special' && D.FIGHTERS[character].specialMelee || D.ATTACKS[kind];
+        const spec = D.attackFor(character, kind);
         for (let age = 0; age < spec.duration; age++) {
             const sample = A.sample(fighter({ character, attack: { kind, dir: 'side', age } }), age);
             assert.equal(!!sample.contact, age >= spec.startup && age <= spec.startup + spec.active);

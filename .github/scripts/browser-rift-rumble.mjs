@@ -31,8 +31,9 @@ async function context(options = {}) {
 }
 async function open(ctx, url = GAME_URL) { const p = await ctx.newPage(); p.on('pageerror', e => errors.push(e.message)); await p.goto(url); await p.waitForSelector('.rr-menu,.rr-lobby'); return p; }
 const state = (p, fn) => p.evaluate(fn);
-async function hosted(p, transport = 'local', mode = 1) {
+async function hosted(p, transport = 'local', mode = 1, arena) {
     if (mode === 2) await p.click('[data-mode="2"]');
+    if (arena) await p.selectOption('#rr-arena', arena);
     await p.click('[data-act=online]'); await p.selectOption('#rr-transport', transport);
     if (transport === 'relay') await p.fill('#rr-relay', 'ws://127.0.0.1:' + relayPort);
     await p.click('[data-act=host]'); await p.waitForSelector('.rr-room-code');
@@ -63,11 +64,19 @@ try {
     ok(await p.locator('.app-window .rr-app').count() === 1 && !await p.locator('#rift-app').count(), 'the game lives inside the main desktop app window');
     await p.waitForFunction(() => RIFT_ART.ready());
     ok(await state(p, () => RIFT_ART.metrics().length === 12 && RIFT_ART.metrics().every(r => r.parts === 16)), 'all twelve fighters load their sixteen separate cutout attachments');
-    await p.click('[data-fighter="3"]'); await p.click('[data-mode="2"]'); await p.selectOption('#rr-arena', 'moon');
+    await p.click('[data-fighter="3"]'); await p.selectOption('#rr-arena', 'moon');
+    await p.click('[data-mode="2"]');
+    const teamMaps = await p.locator('#rr-arena option').allTextContents();
+    ok(teamMaps.join(',') === 'LAN Party,Disk Defrag,Print Queue', '2v2 offers its own three large maps');
+    await p.selectOption('#rr-arena', 'print');
+    await p.click('[data-mode="1"]');
+    ok(await p.locator('#rr-arena').inputValue() === 'moon', 'switching to 1v1 restores the last duel map');
+    await p.click('[data-mode="2"]');
+    ok(await p.locator('#rr-arena').inputValue() === 'print', 'switching back to 2v2 restores the team map');
     await p.screenshot({ path: path.join(SHOTS, 'rr-menu.png') });
     await p.click('[data-act=help]'); ok(await p.locator('[role=dialog]').isVisible(), 'instructions open from the menu'); await p.click('[data-act=close-help]');
     await p.click('[data-act=solo]');
-    ok(await state(p, () => { const s = RIFT_ENGINE.state().s; return s.players.length === 4 && s.arena === 'moon' && s.players[0].character === 3 && s.players.filter(p => p.bot).length === 3; }), 'fighter, team size and arena choices reach the rules');
+    ok(await state(p, () => { const s = RIFT_ENGINE.state().s; return s.players.length === 4 && s.arena === 'print' && s.players[0].character === 3 && s.players.filter(p => p.bot).length === 3; }), 'fighter, team size and arena choices reach the rules');
     await fighting(p); const x = await state(p, () => RIFT_ENGINE.state().s.players[0].x);
     await p.keyboard.down('KeyD'); await p.waitForTimeout(200); await p.keyboard.up('KeyD');
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].x) > x + 10, 'real keyboard input moves the fighter');
@@ -90,6 +99,15 @@ try {
         ok(await state(p, () => RIFT_ENGINE.state().s.players[0].attack?.kind) === kind, button + ' mouse button triggers the actual ' + kind + ' attack');
     }
     ok(await p.evaluate(() => window.rrContextBlocked === true), 'right-click attacks suppress the browser context menu inside the arena');
+    await readyAttack();
+    const beforeShift = await state(p, () => RIFT_ENGINE.state().s.players[0].input.heavy);
+    await p.evaluate(() => { window.rrContextBlocked = false; });
+    await p.locator('.rr-ui').click({ position: { x: 320, y: 280 }, button: 'right', modifiers: ['Shift'] });
+    ok(await state(p, () => window.rrContextBlocked && !document.querySelector('#ctx-menu.open')),
+        'Shift and right-click suppress both menus inside the arena');
+    await p.waitForFunction(value => RIFT_ENGINE.state().s.players[0].input.heavy >= value, beforeShift + 1);
+    ok(await state(p, () => RIFT_ENGINE.state().s.players[0].input.heavy) === beforeShift + 1,
+        'Shift and right-click still queue one heavy attack');
     const focusWindow = await p.evaluate(() => {
         const w = createAppWindow('Mouse focus check', { width: 120 });
         w.win.style.left = '0px'; w.win.style.top = '0px'; return w.win.id;
@@ -107,6 +125,12 @@ try {
     const beforeTools = await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input));
     await p.click('[data-act=sound]');
     ok(await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input)) === beforeTools, 'clicking match tools does not trigger an attack');
+    await p.evaluate(() => { window.rrContextBlocked = false; });
+    await p.locator('[data-act=sound]').click({ button: 'right', modifiers: ['Shift'] });
+    ok(await state(p, () => window.rrContextBlocked && !document.querySelector('#ctx-menu.open')),
+        'Shift and right-click suppress both menus over match tools');
+    ok(await state(p, () => RIFT_ENGINE.state().s.players[0].input.heavy) === JSON.parse(beforeTools).heavy,
+        'Shift and right-click over match tools do not queue a heavy attack');
     await p.waitForFunction(() => typeof heldTrack !== 'undefined' && !!heldTrack);
     ok(await state(p, () => tracks.some(t => t.filename === heldTrack.filename) && document.getElementById('audio-player').paused), 'match music chooses a library track and respects the site mute');
     await p.keyboard.press('Escape'); const tick = await state(p, () => RIFT_ENGINE.state().s.tick); await p.waitForTimeout(200);
@@ -114,20 +138,28 @@ try {
     const beforeDialog = await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input));
     await p.locator('.rr-dialog h2').click();
     ok(await state(p, () => JSON.stringify(RIFT_ENGINE.state().s.players[0].input)) === beforeDialog, 'clicking a pause dialog does not queue an attack');
+    await p.evaluate(() => { window.rrContextBlocked = false; });
+    await p.locator('.rr-dialog h2').click({ button: 'right', modifiers: ['Shift'] });
+    ok(await state(p, () => window.rrContextBlocked && !document.querySelector('#ctx-menu.open')),
+        'Shift and right-click suppress both menus in the pause dialog');
     const pausedPicture = await state(p, () => document.querySelector('.rr-canvas').toDataURL()); await p.waitForTimeout(160);
     ok(await state(p, () => document.querySelector('.rr-canvas').toDataURL()) === pausedPicture, 'pause freezes fighter frames, invulnerability flashes and combat effects'); await p.click('[data-act=resume]');
     await state(p, () => {
         window.rrTestPad = { axes: [1, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false })) };
         Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.rrTestPad] });
-        const fighter = RIFT_ENGINE.state().s.players[0]; fighter.x = 500; fighter.y = 524; fighter.vx = fighter.vy = 0; fighter.grounded = true; fighter.jumps = 0; fighter.stun = 0; fighter.attack = null; fighter.invuln = 600;
+        const fighter = RIFT_ENGINE.state().s.players[0]; fighter.x = 500; fighter.y = 524; fighter.vx = fighter.vy = 0; fighter.grounded = true; fighter.jumps = 0; fighter.stun = 0; fighter.dodge = 0; fighter.attack = null; fighter.invuln = 600;
         RIFT_ENGINE.state().s.players.slice(1).forEach((p, i) => { p.x = 930 + i * 25; p.y = 524; });
     });
-    await p.waitForTimeout(160); ok(await state(p, () => RIFT_ENGINE.state().s.players[0].x > 510), 'gamepad axes move the actual fighter');
-    await state(p, () => { rrTestPad.axes[0] = 0; rrTestPad.buttons[0].pressed = true; }); await p.waitForTimeout(100);
+    await p.waitForFunction(() => RIFT_ENGINE.state().s.players[0].x > 510);
+    ok(true, 'gamepad axes move the actual fighter');
+    const padPressTick = await state(p, () => { rrTestPad.axes[0] = 0; rrTestPad.buttons[0].pressed = true; return RIFT_ENGINE.state().s.tick; });
+    await p.waitForFunction(tick => RIFT_ENGINE.state().s.tick >= tick + 6, padPressTick);
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].jumps === 1), 'a held gamepad jump triggers once');
-    await state(p, () => { rrTestPad.buttons[0].pressed = false; }); await p.waitForTimeout(40);
-    await state(p, () => { rrTestPad.buttons[0].pressed = true; }); await p.waitForTimeout(70);
-    ok(await state(p, () => RIFT_ENGINE.state().s.players[0].jumps === 2), 'a second gamepad press double jumps');
+    const padReleaseTick = await state(p, () => { rrTestPad.buttons[0].pressed = false; return RIFT_ENGINE.state().s.tick; });
+    await p.waitForFunction(tick => RIFT_ENGINE.state().s.tick > tick, padReleaseTick);
+    await state(p, () => { rrTestPad.buttons[0].pressed = true; });
+    await p.waitForFunction(() => RIFT_ENGINE.state().s.players[0].jumps === 2);
+    ok(true, 'a second gamepad press double jumps');
     await state(p, () => { window.rrTestPad = null; });
     await p.screenshot({ path: path.join(SHOTS, 'rr-fight.png') });
     if (process.env.RR_RECORD) {
@@ -150,6 +182,24 @@ try {
     await state(p, () => { RIFT_ENGINE.state().s.players.filter(p => p.team === 1).forEach(p => { p.stocks = 1; p.y = 1000; }); });
     await p.waitForSelector('[data-act=rematch]'); ok((await p.textContent('.rr-dialog h2')).includes('yours'), 'a win displays actual results');
     await p.click('[data-act=rematch]'); ok(await state(p, () => RIFT_ENGINE.state().s.phase === 'countdown'), 'practice rematch starts a fresh countdown');
+    await p.click('[data-act=pause]'); await p.click('[data-act=menu]');
+    await p.click('[data-fighter="5"]'); await p.click('[data-mode="1"]'); await p.selectOption('#rr-arena', 'sky');
+    ok((await p.locator('.rr-special-name').innerText()).includes('Grin pounce'), 'Hehe lists his new special on the fighter screen');
+    await p.click('[data-act=solo]'); await fighting(p); await readyAttack();
+    await state(p, () => {
+        const s = RIFT_ENGINE.state().s;
+        const [hehe, rival] = s.players;
+        hehe.facing = 1;
+        Object.assign(rival, { x: 707, y: 524, vx: 0, vy: 0, grounded: true, bot: false, invuln: 0, damage: 0, attack: null, dodge: 0, drop: 0, queued: {} });
+        RIFT_SIM.setInput(s, rival.slot, {});
+    });
+    await p.keyboard.press('KeyR');
+    await p.waitForFunction(() => {
+        const [hehe] = RIFT_ENGINE.state().s.players;
+        return hehe.attack?.kind === 'special' && hehe.x > 540 && hehe.y < 495;
+    });
+    await p.waitForFunction(() => RIFT_ENGINE.state().s.players[1].damage > 0);
+    ok(await state(p, () => RIFT_ENGINE.state().s.shots.length === 0), 'Hehe leaps forward and strikes the rival with a melee special');
     await p.click('[data-act=pause]'); await p.click('[data-act=menu]');
     await p.click('[data-act=online]');
     await state(p, () => closeAppWindow(document.querySelector('.rr-app').closest('.app-window').id));
@@ -232,11 +282,11 @@ try {
 
     const relayContexts = await Promise.all(Array.from({ length: 4 }, () => context()));
     const pages = []; for (const c of relayContexts) pages.push(await open(c));
-    const relayCode = await hosted(pages[0], 'relay', 2);
+    const relayCode = await hosted(pages[0], 'relay', 2, 'defrag');
     for (let i = 1; i < 4; i++) { await pages[i].click('[data-fighter="' + i + '"]'); await join(pages[i], relayCode, 'relay'); }
     await pages[0].waitForFunction(() => Netplay.current.players.length === 4);
     await pages[0].click('[data-act=start]'); await Promise.all(pages.map(fighting));
-    ok((await Promise.all(pages.map(p => state(p, () => { const g = RIFT_ENGINE.state(); return g.s.players.length === 4 && g.s.players.every(p => !p.bot); })))).every(Boolean), 'four independent browser contexts play a real WebSocket 2v2');
+    ok((await Promise.all(pages.map(p => state(p, () => { const g = RIFT_ENGINE.state(); return g.s.arena === 'defrag' && g.s.players.length === 4 && g.s.players.every(p => !p.bot); })))).every(Boolean), 'four independent browser contexts play a real WebSocket 2v2 on the host’s chosen team map');
     ok(await state(pages[0], () => RIFT_ENGINE.state().s.players.map(p => p.character).join(',') === '0,1,2,3'), 'each remote player keeps their chosen character');
     // Put the guest on a safe platform and delay its real packets, then verify movement.
     await state(pages[0], () => { const p = RIFT_ENGINE.state().s.players[3]; p.x = 640; p.y = 524; p.vx = p.vy = 0; });
@@ -251,6 +301,7 @@ try {
     }
     const phoneCtx = await context({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }), phone = await open(phoneCtx);
     ok(await state(phone, () => document.documentElement.scrollWidth <= innerWidth), 'portrait menu has no horizontal overflow');
+    await phone.click('[data-mode="2"]'); await phone.selectOption('#rr-arena', 'lan');
     await phone.click('[data-act=solo]'); await fighting(phone);
     await phone.waitForTimeout(350); // the desktop window's responsive fit runs every 250 ms
     ok(await phone.locator('.rr-touch').isVisible(), 'touch controls appear on a phone');
@@ -261,6 +312,11 @@ try {
         return { ok: hud.top >= header.bottom && buttons.every(r => r.left >= body.left && r.right <= body.right && r.bottom <= body.bottom), body:{left:body.left,right:body.right,bottom:body.bottom}, headerBottom:header.bottom,hudTop:hud.top,buttons };
     });
     ok(phoneGeometry.ok, 'mobile HUD clears the titlebar and every touch button fits inside the window' + (phoneGeometry.ok ? '' : ': ' + JSON.stringify(phoneGeometry)));
+    ok(await state(phone, () => {
+        const status = document.querySelector('.rr-net-status').getBoundingClientRect();
+        const tools = document.querySelector('.rr-match-tools').getBoundingClientRect();
+        return status.bottom <= tools.top;
+    }), 'mobile match status clears the match buttons');
     await phone.locator('[data-control=jump]').tap(); await phone.waitForTimeout(75);
     ok(await state(phone, () => RIFT_ENGINE.state().s.players[0].jumps > 0), 'touch input jumps in the actual simulation');
     await phone.screenshot({ path: path.join(SHOTS, 'rr-mobile.png') });
