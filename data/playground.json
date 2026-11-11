@@ -1,5 +1,39 @@
 [
   {
+    "name": "🔢 Pocket Sudoku 98",
+    "type": "game",
+    "date": "2026-11-11",
+    "url": "/games/pocket-sudoku/",
+    "description": "Uniquely solvable daily 4×4 Sudoku with practice, hints, undo and accessible keyboard/touch controls.",
+    "icon": "🔢",
+    "tags": [
+      "sudoku",
+      "logic",
+      "daily",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "🌊 Tide Twelfths Desk 98",
+    "type": "app",
+    "date": "2026-11-11",
+    "url": "/apps/tide-twelfths/",
+    "description": "Private educational rule-of-twelfths tide-height estimator with interactive curve, hourly table and copyable values.",
+    "icon": "🌊",
+    "tags": [
+      "maritime",
+      "tides",
+      "education",
+      "calculator",
+      "svg",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "🔎 Word Hunt 98",
     "type": "game",
     "date": "2026-11-10",
