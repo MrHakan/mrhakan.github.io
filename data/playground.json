@@ -1,5 +1,38 @@
 [
   {
+    "name": "🎲 Dice Odds Desk 98",
+    "type": "app",
+    "date": "2026-11-12",
+    "url": "/apps/dice-odds-desk/",
+    "description": "Private exact dice-sum probability explorer with local roll simulations, chart and copyable CSV.",
+    "icon": "🎲",
+    "tags": [
+      "probability",
+      "dice",
+      "simulation",
+      "math",
+      "education",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
+    "name": "🧮 Equation Rush 98",
+    "type": "game",
+    "date": "2026-11-12",
+    "url": "/games/equation-rush/",
+    "description": "Offline timed mental-math arcade with daily seeded questions, streak bonuses, keyboard input and local bests.",
+    "icon": "🧮",
+    "tags": [
+      "math",
+      "arcade",
+      "daily",
+      "keyboard",
+      "offline",
+      "score"
+    ]
+  },
+  {
     "name": "🔢 Pocket Sudoku 98",
     "type": "game",
     "date": "2026-11-11",
