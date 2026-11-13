@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const world = vm.createContext({ console });
-for (const file of ['rift-data.js', 'rift-sim.js']) vm.runInContext(fs.readFileSync('games/rift-rumble/' + file, 'utf8'), world);
+for (const file of ['rift-data.js', 'rift-sim.js', 'rift-room.js']) vm.runInContext(fs.readFileSync('games/rift-rumble/' + file, 'utf8'), world);
 const D = world.RIFT, S = world.RIFT_SIM;
 let checks = 0;
 function test(name, fn) { fn(); checks++; console.log('  ok    ' + name); }
@@ -133,5 +133,187 @@ test('bots fight, recover and finish on every arena in its intended mode', () =>
         assert.equal(s.phase, 'over', arena.id + '/' + mode + '/' + seed); assert.ok(s.players.every(p => Number.isFinite(p.x) && Number.isFinite(p.damage))); hits += s.players.reduce((n, p) => n + p.dealt, 0); kos += s.players.reduce((n, p) => n + p.kos, 0);
     }
     assert.ok(hits > 5000); assert.ok(kos > 30); console.log('        30 bot matches, ' + Math.round(hits) + ' damage, ' + kos + ' knockouts');
+});
+// ---- the online room: seats, picks, ready and the way back after a match ----
+const ROOM = world.RIFT_ROOM;
+// values made inside the vm have another realm's prototypes; compare them as plain data
+const alike = (a, b, text) => assert.deepEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)), text);
+function lobby(mode = 1, names = ['ann', 'bob']) {
+    const r = ROOM.create({ host: 'ann', mode, seed: 7 });
+    names.forEach((name, i) => ROOM.join(r, name, name, i, i % 2));
+    return r;
+}
+let seq = 0;
+const ask = (r, id, wish) => ROOM.intent(r, id, { n: ++seq, c: ROOM.seat(r, id)?.pick, r: ROOM.seat(r, id)?.ready, ...wish });
+test('a room seats players on balanced sides and fills the rest with bots', () => {
+    const solo = lobby(2, ['ann']);
+    assert.equal(solo.bots.length, 3); alike([0, 1].map(t => solo.bots.filter(b => b.team === t).length), [1, 2]);
+    const duel = lobby();
+    alike(duel.seats.map(s => s.team), [0, 1]); assert.equal(duel.bots.length, 0);
+    ROOM.join(duel, 'cy', 'cy', 4, 0);
+    assert.equal(ROOM.seat(duel, 'cy').team, -1, 'a third player in a 1v1 waits');
+    ROOM.join(duel, 'ann', 'Ann the Second', 9, 1);
+    assert.equal(duel.seats.length, 3); assert.equal(ROOM.seat(duel, 'ann').pick, 0, 'joining twice changes neither seat nor fighter');
+    const four = lobby(2, ["ann", "bob", "cy", "dee"]);
+    alike([0, 1].map(t => four.seats.filter(s => s.team === t).length), [2, 2]); assert.equal(four.bots.length, 0);
+});
+test('picks are validated by the host: bad fighters, strangers and replays change nothing', () => {
+    const r = lobby(), before = JSON.stringify(r.seats);
+    for (const c of [12, -1, 1.5, '3', null, NaN, Infinity, {}, [2]]) ask(r, 'bob', { c });
+    assert.equal(JSON.stringify(r.seats.map(s => s.pick)), '[0,1]');
+    assert.equal(ROOM.intent(r, 'mallory', { n: 1, c: 5, r: true }), false);
+    for (const msg of [null, 7, 'ready', [], { c: 5 }, { n: -1, c: 5 }, { n: 1.5, c: 5 }, { n: '9', c: 5 }, { n: Infinity, c: 5 }]) assert.equal(ROOM.intent(r, 'bob', msg), false);
+    assert.equal(ROOM.seat(r, 'bob').pick, 1);
+    assert.equal(ask(r, 'bob', { c: 6 }), true); assert.equal(ROOM.seat(r, 'bob').pick, 6);
+    assert.equal(ROOM.intent(r, 'bob', { n: seq, c: 2, r: true }), false, 'a repeated packet is ignored');
+    assert.equal(ROOM.intent(r, 'bob', { n: seq - 3, c: 2, r: true }), false, 'an older packet is ignored');
+    assert.equal(ROOM.seat(r, 'bob').pick, 6); assert.equal(ROOM.seat(r, 'bob').ready, false);
+    assert.equal(before.includes('"ready":true'), false);
+});
+test('nobody can pick or ready up for somebody else', () => {
+    const r = lobby();
+    // the sender is whoever the transport names; an id inside the message means nothing
+    ROOM.intent(r, 'bob', { n: ++seq, id: 'ann', for: 'ann', seat: 'ann', c: 8, r: true });
+    assert.equal(ROOM.seat(r, 'ann').pick, 0); assert.equal(ROOM.seat(r, 'ann').ready, false);
+    assert.equal(ROOM.seat(r, 'bob').pick, 8); assert.equal(ROOM.seat(r, 'bob').ready, true);
+    assert.equal(ROOM.setMode(r, 'bob', 2), false); assert.equal(ROOM.setArena(r, 'bob', 'moon'), false); assert.equal(ROOM.rerollBot(r, 'bob', 0), false);
+    assert.equal(r.mode, 1); assert.equal(r.arena, 'sky');
+});
+test('a ready player is locked until they take it back', () => {
+    const r = lobby(2);
+    ask(r, 'bob', { c: 4, r: true });
+    assert.equal(ROOM.seat(r, 'bob').ready, true);
+    ask(r, 'bob', { c: 9, r: true }); ask(r, 'bob', { t: 0, r: true });
+    assert.equal(ROOM.seat(r, 'bob').pick, 4); assert.equal(ROOM.seat(r, 'bob').team, 1);
+    ask(r, 'bob', { c: 9, r: false });
+    assert.equal(ROOM.seat(r, 'bob').ready, false); assert.equal(ROOM.seat(r, 'bob').pick, 9);
+    ask(r, 'bob', { t: 0 }); assert.equal(ROOM.seat(r, 'bob').team, 0);
+    ask(r, 'bob', { t: 7 }); ask(r, 'bob', { t: -1 }); assert.equal(ROOM.seat(r, 'bob').team, 0);
+    const full = lobby(1); ask(full, 'bob', { t: 0 });
+    assert.equal(ROOM.seat(full, 'bob').team, 1, 'a full side cannot be joined');
+});
+test('two players may pick the same fighter', () => {
+    const r = lobby(); ask(r, 'ann', { c: 5 }); ask(r, 'bob', { c: 5 });
+    alike(r.seats.map(s => s.pick), [5, 5]);
+});
+test('everyone ready starts a three second countdown that any change of mind stops', () => {
+    const r = lobby();
+    ask(r, 'ann', { r: true }); assert.equal(r.phase, 'select'); assert.equal(ROOM.tick(r, 5000), false);
+    ask(r, 'bob', { r: true }); assert.equal(r.phase, 'countdown'); assert.equal(r.count, ROOM.COUNTDOWN);
+    assert.equal(ROOM.tick(r, 2999), false);
+    ask(r, 'ann', { r: false }); assert.equal(r.phase, 'select'); assert.equal(ROOM.tick(r, 9000), false);
+    ask(r, 'ann', { r: true }); assert.equal(r.count, ROOM.COUNTDOWN, 'the countdown starts over');
+    assert.equal(ROOM.tick(r, 1000), false); assert.equal(ROOM.tick(r, NaN), false); assert.equal(ROOM.tick(r, -500), false);
+    assert.equal(ROOM.tick(r, 2000), true);
+    const late = lobby(2); ask(late, 'ann', { r: true }); ask(late, 'bob', { r: true });
+    ROOM.join(late, 'cy', 'cy', 2, 0);
+    assert.equal(late.phase, 'select', 'someone arriving stops the countdown until they are ready too');
+});
+test('a player who leaves never holds the room up', () => {
+    const r = lobby(2, ['ann', 'bob', 'cy']);
+    ask(r, 'ann', { r: true }); ask(r, 'bob', { r: true });
+    assert.equal(r.phase, 'select');
+    assert.equal(ROOM.leave(r, 'cy'), true);
+    assert.equal(r.phase, 'countdown', 'the one who was not ready left'); assert.equal(r.bots.length, 2);
+    assert.equal(ROOM.leave(r, 'cy'), false);
+    ROOM.leave(r, 'bob'); assert.equal(r.phase, 'countdown'); assert.equal(r.seats.length, 1);
+    ROOM.leave(r, 'ann'); assert.equal(r.phase, 'select'); assert.equal(ROOM.begin(r, 1, 2), null, 'an empty room starts nothing');
+    const duel = lobby(1, ['ann', 'bob', 'cy']);
+    ROOM.leave(duel, 'bob'); assert.equal(ROOM.seat(duel, 'cy').team, 1, 'the next in line takes the seat that opened');
+});
+test('the host changes mode and arena for everyone, but not while ready', () => {
+    const r = lobby(1, ['ann', 'bob', 'cy']);
+    ask(r, 'bob', { r: true });
+    assert.equal(ROOM.setArena(r, 'ann', 'moon'), true); assert.equal(r.arena, 'moon'); assert.equal(ROOM.seat(r, 'bob').ready, true);
+    assert.equal(ROOM.setArena(r, 'ann', 'defrag'), false, 'a team arena is not offered in 1v1');
+    assert.equal(ROOM.setArena(r, 'ann', 'nowhere'), false); assert.equal(ROOM.setMode(r, 'ann', 3), false); assert.equal(ROOM.setMode(r, 'ann', '2'), false);
+    assert.equal(ROOM.setMode(r, 'ann', 2), true);
+    assert.equal(r.arena, 'lan'); assert.equal(ROOM.seat(r, 'cy').team !== -1, true); assert.equal(r.bots.length, 1);
+    assert.equal(r.seats.some(s => s.ready), false, 'changing the mode asks everyone to ready up again');
+    ask(r, 'ann', { r: true });
+    assert.equal(ROOM.setMode(r, 'ann', 1), false); assert.equal(ROOM.setArena(r, 'ann', 'print'), false); assert.equal(ROOM.rerollBot(r, 'ann', 0), false);
+    ask(r, 'ann', { r: false });
+    const was = r.bots[0].pick; assert.equal(ROOM.rerollBot(r, 'ann', 0), true); assert.notEqual(r.bots[0].pick, was);
+    assert.equal(ROOM.rerollBot(r, 'ann', 5), false);
+    assert.equal(ROOM.setMode(r, 'ann', 1), true); assert.equal(ROOM.seat(r, 'cy').team, -1);
+});
+test('a started room becomes a match the rules accept, with the picked fighters', () => {
+    const r = lobby(2); ask(r, 'ann', { c: 3, r: true }); ask(r, 'bob', { c: 7, r: true });
+    const bots = r.bots.map(b => b.pick);
+    assert.equal(ROOM.tick(r, 3000), true);
+    const m = ROOM.begin(r, 123, 456);
+    assert.equal(r.phase, 'match'); assert.equal(m.match, '456:123'); assert.equal(ROOM.begin(r, 5, 6), null);
+    alike(JSON.parse(JSON.stringify(ROOM.readStart(JSON.parse(JSON.stringify(m))))), JSON.parse(JSON.stringify(m)));
+    const s = S.create({ mode: m.options.mode, arena: m.options.arena, seed: m.seed, people: m.people });
+    alike(s.players.map(p => [p.id, p.character, p.team, p.bot]), [['ann', 3, 0, false], ['bob', 7, 1, false], ['bot-0', bots[0], 0, true], ['bot-1', bots[1], 1, true]]);
+    assert.equal(r.seats.some(s => s.ready), false);
+    ROOM.join(r, 'cy', 'cy', 1, 0);
+    assert.equal(ask(r, 'cy', { r: true }), false, 'nobody readies up while a match is on');
+    assert.equal(ask(r, 'cy', { c: 10 }), true, 'a latecomer can still choose a fighter');
+    assert.equal(ask(r, 'bob', { t: 0 }), false); assert.equal(r.phase, 'match'); assert.equal(ROOM.tick(r, 9999), false);
+    assert.equal(ROOM.setMode(r, 'ann', 1), false);
+});
+test('a finished match returns everyone to character select and keeps the score', () => {
+    const r = lobby(2, ['ann', 'bob', 'cy']);
+    const play = winner => {
+        r.seats.forEach(s => ask(r, s.id, { r: true }));
+        assert.equal(r.phase, 'countdown'); assert.equal(ROOM.tick(r, 3000), true);
+        const m = ROOM.begin(r, 9 + r.played, 1000 + r.played);
+        const rows = m.people.map(p => ({ id: p.id, name: p.name, team: p.team, pick: p.character, kos: 2, dealt: 140.6, bot: !!p.bot }));
+        return { match: m.match, winner, rows };
+    };
+    const first = play(0);
+    assert.equal(ROOM.finish(r, { ...first, match: 'someone else' }), false); assert.equal(r.phase, 'match');
+    assert.equal(ROOM.finish(r, first), true);
+    assert.equal(r.phase, 'select'); assert.equal(r.played, 1); assert.equal(r.seats.some(s => s.ready), false);
+    alike(r.seats.map(s => [s.id, s.wins]), [['ann', 1], ['bob', 0], ['cy', 1]]);
+    assert.equal(r.last.winner, 0); assert.equal(r.last.rows[0].dealt, 141);
+    assert.equal(ROOM.finish(r, first), false, 'the same result cannot be counted twice');
+    ask(r, 'bob', { c: 11 }); assert.equal(ROOM.seat(r, 'bob').pick, 11, 'a new fighter for the next round');
+    const second = play(1);
+    ROOM.leave(r, 'cy'); ROOM.join(r, 'dee', 'dee', 2, 0);
+    second.rows.find(p => p.id === 'ann').bot = true;
+    ROOM.finish(r, { ...second, winner: 0 });
+    alike(r.seats.map(s => [s.id, s.wins]), [['ann', 1], ['bob', 0], ['dee', 0]], 'no win for a seat that was not played to the end');
+    ROOM.finish(r, play(1));
+    alike(r.seats.map(s => [s.id, s.wins]), [['ann', 1], ['bob', 1], ['dee', 0]]); assert.equal(r.played, 3);
+});
+test('the copy guests receive is small, complete and refused when malformed', () => {
+    const r = lobby(2, ['ann', 'bob', 'cy', 'dee']);
+    r.seats.forEach(s => ask(r, s.id, { r: true })); ROOM.tick(r, 3000);
+    const m = ROOM.begin(r, 3, 4);
+    ROOM.finish(r, { match: m.match, winner: 1, rows: m.people.map(p => ({ id: p.id, name: 'sixteen letters!', team: p.team, pick: p.character, kos: 3, dealt: 420, bot: false })) });
+    const wire = JSON.parse(JSON.stringify(ROOM.view(r)));
+    assert.ok(JSON.stringify(wire).length < 900, 'a full room with a result is ' + JSON.stringify(wire).length + ' bytes');
+    const v = ROOM.read(wire);
+    alike(v.seats.map(s => [s.id, s.pick, s.ready, s.team, s.wins]), r.seats.map(s => [s.id, s.pick, s.ready, s.team, s.wins]));
+    assert.equal(v.last.rows.length, 4); assert.equal(v.mode, 2); assert.equal(v.arena, r.arena);
+    const broken = change => { const w = JSON.parse(JSON.stringify(wire)); change(w); return ROOM.read(w); };
+    assert.equal(ROOM.read(null), null); assert.equal(ROOM.read('room'), null); assert.equal(ROOM.read({}), null);
+    for (const change of [
+        w => { w.v = 2; }, w => { w.mode = 3; }, w => { w.arena = 'sky'; }, w => { w.phase = 'party'; }, w => { w.count = -1; }, w => { w.rev = 1.5; },
+        w => { w.seats[0][2] = 12; }, w => { w.seats[0][4] = 2; }, w => { w.seats[0][0] = ''; }, w => { w.seats = 'all of them'; },
+        w => { w.seats = Array(9).fill(w.seats[0]); }, w => { w.bots = [[0, 99, 'x']]; }, w => { w.last[2][0][3] = -4; }, w => { w.last = [1, 2, 3]; }
+    ]) assert.equal(broken(change), null);
+    const start = change => { const d = JSON.parse(JSON.stringify(m)); change(d); return ROOM.readStart(d); };
+    assert.equal(ROOM.readStart(null), null);
+    for (const change of [
+        d => { d.match = 'x'; }, d => { d.seed = 0.5; }, d => { d.options.mode = '3'; }, d => { d.options.arena = 'sky'; }, d => { d.people.pop(); },
+        d => { d.people[0].character = 12; }, d => { d.people.forEach(p => { p.team = 0; }); }, d => { d.people[1].id = ''; }
+    ]) assert.equal(start(change), null);
+});
+test('a whole evening: three matches played to the end in one room', () => {
+    const r = lobby(2);
+    for (let round = 0; round < 3; round++) {
+        ask(r, 'ann', { c: round, r: true }); ask(r, 'bob', { c: 11 - round, r: true });
+        assert.equal(ROOM.tick(r, 3000), true);
+        const m = ROOM.begin(r, 50 + round, 9000 + round);
+        const s = S.create({ mode: m.options.mode, arena: m.options.arena, seed: m.seed, people: m.people.map(p => ({ ...p, bot: true })) });
+        let n = 0; while (s.phase !== 'over' && n++ < 24000) S.step(s);
+        assert.equal(s.phase, 'over');
+        ROOM.finish(r, { match: m.match, winner: s.winner, rows: s.players.map(p => ({ id: p.id, name: p.name, team: p.team, pick: p.character, kos: p.kos, dealt: p.dealt, bot: m.people[p.slot].bot })) });
+        assert.equal(r.phase, 'select'); assert.ok(ROOM.read(JSON.parse(JSON.stringify(ROOM.view(r)))));
+    }
+    assert.equal(r.played, 3); assert.equal(r.seats.reduce((n, s) => n + s.wins, 0), 3);
 });
 console.log('Brawlz 98: ' + checks + ' rule checks passed.');

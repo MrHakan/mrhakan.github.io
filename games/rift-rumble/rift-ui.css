@@ -29,3 +29,64 @@
 @media(max-width:380px){.rr-brand{gap:5px;font-size:11px}.rr-top{gap:5px;padding:0 9px}.rr-top-right{gap:4px}.rr-top-right .rr-icon-btn{padding:6px;font-size:10px!important}}
 .rr-special-name > div { display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: baseline; gap: 6px; margin-bottom: 4px; }
 .rr-special-name > div > span { margin: 0; }
+/* The online room: lobby and character select on one screen. */
+.rr-room{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:12px 22px 14px;overflow-y:auto;background:linear-gradient(#0c2446e0,#0c2446ad 45%,#0b2340eb)}
+.rr-room-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rr-room-id{display:flex;align-items:baseline;gap:8px}
+.rr-room-id span{font-size:10px;color:#b6cbd8}
+.rr-room .rr-room-code{font-size:22px;letter-spacing:4px;text-align:left}
+.rr-room-rules{display:flex;align-items:center;gap:8px;margin-left:auto}
+.rr-room-rules .rr-modes{margin:0;gap:5px;grid-template-columns:auto auto}
+.rr-room-rules .rr-mode{padding:4px 12px}
+.rr-room-rules .rr-mode b{font-size:17px}
+.rr-room-rules .rr-select{margin:0;width:auto;min-width:150px;padding:6px 8px}
+.rr-room-rules :disabled,.rr-team-btn:disabled{opacity:.5;cursor:default}
+.rr-rule{font-size:10px;color:#a9c9d2;padding:5px 10px;background:#112d4ec7;border:1px solid #6b9ab655;border-radius:4px}
+.rr-rule b{font-size:13px;color:#fff0be;margin-right:5px}
+.rr-cards{flex:1 1 0;min-height:150px;display:flex;align-items:stretch;gap:12px}
+.rr-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.rr-side h3{margin:0;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--mint)}
+.rr-side[data-team='1'] h3{color:#ff9b86;text-align:right}
+.rr-side-cards{flex:1;min-height:0;display:flex;justify-content:center;gap:10px}
+.rr-versus{align-self:center;text-align:center;font:900 italic 34px 'Arial Black',Impact,sans-serif;color:#fff0bd;text-shadow:3px 3px #17314b}
+.rr-versus span{display:block;font:10px Tahoma,sans-serif;color:#a9c9d2;text-shadow:none;margin-top:4px;white-space:nowrap}
+.rr-card{--team:var(--mint);flex:1;min-width:0;max-width:430px;display:flex;flex-direction:column;position:relative;background:linear-gradient(#1d4468f2,#122d4bf2);border:1px solid #87bcb766;border-top:4px solid var(--team);border-radius:6px;overflow:hidden}
+.rr-card[data-team='1']{--team:#ff9b86}
+.rr-card-me{background:linear-gradient(#2a5a80f2,#173856f2)}
+.rr-card header{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:12px;min-width:0}
+.rr-card-tag{background:var(--team);color:#173b4c;font:bold 11px Tahoma,sans-serif;padding:2px 5px;border-radius:2px;flex-shrink:0}
+.rr-card-name{font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rr-card header em{font-style:normal;font-size:9px;color:#3b3429;background:#ffe49e;border-radius:2px;padding:1px 4px;flex-shrink:0}
+.rr-card canvas{flex:1 1 0;min-height:0;width:100%;object-fit:contain}
+.rr-card-fighter{text-align:center;font-size:17px;font-weight:900;font-style:italic;color:var(--gold);padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-card-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 8px 7px;font-size:10px;color:#b2cbd9}
+.rr-card-state{padding:2px 8px;border-radius:9px;background:#0d263a;color:#c6dce3;white-space:nowrap}
+.rr-card-ready{border-color:#fff0ae;box-shadow:0 0 0 2px #ffe49e66,0 0 18px #86d9b640}
+.rr-card-ready .rr-card-state{background:#ffe49e;color:#3b3429;font-weight:bold;text-transform:uppercase;letter-spacing:1px}
+.rr-card-cpu{opacity:.85}
+.rr-card-cpu .rr-card-tag{background:#9fb3c1}
+.rr-card .rr-team-btn{position:absolute;right:6px;top:34px}
+.rr-bench{margin:0;font-size:11px;color:#bdd3de}
+.rr-room .rr-characters{flex:0 0 auto}
+.rr-room .rr-char[aria-disabled=true]{cursor:default}
+.rr-room-locked .rr-char:not([aria-pressed=true]){opacity:.5}
+.rr-room-locked .rr-char:hover{transform:none;filter:none}
+.rr-room-locked .rr-char[aria-pressed=true]:hover{transform:translateY(-4px)}
+.rr-tokens{position:absolute;left:2px;top:2px;right:2px;display:flex;flex-wrap:wrap;gap:2px;pointer-events:none;font-style:normal}
+.rr-token{font:bold 9px Tahoma,sans-serif;padding:2px 4px;border-radius:2px;background:var(--mint);color:#173b4c;border:1px solid #0c2446}
+.rr-token[data-team='1']{background:#ff9b86}
+.rr-token[data-team='-1']{background:#9fb3c1}
+.rr-token-cpu{opacity:.8;border-style:dashed}
+.rr-token-me{box-shadow:0 0 0 2px #fff}
+.rr-token-ready:after{content:' \2713'}
+.rr-room-foot{display:flex;align-items:center;gap:14px}
+.rr-room-foot .rr-status{flex:1;margin:0}
+.rr-ready{width:auto;min-width:230px;flex:0 0 auto;padding:7px 18px}
+.rr-ready[aria-pressed=true]{background:linear-gradient(#a0ead6,#68c9bd);border-color:#d1f7e5;box-shadow:0 4px #247479,0 7px 10px #0b203c55}
+.rr-room-count{position:absolute;inset:0;z-index:4;display:grid;place-items:center;pointer-events:none;font:900 italic 120px 'Arial Black',Impact,sans-serif;color:#fff0bd;text-shadow:5px 6px #17314b}
+.rr-room-count:not(:empty){background:#081b3477}
+.rr-result[data-team]{border-left:3px solid var(--mint);padding-left:8px}
+.rr-result[data-team='1']{border-left-color:#ff9b86}
+@media(max-width:760px){.rr-room{padding:10px 12px}.rr-cards{gap:7px}.rr-side-cards{gap:6px}.rr-versus{font-size:24px}.rr-card-fighter{font-size:14px}.rr-ready{min-width:180px}}
+@media(max-width:580px){.rr-room{padding:8px 9px 9px;gap:7px}.rr-room-rules{order:5;width:100%;margin:0}.rr-room-rules .rr-select,.rr-rule{flex:1;min-width:0}.rr-room-leave{margin-left:auto}.rr-room .rr-room-code{font-size:18px;letter-spacing:3px}.rr-room-id span{display:none}.rr-side-cards{flex-direction:column}.rr-versus{font-size:17px}.rr-versus span{font-size:8px}.rr-card header{padding:4px 5px;font-size:11px;gap:4px}.rr-card-fighter{font-size:13px}.rr-card-foot{padding:3px 5px 5px;font-size:9px}.rr-card .rr-team-btn{top:auto;right:4px;bottom:4px;min-height:30px}.rr-card:has(.rr-team-btn) .rr-card-state{display:none}.rr-card:has(.rr-team-btn) .rr-card-foot{min-height:38px}.rr-room .rr-icon-btn,.rr-room-rules .rr-mode,.rr-room-rules .rr-select{min-height:34px}.rr-room-foot{flex-direction:column;align-items:stretch;gap:6px}.rr-room-foot .rr-status{font-size:11px;line-height:1.4;min-height:31px}.rr-ready{min-width:0;width:100%;font-size:19px!important}.rr-room-count{font-size:84px}}
+@media(max-height:550px) and (min-width:581px){.rr-room{padding:6px 13px 7px;gap:5px}.rr-cards{min-height:96px}.rr-side h3{display:none}.rr-card header{padding:3px 6px;font-size:11px}.rr-card-fighter{font-size:12px;padding:0 6px}.rr-card-foot{padding:2px 6px 3px;font-size:9px}.rr-card .rr-team-btn{top:25px}.rr-room .rr-room-code{font-size:17px}.rr-room-rules .rr-mode{padding:2px 9px}.rr-room-rules .rr-select{padding:4px 6px;font-size:11px}.rr-versus{font-size:22px}.rr-ready{padding:4px 14px;font-size:17px!important}.rr-ready small{display:none}.rr-room-foot{position:sticky;bottom:-7px;z-index:3;padding:4px 0;background:#0b2340f2}.rr-room-foot .rr-status{font-size:11px;min-height:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rr-room-count{font-size:76px}}

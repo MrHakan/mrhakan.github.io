@@ -1366,18 +1366,13 @@
         {
             id: 'riftrumble', name: 'Brawlz 98', icon: 'sports_esports',
             min: 2, max: 4, teams: true,
-            blurb: 'a 2D pixel platform fighter: double jumps, big knockouts, online 1v1 and 2v2. bots fill empty seats',
+            blurb: 'a 2D pixel platform fighter: double jumps, big knockouts, online 1v1 and 2v2. everyone picks a fighter together, bots fill empty seats',
             seats: o => o.mode === '2' ? 4 : 2,
-            startProblem: s => {
-                const size = s.gameOptions.mode === '2' ? 2 : 1, counts = [0, 0];
-                s.players.forEach(p => counts[s.teamOf(p)]++);
-                return counts.some(n => n > size) ? 'Choose balanced teams before starting Brawlz 98.' : '';
-            },
             options: [
                 { key: 'mode', label: 'teams', values: [['1', '1 v 1'], ['2', '2 v 2']] },
                 { key: 'arena', label: 'arena', values: [['sky', 'The Taskbar'], ['moon', 'Recycle Rift'], ['sunset', 'Blue Screen']] }
             ],
-            scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-sim.js', 'games/rift-rumble/rift-animation.js', 'games/rift-rumble/rift-art.js', 'games/rift-rumble/rift-fighters.js', 'games/rift-rumble/rift-stages.js', 'games/rift-rumble/rift-render.js', 'games/rift-rumble/rift-menu.js', 'games/rift-rumble/rift.js']
+            scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-sim.js', 'games/rift-rumble/rift-room.js', 'games/rift-rumble/rift-animation.js', 'games/rift-rumble/rift-art.js', 'games/rift-rumble/rift-fighters.js', 'games/rift-rumble/rift-stages.js', 'games/rift-rumble/rift-render.js', 'games/rift-rumble/rift-menu.js', 'games/rift-rumble/rift.js']
         }
     ];
     NP.games = {};
