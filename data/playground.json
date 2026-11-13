@@ -1,5 +1,40 @@
 [
   {
+    "name": "♛ Queen's Gambit 98",
+    "type": "game",
+    "date": "2026-11-13",
+    "url": "/games/queens-gambit/",
+    "description": "Offline N-Queens chess puzzle with daily fixed queen, conflict highlights, hints and keyboard controls.",
+    "icon": "♛",
+    "tags": [
+      "chess",
+      "queens",
+      "logic",
+      "puzzle",
+      "daily",
+      "keyboard",
+      "offline"
+    ]
+  },
+  {
+    "name": "🧭 CPA Plotter 98",
+    "type": "app",
+    "date": "2026-11-13",
+    "url": "/apps/cpa-plotter/",
+    "description": "Private educational closest-point-of-approach and TCPA calculator with relative-motion SVG plot.",
+    "icon": "🧭",
+    "tags": [
+      "maritime",
+      "navigation",
+      "cpa",
+      "tcpa",
+      "relative-motion",
+      "svg",
+      "offline",
+      "education"
+    ]
+  },
+  {
     "name": "🎲 Dice Odds Desk 98",
     "type": "app",
     "date": "2026-11-12",
