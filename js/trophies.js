@@ -90,6 +90,15 @@
             }
         },
         {
+            id: 'blastz', name: 'blastz 98', icon: '💥', open: 'blastz',
+            has: /^blastz/, windows: /^blastz/,
+            records() {
+                const m = obj(json('mrhakan98-blastz-meta'));
+                if (!m) return [];
+                return [['matches', count(m.matches)], ['matches won', count(m.wins)], ['knockouts', count(m.kos)], ['falls', count(m.falls)]];
+            }
+        },
+        {
             id: 'echoes', name: 'echoes of the tide', icon: '🌊', open: 'echoes',
             has: /^echoes/, windows: /^echoes/,
             records() {

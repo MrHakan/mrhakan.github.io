@@ -118,6 +118,22 @@
             }
         },
         {
+            id: 'blastz',
+            name: 'blastz 98',
+            icon: '💥',
+            keys: ['mrhakan98-blastz-meta', 'mrhakan98-blastz-prefs'],
+            open: 'blastz',
+            summary() {
+                const meta = json('mrhakan98-blastz-meta');
+                if (!meta) return null;
+                const bits = [];
+                if (meta.matches) bits.push(plural(meta.matches, 'match', 'matches'));
+                if (meta.wins) bits.push(meta.wins + ' won');
+                if (meta.kos) bits.push(plural(meta.kos, 'knockout', 'knockouts'));
+                return { line: bits.length ? bits.join(' · ') : 'settings, no matches yet', when: '' };
+            }
+        },
+        {
             id: 'trollproblem',
             name: 'the troll problem',
             icon: '🚋',
