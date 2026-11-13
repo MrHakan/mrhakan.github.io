@@ -1,0 +1,15 @@
+# In the repository, not on the site. deploy.yml builds the Pages upload with
+# .github/scripts/stage-pages.mjs, which copies every tracked file except these.
+# A pattern is a path from the repository root; * matches within one folder.
+# check: `node .github/scripts/stage-pages.mjs --check` fails if a pattern
+# matches nothing, or if anything the site serves still names a file left out.
+
+# Brawlz 98's source art: the design sheets, the raw 4 x 4 cutout kits, the
+# patron's weapon and the prompts behind them. prepare-rift-art.mjs cuts the
+# lossless rig-*.png atlases from these, rift-rig-webp.py turns those into the
+# rig-*.webp the game loads. Only the webp go out.
+games/rift-rumble/art/fighters-*.png
+games/rift-rumble/art/cutout-*.png
+games/rift-rumble/art/weapon-*.png
+games/rift-rumble/art/rig-*.png
+games/rift-rumble/art/cutout-prompts.json

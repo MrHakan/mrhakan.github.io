@@ -32,7 +32,7 @@
             } catch (error) { rejectReady(error); }
         };
         image.onerror = () => rejectReady(new Error('Fighter rig could not load. Reload the game to try again.'));
-        image.src = 'games/rift-rumble/art/rig-' + name + '.png';
+        image.src = 'games/rift-rumble/art/rig-' + name + '.webp';
     });
     function paint(c, x, y, character, opts = {}) {
         const f = fighters[character]; if (!f) return false;

@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
     if (name === '/review') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(html); }
     const file = path.resolve(ROOT, '.' + decodeURIComponent(name));
     if (!file.startsWith(ROOT + path.sep) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'Content-Type': file.endsWith('.png') ? 'image/png' : 'text/javascript' }); fs.createReadStream(file).pipe(res);
+    res.writeHead(200, { 'Content-Type': file.endsWith('.png') ? 'image/png' : file.endsWith('.webp') ? 'image/webp' : 'text/javascript' }); fs.createReadStream(file).pipe(res);
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});

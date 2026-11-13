@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v54';
+const CACHE = 'mrhakan98-v55';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -63,18 +63,18 @@ const PRECACHE_LATER = [
     '/games/rift-rumble/rift-art.js',
     '/games/rift-rumble/rift-animation.js',
     '/games/rift-rumble/rift-menu.js',
-    '/games/rift-rumble/art/rig-joe-cool.png',
-    '/games/rift-rumble/art/rig-dusung.png',
-    '/games/rift-rumble/art/rig-hothead.png',
-    '/games/rift-rumble/art/rig-bebetrol.png',
-    '/games/rift-rumble/art/rig-zirlak.png',
-    '/games/rift-rumble/art/rig-hehe.png',
-    '/games/rift-rumble/art/rig-nasiya.png',
-    '/games/rift-rumble/art/rig-patron.png',
-    '/games/rift-rumble/art/rig-sahur.png',
-    '/games/rift-rumble/art/rig-oleey.png',
-    '/games/rift-rumble/art/rig-yeter.png',
-    '/games/rift-rumble/art/rig-pffft.png',
+    '/games/rift-rumble/art/rig-joe-cool.webp',
+    '/games/rift-rumble/art/rig-dusung.webp',
+    '/games/rift-rumble/art/rig-hothead.webp',
+    '/games/rift-rumble/art/rig-bebetrol.webp',
+    '/games/rift-rumble/art/rig-zirlak.webp',
+    '/games/rift-rumble/art/rig-hehe.webp',
+    '/games/rift-rumble/art/rig-nasiya.webp',
+    '/games/rift-rumble/art/rig-patron.webp',
+    '/games/rift-rumble/art/rig-sahur.webp',
+    '/games/rift-rumble/art/rig-oleey.webp',
+    '/games/rift-rumble/art/rig-yeter.webp',
+    '/games/rift-rumble/art/rig-pffft.webp',
     '/games/waveshaper/',
     '/games/waveshaper/?embed=1',
     '/games/waveshaper/waveshaper-sim.js',

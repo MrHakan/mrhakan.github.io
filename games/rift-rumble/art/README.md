@@ -37,7 +37,14 @@ prepares only the pilot. No AI call is required to rebuild the runtime textures.
 
 The script removes disconnected alpha noise, crops each part, and uniformly fits
 it into a 128×128 cell. It writes lossless **512×512 `rig-<name>.png` atlases**,
-about 3.9 MiB total. The runtime reads the part bounds once after decoding and
+about 3.8 MiB in all. `python .github/scripts/rift-rig-webp.py` then turns them into
+the `rig-<name>.webp` the game loads: about 750 KiB, with the alpha kept bit for bit
+(it refuses otherwise), because the parts are found by their alpha. A browser's own
+webp encoder moved a couple of hundred edge pixels per fighter, so it is not used.
+
+Only the webp reach the site. `.pagesignore` keeps the design sheets, the cutout
+kits, the weapon, the prompts and the png atlases in the repository and out of
+every deploy, about 26 MB. The runtime reads the part bounds once after decoding and
 draws those attachments with normal Canvas translations and rotations.
 
 ## Skeleton and motion
