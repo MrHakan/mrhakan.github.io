@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v56';
+const CACHE = 'mrhakan98-v57';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [

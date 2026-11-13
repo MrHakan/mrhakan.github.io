@@ -72,7 +72,30 @@ try {
             RIFT_ART.paint(c, 120, 160, character, { scale: 1, animation: { pose, bones: RIFT_ANIM.solve(pose) } });
             c.drawImage = original; return order;
         });
-        return { metrics, reports, orders, idleOrders };
+        // Standing: the painted soles meet the floor line, and a fighter facing
+        // left is the same picture flipped, with nothing left behind or swapped.
+        const stance = Array.from({ length: 12 }, (_, character) => {
+            const pose = RIFT_ANIM.sample({ character, grounded: true }, 0, true).pose, animation = { pose, bones: RIFT_ANIM.solve(pose) };
+            const shot = facing => { c.clearRect(0, 0, 240, 200); RIFT_ART.paint(c, 120, 160, character, { scale: 1, animation, facing }); return c.getImageData(0, 0, 240, 200).data; };
+            const right = shot(1), left = shot(-1); let lowest = 0, differs = 0, solid = 0;
+            for (let y = 0; y < 200; y++) for (let x = 0; x < 240; x++) {
+                const a = right[(y * 240 + x) * 4 + 3], b = left[(y * 240 + 239 - x) * 4 + 3];
+                if (a > 96) { lowest = Math.max(lowest, y); solid++; }
+                if (Math.abs(a - b) > 64) differs++;
+            }
+            return { name: RIFT.FIGHTERS[character].name, lowest, differs, solid };
+        });
+        // In motion the prop must not be painted under the head or the body:
+        // putting it on the top layer may not change what is on screen.
+        const hidden = [];
+        for (let character = 0; character < 12; character++) for (const [label, extra] of [['rise', { grounded: false, vy: -10 }], ['fall', { grounded: false, vy: 8 }], ['dodge', { dodge: 6 }], ['hurt', { stun: 10 }]]) {
+            const state = RIFT_ANIM.sample({ character, grounded: true, vx: 0, vy: 0, travel: 0, stun: 0, dodge: 0, attack: null, ...extra }, 0, true);
+            const picture = pose => { c.clearRect(0, 0, 240, 200); RIFT_ART.paint(c, 120, 160, character, { scale: 1, animation: { pose, bones: RIFT_ANIM.solve(pose) } }); return c.getImageData(0, 0, 240, 200).data; };
+            const drawn = picture(state.pose), onTop = picture({ ...state.pose, weaponLayer: 1 }); let covered = 0;
+            for (let k = 0; k < drawn.length; k += 4) if (Math.abs(drawn[k] - onTop[k]) + Math.abs(drawn[k + 1] - onTop[k + 1]) + Math.abs(drawn[k + 2] - onTop[k + 2]) > 60) covered++;
+            if (covered > 40) hidden.push(RIFT.FIGHTERS[character].name + ' / ' + label + ' (' + covered + ' px of the prop covered)');
+        }
+        return { metrics, reports, orders, idleOrders, stance, hidden };
     });
     fs.writeFileSync(path.join(SHOTS, 'brawlz-animation-report.json'), JSON.stringify(result, null, 2));
     assert.ok(result.orders[0].indexOf(6) < result.orders[0].indexOf(1), 'far upper arm stays behind the jacket');
@@ -85,6 +108,13 @@ try {
         const order = result.idleOrders[character];
         assert.ok(order.indexOf(3) > order.indexOf(1) && order.indexOf(3) < order.indexOf(12), 'the prop is visible above the torso and below the gripping hand');
     }
+    for (const s of result.stance) {
+        assert.ok(s.lowest >= 156 && s.lowest <= 163, s.name + ': stands on the floor, neither floating nor sunk (' + s.lowest + ')');
+        assert.ok(s.differs < s.solid * .02, s.name + ': facing left is a clean mirror image (' + s.differs + ' of ' + s.solid + ' px differ)');
+    }
+    console.log('  ok    all twelve stand on the floor line and mirror cleanly');
+    assert.deepEqual(result.hidden, [], 'no prop is hidden behind its own fighter');
+    console.log('  ok    no prop disappears behind the head while jumping, dodging or being hit');
     for (const [i, r] of result.reports.entries()) {
         assert.equal(result.metrics[i].parts, 16, r.name + ': sixteen separate attachments');
         assert.ok(r.continuousRunSamples >= 28, r.name + ': continuous rig motion rather than repeated frames');
@@ -94,7 +124,7 @@ try {
     }
     await page.screenshot({ path: path.join(SHOTS, 'brawlz-run-review.png') });
     await page.check('#bones'); await page.screenshot({ path: path.join(SHOTS, 'brawlz-bones-review.png') }); await page.uncheck('#bones');
-    for (const action of ['heavy', 'jump']) { await page.selectOption('#action', action); await page.waitForTimeout(350); await page.screenshot({ path: path.join(SHOTS, 'brawlz-' + action + '-review.png') }); }
+    for (const action of ['heavy', 'jump', 'hurt', 'dodge']) { await page.selectOption('#action', action); await page.waitForTimeout(350); await page.screenshot({ path: path.join(SHOTS, 'brawlz-' + action + '-review.png') }); }
     const canRecord = await page.evaluate(() => !!window.MediaRecorder && MediaRecorder.isTypeSupported('video/webm;codecs=vp9'));
     if (canRecord) {
         await page.evaluate(() => {

@@ -120,7 +120,10 @@ try {
     await p.evaluate(id => closeAppWindow(id), focusWindow);
     await readyAttack();
     const arenaBox = await p.locator('.rr-ui').boundingBox();
+    const beforeHold = await state(p, () => RIFT_ENGINE.state().s.players[0].input.light);
     await p.mouse.move(arenaBox.x + 320, arenaBox.y + 280); await p.mouse.down();
+    // the press reaches the rules on the next 60 Hz tick; read the counter only once it has
+    await p.waitForFunction(value => RIFT_ENGINE.state().s.players[0].input.light > value, beforeHold);
     const held = await state(p, () => RIFT_ENGINE.state().s.players[0].input.light);
     await p.waitForTimeout(400); await p.mouse.up();
     ok(await state(p, () => RIFT_ENGINE.state().s.players[0].input.light) === held, 'holding a mouse button queues one attack per press');
