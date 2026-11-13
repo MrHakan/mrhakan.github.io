@@ -21,26 +21,57 @@ an exact tie starts one-stock sudden death at 200%.
 | --- | --- |
 | A/D or left/right | Move |
 | Space, W or up | Jump, twice before landing |
-| J / K / L | Light / heavy / special |
-| Hold W/up + L | Recovery special, once per landing |
-| Hold up/down + J/K | Aim a melee attack |
+| E / F / R, or left / right click | Light / heavy / special |
+| Hold W/up + R | Recovery special, once per landing |
+| Hold up/down + E/F | Aim a melee attack |
 | S/down | Fast fall; drop through a small platform |
 | Shift | Dodge (brief immunity, then cooldown) |
 | Escape | Pause practice; open menu online |
 | Gamepad | Stick/d-pad, A jump, X light, Y heavy, B special, shoulder dodge |
 
 Phones have touch controls. Sound starts muted and can be enabled. Menus support
-keyboard navigation and reduced motion stops ambient movement. Practice pauses
+keyboard navigation (in the room: arrows pick, Enter readies; on a gamepad the
+stick picks, A readies, B takes it back, Y switches side) and reduced motion stops ambient movement. Practice pauses
 when its tab is hidden. Online matches continue with the host tab open.
 
 ## Multiplayer
 
-Create a room, share its invite or code, and join from the same game page. The host
-chooses 1v1/2v2 and arena before opening the room. Everyone can switch teams in the
-lobby; starting requires at most one/two humans per side. Bots fill vacant seats.
-Each player picks a fighter before joining. The shared desktop Netplay lobby also
-supports Brawlz 98, including its public lobby list. Its stable internal ID remains
-`riftrumble` to keep the transport and invite route consistent.
+Create a room, share its invite or code, and join from the same game page. The
+room is one screen, lobby and character select together, and everyone stays in
+it between matches with the same code:
+
+- Each player has a card: name, side, the fighter they are on right now, wins
+  this session and whether they are ready. The fighter grid shows a P1/P2 tag
+  on whatever each player is standing on, so every change is seen live.
+- **Ready** locks your fighter and side until you take it back. When every
+  seated player is ready a three second countdown runs and the match starts by
+  itself; anyone un-readying, joining or leaving stops it. There is no start
+  button: the host has to be ready too, so nothing starts without them, and
+  nobody waits on a host who looked away.
+- The host switches 1v1/2v2 and the arena on that screen, while not ready.
+  Everyone sees it. Changing the mode asks everyone to ready up again.
+- Two players may pick the same fighter, as in Smash; the side colour and the
+  P number tell them apart.
+- Bots fill the empty seats and their fighters are on cards too. The host can
+  ask for a different bot.
+- Everyone can switch side in 2v2 while the other side has room. In a 1v1 with
+  a third player in the room, that player is next in line and takes the first
+  seat that opens.
+- A match ends with a short result, then everybody is back in the room. Someone
+  who joins while a match is on waits there and can already pick.
+- The shared desktop Netplay lobby also supports Brawlz 98, including its
+  public lobby list and `join/riftrumble/` invites: its start button brings
+  everyone to this room, and a player who joins it later is sent there too.
+  The stable internal ID remains `riftrumble`.
+
+The host owns the room (`rift-room.js`). Guests send their whole wish (fighter,
+ready, side) with a sequence number, at most about eight times a second, and
+the host answers with the room, at most ten times a second plus a heartbeat
+(under a kilobyte with four players). The host takes the sender from the
+transport envelope, never from the message, refuses unknown fighters, changes
+while ready and stale or repeated packets, and a guest validates every room and
+match description it receives. A player who drops is removed from the room, so
+the ready count never waits on them; mid-match their fighter becomes a bot.
 
 `games/netplay.js` supplies automatic WebRTC, encrypted public relay fallback,
 an optional self-hosted WebSocket relay (`node server/relay.js`), and same-browser
@@ -63,8 +94,10 @@ rules without browser dependencies. `rift-animation.js` owns action timing and
 skeletal keyframes. `rift-art.js` prepares the fixed rigs and cached frames;
 `rift-fighters.js` supplies projectile art and the shared character draw entry point.
 `rift-stages.js` draws the desktop arenas. `rift-render.js` handles animation and
-combat effects. `rift-menu.js` and `rift-ui.css` define the responsive selection
-screen. `rift.js` owns the app window, input, persistence, audio and networking.
+combat effects. `rift-room.js` is the online room's state machine, also free of
+browser dependencies. `rift-menu.js` and `rift-ui.css` define the responsive
+fighter menu and room screens. `rift.js` owns the app window, input, persistence,
+audio and networking.
 
 ```sh
 node .github/scripts/check-rift-rumble.mjs
@@ -74,6 +107,8 @@ node .github/scripts/browser-rift-rumble.mjs
 ```
 
 The browser suite uses real local and WebSocket transports, four isolated browser
-contexts, delayed input, rematches, disconnects, desktop loading and phone input.
+contexts, live picks, ready locks, two matches in one room, a late joiner from the
+desktop lobby, a drop at character select, delayed input, disconnects, desktop
+loading and phone input.
 It does not verify availability of third-party internet relays. Set `PW_CHROMIUM`
 to an existing Chromium/Edge executable if Playwright's browser is not installed.
