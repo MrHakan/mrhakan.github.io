@@ -33,10 +33,15 @@ jobs:
             - name: Setup Pages
               uses: actions/configure-pages@v4
 
+            # every tracked file except the source material in .pagesignore,
+            # which would only make every deploy bigger and slower
+            - name: Stage the site
+              run: node .github/scripts/stage-pages.mjs _site
+
             - name: Upload artifact
               uses: actions/upload-pages-artifact@v3
               with:
-                  path: "."
+                  path: "_site"
 
     deploy:
         environment:

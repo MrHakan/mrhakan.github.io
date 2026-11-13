@@ -59,6 +59,11 @@ jobs:
             - name: Check what the first visit costs
               run: node .github/scripts/check-startup.mjs
 
+            # the deploy leaves out what .pagesignore lists: nothing the site
+            # serves may name a file it will not have
+            - name: Check what stays out of the deploy
+              run: node .github/scripts/stage-pages.mjs --check
+
             - name: Check spells, sigils and desktop wiring
               run: node .github/scripts/check-games.mjs
 

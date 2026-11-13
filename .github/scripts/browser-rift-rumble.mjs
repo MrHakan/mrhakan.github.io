@@ -52,7 +52,7 @@ try {
     // A real delayed image response must not start a fight using placeholder art.
     const loadingCtx = await context(); let releaseArt;
     const artGate = new Promise(resolve => { releaseArt = resolve; });
-    await loadingCtx.route('**/games/rift-rumble/art/rig-*.png', async route => { await artGate; await route.continue(); });
+    await loadingCtx.route('**/games/rift-rumble/art/rig-*.webp', async route => { await artGate; await route.continue(); });
     const loadingPage = await loadingCtx.newPage(); loadingPage.on('pageerror', e => errors.push(e.message));
     await loadingPage.goto(GAME_URL, { waitUntil: 'domcontentloaded' }); await loadingPage.waitForSelector('.rr-menu');
     await loadingPage.click('[data-act=solo]');
