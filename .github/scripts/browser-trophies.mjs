@@ -368,7 +368,7 @@ const offline = {};
     const GAMES = [
         ['trophies', '.tr-case'], ['documents', '.docs-list'], ['tetris', 'canvas'], ['pet', null], ['defrag', null],
         ['jokerz', null], ['trollproblem', null], ['becomeuser', null], ['echoes', null],
-        ['wizardzbot', null], ['dungeonz', '.dz-dungeons'], ['ageoftroll', null], ['trailz', '.tz-menu'], ['thememaker', null]
+        ['wizardzbot', null], ['dungeonz', '.dz-dungeons'], ['ageoftroll', null], ['trailz', '.tz-menu'], ['tankz', '.tk-menu'], ['thememaker', null]
     ];
     for (const [app, sel] of GAMES) {
         const res = await p.evaluate(async ([app, sel]) => {

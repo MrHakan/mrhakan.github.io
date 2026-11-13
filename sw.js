@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v57';
+const CACHE = 'mrhakan98-v58';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -124,6 +124,11 @@ const PRECACHE_LATER = [
     '/games/trailz/trailz-gl.js',
     '/games/trailz/trailz.js',
     '/games/trailz/trailz.css',
+    '/games/tankz/tankz-data.js',
+    '/games/tankz/tankz-sim.js',
+    '/games/tankz/tankz-room.js',
+    '/games/tankz/tankz.js',
+    '/games/tankz/tankz.css',
     '/games/age-of-troll/age-of-troll-data.js',
     '/games/age-of-troll/age-of-troll-sim.js',
     '/games/age-of-troll/age-of-troll.js',

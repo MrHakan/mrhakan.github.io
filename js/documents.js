@@ -118,6 +118,22 @@
             }
         },
         {
+            id: 'tankz',
+            name: 'tankz 98',
+            icon: '🪖',
+            keys: ['mrhakan98-tankz-meta', 'mrhakan98-tankz-prefs'],
+            open: 'tankz',
+            summary() {
+                const meta = json('mrhakan98-tankz-meta');
+                if (!meta) return null;
+                const bits = [];
+                if (meta.matches) bits.push(plural(meta.matches, 'match', 'matches'));
+                if (meta.wins) bits.push(meta.wins + ' won');
+                if (meta.kills) bits.push(meta.kills + ' hits');
+                return { line: bits.length ? bits.join(' · ') : 'settings, no matches yet', when: '' };
+            }
+        },
+        {
             id: 'trollproblem',
             name: 'the troll problem',
             icon: '🚋',

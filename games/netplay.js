@@ -1364,6 +1364,21 @@
             scripts: ['games/trailz/trailz-data.js', 'games/trailz/trailz-sim.js', 'games/trailz/trailz-gl.js', 'games/trailz/trailz.js']
         },
         {
+            id: 'tankz',
+            name: 'tankz 98',
+            icon: 'rocket_launch',
+            min: 2, max: 6,
+            blurb: 'tanks in a maze for up to six: shells bounce off the walls, yours too. files on the floor are weapons, bots take the empty seats, and you all meet in a room between matches',
+            seats: () => 6,   // the open lobby list counts people; bots only fill what is left
+            options: [
+                { key: 'points', label: 'first to', values: [['5', '5 points'], ['3', '3 points'], ['10', '10 points']] },
+                { key: 'size', label: 'maze', values: [['medium', 'medium'], ['small', 'small'], ['large', 'large']] },
+                { key: 'bots', label: 'bots', values: [['1', '1 bot'], ['0', 'no bots'], ['2', '2 bots'], ['3', '3 bots']] },
+                { key: 'level', label: 'how good', values: [['normal', 'normal'], ['easy', 'easy'], ['hard', 'hard']] }
+            ],
+            scripts: ['games/tankz/tankz-data.js', 'games/tankz/tankz-sim.js', 'games/tankz/tankz-room.js', 'games/tankz/tankz.js']
+        },
+        {
             id: 'riftrumble', name: 'Brawlz 98', icon: 'sports_esports',
             min: 2, max: 4, teams: true,
             blurb: 'a 2D pixel platform fighter: double jumps, big knockouts, online 1v1 and 2v2. everyone picks a fighter together, bots fill empty seats',

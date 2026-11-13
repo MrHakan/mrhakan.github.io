@@ -144,6 +144,12 @@ jobs:
             - name: Check trailz
               run: node .github/scripts/check-trailz.mjs
 
+            # tanks in a maze: every maze connected and closed, shells off walls like light off a
+            # mirror and back into the tank that fired them, the six files, a round and a match,
+            # hard bots beating easy ones, the online room, and snapshots putting the same match on a guest
+            - name: Check tankz
+              run: node .github/scripts/check-tankz.mjs
+
             - name: Check Brawlz 98 rules and bot matches
               run: node .github/scripts/check-rift-rumble.mjs && node .github/scripts/check-rift-animation.mjs
 
@@ -310,6 +316,12 @@ jobs:
 
             - name: Ride trailz
               run: node .github/scripts/browser-trailz.mjs
+
+            # a match from the start menu to its table with real keys, three people at one
+            # keyboard, a phone's stick and fire button, two browsers through the room and back to
+            # it with a latecomer, and three over the relays with the bytes counted and one walking out
+            - name: Drive tankz
+              run: node .github/scripts/browser-tankz.mjs
 
             # what players ran into on the two 3d shooters: fullscreen on a 2560x1440 screen at
             # the site's zoom, the dungeonz camera at the ends of its pitch, a shrine's cards with
