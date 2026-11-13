@@ -496,6 +496,8 @@
                 if (isMine(g, e.i)) { sfx.pick(); say(g, (g.locals.length > 1 ? nameOf(g, e.i) + ' picked up ' : 'you picked up ') + TK.WEAPONS[e.w].name, 3); }
                 else say(g, nameOf(g, e.i) + ' picked up ' + TK.WEAPONS[e.w].name, 2.5);
             } else if (e.e === 'shot') {
+                g.shots = g.shots || {};
+                g.shots[e.i] = (g.shots[e.i] || 0) + 1;
                 if (g.isHost || !isMine(g, e.i) || e.w) (e.w === 'frag' || e.w === 'seeker' || e.w === 'scatter' || e.w === 'burst' ? sfx.heavy : sfx.shot)();
             } else if (e.e === 'beam') sfx.beam();
             else if (e.e === 'round') { g.wrecks.length = 0; g.fx.length = 0; banner(g, 'round ' + e.r, 'first to ' + s.points, TK.READY + 0.2); sfx.round(); if (!g.isHost) g.pred = null; }

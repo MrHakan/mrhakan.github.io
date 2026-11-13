@@ -405,8 +405,10 @@ try {
         await guest.keyboard.press('Space');
         const shot = await host.waitForFunction(() => TK_ENGINE.state().s.shells.some(b => b.o === 1) || TK_ENGINE.state().s.events.concat(TK_ENGINE.state().s.log).some(e => e.e === 'shot' && e.i === 1), null, { timeout: 3000, polling: 10 }).then(() => true, () => false);
         expect(shot, 'a guest\'s shot is fired on the host', await state(host, g => { const t = g.s.tanks[1]; return 'fp ' + t.in.fp + ' seen ' + t.fpSeen + ' alive ' + t.alive + ' ' + g.s.phase; }) + ' | guest fp ' + await state(guest, g => g.locals[0].fp));
-        const gsh = await guest.waitForFunction(() => TK_ENGINE.state().s.shells.some(b => b.o === 1), null, { timeout: 3000 }).then(() => true, () => false);
-        expect(gsh, 'and comes back to the guest\'s screen, flying');
+        // a shell can be gone again within one snapshot (into a wall and back at its tank), so
+        // the guest hearing of the shot counts as much as seeing the shell fly
+        const gsh = await guest.waitForFunction(() => { const g = TK_ENGINE.state(); return g.s.shells.some(b => b.o === 1) || (g.shots && g.shots[1] > 0); }, null, { timeout: 4000, polling: 10 }).then(() => true, () => false);
+        expect(gsh, 'and comes back to the guest\'s screen', await state(guest, g => 'shells ' + g.s.shells.length + ', shots heard ' + JSON.stringify(g.shots || {})));
         await guest.screenshot({ path: SHOTS + '/tk-guest.png' });
         // to the end of the match, fast
         await host.evaluate(() => { const g = TK_ENGINE.state(); g.s.seats[2].bot = 'easy'; g.s.seats[3].bot = 'easy'; TK_ENGINE.drive(0, 'hard'); TK_ENGINE.clock(10); });
