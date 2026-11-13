@@ -47,6 +47,8 @@
             c.drawImage(f.image, box.x, box.y, box.w, box.h, -w * px, -h * py, w, h); c.restore();
         }
         const weapon = () => {
+            // another game (blastz 98) hands its own prop to the fighter's hand
+            if (opts.prop) { const b = bones.weapon; c.save(); c.translate(b.x, b.y); c.rotate(b.a); opts.prop(c); c.restore(); return; }
             if (!weaponW[character]) return;
             const b = bones.weapon, box = f.boxes[3], k = Math.min(weaponW[character] / box.w, weaponH[character] / box.h), grip = grips[character] || [.1, .5];
             c.save(); c.translate(b.x, b.y); c.rotate(b.a);

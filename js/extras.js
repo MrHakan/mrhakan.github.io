@@ -455,6 +455,16 @@ function openRiftRumble() {
     }).catch(() => { body.innerHTML = lazyFail('the rift would not open. try again?'); });
 }
 
+// blastz 98: guns, knockback and falling off, through the lobby's loader
+function openBlastz() {
+    if (window.startBlastz) { startBlastz(); return; }
+    const { body, win } = createAppWindow('blastz 98', { icon: 'celebration', width: 320 });
+    body.innerHTML = '<div class="bj-loading">loading blastz.exe...</div>';
+    npLoadScripts().then(() => Netplay.loadGame('blastz')).then(() => {
+        replaceLazyWindow(win, () => startBlastz());
+    }).catch(() => { body.innerHTML = lazyFail('blastz would not load. try again?'); });
+}
+
 function openTrailz() {
     if (window.startTrailz) { startTrailz(); return; }
     const { body, win } = createAppWindow('trailz 98', { icon: 'bolt', width: 320 });
@@ -979,6 +989,7 @@ function siteSearchIndex() {
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
         ['Brawlz 98', 'game', () => openRiftRumble(), 'brawlz platform fighter smash brawlhalla cursed emoji troll 2d pixel multiplayer 1v1 2v2 arena'],
         ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
+        ['blastz 98', 'game', () => openBlastz(), 'blastz guns shooter knockback platform push off lives crates bombs 2d multiplayer 4 player local bots'],
         ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],

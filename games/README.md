@@ -649,6 +649,16 @@ choices and the camera.
 `join/trailz/preview.jpg` is a real frame of a real match, drawn by the game at 1200 x 630:
 `node .github/scripts/trailz-preview.mjs` makes it again.
 
+## blastz 98
+
+A 2D shooter for two to four where nobody has health: bullets shove, shots kick back, and
+falling off the map costs a life. It is the game the user asked for after playing Gun
+Mayhem 2: that genre and its mechanics, with the site's own name, guns, maps and look,
+and Brawlz 98's twelve fighters (their cutout rigs and skeleton, holding a gun). One to
+four players on one computer (two share the keyboard, gamepads for more) or online in
+the same kind of room as Brawlz 98, bots in the empty seats. Everything about it is in
+[blastz/README.md](blastz/README.md).
+
 ## adding multiplayer to a game
 
 ### 1. put it in the catalogue
