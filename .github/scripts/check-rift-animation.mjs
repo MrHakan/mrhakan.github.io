@@ -99,4 +99,64 @@ test('reduced motion keeps breathing still while retaining essential running', (
     const a = A.sample(fighter(), 0, true), b = A.sample(fighter(), 60, true); assert.deepEqual({ ...a.pose }, { ...b.pose });
     assert.equal(A.sample(fighter({ vx: 5, travel: 100 }), 60, true).action, 'run');
 });
+// ---- how the fighters look: checks for the kinds of oddities a review found ----
+const bonesOf = (extra, clock = 0, reduced = true) => { const pose = A.sample(fighter(extra), clock, reduced).pose; return { pose, bones: A.solve(pose) }; };
+// how far a knee sits off the straight line from hip to foot, as a share of the leg
+function kneeBend(b, side, r) {
+    const hip = b[side + 'Thigh'], knee = b[side + 'Shin'], foot = b[side + 'Foot'];
+    const dx = foot.x - hip.x, dy = foot.y - hip.y;
+    return Math.abs((knee.x - hip.x) * dy - (knee.y - hip.y) * dx) / Math.hypot(dx, dy) / (r.thigh + r.shin);
+}
+test('every fighter stands on straight enough legs, with both soles on the floor and the knees apart', () => {
+    for (let character = 0; character < 12; character++) {
+        const r = A.profile(character), { bones: b } = bonesOf({ character }), name = D.FIGHTERS[character].name;
+        for (const side of ['f', 'b']) {
+            near(b[side + 'Foot'].y, -r.footH * .6, name + ': ' + side + ' sole on the floor');
+            near(b[side + 'Foot'].a, 0, name + ': ' + side + ' foot flat');
+            // only the nervous one (Hothead) is allowed a real crouch
+            assert.ok(kneeBend(b, side, r) < (character === 2 ? .2 : .135), name + ': ' + side + ' knee is not buckled: ' + kneeBend(b, side, r).toFixed(3));
+        }
+        assert.ok(b.fShin.x - b.bShin.x > 5.5, name + ': knees do not pinch together: ' + (b.fShin.x - b.bShin.x).toFixed(1));
+        assert.ok(b.fFoot.x - b.bFoot.x >= 14, name + ': a stance wide enough to stand on');
+        assert.ok(Math.abs((b.fFoot.x + b.bFoot.x) / 2 - b.pelvis.x) < 4.5, name + ': weight is over the feet, not falling over');
+    }
+});
+test('standing still is still: breathing never slides a foot or shakes the body', () => {
+    for (let character = 0; character < 12; character++) {
+        const first = bonesOf({ character }, 0, false).bones; let hip = 0, head = 0, step = 0, previous = first;
+        for (let clock = 1; clock <= 600; clock++) {
+            const b = bonesOf({ character }, clock, false).bones;
+            for (const side of ['f', 'b']) { near(b[side + 'Foot'].x, first[side + 'Foot'].x, 'planted foot'); near(b[side + 'Foot'].y, first[side + 'Foot'].y, 'planted foot'); }
+            hip = Math.max(hip, Math.abs(b.pelvis.y - first.pelvis.y)); head = Math.max(head, Math.hypot(b.head.x - first.head.x, b.head.y - first.head.y));
+            step = Math.max(step, Math.hypot(b.head.x - previous.head.x, b.head.y - previous.head.y)); previous = b;
+        }
+        assert.ok(hip <= 1 && head <= 1.6, D.FIGHTERS[character].name + ': breathing stays subtle (' + hip.toFixed(2) + ', ' + head.toFixed(2) + ')');
+        assert.ok(step < .08, D.FIGHTERS[character].name + ': no jitter between two ticks (' + step.toFixed(3) + ')');
+    }
+});
+test('jumping, dodging and being hit never throw the weapon arm across the face', () => {
+    const cases = [['rise', { grounded: false, vy: -10 }], ['fall', { grounded: false, vy: 8 }], ['dodge', { dodge: 6 }], ['hurt', { stun: 10 }], ['hurt in the air', { stun: 10, grounded: false, vy: 3 }]];
+    for (let character = 0; character < 12; character++) for (const [label, extra] of cases) {
+        const r = A.profile(character), { bones: b } = bonesOf({ character, ...extra }), chin = b.head.y, name = D.FIGHTERS[character].name + ' / ' + label;
+        // head.y is the neck joint: the face is everything above it
+        assert.ok(b.fHand.y > chin - r.headH * .2, name + ': front hand stays below the face');
+        assert.ok(b.fHand.x > b.torso.x, name + ': front hand stays in front of the body');
+    }
+});
+test('a prop tucked against the chest is never left hidden behind the head', () => {
+    const cases = [{}, { vx: 5, travel: 30 }, { grounded: false, vy: -10 }, { grounded: false, vy: 8 }, { dodge: 6 }, { stun: 10 }, { attack: { kind: 'light', dir: 'side', age: 5 } }, { attack: { kind: 'heavy', dir: 'up', age: 14 } }];
+    for (let character = 0; character < 12; character++) for (const extra of cases) {
+        const { pose, bones: b } = bonesOf({ character, ...extra });
+        // under 0.75 the prop is painted before the head, so it has to sit below the neck to be seen
+        if (pose.weaponLayer < .75) assert.ok(b.weapon.y > b.head.y + 2, D.FIGHTERS[character].name + ': the prop is visible in ' + JSON.stringify(extra));
+    }
+});
+test('the prop stays in the gripping hand and a mirrored fighter is an exact mirror', () => {
+    for (let character = 0; character < 12; character++) for (const extra of [{}, { vx: 5, travel: 40 }, { grounded: false, vy: -6 }, { stun: 8 }, { dodge: 4 }]) {
+        const r = A.profile(character), { bones: b } = bonesOf({ character, ...extra });
+        near(Math.hypot(b.weapon.x - b.fHand.x, b.weapon.y - b.fHand.y), r.handH * .45, D.FIGHTERS[character].name + ': prop at the palm');
+    }
+    // facing is one horizontal flip of the whole figure in rift-art.js; the pose itself has no notion of side
+    assert.equal(Object.keys(A.rest(0)).some(k => /facing|mirror|flip/i.test(k)), false);
+});
 console.log('Brawlz cutout animation: ' + n + ' kinematics and timing checks passed.');
