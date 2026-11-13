@@ -1364,6 +1364,21 @@
             scripts: ['games/trailz/trailz-data.js', 'games/trailz/trailz-sim.js', 'games/trailz/trailz-gl.js', 'games/trailz/trailz.js']
         },
         {
+            id: 'blastz',
+            name: 'blastz 98',
+            icon: 'celebration',
+            min: 2, max: 4,
+            blurb: 'push everybody off the map with guns: no health, just knockback, lives and falling crates. bots fill the empty seats',
+            seats: o => Math.max(2, Math.min(4, Number(o.count) || 4)),   // what the open lobby list counts as full
+            options: [
+                { key: 'count', label: 'fighters', values: [['4', '4 fighters'], ['2', '2 fighters, a duel'], ['3', '3 fighters']] },
+                { key: 'mode', label: 'mode', values: [['ffa', 'free for all'], ['teams', 'two teams']] },
+                { key: 'lives', label: 'lives', values: [['5', '5 lives'], ['3', '3 lives'], ['10', '10 lives']] },
+                { key: 'map', label: 'map', values: [['start', 'the start menu'], ['board', 'the motherboard'], ['tower', 'dial-up tower'], ['mines', 'the minefield']] }
+            ],
+            scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-animation.js', 'games/rift-rumble/rift-art.js', 'games/blastz/blastz-data.js', 'games/blastz/blastz-sim.js', 'games/blastz/blastz-room.js', 'games/blastz/blastz-render.js', 'games/blastz/blastz.js']
+        },
+        {
             id: 'tankz',
             name: 'tankz 98',
             icon: 'rocket_launch',

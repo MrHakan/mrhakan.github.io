@@ -149,6 +149,10 @@ jobs:
             # hard bots beating easy ones, the online room, and snapshots putting the same match on a guest
             - name: Check tankz
               run: node .github/scripts/check-tankz.mjs
+            # the shooter where nobody has health: knockback and recoil, magazines, crates, bombs,
+            # lives and KOs, teams, four bots on every map, one seed one match, the snapshot and the room
+            - name: Check blastz
+              run: node .github/scripts/check-blastz.mjs
 
             - name: Check Brawlz 98 rules and bot matches
               run: node .github/scripts/check-rift-rumble.mjs && node .github/scripts/check-rift-animation.mjs
@@ -322,6 +326,11 @@ jobs:
             # it with a latecomer, and three over the relays with the bytes counted and one walking out
             - name: Drive tankz
               run: node .github/scripts/browser-tankz.mjs
+            # one player and two on one keyboard with real keys and the mouse, a phone, two tabs
+            # through the room and two matches, four browsers over a real relay with lag and a
+            # drop, and the desktop lobby. It brings its own server and relay
+            - name: Play blastz
+              run: node .github/scripts/browser-blastz.mjs
 
             # what players ran into on the two 3d shooters: fullscreen on a 2560x1440 screen at
             # the site's zoom, the dungeonz camera at the ends of its pitch, a shrine's cards with

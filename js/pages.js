@@ -235,6 +235,7 @@ const SITE_MAP = [
             ['dungeonz 98 (co-op raid)', 'openDungeonz()'],
             ['trailz 98 (light cycles)', 'openTrailz()'],
             ['tankz 98 (tanks in a maze)', 'openTankz()'],
+            ['blastz 98 (guns and knockback)', 'openBlastz()'],
             ['multiplayer lobby', 'openNetplay()'],
             ['solitaire', 'openSolitaire()'],
             ['minesweeper', 'openMinesweeper()'], ['snake', 'openSnake()'], ['pong', 'openPong()'],

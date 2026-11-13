@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>blastz 98 - launch on the desktop</title><meta name="description" content="blastz 98: guns with no damage, only knockback. push everybody off the map; two to four players, local or online, bots in the empty seats. runs inside mrhakan's desktop."><link rel="canonical" href="https://mrhakan.github.io/?app=blastz"><style>body{background:#008080;color:#fff;font:14px Tahoma,sans-serif;display:grid;min-height:90vh;place-items:center}a{color:#fff}</style><script>
+(function () {
+    var q = new URLSearchParams(location.search), target = new URL('../../', location.href);
+    target.searchParams.set('app', 'blastz');
+    var room = (q.get('room') || '').replace(/[^a-z0-9]/gi, '').slice(0, 5);
+    if (room.length >= 4) target.searchParams.set('room', room);
+    location.replace(target.href);
+})();
+</script></head><body><main><h1>blastz.exe</h1><p>opening on the desktop...</p><a href="../../?app=blastz">open blastz 98</a></main></body></html>
