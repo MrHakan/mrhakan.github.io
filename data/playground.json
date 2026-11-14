@@ -1,5 +1,37 @@
 [
   {
+    "name": "🔐 Codebreaker 98",
+    "type": "game",
+    "date": "2026-11-14",
+    "url": "/games/codebreaker/",
+    "description": "Offline color-code deduction puzzle with daily challenge, accessible labels and keyboard controls.",
+    "icon": "🔐",
+    "tags": [
+      "logic",
+      "deduction",
+      "mastermind",
+      "daily",
+      "keyboard",
+      "offline"
+    ]
+  },
+  {
+    "name": "🔤 Type Scale Desk 98",
+    "type": "app",
+    "date": "2026-11-14",
+    "url": "/apps/type-scale-desk/",
+    "description": "Local modular typography scale generator with live specimens, rem variables and CSS export.",
+    "icon": "🔤",
+    "tags": [
+      "typography",
+      "css",
+      "design",
+      "responsive",
+      "generator",
+      "offline"
+    ]
+  },
+  {
     "name": "♛ Queen's Gambit 98",
     "type": "game",
     "date": "2026-11-13",
