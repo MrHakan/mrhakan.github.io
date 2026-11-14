@@ -53,7 +53,7 @@
                 x: 0, y: 0, vx: 0, vy: 0, facing: 1, grounded: false, jumps: 0, drop: 0, travel: 0,
                 dead: 0, out: false, invuln: 0, shield: 0, turbo: 0, stun: 0, kick: 0, slide: 0, hitBy: -1, hitAt: -1e9,
                 weapon: 0, mag: 0, clips: -1, reload: 0, cd: 0, burst: 0, spin: 0, bombs: 0,
-                input: input(), seen: input(), queued: {}, ai: { jumpAt: 0, aimAt: 0, next: 0, offset: 0, hop: false, theirs: null }
+                input: input(), seen: input(), queued: {}, ai: { jumpAt: 0, aimAt: 0, next: 0, offset: 0, hop: false, theirs: null, crate: 0, crateAt: 0, skip: 0, across: null, acrossAt: -1e9 }
             };
             s.players.push(p);
         }
@@ -120,8 +120,8 @@
         const pellets = w.pellets || 1, spread = w.spread * (p.perk === 'steady' ? 0.5 : 1);
         for (let i = 0; i < pellets; i++) {
             const a = (random(s) - 0.5) * 2 * spread, speed = w.speed * (pellets > 1 ? 0.85 + random(s) * 0.3 : 1);
-            const shot = { id: s.nextId++, o: p.slot, team: p.team, w: p.weapon, x: p.x + p.facing * 26, y: p.y - 31, vx: p.facing * speed * Math.cos(a), vy: speed * Math.sin(a), life: w.life };
-            if (w.lob) { shot.vx += p.vx * 0.4; shot.vy = -6.2 + a * 8; }
+            const shot = { id: s.nextId++, o: p.slot, team: p.team, w: p.weapon, x: p.x + p.facing * 8, y: p.y - 31, vx: p.facing * speed * Math.cos(a), vy: speed * Math.sin(a), life: w.life };
+            if (w.lob) { shot.vx += p.vx * 0.4; shot.vy = -5.4 + a * 8; }
             s.shots.push(shot);
         }
         if (s.shots.length > 90) s.shots.splice(0, s.shots.length - 90);
@@ -140,6 +140,7 @@
             if (p.clips === 0) { arm(p, 0); event(s, 'empty', p.x, p.y - 60, { slot: p.slot }); return; }
             if (p.clips > 0) p.clips--;
             p.reload = Math.round(w.reload * (p.perk === 'bigmag' ? 0.7 : 1)); p.burst = 0;
+            event(s, 'dry', p.x, p.y, { slot: p.slot });
             return;
         }
         const held = p.input.fire;
@@ -220,8 +221,8 @@
         const most = p.perk === 'spring' ? 3 : 2;
         // nothing under the feet: head for the nearest platform and jump back
         if (!ground) {
-            let best = null, bestD = 1e9;
-            for (const pl of map.platforms) {
+            let best = ai.across && s.tick - ai.acrossAt < 100 ? ai.across : null, bestD = best ? -1 : 1e9;
+            if (!best) for (const pl of map.platforms) {
                 const ex = clamp(p.x, pl.x + 30, pl.x + pl.w - 30), d = Math.abs(ex - p.x) + Math.max(0, p.y - pl.y) * 0.4 + Math.max(0, pl.y - p.y - 260);
                 if (d < bestD) { bestD = d; best = pl; }
             }
@@ -234,52 +235,86 @@
         const foes = enemies(s, p);
         let t = null, td = 1e9;
         for (const q of foes) { const d = Math.abs(q.x - p.x) + Math.abs(q.y - p.y) * 1.5; if (d < td) { td = d; t = q; } }
-        if (s.tick >= ai.next) { ai.next = s.tick + 90 + Math.floor(random(s) * 150); ai.offset = (random(s) - 0.5) * 220; ai.hop = random(s) < 0.35; }
-        const crate = s.crates.filter(c => c.landed && Math.abs(c.y - p.y) < 260 && Math.abs(c.x - p.x) < 640)
-            .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+        if (s.tick >= ai.next) { ai.next = s.tick + 90 + Math.floor(random(s) * 150); ai.offset = (random(s) - 0.5) * 220; ai.hop = random(s) < 0.3; }
         const lo = ground.x + 26, hi = ground.x + ground.w - 26;
         let want = p.x;
         // up to a higher platform: jump from under it, jump again near the top of the arc
         const climb = (pl, x) => {
+            // too high for two jumps: go by a platform in between
+            if (pl.y < p.y - 215) {
+                const mid = map.platforms.filter(m => m.y < p.y - 20 && m.y >= p.y - 215 && m.y > pl.y + 40)
+                    .sort((a, b) => Math.abs(a.x + a.w / 2 - x) - Math.abs(b.x + b.w / 2 - x))[0];
+                if (mid) { pl = mid; x = clamp(x, mid.x + 30, mid.x + mid.w - 30); }
+            }
             want = clamp(x, pl.x + 20, pl.x + pl.w - 20);
             const near = p.x > pl.x - 50 && p.x < pl.x + pl.w + 50;
             if (!near || pl.y > p.y - 20) return;
-            if (p.grounded && pl.y > p.y - 240 && s.tick - ai.jumpAt > 12) { press('jump'); ai.jumpAt = s.tick; }
+            if (p.grounded && pl.y >= p.y - 220 && s.tick - ai.jumpAt > 12) { press('jump'); ai.jumpAt = s.tick; }
             else if (!p.grounded && p.y > pl.y - 6 && p.vy > -1.5 && p.jumps < most && s.tick - ai.jumpAt > 8) { press('jump'); ai.jumpAt = s.tick; }
         };
-        const crateFloor = crate && under(map, crate.x, crate.y, 2);
-        if (crate && crateFloor && (p.weapon === 0 || Math.abs(crate.x - p.x) < 140)) {
-            if (crate.y < p.y - 30) climb(crateFloor, crate.x);
+        // Shooting and moving are decided apart: whatever a bot is walking to,
+        // it turns and holds the trigger whenever somebody is in its line.
+        let line = false, aligned = false, dx = 0, dy = 0;
+        if (t) {
+            dx = t.x - p.x; dy = t.y - p.y;
+            const reach = Math.min(900, w.speed * w.life);
+            line = Math.abs(dy - (w.lob ? -30 : 0)) < (w.lob ? 60 : 46) && Math.abs(dx) < reach;
+            // the bullet leaves at chest height: only fire when it will meet the body
+            aligned = line && (w.lob || Math.abs(dy) < 24);
+        }
+        // a crate is worth a detour while the bot has only the pea shooter, for
+        // a few seconds at most: one it cannot reach is given up on
+        let crate = null;
+        if (p.weapon === 0 || s.crates.some(c => c.landed && Math.abs(c.x - p.x) < 120 && Math.abs(c.y - p.y) < 40)) {
+            crate = s.crates.filter(c => c.landed && c.id !== ai.skip && Math.abs(c.y - p.y) < 260 && Math.abs(c.x - p.x) < 560)
+                .sort((a, b) => Math.abs(a.x - p.x) + Math.abs(a.y - p.y) - Math.abs(b.x - p.x) - Math.abs(b.y - p.y))[0] || null;
+            if (crate && crate.id !== ai.crate) { ai.crate = crate.id; ai.crateAt = s.tick; }
+            if (crate && s.tick - ai.crateAt > 300) { ai.skip = crate.id; crate = null; }
+        }
+        const close = crate && Math.abs(crate.x - p.x) < 90 && Math.abs(crate.y - p.y) < 40;
+        if (crate && (!line || close)) {
+            const floor = under(map, crate.x, crate.y, 2);
+            if (floor && crate.y < p.y - 30) climb(floor, crate.x);
             else {
                 want = crate.x;
                 if (crate.y > p.y + 30 && p.grounded && random(s) < 0.1 && under(map, p.x, p.y + 10, -20)) o.down = true;
             }
+        } else if (t && line) {
+            // keep a little distance with most guns, close in with the spread sheet
+            if (w.id === 'sheet' && Math.abs(dx) > 170) want = t.x;
+            else if (Math.abs(dx) < 90) want = p.x - Math.sign(dx || 1) * 60;
+            if (ai.hop && p.grounded && s.tick - ai.jumpAt > 70 && random(s) < 0.03) { press('jump'); ai.jumpAt = s.tick; }
         } else if (t) {
-            const dy = t.y - p.y, dx = t.x - p.x, reach = Math.min(620, w.speed * w.life), facing = Math.sign(dx) || p.facing;
-            const line = Math.abs(dy - (w.lob ? -30 : 0)) < 40 && Math.abs(dx) < reach;
-            if (line) {
-                // in line: turn to face them, wait a moment like a person would, then hold the trigger
-                if (facing !== p.facing) { if (facing > 0) o.right = true; else o.left = true; ai.aimAt = s.tick; }
-                else if (s.tick - ai.aimAt > 7 + (p.slot * 3) % 7 && !t.invuln) o.fire = true;
-                if (Math.abs(dx) < (w.id === 'sheet' ? 60 : 110) && !o.left && !o.right && p.weapon !== 3) want = p.x;
-                else if (w.id === 'sheet' && Math.abs(dx) > 170) want = t.x;
-                else want = p.x;
-                if (p.bombs > 0 && Math.abs(dx) < 240 && random(s) < 0.008) press('bomb');
-            } else {
-                want = t.x + ai.offset;
-                if (ai.hop && p.grounded && s.tick - ai.jumpAt > 50) { press('jump'); ai.jumpAt = s.tick; ai.hop = random(s) < 0.4; }
-                // a different floor: climb up to it or drop down to it
-                // a different floor: climb up to it or drop down to it, once they stand somewhere
-                const theirs = t.grounded ? under(map, t.x, t.y, 4) : ai.theirs;
-                ai.theirs = theirs;
-                if (theirs && theirs !== ground && (p.grounded || theirs.y < p.y)) {
-                    if (theirs.y < p.y - 20) climb(theirs, t.x);
-                    else if (theirs.y > p.y + 20 && under(map, p.x, p.y + 10, -20) && random(s) < 0.08) o.down = true;
-                }
+            want = t.x + ai.offset;
+            if (ai.hop && p.grounded && s.tick - ai.jumpAt > 50) { press('jump'); ai.jumpAt = s.tick; ai.hop = random(s) < 0.4; }
+            // a different floor: climb up to it or drop down to it, once they stand somewhere
+            const theirs = t.grounded ? under(map, t.x, t.y, 4) : ai.theirs;
+            ai.theirs = theirs;
+            if (theirs && theirs !== ground && (p.grounded || theirs.y < p.y)) {
+                if (theirs.y < p.y - 20) climb(theirs, t.x);
+                else if (theirs.y > p.y + 20 && under(map, p.x, p.y + 10, -20) && random(s) < 0.08) o.down = true;
+            }
+        }
+        if (t && line) {
+            const facing = Math.sign(dx) || p.facing;
+            if (facing !== p.facing) { o.left = facing < 0; o.right = facing > 0; ai.aimAt = s.tick; }
+            else if (aligned && s.tick - ai.aimAt > 8 + (p.slot * 3) % 6 && t.invuln < 20) o.fire = true;
+            if (p.bombs > 0 && Math.abs(dx) < 240 && random(s) < 0.006) press('bomb');
+        } else ai.aimAt = Math.min(ai.aimAt, s.tick - 4);
+        // the way to `want` leaves this platform sideways: jump the gap to the next one
+        if (p.grounded && (want > hi + 30 || want < lo - 30)) {
+            const dir = want > hi ? 1 : -1, edge = dir > 0 ? ground.x + ground.w : ground.x;
+            const next = map.platforms.filter(m => m !== ground && m.y >= p.y - 200 && m.y <= p.y + 200 && (dir > 0 ? m.x - edge : edge - (m.x + m.w)) > -10 && (dir > 0 ? m.x - edge : edge - (m.x + m.w)) < 260)
+                .sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y))[0];
+            if (next) {
+                if ((dir > 0 ? hi - p.x : p.x - lo) < 30 && s.tick - ai.jumpAt > 20) { press('jump'); ai.jumpAt = s.tick; ai.across = next; ai.acrossAt = s.tick; }
+                o.left = dir < 0; o.right = dir > 0;
+                return o;
             }
         }
         want = clamp(want, lo, hi);
-        if (!o.left && !o.right) go(want);
+        // standing to shoot: no walking that would turn the gun away
+        if (!o.left && !o.right && !(line && Math.abs(want - p.x) > 6 && Math.sign(want - p.x) !== (Math.sign(dx) || p.facing))) go(want);
         // getting shoved toward an edge: lean against it
         if (Math.abs(p.vx) > 4 && (p.x < lo + 40 || p.x > hi - 40)) { o.left = p.vx > 0; o.right = p.vx < 0; o.fire = o.fire && Math.sign(p.vx) === p.facing; }
         return o;
@@ -351,7 +386,7 @@
         const keep = [];
         for (const b of s.shots) {
             const w = D.WEAPONS[b.w];
-            if (w.lob) b.vy += 0.34;
+            if (w.lob) b.vy += 0.27;
             const x0 = b.x, y0 = b.y;
             b.x += b.vx; b.y += b.vy; b.life--;
             let gone = false;
@@ -376,12 +411,12 @@
         const keep = [];
         for (const g of s.bombs) {
             const y0 = g.y;
-            g.vy = Math.min(14, g.vy + 0.45); g.x += g.vx; g.y += g.vy;
-            if (g.rest) g.vx *= 0.86;
+            g.vy = Math.min(12, g.vy + 0.36); g.x += g.vx; g.y += g.vy;
+            if (g.rest) g.vx *= 0.8;
             if (g.vy > 0) {
                 for (const pl of map.platforms) {
                     if (y0 <= pl.y && g.y >= pl.y && g.x >= pl.x && g.x <= pl.x + pl.w) {
-                        g.y = pl.y; g.vx *= 0.72;
+                        g.y = pl.y; g.vx *= 0.55;
                         g.vy = g.vy > 2.2 ? -g.vy * 0.42 : 0; g.rest = g.vy === 0;
                         break;
                     }

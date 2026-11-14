@@ -31,7 +31,7 @@ Open it with `?app=blastz`, the start menu, or `blastz` / `guns` in the run box.
   (firewall: no pushes for 6 s; three more bombs; turbo button). A gun whose last
   magazine is empty turns back into the pea shooter.
 - Two bombs per life (four with the bomb bag). They bounce, roll to a stop and blow up
-  after a second and a half, pushing everybody near, the thrower too. Rockets and the zip
+  after nearly two seconds, pushing everybody near, the thrower too. Rockets and the zip
   launcher blow up the same way.
 - A fall within six seconds of being hit is a KO for whoever hit last. You come back
   from the spawn point farthest from danger, with a two and a half second shield that
@@ -59,12 +59,34 @@ Perks: spring boots (third jump), heavy boots (pushed 30% less, a little slower)
 steady hands (no recoil, half the spread), big mag (half again the ammo, faster
 reloads), bomb bag (four bombs, bigger blasts), turbo (15% faster).
 
+## The pace
+
+The first version was too fast to read. Now walking is 3.7 px a tick, gravity 0.42 with
+the jumps lowered to match (one jump still reaches about 124 px and two about 225, so
+every floor is still in reach), bullets fly about a quarter slower but just as far, guns
+fire a fifth slower and every push and recoil is 15% softer. `check-blastz.mjs` holds the
+pace to that: no gun is a blur, and the pea shooter fires about three times a second.
+
+## Sound
+
+Every gun has its own synthesized voice (a filtered noise burst and a pitched sweep, see
+`SHOT` in `blastz.js`): the pea shooter pops, the hand cannon thumps, the spread sheet
+blasts, the long distance call cracks, the delete key whooshes. Hits, explosions, an
+empty magazine, a finished reload, picking up a crate, a KO and a plain fall have their
+own sounds too. Effects are on by default under the site's sound switch, with a button in
+the game to turn them off; your own fighter is louder than everybody else's.
+
 ## Bots
 
 Staying on the map comes first: with nothing under its feet a bot heads for the nearest
-platform and jumps near the top of its fall. On a platform it goes for a close crate
-while it has only the pea shooter, climbs or drops to the floor its target stands on,
-and when a target is in line it turns, waits a few ticks and holds the trigger. Being
+platform and jumps near the top of its fall. Shooting is decided apart from moving: when
+anybody is at its height and in range it turns to them, waits a few ticks, and holds the
+trigger whenever the bullet would meet the body. It never walks away from somebody in its
+line (that used to turn it round and round without firing). With only the pea shooter it
+detours for a crate when nobody is in line, and gives a crate up after five seconds if it
+cannot get there; a floor too high for two jumps is climbed by the platform in between,
+and a gap on the same floor is jumped. The first version stopped shooting altogether
+while a crate was on a floor it could not reach, which is what players saw. Being
 shoved toward an edge it leans against the push. `check-blastz.mjs` plays four bots on
 every map and fails if more than 12% of falls had nobody behind them, or if a five-life
 match does not end.

@@ -52,7 +52,7 @@ const park = (p, slot) => state(p, slot => {
     const s = BLASTZ_ENGINE.state().s, m = BLASTZ.map(s.map).platforms[0];
     s.crateAt = 1e9; s.crates = []; s.bombs = []; s.shots = [];
     s.players.forEach((q, i) => { if (i !== slot) Object.assign(q, { bot: false, x: 4000 + i * 50, y: -2000, vx: 0, vy: 0, dead: 0, input: BLASTZ_SIM.input() }); });
-    Object.assign(s.players[slot], { x: m.x + m.w / 2, y: m.y, vx: 0, vy: 0, grounded: true, dead: 0, invuln: 0, facing: 1, jumps: 0 });
+    Object.assign(s.players[slot], { x: m.x + m.w / 2, y: m.y, vx: 0, vy: 0, grounded: true, dead: 0, invuln: 0, facing: 1, jumps: 0, bombs: 2 });
     s.players.forEach((q, i) => { if (i !== slot) q.dead = 99999; });
 }, slot);
 async function hosted(p, transport = 'local') {
@@ -96,6 +96,27 @@ try {
         await park(p, 0);
         await p.keyboard.down('KeyF'); await p.waitForTimeout(400); await p.keyboard.up('KeyF');
         ok(await state(p, () => BLASTZ_ENGINE.state().s.players[0].mag < BLASTZ.WEAPONS[0].mag), 'holding F fires');
+        // the site's sound switch is on in this part: every gun has a voice of its own
+        await p.evaluate(() => { soundEnabled = true; });
+        await park(p, 0);
+        await p.keyboard.down('KeyF'); await p.waitForTimeout(300); await p.keyboard.up('KeyF');
+        for (const id of ['cannon', 'sheet', 'delete']) {
+            await park(p, 0);
+            await state(p, id => { const q = BLASTZ_ENGINE.state().s.players[0]; Object.assign(q, { weapon: BLASTZ.WEAPONS.findIndex(w => w.id === id), mag: 3, clips: 1, cd: 0, reload: 0 }); }, id);
+            await p.keyboard.down('KeyF'); await p.waitForTimeout(120); await p.keyboard.up('KeyF');
+        }
+        await p.waitForTimeout(100);
+        ok(await state(p, () => ['pea', 'cannon', 'sheet', 'delete'].every(k => BLASTZ_ENGINE.heard().includes(k))), 'with sound on, the pea shooter, hand cannon, spread sheet and delete key each make their own sound');
+        await park(p, 0); await state(p, () => { const s = BLASTZ_ENGINE.state().s, m = BLASTZ.map(s.map).platforms[0]; Object.assign(s.players[0], { x: m.x + 60, facing: 1 }); });
+        await p.keyboard.press('KeyG');
+        await p.waitForFunction(() => BLASTZ_ENGINE.heard().includes('boom'), null, { timeout: 5000 });
+        ok(true, 'and a bomb goes off with a bang');
+        await p.click('[data-act=sound]');
+        const before = await state(p, () => BLASTZ_ENGINE.heard().length);
+        await park(p, 0); await p.keyboard.down('KeyF'); await p.waitForTimeout(300); await p.keyboard.up('KeyF');
+        ok(await state(p, n => BLASTZ_ENGINE.heard().length === n, before), 'the effects button silences them');
+        await p.click('[data-act=sound]');
+        await p.evaluate(() => { soundEnabled = false; });
         await p.keyboard.press('KeyG'); await p.waitForTimeout(80);
         ok(await state(p, () => BLASTZ_ENGINE.state().s.bombs.length === 1), 'G throws a bomb');
         await park(p, 0);
