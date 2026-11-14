@@ -103,7 +103,7 @@ try {
         assert.ok(result.orders[0].indexOf(part) > result.orders[0].indexOf(1), 'forward-swinging forearm/hand draws across the chest');
         assert.ok(result.orders[1].indexOf(part) < result.orders[1].indexOf(1), 'backward-swinging forearm/hand moves behind the torso');
     }
-    for (const character of [1, 4, 9]) for (const part of [7, 13]) assert.ok(result.idleOrders[character].indexOf(part) > result.idleOrders[character].indexOf(0), 'face gestures stay over the head');
+    for (let character = 0; character < 12; character++) for (const part of [7, 13]) assert.ok(result.idleOrders[character].indexOf(part) < result.idleOrders[character].indexOf(1), 'a free arm hanging by the body is painted behind it');
     for (const character of [0, 1, 3, 4, 5, 6, 7, 8, 9, 10]) {
         const order = result.idleOrders[character];
         assert.ok(order.indexOf(3) > order.indexOf(1) && order.indexOf(3) < order.indexOf(12), 'the prop is visible above the torso and below the gripping hand');
