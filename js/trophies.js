@@ -99,6 +99,15 @@
             }
         },
         {
+            id: 'tankz', name: 'tankz 98', icon: '🪖', open: 'tankz',
+            has: /^tankz/, windows: /^tankz/,
+            records() {
+                const m = obj(json('mrhakan98-tankz-meta'));
+                if (!m) return [];
+                return [['matches', count(m.matches)], ['matches won', count(m.wins)], ['rounds won', count(m.roundWins)], ['hits', count(m.kills)]];
+            }
+        },
+        {
             id: 'echoes', name: 'echoes of the tide', icon: '🌊', open: 'echoes',
             has: /^echoes/, windows: /^echoes/,
             records() {

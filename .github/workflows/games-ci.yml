@@ -144,6 +144,11 @@ jobs:
             - name: Check trailz
               run: node .github/scripts/check-trailz.mjs
 
+            # tanks in a maze: every maze connected and closed, shells off walls like light off a
+            # mirror and back into the tank that fired them, the six files, a round and a match,
+            # hard bots beating easy ones, the online room, and snapshots putting the same match on a guest
+            - name: Check tankz
+              run: node .github/scripts/check-tankz.mjs
             # the shooter where nobody has health: knockback and recoil, magazines, crates, bombs,
             # lives and KOs, teams, four bots on every map, one seed one match, the snapshot and the room
             - name: Check blastz
@@ -316,6 +321,11 @@ jobs:
             - name: Ride trailz
               run: node .github/scripts/browser-trailz.mjs
 
+            # a match from the start menu to its table with real keys, three people at one
+            # keyboard, a phone's stick and fire button, two browsers through the room and back to
+            # it with a latecomer, and three over the relays with the bytes counted and one walking out
+            - name: Drive tankz
+              run: node .github/scripts/browser-tankz.mjs
             # one player and two on one keyboard with real keys and the mouse, a phone, two tabs
             # through the room and two matches, four browsers over a real relay with lag and a
             # drop, and the desktop lobby. It brings its own server and relay

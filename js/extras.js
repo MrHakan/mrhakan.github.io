@@ -465,6 +465,15 @@ function openBlastz() {
     }).catch(() => { body.innerHTML = lazyFail('blastz would not load. try again?'); });
 }
 
+function openTankz() {
+    if (window.startTankz) { startTankz(); return; }
+    const { body, win } = createAppWindow('tankz 98', { icon: 'rocket_launch', width: 320 });
+    body.innerHTML = '<div class="bj-loading">digging the maze...</div>';
+    npLoadScripts().then(() => Netplay.loadGame('tankz')).then(() => {
+        replaceLazyWindow(win, () => startTankz());
+    }).catch(() => { body.innerHTML = lazyFail('the maze would not open bradar'); });
+}
+
 function openTrailz() {
     if (window.startTrailz) { startTrailz(); return; }
     const { body, win } = createAppWindow('trailz 98', { icon: 'bolt', width: 320 });
@@ -988,6 +997,7 @@ function siteSearchIndex() {
         ['wizardz: 1 v bot', 'game', () => openWizardz('bot'), 'single player bot ai machine opponent practice cpu computer duel wizard roster'],
         ['age of troll', 'game', () => openAgeOfTroll(), 'age of war strategy lane base turrets units ages trolls emoji multiplayer 1v1 bot long game rts'],
         ['Brawlz 98', 'game', () => openRiftRumble(), 'brawlz platform fighter smash brawlhalla cursed emoji troll 2d pixel multiplayer 1v1 2v2 arena'],
+        ['tankz 98', 'game', () => openTankz(), 'tanks maze bouncing shells ricochet top down local 3 player same keyboard bots multiplayer online'],
         ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
         ['blastz 98', 'game', () => openBlastz(), 'blastz guns shooter knockback platform push off lives crates bombs 2d multiplayer 4 player local bots'],
         ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],

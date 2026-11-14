@@ -649,6 +649,54 @@ choices and the camera.
 `join/trailz/preview.jpg` is a real frame of a real match, drawn by the game at 1200 x 630:
 `node .github/scripts/trailz-preview.mjs` makes it again.
 
+## tankz 98
+
+Tanks in a maze, seen from above, for one to eight. A shell comes off a wall the way light
+comes off a mirror and keeps going until its time runs out, and it does not care whose it is:
+yours can get you. The last tank standing takes the round, a new maze is dug for every round,
+and the first to the match's points takes the match. Files dropped on the floor are weapons,
+one use each. It is the genre of Tank Trouble, asked for by name; the name, the look (the teal
+desktop for a floor, raised grey walls, Win98 dialogs), the weapons and their names are the
+site's own.
+
+| file | what is in it |
+| --- | --- |
+| `tankz-data.js` | every number: the tank, the shell, a round, the maze sizes, the six files, the colours, the bot levels |
+| `tankz-sim.js` | the maze, the rules, the bots and the wire. No page in it, so node runs it |
+| `tankz-room.js` | the online room: who is in, who is ready, the host's settings, the last match's table |
+| `tankz.js` | the window, the keys (three people at one keyboard), the thumbs and pads, the picture in a 2d canvas, the room and the wire |
+| `tankz.css` | its styles. They come with the game, not with the desktop |
+
+### the files on the floor
+
+| file | what it does |
+| --- | --- |
+| `beam.exe` | a line of light that comes off walls; a dotted line shows where it goes before you fire |
+| `shrapnel.zip` | a fat shell; fire again and it bursts into shrapnel |
+| `seeker.dll` | flies straight for a second, then goes for the nearest tank by the maze's own paths, the one who fired it included |
+| `landmine.sys` | left behind you, armed after a moment, seen by nobody but you |
+| `burst.bat` | a stream of small shells |
+| `scatter.ini` | a cone of pellets |
+
+### online
+
+The desktop lobby (or an invite link, `join/tankz/`) brings everybody to the game's own room.
+The host owns the room (`TK_ROOM`), guests send their wish (`tk:want`, ready or not) and get the
+room back (`tk:room`). Everybody ready starts a three second countdown and then the match
+(`tk:start`). When it ends, the table goes into the room and everybody is back there, same
+code, same people. Somebody arriving during a match waits in the room for the next one.
+
+In a match the host runs the rules and the bots and sends snapshots (`tk:s`, 20 a second
+straight across, 6 over the relays). A guest drives its own tank on its own screen and sends
+where it is (`tk:i`); the host keeps that to what a tank could have driven (`TK_SIM.pose`) and
+decides every hit. A shot is a press count, so a lost packet loses no shot. Shells fly the same
+way everywhere, so a guest flies them on itself between snapshots. A guest who leaves gets a bot.
+
+### saves
+
+`mrhakan98-tankz-meta` keeps matches, wins, rounds, rounds won, hits and own goals; the trophy
+room shelves it with two achievements (`tankz`, `tankz_win`). `mrhakan98-tankz-prefs` keeps the
+menu's choices. `node .github/scripts/tankz-preview.mjs` makes `join/tankz/preview.jpg` again.
 ## blastz 98
 
 A 2D shooter for two to four where nobody has health: bullets shove, shots kick back, and
