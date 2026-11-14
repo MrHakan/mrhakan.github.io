@@ -49,9 +49,16 @@ test('standing poses express distinct gestures and the baby has child proportion
     assert.equal(new Set(poses.map(p => [p.fX, p.fY, p.bX, p.bY, p.body, p.head].join(','))).size, 12);
     assert.ok(A.height(3) < A.height(7) * .85, 'the baby is visibly shorter than Patron');
     assert.ok(A.profile(3).arm < A.profile(0).arm * .8 && A.profile(3).thigh < A.profile(0).thigh * .75);
-    for (const i of [1, 4, 9]) assert.ok(bones[i].bHand.y < bones[i].bUpper.y - 4, 'thinking, crying and headphone hands reach the face');
+    // standing is relaxed: no boxing guard, no fist at the face, nothing crossed over the chest
+    for (const [i, b] of bones.entries()) {
+        const name = D.FIGHTERS[i].name, r = A.profile(i), low = i === 2 ? 6 : r.arm;
+        assert.ok(b.fHand.y > b.fUpper.y + low && b.bHand.y > b.bUpper.y + low, name + ': both hands hang below the shoulders');
+        assert.ok(b.fHand.x > b.torso.x + 4 && b.bHand.x < b.torso.x - 4, name + ': the weapon hand in front, the free hand behind, never crossed');
+        assert.ok(Math.abs(b.bHand.x - b.bUpper.x) < r.arm, name + ': the free arm hangs by the body');
+        assert.ok(b.bShin.x < b.bThigh.x && b.fShin.x > b.fThigh.x, name + ': the knees bow apart, not both the same way');
+    }
     assert.ok(bones[7].fHand.y > bones[7].fUpper.y + 15, 'Patron carries his case below his shoulder');
-    for (const i of [3, 9, 10]) assert.ok(bones[i].weapon.x > bones[i].head.x + 16 && poses[i].weaponLayer === 1, 'large weapons remain beside the body');
+    for (const i of [3, 9, 10]) assert.ok(bones[i].weapon.x > bones[i].head.x + 8 && poses[i].weaponLayer === 1, 'large weapons remain beside the body');
     for (let i = 0; i < 12; i++) {
         const p = poses[i], r = A.profile(i), b = bones[i];
         for (const side of ['f', 'b']) {

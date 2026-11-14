@@ -5,21 +5,25 @@
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), mix = (a, b, t) => a + (b - a) * t;
     const smooth = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
     const UNARMED = new Set([2, 11]);
-    // Targets are in torso space. Wrists rotate independently of held props.
+    // How each fighter stands when nothing is happening: feet apart under the
+    // hips, the weapon hand low at the side with the prop pointing where its
+    // weight would take it, the free arm hanging by the body. Hands are targets
+    // in torso space (x forward, y down from the waist); wrists and prop are
+    // angles on screen (0 forward, positive down).
     const profiles = [
-        { stance: 'easy confidence', hip: -2, lean: -.07, tilt: -.06, feet: [9, -10], hands: [19, -7, -14, -3], wrists: [.25, .1], prop: .5 },
-        { stance: 'thinking', bodyH: 26, headH: 31, thigh: 17, bodyW: 25, lean: -.05, tilt: .09, feet: [8, -10], hands: [20, -10, 2, -23], wrists: [-.5, -1.1], prop: -1.25, backLayer: 2, stride: 108 },
-        { stance: 'nervous guard', slack: 3.4, lean: .11, feet: [13, -13], hands: [19, -25, -4, -23], wrists: [-1.2, -1.1], handH: 10, stride: 104, breath: 3.8 },
-        { stance: 'tiny troublemaker', arm: 8, forearm: 8, thigh: 11, shin: 10, shoulder: 6, hips: 3.5, bodyH: 19, bodyW: 25, pelvisH: 10, headH: 35, footH: 7, handH: 7, slack: 1, lean: -.09, tilt: -.11, feet: [8, -8], hands: [18, -3, -5, -9], wrists: [.2, -.5], prop: .45, stride: 76, breath: 3.4 },
-        { stance: 'wiping tears', lean: .16, tilt: -.09, feet: [8, -10], hands: [15, -13, -8, -28], wrists: [-.2, -1.4], prop: 0, backLayer: 2, stride: 100, slack: 1.4 },
-        { stance: 'scheming', headH: 30, bodyH: 24, hip: -2, lean: .13, tilt: -.08, feet: [10, -12], hands: [20, -5, -14, -3], wrists: [.3, .1], prop: .25 },
-        { stance: 'confused shrug', lean: -.05, tilt: .16, feet: [10, -10], hands: [21, -10, -16, -15], wrists: [-.5, -1.5], prop: -1.2, backLayer: 1, stride: 100 },
-        { stance: 'all business', arm: 11, forearm: 12, thigh: 17, shin: 17, bodyH: 26, bodyW: 32, shoulder: 9, lean: -.025, tilt: -.04, feet: [8, -8], hands: [18, 2, -15, -3], wrists: [1.45, .1], prop: 0, stride: 104, slack: .6, breath: 1.8 },
-        { stance: 'hugging a pillow', bodyH: 23, bodyW: 24, shoulder: 7, lean: .12, tilt: -.16, feet: [7, -10], hands: [13, -7, -10, -8], wrists: [2.6, -.3], prop: 0, backLayer: 1, stride: 96, slack: 1, breath: 1.7 },
-        { stance: 'feeling the beat', lean: -.04, tilt: -.08, feet: [12, -10], hands: [22, -7, -12, -27], wrists: [-.5, -1.5], prop: -1.05, backLayer: 2, stride: 116, slack: 1.6, breath: 4 },
-        { stance: 'barely contained anger', lean: .05, tilt: .03, feet: [12, -12], hands: [20, -3, -5, -8], wrists: [.4, .2], prop: .45, backLayer: 1, stride: 108, breath: 3 },
-        { stance: 'folded arms', bodyH: 28, bodyW: 34, pelvisH: 14, thigh: 15, shin: 14, shoulder: 10, hips: 6, hip: -1, lean: -.045, tilt: -.07, feet: [14, -14], hands: [6, -9, -5, -9], wrists: [2.8, -.2], backLayer: 1, handH: 10, stride: 100, slack: 1.4, breath: 1.9 }
-    ].map(p => Object.freeze({ arm: 10.5, forearm: 11, thigh: 16, shin: 15, shoulder: 8, hips: 4.5, bodyH: 25, bodyW: 29, pelvisH: 12, headH: 32, footH: 9, handH: 8.5, slack: .8, hip: 0, lean: 0, tilt: 0, backLayer: 1, stride: STRIDE, breath: 2.4, prop: 0, ...p }));
+        { stance: 'easy confidence', lean: .03, tilt: -.04, feet: [11, -11], hands: [13, 1, -12, 1], wrists: [1.1, 1.7], prop: 1.05 },
+        { stance: 'leaning on nothing', bodyH: 26, headH: 31, thigh: 17, bodyW: 25, lean: .03, tilt: .05, feet: [10, -10], hands: [13, 0, -11, 2], wrists: [.5, 1.7], prop: -1.15, stride: 108 },
+        { stance: 'loose guard', slack: 1.8, lean: .08, feet: [13, -13], hands: [15, -5, -13, -3], wrists: [.2, 2.3], handH: 10, stride: 104, breath: 3.8 },
+        { stance: 'tiny troublemaker', arm: 8, forearm: 8, thigh: 11, shin: 10, shoulder: 6, hips: 3.5, bodyH: 19, bodyW: 25, pelvisH: 10, headH: 35, footH: 7, handH: 7, slack: .6, lean: .03, tilt: -.06, feet: [8, -8], hands: [10, 0, -9, 0], wrists: [1, 1.8], prop: .6, stride: 76, breath: 3.4 },
+        { stance: 'box of tissues', lean: .07, tilt: -.07, feet: [10, -10], hands: [13, -1, -11, 2], wrists: [.9, 1.7], prop: 0, stride: 100 },
+        { stance: 'knife low', headH: 30, bodyH: 24, lean: .06, tilt: -.06, feet: [12, -12], hands: [14, 0, -12, 1], wrists: [.9, 1.7], prop: .3 },
+        { stance: 'plunger down', lean: .02, tilt: .08, feet: [11, -11], hands: [13, 0, -12, 1], wrists: [1, 1.7], prop: .75, stride: 100 },
+        { stance: 'all business', arm: 11, forearm: 12, thigh: 17, shin: 17, bodyH: 26, bodyW: 32, shoulder: 9, lean: .02, tilt: -.03, feet: [10, -10], hands: [14, 3, -13, 3], wrists: [1.45, 1.7], prop: 0, stride: 104, slack: .6, breath: 1.8 },
+        { stance: 'pillow under the arm', bodyH: 23, bodyW: 24, shoulder: 7, lean: .05, tilt: -.1, feet: [9, -9], hands: [11, -2, -10, 2], wrists: [2.6, 1.7], prop: 0, stride: 96, breath: 1.7 },
+        { stance: 'bat at the ready', lean: .04, tilt: -.05, feet: [12, -12], hands: [14, 0, -12, 1], wrists: [.9, 1.7], prop: .8, stride: 116, slack: 1.2, breath: 4 },
+        { stance: 'barely contained anger', lean: .05, tilt: .03, feet: [12, -12], hands: [14, 0, -12, 1], wrists: [.9, 1.7], prop: .65, stride: 108, breath: 3 },
+        { stance: 'fists at his sides', bodyH: 28, bodyW: 34, pelvisH: 14, thigh: 15, shin: 14, shoulder: 10, hips: 6, lean: .03, tilt: -.05, feet: [14, -14], hands: [16, 0, -15, 0], wrists: [1.2, 1.9], handH: 10, stride: 100, slack: 1, breath: 1.9 }
+    ].map(p => Object.freeze({ arm: 10.5, forearm: 11, thigh: 16, shin: 15, shoulder: 8, hips: 4.5, bodyH: 25, bodyW: 29, pelvisH: 12, headH: 32, footH: 9, handH: 8.5, slack: .8, hip: 0, lean: 0, tilt: 0, backLayer: 0, stride: STRIDE, breath: 2.4, prop: 0, ...p }));
     const profile = character => profiles[character] || profiles[0];
     function rest(character = 0) {
         const r = profile(character), drop = r.footH * .6;
@@ -27,8 +31,8 @@
             fUpper: 1.15, fElbow: -2.15, bUpper: 2.05, bElbow: -2.05,
             armIK: 1, fX: r.hands[0], fY: r.hands[1], bX: r.hands[2], bY: r.hands[3],
             fHand: r.wrists[0], bHand: r.wrists[1], backLayer: r.backLayer,
-            fFootX: r.feet[0], fFootY: -drop, fFootA: 0, bFootX: r.feet[1], bFootY: -drop, bFootA: 0,
-            weapon: r.prop - r.wrists[0], weaponLayer: character === 8 ? .5 : 1 };
+            fFootX: r.feet[0], fFootY: -drop, fFootA: 0, bFootX: r.feet[1], bFootY: -drop, bFootA: 0, bKnee: -1,
+            weapon: r.prop - r.wrists[0], weaponLayer: 1 };
     }
     const ANGLES = new Set(['body', 'head', 'fUpper', 'fElbow', 'bUpper', 'bElbow', 'fHand', 'bHand', 'fFootA', 'bFootA', 'weapon']);
     const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
@@ -60,7 +64,13 @@
         const r = profile(pose.character), rise = smooth((-vy + 2) / 12), size = (r.thigh + r.shin) / 31;
         pose.fFootX = mix(12, 8, rise) * size; pose.fFootY = mix(-9, -22, rise) * size; pose.fFootA = -.12;
         pose.bFootX = mix(-12, -13, rise) * size; pose.bFootY = mix(-9, -16, rise) * size; pose.bFootA = .2;
-        pose.hipY = -32 * size; pose.body = mix(-.04, .14, rise); pose.armIK = 0; pose.backLayer = 0; pose.weaponLayer = 1;
+        pose.hipY = -32 * size; pose.body = mix(-.04, .14, rise); pose.armIK = 0; pose.backLayer = 0; pose.weaponLayer = 1; pose.bKnee = 1;
+        return pose;
+    }
+    // With the arms posed by angle, the hands follow their forearms and the prop keeps its own heading.
+    function follow(pose, r) {
+        pose.fHand = pose.body + pose.fUpper + pose.fElbow; pose.bHand = pose.body + pose.bUpper + pose.bElbow;
+        pose.weapon = r.prop - pose.fHand;
         return pose;
     }
     const attackStyles = {
@@ -78,10 +88,10 @@
     function attackPose(p) {
         const base = rest(p.character), a = p.attack, s = attackSpec(a, p.character), heavy = a.kind === 'heavy', r = profile(p.character);
         if (!p.grounded) airborne(base, p.vy);
-        const wind = { ...base, armIK: 0, backLayer: 1, hipX: -3, hipY: base.hipY + 2, body: heavy ? -.3 : -.18, head: .06,
+        const wind = { ...base, armIK: 0, backLayer: 1, bKnee: 1, hipX: -3, hipY: base.hipY + 2, body: heavy ? -.3 : -.18, head: .06,
             fUpper: 2.3, fElbow: -2.6, fHand: .4, bUpper: 1.1, bElbow: -1.7, weapon: 0, weaponLayer: 1 };
         const aim = a.dir === 'up' ? -1.42 : a.dir === 'down' ? 1.35 : -.04, spread = Math.min(17, (r.thigh + r.shin) * .5);
-        const impact = { ...base, armIK: 0, backLayer: 1, hipX: heavy ? 4 : 2.5, body: heavy ? .3 : .2, head: -.05,
+        const impact = { ...base, armIK: 0, backLayer: 1, bKnee: 1, hipX: heavy ? 4 : 2.5, body: heavy ? .3 : .2, head: -.05,
             fUpper: aim - (heavy ? .3 : .2), fElbow: .12, fHand: aim, bUpper: 2.4, bElbow: -1.3,
             fFootX: p.grounded ? spread : base.fFootX, bFootX: p.grounded ? -spread : base.bFootX, weapon: 0, weaponLayer: 1 };
         const style = a.dir === 'side' && attackStyles[s.pose];
@@ -118,18 +128,19 @@
         }
         if (p.dodge > 0) {
             const u = smooth((12 - p.dodge) / 12), crouch = Math.sin(u * PI), spread = Math.min(16, (r.thigh + r.shin) * .48);
-            pose.armIK = 0; pose.backLayer = 0; pose.weaponLayer = 1; pose.hipY += crouch * 7; pose.body = .25 * crouch; pose.fUpper = .5; pose.fElbow = -1.55;
+            pose.armIK = 0; pose.backLayer = 0; pose.weaponLayer = 1; pose.bKnee = 1; pose.hipY += crouch * 7; pose.body = .25 * crouch; pose.fUpper = .5; pose.fElbow = -1.55;
+            pose.bUpper = 2.2; pose.bElbow = -1.2; follow(pose, r);
             pose.fFootX = spread; pose.bFootX = -spread; ground(pose);
             return { pose, action: 'dodge', phase: u };
         }
         if (p.attack) return attackPose(p);
         if (!p.grounded) {
-            airborne(pose, p.vy); pose.fUpper = .55; pose.fElbow = -1.25; pose.bUpper = 2.8; pose.bElbow = -1.2; pose.head = -.05;
+            airborne(pose, p.vy); pose.fUpper = .55; pose.fElbow = -1.25; pose.bUpper = 2.8; pose.bElbow = -1.2; pose.head = -.05; follow(pose, r);
             return { pose, action: 'air', phase: p.vy < 0 ? 'rise' : 'fall' };
         }
         if (Math.abs(p.vx || 0) > .3) {
             const f = foot(cycle, p.character), b = foot(cycle + .5, p.character), swing = Math.cos(cycle * TAU);
-            pose.armIK = 0; pose.backLayer = 0; pose.hipY += 4 + .7 * Math.cos((cycle - .1) * TAU * 2); pose.hipX = 1.5; pose.body = .12;
+            pose.armIK = 0; pose.backLayer = 0; pose.bKnee = 1; pose.hipY += 4 + .7 * Math.cos((cycle - .1) * TAU * 2); pose.hipX = 1.5; pose.body = .12;
             pose.fFootX = f.x; pose.fFootY = f.y; pose.fFootA = f.a; pose.bFootX = b.x; pose.bFootY = b.y; pose.bFootA = b.a;
             const weight = D.FIGHTERS[p.character]?.weight || 1, amplitude = .8 / Math.sqrt(weight);
             pose.fUpper = PI / 2 + swing * amplitude; pose.bUpper = PI / 2 - swing * amplitude;
@@ -181,7 +192,7 @@
             bone(side + 'Hand', side + 'Lower', r.forearm, 0, p[side + 'Hand'] - lower.a, r.handH * .45);
             const hx = (side === 'f' ? r.hips : -r.hips) * Math.cos(pelvis.a) - 2 * Math.sin(pelvis.a) + pelvis.x;
             const hy = (side === 'f' ? r.hips : -r.hips) * Math.sin(pelvis.a) + 2 * Math.cos(pelvis.a) + pelvis.y;
-            const leg = ik(hx, hy, p[side + 'FootX'], p[side + 'FootY'], r.thigh, r.shin);
+            const leg = ik(hx, hy, p[side + 'FootX'], p[side + 'FootY'], r.thigh, r.shin, side === 'b' ? p.bKnee ?? 1 : 1);
             bone(side + 'Thigh', 'pelvis', side === 'f' ? r.hips : -r.hips, 2, leg.a - pelvis.a, r.thigh);
             const shin = bone(side + 'Shin', side + 'Thigh', r.thigh, 0, leg.b - leg.a, r.shin);
             bone(side + 'Foot', side + 'Shin', r.shin, 0, p[side + 'FootA'] - shin.a);
