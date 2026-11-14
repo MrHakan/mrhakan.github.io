@@ -41,7 +41,15 @@ try{
   assert.equal(new URL(page.url()).searchParams.get('app'),'waveshaper');
   assert.equal(await frame.locator('#mode').count(),0,'no difficulty selector');
   await frame.locator('#start').click();
-  if(mobile)await frame.locator('[data-action="2"]').tap();else await frame.locator('#wave').press('ArrowUp');
+  // A stray window blur while the desktop settles focus pauses the run, and a
+  // paused run ignores input. Resume and press again rather than flake.
+  for(let tries=0;;tries++){
+   await frame.locator('#overlay').waitFor({state:'hidden'});
+   if(mobile)await frame.locator('[data-action="2"]').tap();else await frame.locator('#wave').press('ArrowUp');
+   if(await frame.locator('#lives').textContent()==='3 / 4'||tries>=2)break;
+   if(!await frame.locator('#overlay').isVisible())break;
+   await frame.locator('#start').click();
+  }
   assert.equal(await frame.locator('#score').textContent(),'0','early matching input must not score');
   assert.equal(await frame.locator('#lives').textContent(),'3 / 4','early input costs a life');
   await game.waitForFunction(()=>window.testCanHit===true,{},{timeout:7000}).catch(async error=>{console.log(await game.evaluate(()=>({status:document.querySelector('#status').textContent,overlay:document.querySelector('#overlay').hidden,focus:document.hasFocus(),timing:window.testCanHit})));throw error;});
