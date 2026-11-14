@@ -73,14 +73,14 @@ test('holding down drops through a platform; jumping goes up through one', () =>
 });
 test('walking off a ledge leaves only the air jump', () => {
     const s = duel(), p = s.players[0], main = D.map('start').platforms[0];
-    Object.assign(p, { x: main.x + 4 }); S.setInput(s, 0, { left: true }); step(s, 4);
+    Object.assign(p, { x: main.x + 4 }); S.setInput(s, 0, { left: true }); step(s, 10);
     assert.ok(!p.grounded); assert.equal(p.jumps, 1);
 });
 
 console.log('\n== guns and knockback ==');
 test('a bullet shoves who it hits, and the shot kicks the shooter back', () => {
     const s = duel(), [a, b] = s.players;
-    S.setInput(s, 0, { fire: true }); step(s, 14);
+    S.setInput(s, 0, { fire: true }); step(s, 22);
     assert.ok(b.vx > 2 || b.x > 790 + 3, 'the target is pushed away from the shooter');
     assert.ok(b.stun > 0 && b.hitBy === 0, 'and remembers who did it');
     assert.ok(a.x < 490, 'recoil moved the shooter back');
@@ -88,7 +88,7 @@ test('a bullet shoves who it hits, and the shot kicks the shooter back', () => {
 test('steady hands have no recoil; heavy boots take less of a push', () => {
     const s = duel(), [a] = s.players; a.perk = 'steady';
     S.setInput(s, 0, { fire: true }); step(s); assert.equal(a.vx, 0);
-    const push = perk => { const t = duel(); t.players[1].perk = perk; S.setInput(t, 0, { fire: true }); step(t, 12); return t.players[1].x - 790; };
+    const push = perk => { const t = duel(); t.players[1].perk = perk; S.setInput(t, 0, { fire: true }); step(t, 30); return t.players[1].x - 790; };
     assert.ok(push('anchor') < push('turbo') * 0.85, 'anchor ' + push('anchor') + ' vs ' + push('turbo'));
 });
 test('a magazine runs dry, reloads, and an empty gun turns back into the pea shooter', () => {
@@ -104,7 +104,7 @@ test('the spin cycle winds up before it fires; triple click fires three', () => 
     const s = duel(), [a] = s.players; s.players[1].x = 4000;
     Object.assign(a, { weapon: D.WEAPONS.findIndex(w => w.id === 'spin'), mag: 120, clips: 1 });
     S.setInput(s, 0, { fire: true }); step(s, 20); assert.equal(s.shots.length, 0);
-    step(s, 20); assert.ok(s.shots.length > 2);
+    step(s, 34); assert.ok(s.shots.length > 2);
     const t = duel(), [b] = t.players; t.players[1].x = 4000;
     Object.assign(b, { weapon: D.WEAPONS.findIndex(w => w.id === 'triple'), mag: 27, clips: 3 });
     S.setInput(t, 0, { fire: true }); step(t, 1); S.setInput(t, 0, { fire: false }); step(t, 14);
@@ -118,8 +118,8 @@ test('rockets and bombs blow up and push everyone near, the thrower too', () => 
     assert.ok(b.stun > 0 && b.hitBy === 0 && Math.hypot(b.vx, b.vy) > 2, 'the rival flew');
     const r = duel(), [c, d] = r.players;
     Object.assign(c, { weapon: D.WEAPONS.findIndex(w => w.id === 'delete'), mag: 3, clips: 2 }); d.x = c.x + 200;
-    S.setInput(r, 0, { fire: true }); step(r, 30);
-    assert.ok(r.events.some(e => e.type === 'boom') && d.vx > 4, 'the rocket blew up on the rival');
+    S.setInput(r, 0, { fire: true }); step(r, 40);
+    assert.ok(r.events.some(e => e.type === 'boom') && d.hitBy === 0 && d.x > c.x + 225, 'the rocket blew up on the rival');
 });
 test('teammates are not pushed by each other; a firewall stops every push', () => {
     const s = duel({ teams: true, people: [{ id: 'a', team: 0, perk: 'turbo' }, { id: 'b', team: 0, perk: 'turbo' }], count: 4 });
@@ -190,6 +190,47 @@ test('a lone player against three bots gets pushed, and bots pick up crates', ()
     for (let n = 0; n < 60 * 60 && s.phase !== 'over'; n++) { S.step(s); for (const e of s.events) if (e.id > before) { if (e.type === 'pick') picks++; before = e.id; } }
     assert.ok(s.players[0].falls > 0, 'standing still is not safe');
     assert.ok(picks > 0, 'crates get picked');
+});
+test('a bot turns to a player in its line and keeps shooting, crate above or not', () => {
+    for (const crate of [false, true]) {
+        const s = S.create({ map: 'start', seed: 21, count: 2, people: [{ id: 'me', perk: 'turbo' }] });
+        s.phase = 'fight'; s.crateAt = 1e9;
+        const [me, bot] = s.players;
+        Object.assign(me, { x: 520, y: 560, grounded: true, invuln: 0 });
+        Object.assign(bot, { x: 820, y: 560, grounded: true, facing: 1, invuln: 0 });
+        // the one that used to freeze them: a crate on the platform two jumps up
+        if (crate) s.crates.push({ id: 99, x: 640, y: 320, vy: 0, item: false, kind: 2, life: 5000, landed: true });
+        let shots = 0, hits = 0, seen = 0;
+        for (let n = 0; n < 7 * 60; n++) {
+            Object.assign(me, { x: 520, vx: 0, y: 560, vy: 0, grounded: true });   // a player who stands still and takes it
+            S.step(s);
+            for (const e of s.events) if (e.id > seen) { seen = e.id; if (e.type === 'shot' && e.slot === 1) shots++; if (e.type === 'hit' && e.slot === 0) hits++; }
+        }
+        assert.ok(shots >= 8, (crate ? 'with' : 'without') + ' a crate above: ' + shots + ' shots in seven seconds');
+        assert.ok(hits >= 6, hits + ' of them hit');
+    }
+});
+test('a bot finds its way to a rival it cannot shoot from where it stands', () => {
+    // other floor, other side of the minefield: down, across the gaps, then shoot
+    for (const [x, y] of [[980, 560], [460, 450], [835, 230]]) {
+        const s = S.create({ map: 'mines', seed: 3, count: 2, people: [{ id: 'bot', bot: true }, { id: 'me', perk: 'turbo' }] });
+        s.phase = 'fight'; s.crateAt = 1e9;
+        Object.assign(s.players[0], { x: 245, y: 340, grounded: true });
+        let n = 0, seen = 0, hit = false;
+        while (!hit && n < 15 * 60) {
+            Object.assign(s.players[1], { x, y, vx: 0, vy: 0, grounded: true, invuln: 0 });
+            S.step(s); n++;
+            for (const e of s.events) if (e.id > seen) { seen = e.id; if (e.type === 'hit' && e.slot === 1) hit = true; }
+        }
+        assert.ok(hit, 'reached and hit a player standing at ' + x + ',' + y);
+    }
+});
+test('the pace is readable: a walk, a jump and a bullet a person can follow', () => {
+    assert.ok(D.RUN <= 4 && D.GRAVITY <= 0.45, 'walking and falling');
+    const one = D.JUMP * D.JUMP / 2 / D.GRAVITY, two = one + D.AIR_JUMP * D.AIR_JUMP / 2 / D.GRAVITY;
+    assert.ok(one > 115 && two > 210, 'but a jump still reaches the next floor: ' + Math.round(one) + ' / ' + Math.round(two));
+    for (const w of D.WEAPONS) assert.ok(w.speed <= 50 && w.rate >= 4, w.id + ' is not a blur');
+    assert.ok(D.WEAPONS[0].speed <= 20 && D.WEAPONS[0].rate >= 18, 'the pea shooter fires about three a second');
 });
 test('the same seed and the same inputs play the same match', () => {
     const run = () => { const s = S.create({ seed: 77, count: 4, map: 'tower' }); for (let n = 0; n < 3000; n++) { if (n % 50 === 0) S.setInput(s, 1, { fire: n % 100 === 0, jump: n / 50 }); S.step(s); } return JSON.stringify(S.snapshot(s)); };

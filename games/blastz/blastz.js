@@ -13,8 +13,8 @@
     const picks = [0, 1, 2, 3].map(i => fighterOk(pref.picks?.[i]) ? pref.picks[i] : [0, 5, 2, 7][i]);
     const perks = [0, 1, 2, 3].map(i => D.perk(pref.perks?.[i]));
     const setup = { map: D.map(pref.map).id, lives: D.lives(pref.lives), teams: pref.teams === true, count: D.count(pref.count || 4), humans: Math.max(1, Math.min(4, pref.humans || 1)) };
-    let tab = 0, muted = pref.muted !== false, musicOn = pref.music !== false;
-    const save = () => write(PREF, { picks, perks, map: setup.map, lives: setup.lives, teams: setup.teams, count: setup.count, humans: setup.humans, muted, music: musicOn });
+    let tab = 0, muted = pref.fx === false, musicOn = pref.music !== false;
+    const save = () => write(PREF, { picks, perks, map: setup.map, lives: setup.lives, teams: setup.teams, count: setup.count, humans: setup.humans, fx: !muted, music: musicOn });
 
     let app, ui, canvas, renderer, winRef, frameId, timer, match = null, session = null, offs = [], screen = 'menu', overlay = null, pendingStart = 0;
     let soundContext, lobbyBusy = false, connectionToken = 0, menuState = null, musicRelease = null, musicTimer = 0, lastSong = '';
@@ -28,20 +28,87 @@
     const coarse = () => matchMedia('(pointer: coarse)').matches;
     const fighterName = n => F.FIGHTERS[n]?.name || 'fighter';
 
-    // ---- sound: small synthesized blips, off until asked for ----
-    function tone(type) {
+    // ---- sound: synthesized, a voice of its own for every gun, under the site's sound switch ----
+    // Each sound is a short recipe: a noise burst through a filter and a pitched
+    // sweep. Nothing to download, and every gun is told apart by its own pair.
+    // [length s, filter, frequency, Q, volume] and [wave, from Hz, to Hz, length s, volume]
+    const SHOT = {
+        pea: { noise: [0.05, 'bandpass', 2200, 1.2, 0.5], tone: ['square', 900, 260, 0.06, 0.25] },
+        cannon: { noise: [0.22, 'lowpass', 1100, 0.8, 0.9], tone: ['sine', 160, 45, 0.22, 0.9] },
+        buzz: { noise: [0.035, 'highpass', 2600, 1, 0.45], tone: ['square', 1300, 600, 0.03, 0.12] },
+        sheet: { noise: [0.28, 'bandpass', 900, 0.6, 1], tone: ['sawtooth', 220, 60, 0.16, 0.5] },
+        ldc: { noise: [0.09, 'highpass', 3200, 1, 0.7], tone: ['sawtooth', 2400, 180, 0.28, 0.55] },
+        spin: { noise: [0.03, 'bandpass', 3200, 2, 0.4], tone: ['square', 1600, 1100, 0.025, 0.1] },
+        autosave: { noise: [0.05, 'bandpass', 1500, 1, 0.6], tone: ['square', 700, 220, 0.05, 0.22] },
+        triple: { noise: [0.05, 'bandpass', 1800, 1.4, 0.55], tone: ['triangle', 1100, 300, 0.06, 0.3] },
+        delete: { noise: [0.45, 'bandpass', 500, 0.7, 0.7], tone: ['sawtooth', 120, 420, 0.4, 0.35] },
+        zip: { noise: [0.06, 'lowpass', 800, 1, 0.4], tone: ['sine', 260, 640, 0.14, 0.6] }
+    };
+    const EVENT = {
+        hit: { noise: [0.07, 'lowpass', 1400, 1, 0.55], tone: ['sine', 230, 90, 0.08, 0.5] },
+        boom: { noise: [0.9, 'lowpass', 520, 0.7, 1.1], tone: ['sine', 90, 28, 0.7, 1] },
+        ko: { tone: ['sawtooth', 640, 55, 0.6, 0.55] },
+        fall: { tone: ['triangle', 520, 90, 0.5, 0.45] },
+        empty: { tone: ['square', 1900, 1700, 0.025, 0.25], again: 0.07 },
+        reloaded: { noise: [0.03, 'highpass', 3000, 1, 0.35], tone: ['square', 1200, 1000, 0.03, 0.2], again: 0.09 },
+        pick: { tone: ['triangle', 660, 660, 0.07, 0.4], up: [880, 1320] },
+        jump: { tone: ['triangle', 300, 520, 0.08, 0.2] },
+        block: { tone: ['sine', 1500, 1900, 0.1, 0.3] },
+        throw: { noise: [0.08, 'bandpass', 700, 1, 0.3] },
+        go: { tone: ['triangle', 880, 880, 0.16, 0.4], up: [1320] },
+        ready: { tone: ['triangle', 660, 990, 0.1, 0.35] }
+    };
+    let noiseBuffer = null, voices = 0;
+    const lastSound = {}, heard = [];   // `heard` is what played, for the browser test
+    function audio() {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        soundContext = soundContext || new AC();
+        if (soundContext.state === 'suspended') soundContext.resume().catch(() => {});
+        if (!noiseBuffer) {
+            noiseBuffer = soundContext.createBuffer(1, soundContext.sampleRate, soundContext.sampleRate);
+            const d = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        }
+        return soundContext;
+    }
+    function voice(ac, r, at, gain) {
+        const out = ac.createGain(); out.gain.value = gain; out.connect(ac.destination);
+        let end = at;
+        if (r.noise) {
+            const [len, type, freq, q, vol] = r.noise, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+            src.buffer = noiseBuffer; src.playbackRate.value = 0.8 + Math.random() * 0.4;
+            f.type = type; f.frequency.value = freq; f.Q.value = q;
+            g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + len);
+            src.connect(f); f.connect(g); g.connect(out); src.start(at, Math.random() * 0.5); src.stop(at + len + 0.02);
+            end = Math.max(end, at + len);
+        }
+        if (r.tone) {
+            const [type, from, to, len, vol] = r.tone, o = ac.createOscillator(), g = ac.createGain();
+            o.type = type; o.frequency.setValueAtTime(from, at); o.frequency.exponentialRampToValueAtTime(Math.max(20, to), at + len);
+            g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + len);
+            o.connect(g); g.connect(out); o.start(at); o.stop(at + len + 0.02);
+            end = Math.max(end, at + len);
+        }
+        voices++;
+        setTimeout(() => { voices--; try { out.disconnect(); } catch (_) { } }, (end - ac.currentTime) * 1000 + 80);
+    }
+    // `near: false` is somebody else's fighter: a little quieter than your own
+    function tone(type, opts = {}) {
         if (muted || (typeof soundEnabled !== 'undefined' && !soundEnabled)) return;
+        const r = opts.gun ? SHOT[opts.gun] : EVENT[type];
+        if (!r) return;
+        const now = performance.now(), key = opts.gun || type;
+        // fast guns and four players: one voice of a kind every few frames, and a cap on all of them
+        if (now - (lastSound[key] || 0) < (opts.gun ? 45 : 25) || voices > 24) return;
+        lastSound[key] = now;
         try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (!AC) return;
-            soundContext = soundContext || new AC(); soundContext.resume().catch(() => {});
-            const o = soundContext.createOscillator(), g = soundContext.createGain(), t = soundContext.currentTime;
-            const f = { shot: 520, hit: 210, ko: 110, boom: 70, jump: 380, pick: 760, go: 880, empty: 300, block: 990 }[type] || 400;
-            o.type = type === 'boom' || type === 'ko' || type === 'hit' ? 'sawtooth' : type === 'shot' ? 'square' : 'triangle';
-            o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(type === 'boom' || type === 'ko' ? 30 : f * (type === 'shot' ? 0.5 : 1.6), t + (type === 'boom' ? 0.3 : 0.1));
-            const v = type === 'shot' ? 0.018 : 0.045;
-            g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (type === 'boom' ? 0.35 : 0.14));
-            o.connect(g); g.connect(soundContext.destination); o.start(); o.stop(t + 0.4);
+            const ac = audio(); if (!ac) return;
+            const at = ac.currentTime + 0.005, gain = 0.16 * (opts.near === false ? 0.55 : 1);
+            voice(ac, r, at, gain);
+            if (r.again) voice(ac, r, at + r.again, gain * 0.8);
+            if (r.up) r.up.forEach((f, i) => voice(ac, { tone: [r.tone[0], f, f, r.tone[3], r.tone[4]] }, at + 0.07 * (i + 1), gain));
+            heard.push(key); if (heard.length > 200) heard.shift();
         } catch (_) { /* a silent device can still play */ }
     }
     function stopMusic() { clearTimeout(musicTimer); musicTimer = 0; if (musicRelease) musicRelease(); musicRelease = null; }
@@ -354,7 +421,7 @@
         if (!me || !me.in || view.phase === 'match') return;
         const r = value === undefined ? !want.r : value;
         if (r === want.r) return;
-        wish({ r }); tone(r ? 'go' : 'jump');
+        wish({ r }); tone(r ? 'ready' : 'jump');
     }
     function switchSide() {
         const me = mySeat();
@@ -563,13 +630,15 @@
         if (match.s.phase === 'over' && !match.saved && match.s.tick - (match.s.overAt || match.s.tick) >= 50) finish();
     }
     function sounds() {
-        let shots = 0;
         for (const e of match.s.events) {
             if (e.id <= match.sound) continue;
             match.sound = e.id;
-            if (e.type === 'shot') { if (shots++ < 2) tone('shot'); }
-            else if (['hit', 'ko', 'boom', 'pick', 'go', 'empty', 'block'].includes(e.type)) tone(e.type);
-            else if (e.type === 'jump' && match.mine.includes(e.slot)) tone('jump');
+            const near = e.slot === undefined || match.mine.includes(e.slot);
+            if (e.type === 'shot') tone('shot', { gun: D.WEAPONS[e.w]?.id, near });
+            else if (e.type === 'ko') tone(e.by >= 0 ? 'ko' : 'fall', { near });
+            else if (['hit', 'boom', 'pick', 'go', 'empty', 'block', 'throw'].includes(e.type)) tone(e.type, { near: e.type === 'hit' ? true : near });
+            else if ((e.type === 'jump' || e.type === 'reloaded') && match.mine.includes(e.slot)) tone(e.type);
+            else if (e.type === 'dry' && match.mine.includes(e.slot)) tone('empty');
         }
     }
     let fitAt = 0, portraitsReady = false;
@@ -814,5 +883,5 @@
     Netplay.registerGame({ id: 'blastz', name: 'blastz 98', start: s => enterRoom(s), startSolo: () => { mount(); startLocal(); }, soloLabel: 'play with bots',
         paintAvatar: cv => { const c = cv.getContext('2d'); c.fillStyle = '#20304f'; c.fillRect(0, 0, cv.width, cv.height); R.sprite(c, cv.width / 2, cv.height * 0.92, picks[0], { scale: cv.height * 0.8 / RIFT_ANIM.height(picks[0]), weapon: 1 }); } });
     // read-only diagnostics for the browser tests; the rules stay in BLASTZ_SIM
-    window.BLASTZ_ENGINE = { state: () => match, screen: () => screen, meta: () => read(META), room: () => view, want: () => want, locals: () => locals };
+    window.BLASTZ_ENGINE = { heard: () => heard.slice(), state: () => match, screen: () => screen, meta: () => read(META), room: () => view, want: () => want, locals: () => locals };
 })();

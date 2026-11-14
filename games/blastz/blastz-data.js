@@ -4,12 +4,12 @@
     'use strict';
     const data = root.BLASTZ = {
         TICK: 60, W: 1280, H: 720, FIGHTERS: 12,
-        GRAVITY: 0.55, MAX_FALL: 15, JUMP: -11.6, AIR_JUMP: -10.6,
-        RUN: 4.7, ACCEL: 0.95, AIR_ACCEL: 0.5,
+        GRAVITY: 0.42, MAX_FALL: 12, JUMP: -10.2, AIR_JUMP: -9.3,
+        RUN: 3.7, ACCEL: 0.7, AIR_ACCEL: 0.36,
         BOX_W: 28, BOX_H: 54,
         // fall past these and a life is gone
         BLAST: { left: -240, right: 1520, top: -520, bottom: 880 },
-        COUNTDOWN: 180, RESPAWN: 80, SHIELD_AFTER_SPAWN: 150,
+        COUNTDOWN: 180, RESPAWN: 100, SHIELD_AFTER_SPAWN: 150,
         CREDIT: 360,                // a hit within this many ticks gets the KO
         OVERTIME: 3 * 60 * 60,      // after three minutes everything pushes harder
         CRATE_EVERY: [150, 260], CRATE_MAX: 3, CRATE_LIFE: 1100,
@@ -23,18 +23,18 @@
         // Every gun is held down to fire. `knock` is what a bullet does to the
         // one it hits, `recoil` what each shot does to the shooter.
         WEAPONS: [
-            { id: 'pea', name: 'pea shooter', blurb: 'the one you always have', rate: 15, mag: 12, clips: -1, reload: 48, speed: 25, knock: 6.6, recoil: 0.5, spread: 0.015, life: 44, weight: 0, color: '#fff1a8', size: 3, gun: [14, 7, '#8a94a8'] },
-            { id: 'cannon', name: 'hand cannon', blurb: 'six big shoves', rate: 28, mag: 6, clips: 3, reload: 64, speed: 32, knock: 14.4, recoil: 3.4, spread: 0.01, life: 44, weight: 10, color: '#ffcf6a', size: 5, gun: [20, 9, '#5f5a73'] },
-            { id: 'buzz', name: 'buzz box', blurb: 'a lot of small shoves', rate: 5, mag: 30, clips: 3, reload: 66, speed: 26, knock: 2.4, recoil: 0.45, spread: 0.075, life: 34, weight: 12, color: '#bdf6ff', size: 2.5, gun: [20, 8, '#3f4d5c'] },
-            { id: 'sheet', name: 'spread sheet', blurb: 'six pellets, short reach', rate: 40, mag: 5, clips: 3, reload: 70, speed: 24, knock: 3.75, recoil: 5.5, spread: 0.2, pellets: 6, life: 17, weight: 11, color: '#d4ffb0', size: 3, gun: [28, 8, '#6b4a33'] },
-            { id: 'ldc', name: 'long distance call', blurb: 'one slow line, one long flight', rate: 56, mag: 4, clips: 3, reload: 80, speed: 64, knock: 21.75, recoil: 4.4, spread: 0, life: 30, weight: 7, color: '#ff8fd2', size: 3, sight: true, gun: [36, 7, '#2d3a2f'] },
-            { id: 'spin', name: 'spin cycle', blurb: 'winds up, then never stops', rate: 3, mag: 120, clips: 1, reload: 90, spin: 32, speed: 27, knock: 1.88, recoil: 0.7, spread: 0.11, life: 32, weight: 6, slow: 0.6, color: '#ffe08a', size: 2.5, gun: [30, 12, '#4c4c55'] },
-            { id: 'autosave', name: 'auto save', blurb: 'steady and dependable', rate: 8, mag: 24, clips: 3, reload: 60, speed: 30, knock: 4.95, recoil: 0.9, spread: 0.03, life: 40, weight: 12, color: '#a8f0ff', size: 3, gun: [26, 8, '#43505f'] },
-            { id: 'triple', name: 'triple click', blurb: 'three at a time', rate: 26, burst: 3, gap: 4, mag: 27, clips: 3, reload: 60, speed: 31, knock: 6.0, recoil: 1.1, spread: 0.02, life: 40, weight: 10, color: '#c9b6ff', size: 3, gun: [25, 9, '#5a4d78'] },
-            { id: 'delete', name: 'delete key', blurb: 'a rocket. it blows up', rate: 62, mag: 3, clips: 2, reload: 80, speed: 12.5, knock: 6.0, recoil: 6.5, spread: 0, life: 110, weight: 6, color: '#ff6d4d', size: 6, rocket: true, blast: { radius: 120, knock: 15 }, gun: [32, 12, '#6b2f2f'] },
-            { id: 'zip', name: 'zip launcher', blurb: 'lobs bombs that pop on contact', rate: 44, mag: 4, clips: 2, reload: 75, speed: 10, knock: 4.5, recoil: 3, spread: 0, life: 120, weight: 6, color: '#7cff8e', size: 6, lob: true, blast: { radius: 105, knock: 12.5 }, gun: [26, 12, '#2f5b37'] }
+            { id: 'pea', name: 'pea shooter', blurb: 'the one you always have', rate: 19, mag: 12, clips: -1, reload: 55, speed: 18, knock: 5.61, recoil: 0.42, spread: 0.015, life: 61, weight: 0, color: '#fff1a8', size: 3, gun: [14, 7, '#8a94a8'] },
+            { id: 'cannon', name: 'hand cannon', blurb: 'six big shoves', rate: 35, mag: 6, clips: 3, reload: 74, speed: 23.04, knock: 12.24, recoil: 2.89, spread: 0.01, life: 61, weight: 10, color: '#ffcf6a', size: 5, gun: [20, 9, '#5f5a73'] },
+            { id: 'buzz', name: 'buzz box', blurb: 'a lot of small shoves', rate: 6, mag: 30, clips: 3, reload: 76, speed: 18.72, knock: 2.04, recoil: 0.38, spread: 0.075, life: 47, weight: 12, color: '#bdf6ff', size: 2.5, gun: [20, 8, '#3f4d5c'] },
+            { id: 'sheet', name: 'spread sheet', blurb: 'six pellets, short reach', rate: 50, mag: 5, clips: 3, reload: 80, speed: 17.28, knock: 3.19, recoil: 4.67, spread: 0.2, pellets: 6, life: 24, weight: 11, color: '#d4ffb0', size: 3, gun: [28, 8, '#6b4a33'] },
+            { id: 'ldc', name: 'long distance call', blurb: 'one slow line, one long flight', rate: 70, mag: 4, clips: 3, reload: 92, speed: 46.08, knock: 18.49, recoil: 3.74, spread: 0, life: 42, weight: 7, color: '#ff8fd2', size: 3, sight: true, gun: [36, 7, '#2d3a2f'] },
+            { id: 'spin', name: 'spin cycle', blurb: 'winds up, then never stops', rate: 4, mag: 120, clips: 1, reload: 103, spin: 38, speed: 19.44, knock: 1.6, recoil: 0.59, spread: 0.11, life: 44, weight: 6, slow: 0.6, color: '#ffe08a', size: 2.5, gun: [30, 12, '#4c4c55'] },
+            { id: 'autosave', name: 'auto save', blurb: 'steady and dependable', rate: 10, mag: 24, clips: 3, reload: 69, speed: 21.6, knock: 4.21, recoil: 0.77, spread: 0.03, life: 56, weight: 12, color: '#a8f0ff', size: 3, gun: [26, 8, '#43505f'] },
+            { id: 'triple', name: 'triple click', blurb: 'three at a time', rate: 32, burst: 3, gap: 5, mag: 27, clips: 3, reload: 69, speed: 22.32, knock: 5.1, recoil: 0.94, spread: 0.02, life: 56, weight: 10, color: '#c9b6ff', size: 3, gun: [25, 9, '#5a4d78'] },
+            { id: 'delete', name: 'delete key', blurb: 'a rocket. it blows up', rate: 78, mag: 3, clips: 2, reload: 92, speed: 9, knock: 5.1, recoil: 5.52, spread: 0, life: 153, weight: 6, color: '#ff6d4d', size: 6, rocket: true, blast: { radius: 120, knock: 12.75 }, gun: [32, 12, '#6b2f2f'] },
+            { id: 'zip', name: 'zip launcher', blurb: 'lobs bombs that pop on contact', rate: 55, mag: 4, clips: 2, reload: 86, speed: 7.2, knock: 3.82, recoil: 2.55, spread: 0, life: 167, weight: 6, color: '#7cff8e', size: 6, lob: true, blast: { radius: 105, knock: 10.62 }, gun: [26, 12, '#2f5b37'] }
         ],
-        BOMB: { fuse: 96, radius: 120, knock: 14, throwX: 7.5, throwY: -7 },
+        BOMB: { fuse: 110, radius: 120, knock: 12, throwX: 4.4, throwY: -5.6 },
         ITEMS: [
             { id: 'firewall', name: 'firewall', blurb: 'nothing pushes you for 6 s', time: 360 },
             { id: 'bombs', name: 'zip bombs', blurb: '+3 bombs' },
