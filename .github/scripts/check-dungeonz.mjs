@@ -21,6 +21,7 @@
 //
 //   node .github/scripts/check-dungeonz.mjs
 //   DZ_RUNS=120 DZ_TABLE=1 node ...     more runs, and the whole table
+//   DZ_SEED=3000 node ...               another set of seeds
 // ===================================================================
 import fs from 'fs';
 import os from 'os';
@@ -288,9 +289,17 @@ section('the wire');
 // ===================================================================
 section('balance: parties of bots, many runs of every dungeon');
 // ===================================================================
-const RUNS = +(process.env.DZ_RUNS || 36);
+// The runs are seeded, but which of them a party wins is not the same on every machine:
+// a different V8 or another CPU rounds a few sums differently, and a bot run is chaotic
+// enough to go another way from there (the blue screen measured 33% on CI's x64, 31% on
+// an arm64 Mac with the same Node 20, 25% on Node 26). So the rates below are judged as
+// what they are, a sample: a check fails when the whole of its 95% interval is outside the
+// target, which is drift, and not when one machine's seeds land a point under the line.
+// DZ_SEED moves the seeds, to see that for yourself.
+const RUNS = +(process.env.DZ_RUNS || 72);
+const SEED0 = +(process.env.DZ_SEED || 1000);
 const jobs = [];
-for (const d of D.DUNGEONS) for (let k = 0; k < RUNS; k++) jobs.push({ dungeon: d.id, seed: 1000 + k * 7919 });
+for (const d of D.DUNGEONS) for (let k = 0; k < RUNS; k++) jobs.push({ dungeon: d.id, seed: SEED0 + k * 7919 });
 // half the cores: the runs make garbage, and the collector's threads are shared
 const nWorkers = Math.max(1, Math.min(+process.env.DZ_THREADS || Math.floor(os.cpus().length / 2), 6, jobs.length));
 const results = (await Promise.all(Array.from({ length: nWorkers }, (_, w) => new Promise((res, rej) => {
@@ -303,6 +312,15 @@ console.log('        ' + results.length + ' runs on ' + nWorkers + ' threads in 
 const by = {};
 for (const r of results) (by[r.dungeon] = by[r.dungeon] || []).push(r);
 const mean = (a, f) => a.length ? a.reduce((s, r) => s + f(r), 0) / a.length : NaN;
+// Wilson's 95% interval for k out of n, and whether any of it is inside [lo, hi]
+function wilson(k, n) {
+    if (!n) return [0, 1];
+    const z = 1.96, p = k / n, d = 1 + z * z / n;
+    const mid = (p + z * z / (2 * n)) / d, half = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+    return [Math.max(0, mid - half), Math.min(1, mid + half)];
+}
+const near = (k, n, [lo, hi]) => { const [a, b] = wilson(k, n); return b >= lo && a <= hi; };
+const rate = (k, n) => pct(k / Math.max(1, n)) + ' of ' + n + ', 95% ' + wilson(k, n).map(pct).join(' to ');
 const TARGET = {
     // first: how often a party that reaches the boss kills it at the first go.
     // downs: how many times somebody goes down while it is up, over every go at it
@@ -316,7 +334,7 @@ for (const d of D.DUNGEONS) {
     const c = wins.length / rs.length;
     clear[d.id] = c;
     expect(rs.every(r => !r.timeout), d.name + ': no run gets stuck', rs.filter(r => r.timeout).map(r => r.seed + ' at room ' + r.frontier).join(', '));
-    expect(c >= T.clear[0] && c <= T.clear[1], d.name + ' (' + d.tier + ') is cleared ' + pct(T.clear[0]) + ' to ' + pct(T.clear[1]) + ' of the time', pct(c) + ' of ' + rs.length);
+    expect(near(wins.length, rs.length, T.clear), d.name + ' (' + d.tier + ') is cleared ' + pct(T.clear[0]) + ' to ' + pct(T.clear[1]) + ' of the time', rate(wins.length, rs.length));
     const mins = mean(wins, r => r.t) / 60;
     expect(mins >= T.time[0] && mins <= T.time[1], 'a clear takes ' + T.time[0] + ' to ' + T.time[1] + ' minutes of bot time', mins.toFixed(1) + ' minutes on average');
     const boss = mean(wins, r => r.bossT);
@@ -324,9 +342,9 @@ for (const d of D.DUNGEONS) {
     const lv = mean(rs.filter(r => r.bossAt >= 0), r => r.lv);
     expect(lv >= T.lv[0] && lv <= T.lv[1], 'the party reaches the boss at level ' + T.lv[0] + ' to ' + T.lv[1], lv.toFixed(1));
     const met = rs.filter(r => r.bossTries > 0);
-    const first = met.filter(r => r.win && r.bossTries === 1).length / Math.max(1, met.length);
+    const firstK = met.filter(r => r.win && r.bossTries === 1).length, first = firstK / Math.max(1, met.length);
     firstGo[d.id] = first;
-    expect(first >= T.first[0] && first <= T.first[1], 'a party that reaches ' + D.BOSSES[d.boss].name + ' kills it at the first go ' + pct(T.first[0]) + ' to ' + pct(T.first[1]) + ' of the time', pct(first) + ' of ' + met.length);
+    expect(near(firstK, met.length, T.first), 'a party that reaches ' + D.BOSSES[d.boss].name + ' kills it at the first go ' + pct(T.first[0]) + ' to ' + pct(T.first[1]) + ' of the time', rate(firstK, met.length));
     const bd = mean(met, r => r.bossDowns);
     bossDowns[d.id] = bd;
     expect(bd >= T.downs[0] && bd <= T.downs[1], 'and somebody goes down ' + T.downs[0] + ' to ' + T.downs[1] + ' times while it is up', bd.toFixed(1) + ' on average');
@@ -366,19 +384,23 @@ expect(firstGo.bin > firstGo.registry && bossDowns.bin < bossDowns.registry && b
     for (const sk of D.SKILLS) {
         const w = hard.filter(r => r.mid.skills.includes(sk.id)), wo = hard.filter(r => !r.mid.skills.includes(sk.id));
         if (w.length < 8 || wo.length < 8) continue;
-        const dlt = w.filter(r => r.win).length / w.length - wo.filter(r => r.win).length / wo.length;
-        swing.push({ id: sk.id, d: dlt, n: w.length });
+        const pw = w.filter(r => r.win).length / w.length, po = wo.filter(r => r.win).length / wo.length;
+        // the gap between two samples, less 1.96 standard errors of it
+        const se = Math.sqrt(pw * (1 - pw) / w.length + po * (1 - po) / wo.length);
+        swing.push({ id: sk.id, d: pw - po, n: w.length, sure: Math.max(0, Math.abs(pw - po) - 1.96 * se) });
     }
     if (process.env.DZ_TABLE) swing.forEach(q => console.log('        ' + q.id.padEnd(15) + 'with it ' + (q.d >= 0 ? '+' : '') + pct(q.d) + ' (' + q.n + ' runs)'));
-    const outliers = swing.filter(q => Math.abs(q.d) > 0.3);
+    const outliers = swing.filter(q => q.sure > 0.3);
     expect(!outliers.length, 'no skill held at the second shrine moves a party\'s clear rate by more than 30 points either way', outliers.map(q => q.id + ' ' + pct(q.d)).join(', ') || hard.length + ' runs got there, ' + pct(base) + ' of them cleared');
     const pasSwing = [];
     for (const p of D.PASSIVES) {
         const w = hard.filter(r => r.mid.pas.includes(p.id)), wo = hard.filter(r => !r.mid.pas.includes(p.id));
         if (w.length < 8 || wo.length < 8) continue;
-        pasSwing.push({ id: p.id, d: w.filter(r => r.win).length / w.length - wo.filter(r => r.win).length / wo.length });
+        const pw = w.filter(r => r.win).length / w.length, po = wo.filter(r => r.win).length / wo.length;
+        const se = Math.sqrt(pw * (1 - pw) / w.length + po * (1 - po) / wo.length);
+        pasSwing.push({ id: p.id, d: pw - po, sure: Math.max(0, Math.abs(pw - po) - 1.96 * se) });
     }
-    const pasOut = pasSwing.filter(q => Math.abs(q.d) > 0.3);
+    const pasOut = pasSwing.filter(q => q.sure > 0.3);
     expect(D.PASSIVES.every(p => (pickN['pas:' + p.id] || 0) >= results.length * 0.1), 'every passive gets picked', D.PASSIVES.map(p => p.id + ' ' + (pickN['pas:' + p.id] || 0)).join(', '));
     expect(!pasOut.length, 'and none of them moves the clear rate by more than 30 points', pasOut.map(q => q.id + ' ' + pct(q.d)).join(', '));
 }

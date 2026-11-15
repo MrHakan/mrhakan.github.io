@@ -346,7 +346,7 @@ renderer with no gpu at all, as CI has, 37 to 60fps depending on what else the m
 ### balance
 
 Tune in `dungeonz-data.js` and run `DZ_TABLE=1 node .github/scripts/check-dungeonz.mjs`.
-Parties of four bots play 36 runs of every dungeon on as many threads as the machine has,
+Parties of four bots play 72 runs of every dungeon on as many threads as the machine has,
 picking their cards at random so that every card gets measured. Held to:
 
 | | cleared | a clear, in bot minutes | level at the boss | boss beaten at the first go | downs while it is up |
@@ -365,6 +365,14 @@ And how often a party carrying it clears normal and hard against one that is not
 and no passive may move that by more than 30 points. `DZ_RUNS` is how many runs. The bots
 are the instrument, so a skill they use badly reads as weak, and nothing here has been played
 by a crowd of people.
+
+The rates are a sample, and not the same sample on every machine: the runs are seeded, but
+another V8 or another CPU rounds a few sums differently and a run can go another way from
+there (the blue screen measured 33% on CI, 31% on an arm64 Mac on the same Node, 25% on
+Node 26). So a rate fails when the whole of its 95% interval is outside its target, and a
+card's swing when it is more than 30 points beyond its own noise. `DZ_SEED` moves the seeds.
+The blue screen sits near the bottom of its band (about 31% over 300 runs), which is a design
+choice to make in the data, not in the check.
 
 ## age of troll
 
