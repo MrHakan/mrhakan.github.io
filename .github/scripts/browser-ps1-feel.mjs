@@ -353,7 +353,9 @@ try {
         const ground = (x, z) => dz ? g.s.dun.world.at(x, z) : S.heightAt(x, z);
         const put = () => { me.x = me.px = spot.x; me.z = me.pz = spot.z; me.y = me.py = dz ? 0 : S.heightAt(spot.x, spot.z); me.yaw = g.yaw; };
         let last = performance.now(), frameDt = 0;
-        const frame = () => new Promise(r => requestAnimationFrame(() => { const t = performance.now(); frameDt = (t - last) / 1000; last = t; r(); }));
+        // the frame's own timestamp, the clock the game measures its dt with, so a slow frame
+        // on a busy runner counts as long here as it did for the camera (clamped as the game does)
+        const frame = () => new Promise(r => requestAnimationFrame(t => { frameDt = Math.min(0.1, Math.max(0, (t - last) / 1000)); last = t; r(); }));
         const drawn = () => {
             // the camera this frame was drawn with, where the game keeps it, or the one it would have used
             const c = g.cam || S.camera(g.s, dz ? { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch } : { x: me.x, y: me.y, z: me.z, yaw: g.yaw, pitch: g.pitch, aim: false, lens: true });
