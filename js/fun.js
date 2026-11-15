@@ -101,6 +101,8 @@ const ACHIEVEMENTS = {
     tankz_win: { icon: '🎖️', name: 'last tank standing', desc: 'won a match in tankz 98' },
     blastz: { icon: '💥', name: 'locked and loaded', desc: 'opened blastz 98' },
     blastz_win: { icon: '🎯', name: 'last one standing', desc: 'won a match in blastz 98' },
+    brawlz: { icon: '⚔️', name: 'ready to cause problems', desc: 'stepped into brawlz 98' },
+    brawlz_win: { icon: '🥊', name: 'the rift is yours', desc: 'won a match in brawlz 98' },
     playground: { icon: '🧩', name: 'on the board', desc: 'kept a record in a playground game' },
     playground_5: { icon: '📋', name: 'regular', desc: 'kept records in five playground games' },
     playground_15: { icon: '🗄️', name: 'the whole cabinet', desc: 'kept records in fifteen playground games' },

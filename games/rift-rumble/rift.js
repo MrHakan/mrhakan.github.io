@@ -4,6 +4,8 @@
     const D = window.RIFT, S = window.RIFT_SIM, R = window.RIFT_RENDER;
     const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, k => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[k]);
     const PREF = 'mrhakan98-rift-prefs', RECORD = 'mrhakan98-rift-record';
+    // the desktop's achievements, when the desktop is there to hand them out
+    const achieve = id => { if (typeof unlockAchievement === 'function') { try { unlockAchievement(id); } catch (_) { } } };
     function read(k) { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (_) { return {}; } }
     function write(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); } catch (_) { /* private browsing */ } }
     const pref = read(PREF);
@@ -70,6 +72,7 @@
         {
             winRef = createAppWindow('Brawlz 98', { icon: 'sports_esports', width: Math.min(1220, typeof viewportWidth === 'function' ? viewportWidth() - 20 : innerWidth - 20) });
             winRef.body.classList.add('rr-body'); app = document.createElement('div'); winRef.body.appendChild(app);
+            achieve('brawlz');
             winRef.win.style.top = '45px';
             winRef.win._cleanup = cleanup;
         }
@@ -674,6 +677,7 @@
         match.saved = true; finished.add(match.id); clearInput();
         const res = result || resultOf(match), mine = res.rows.find(p => p.id === match.me), won = !!mine && mine.team === res.winner;
         const record = read(RECORD); record.matches = (Number(record.matches) || 0) + 1; record.wins = (Number(record.wins) || 0) + Number(won); write(RECORD, record);
+        if (won) achieve('brawlz_win');
         const title = `<h2>${won ? 'The rift is yours.' : 'One more round?'}</h2>`, team = RIFT_MENU.TEAMS[res.winner];
         const rows = `<div class="rr-results">${res.rows.map(p => `<div class="rr-result" data-team="${p.team}">
             <span>${esc(p.name)}${p.id === match.me ? ' (you)' : ''}${p.bot ? ' · CPU' : ''}</span>
