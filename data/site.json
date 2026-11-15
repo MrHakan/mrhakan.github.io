@@ -164,6 +164,37 @@
     ],
     "changelog": [
         {
+            "version": "10.4",
+            "date": "2026-11-14",
+            "changes": [
+                "brawlz 98, a 2d platform fighter: twelve fighters drawn from the cursed emoji shelf, each with a prop and three moves of their own. 1 v 1 or 2 v 2 online through a room code, bots in the empty seats, keyboard, touch and gamepad",
+                "three desktop arenas for each size of match: the taskbar, recycle rift and blue screen for 1 v 1, lan party, disk defrag and print queue for 2 v 2",
+                "the online room is a character select now. everybody picks on one screen, ready up and it starts by itself, and when the match ends you are all back in the same room with the score on your cards",
+                "blastz 98: guns, but nobody has health. bullets shove, shots kick back, and falling off the map costs a life. the brawlz crew with ten guns, bombs, crates and perks, two to four on one keyboard, gamepads or online",
+                "tankz 98: tanks in a maze, seen from above. shells bounce off the walls and do not care whose they are. a new maze every round, six files on the floor that are weapons, up to three at one keyboard or online"
+            ]
+        },
+        {
+            "version": "10.3",
+            "date": "2026-11-08",
+            "changes": [
+                "trailz 98: light cycles on a neon grid. turn at right angles, leave a wall behind you, ride close beside one to go faster. up to eight online, bots in the empty seats, three cameras, and it works on a phone",
+                "sir, we have a troll problem is rebuilt: ten desktop towers put down anywhere off the road, two upgrade paths each with one going all the way, and up to four players on one road with their own money and towers. old upgrades are refunded",
+                "waveshaper 98: four buttons, one wave. hit each bend at the target; hits speed the wave up, mistakes cost a life and 40% of the speed. and baka mitai on the setlist, with its own late-night karaoke bar"
+            ]
+        },
+        {
+            "version": "10.2",
+            "date": "2026-11-07",
+            "changes": [
+                "dungeonz 98: a co-op raid on the wizardz engine. up to four, bots in the empty seats, three dungeons from easy to blue screen, cards at the shrines and a boss at the end",
+                "the trophy room: every achievement, every record and the time spent in each game on one wall, with hints on the locked ones. and the site installs as an app, offline too",
+                "age of troll replays: every match ends with a link, and the whole match is in it. pause, 8x, drag to the good bit, watch from either side, no server",
+                "every troll in age of troll walks, swings and dies its own way, and the five that shoot throw their own thing. 53 animations",
+                "open lobbies: the multiplayer lobby lists open games from strangers, with join and quick match"
+            ]
+        },
+        {
             "version": "10.1",
             "date": "2026-11-05",
             "changes": [

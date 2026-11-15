@@ -11,7 +11,8 @@ Each fighter now uses one fixed texture and skeleton, with an eight-step run,
 four airborne poses and attack preparation/contact/recovery synchronized to the
 simulation. Fifty procedural frames per fighter are cached during loading.
 [Art, animation pipeline and generation prompts](art/README.md).
-The Taskbar, Recycle Rift and Blue Screen are the three desktop arenas. There are
+There are six desktop arenas, three for each size of match: The Taskbar, Recycle
+Rift and Blue Screen for 1v1, LAN Party, Disk Defrag and Print Queue for 2v2. There are
 1v1 and 2v2, three stocks per fighter, a three-minute limit, double jumps, directional
 light/heavy attacks, projectiles, an upward recovery special and invulnerable dodges.
 Teammates cannot damage each other. Ties rank total team stocks, then total damage;

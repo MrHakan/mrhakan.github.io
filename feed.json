@@ -14,6 +14,34 @@
   ],
   "items": [
     {
+      "id": "mrhakan-v10.4",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v10.4 — brawlz, blastz and tankz",
+      "content_text": "Three games in five days, all with the same cast. Brawlz 98 is a 2D platform fighter: twelve fighters off the cursed emoji shelf, each with a prop and moves of its own, 1v1 or 2v2 online through a room code and bots in the empty seats. The online room became a character select you come back to after every match. Blastz 98 hands the same crew guns, but nobody has health: bullets shove, shots kick back and falling off the map costs a life. Tankz 98 is tanks in a maze, where shells bounce off the walls and do not care whose they are.",
+      "date_published": "2026-11-14T12:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v10.3",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v10.3 — light cycles, a new troll problem, and a wave",
+      "content_text": "Trailz 98 puts up to eight light cycles on a neon grid: turn at right angles, leave a wall behind you, ride close beside one to go faster. Sir, we have a troll problem was rebuilt as a proper tower defense with ten desktop towers, two upgrade paths each and up to four players on one road. And Waveshaper 98: four buttons, one wave, hit each bend at the target. Baka Mitai is on the setlist, with its own karaoke bar.",
+      "date_published": "2026-11-08T12:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v10.2",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v10.2 — dungeons, trophies and replays",
+      "content_text": "Dungeonz 98 is a co-op raid on the Wizardz engine, up to four players and bots, three dungeons from easy to blue screen. The trophy room puts every achievement, record and hour played on one wall, and the site now installs as an app that works offline. Age of Troll matches end with a replay link that holds the whole match, no server needed, and every troll in it walks, swings and dies its own way. The multiplayer lobby lists open games from strangers, with quick match.",
+      "date_published": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "id": "mrhakan-v10.1",
+      "url": "https://mrhakan.github.io/?app=changelog",
+      "title": "v9.9 – v10.1 — age of troll, and wizardz in 3D",
+      "content_text": "Age of Troll is a long lane war in the spirit of Age of War: five ages and an army made of the emoji shelf, against a bot or a friend online. Then Wizardz 98 became a third person shooter that looks like 1996: draw a sigil to load your staff, fifty new symbols, three knockouts or the altar to win. A day later it got 2v2 up to 4v4 with bots in the empty seats, three new maps and loadout ids you can share.",
+      "date_published": "2026-11-05T12:00:00.000Z"
+    },
+    {
       "id": "mrhakan-v9.8",
       "url": "https://mrhakan.github.io/?app=changelog",
       "title": "v9.8 — thirty more things, most of them extinct",
