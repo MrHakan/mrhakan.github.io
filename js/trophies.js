@@ -99,6 +99,15 @@
             }
         },
         {
+            id: 'brawlz', name: 'brawlz 98', icon: '⚔️', open: 'brawlz',
+            has: /^brawlz/, windows: /^brawlz/,
+            records() {
+                const m = obj(json('mrhakan98-rift-record'));
+                if (!m) return [];
+                return [['matches', count(m.matches)], ['matches won', count(m.wins)]];
+            }
+        },
+        {
             id: 'tankz', name: 'tankz 98', icon: '🪖', open: 'tankz',
             has: /^tankz/, windows: /^tankz/,
             records() {

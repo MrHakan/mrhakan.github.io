@@ -112,12 +112,12 @@ expect(newOnes.every(id => ACHIEVEMENTS[id].name === ACHIEVEMENTS[id].name.toLow
     expect(shelfIds[shelfIds.length - 1] === 'desktop', 'the last shelf takes whatever no game claims');
     const expected = {
         jokerz_win: 'jokerz', 'aot-hard': 'ageoftroll', 'echoes-end': 'echoes', troll_wave_25: 'trollproblem',
-        become_user_all: 'becomeuser', dungeonz_win: 'dungeonz', wizardz_win: 'wizardz', snake10: 'arcade',
+        become_user_all: 'becomeuser', dungeonz_win: 'dungeonz', wizardz_win: 'wizardz', brawlz_win: 'brawlz', brawlz: 'brawlz', snake10: 'arcade',
         g2048: 'arcade', playground_15: 'playground', nat20: 'toys', konami: 'desktop', installed: 'desktop'
     };
     const wrong = Object.entries(expected).filter(([id, s]) => T.shelfOf(id).id !== s).map(([id, s]) => id + ' on ' + T.shelfOf(id).id + ', not ' + s);
     expect(!wrong.length, 'a game\'s achievements are on its shelf', wrong.join(', '));
-    const strays = ids.filter(id => T.shelfOf(id).id === 'desktop' && /jokerz|troll|echoes|aot|become|wizardz|dungeonz|playground/.test(id));
+    const strays = ids.filter(id => T.shelfOf(id).id === 'desktop' && /jokerz|troll|echoes|aot|become|wizardz|dungeonz|brawlz|playground/.test(id));
     expect(!strays.length, 'and none of them fell through to the desktop', strays.join(', '));
 
     const actions = read('js/index.js');
@@ -181,7 +181,8 @@ section('records come out of what the games saved');
         'mrhakan98-ageoftroll-meta': JSON.stringify({ wins: 3, losses: 1, draws: 0 }),
         'becomeuser-meta-v1': JSON.stringify({ endings: ['a', 'b'], runs: 5 }),
         'snake-best': '23',
-        'mrhakan98-playtime': JSON.stringify({ 'dungeonz 98': 3720, 'snake': 60, 'tetris': 30, 'notepad': 600, 'broken': 'x' })
+        'mrhakan98-rift-record': JSON.stringify({ matches: 5, wins: 2 }),
+        'mrhakan98-playtime': JSON.stringify({ 'dungeonz 98': 3720, 'snake': 60, 'tetris': 30, 'brawlz 98': 300, 'notepad': 600, 'broken': 'x' })
     });
     const s = r.T.summary();
     const shelf = id => s.shelves.find(x => x.shelf.id === id);
@@ -194,7 +195,9 @@ section('records come out of what the games saved');
     expect(rec('arcade', 'snake') === 23, 'the arcade: snake');
     expect(shelf('dungeonz').time === 3720 && shelf('arcade').time === 90, 'time played adds up per shelf, by window title',
         shelf('dungeonz').time + ', ' + shelf('arcade').time);
-    expect(s.time === 4410, 'and the total counts every window, but not a broken entry', String(s.time));
+    expect(rec('brawlz', 'matches') === 5 && rec('brawlz', 'matches won') === 2 && shelf('brawlz').time === 300,
+        'brawlz: matches, wins and its own time', JSON.stringify(shelf('brawlz').records) + ', ' + shelf('brawlz').time);
+    expect(s.time === 4710, 'and the total counts every window, but not a broken entry', String(s.time));
     expect(r.T.duration(3720) === '1h 2m' && r.T.duration(59) === '59s' && r.T.duration(0) === '0m', 'time reads like time');
     expect(s.latest[0] === 'dungeonz', 'the latest trophy comes first');
     expect(shelf('dungeonz').got === 1 && shelf('dungeonz').ids.length === 2, 'and each shelf counts its own');
