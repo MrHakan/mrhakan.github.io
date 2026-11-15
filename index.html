@@ -276,18 +276,18 @@
 
         <div
           class="flex gap-4 px-2 py-1 text-black text-sm font-header border-b border-gray-400 shadow-sm mb-2 select-none">
-          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('file')"><span
-              class="underline decoration-1 underline-offset-2">f</span>ile</span>
-          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('edit')"><span
-              class="underline decoration-1 underline-offset-2">e</span>dit</span>
-          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('view')"><span
-              class="underline decoration-1 underline-offset-2">v</span>iew</span>
-          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('favorites')"><span
-              class="underline decoration-1 underline-offset-2">f</span>avorites</span>
-          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('tools')"><span
-              class="underline decoration-1 underline-offset-2">t</span>ools</span>
-          <span class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('help')"><span
-              class="underline decoration-1 underline-offset-2">h</span>elp</span>
+          <button type="button" class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('file')"><span
+              class="underline decoration-1 underline-offset-2">f</span>ile</button>
+          <button type="button" class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('edit')"><span
+              class="underline decoration-1 underline-offset-2">e</span>dit</button>
+          <button type="button" class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('view')"><span
+              class="underline decoration-1 underline-offset-2">v</span>iew</button>
+          <button type="button" class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('favorites')"><span
+              class="underline decoration-1 underline-offset-2">f</span>avorites</button>
+          <button type="button" class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('tools')"><span
+              class="underline decoration-1 underline-offset-2">t</span>ools</button>
+          <button type="button" class="cursor-pointer hover:bg-blue-800 hover:text-white px-1" onclick="handleTab('help')"><span
+              class="underline decoration-1 underline-offset-2">h</span>elp</button>
         </div>
 
 
@@ -335,20 +335,20 @@
             <div class="flex flex-col md:flex-row gap-6 items-start">
               <div class="flex flex-col gap-2 shrink-0">
                 <div class="p-1 border-2 border-dashed border-black bg-[#f0f0f0] rotate-[-2deg] shadow-lg relative">
-                  <img src="src/emoj/Cursed Pack 1-emojigg-pack/5065-hello.gif" alt=""
+                  <img src="src/emoj/Cursed Pack 1-emojigg-pack/5065-hello.gif" alt="" width="32" height="32"
                     class="absolute -top-4 -right-4 w-8 h-8 z-10">
                   <div class="w-40 h-40 bg-gray-200 overflow-hidden flex items-center justify-center"
                     data-alt="pixelated avatar of a person with spiky hair">
                     <img alt="pixel avatar" width="288" height="311" decoding="async" class="w-36 h-36 object-contain u-photo" src="src/emoj/dusung-288.webp" />
                   </div>
-                  <img src="src/emoj/trollcinaye.gif" alt="" class="absolute -bottom-3 -left-3 w-8 h-8 z-10">
+                  <img src="src/emoj/trollcinaye.gif" alt="" width="32" height="32" class="absolute -bottom-3 -left-3 w-8 h-8 z-10">
                 </div>
                 <span class="text-center font-header text-xs text-gray-500 mt-2">ts me</span>
               </div>
               <div class="flex-1 space-y-4">
                 <p class="text-black font-body text-lg leading-relaxed">
                   <span class="bg-[#0df259] px-1 text-black font-bold">hello bradar welcome!</span>
-                  <img src="src/emoj/thehehe.png" alt="" class="inline w-5 h-5 mx-1">
+                  <img src="src/emoj/thehehe.png" alt="" width="20" height="20" class="inline w-5 h-5 mx-1">
                   I'm just a simple man trying to make my way in the universe.
                 </p>
                 <p class="text-black font-body text-lg leading-relaxed">
@@ -555,7 +555,7 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-[#0df259] text-sm leading-none">volume_up</span>
-            <input id="winamp-volume" type="range" min="0" max="100" value="80" title="volume"
+            <input id="winamp-volume" type="range" min="0" max="100" value="80" title="volume" aria-label="volume"
               class="winamp-volume flex-1" />
           </div>
           <div class="flex justify-between items-center pt-1">
@@ -599,10 +599,10 @@
         </div>
         <div class="flex flex-col gap-1" data-board="shouts">
           <input id="shout-name" class="w-full text-xs font-pixel p-1 border border-gray-400 bg-white text-black"
-            placeholder="name" type="text" />
+            placeholder="name" type="text" name="name" aria-label="your name" autocomplete="nickname" spellcheck="false" maxlength="40" />
           <input id="shout-message" class="w-full text-xs font-pixel p-1 border border-gray-400 bg-white text-black"
-            placeholder="message" type="text" />
-          <button onclick="postShout()"
+            placeholder="message" type="text" name="message" aria-label="your message" autocomplete="off" />
+          <button type="button" onclick="postShout()"
             class="w-full bg-retro-gray bevel-out active:translate-y-[1px] py-1 text-xs font-bold text-black font-header">shout
             it!</button>
         </div>
