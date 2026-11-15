@@ -150,6 +150,50 @@
             }
         },
         {
+            id: 'dungeonz',
+            name: 'dungeonz 98',
+            icon: '🕯️',
+            keys: ['mrhakan98-dungeonz-meta', 'mrhakan98-dungeonz-dungeon', 'mrhakan98-dungeonz-settings'],
+            open: 'dungeonz',
+            summary() {
+                const meta = json('mrhakan98-dungeonz-meta');
+                if (!meta) return null;
+                const bits = [];
+                const cleared = Object.values(meta.wins || {}).reduce((a, n) => a + (Number(n) || 0), 0);
+                if (meta.runs) bits.push(plural(meta.runs, 'run'));
+                if (cleared) bits.push(plural(cleared, 'dungeon') + ' cleared');
+                if (meta.wipes) bits.push(plural(meta.wipes, 'wipe'));
+                return { line: bits.length ? bits.join(' · ') : 'settings, no runs yet', when: '' };
+            }
+        },
+        {
+            id: 'brawlz',
+            name: 'brawlz 98',
+            icon: '⚔️',
+            keys: ['mrhakan98-rift-record', 'mrhakan98-rift-prefs'],
+            open: 'brawlz',
+            summary() {
+                const rec = json('mrhakan98-rift-record');
+                if (!rec) return null;
+                const bits = [];
+                if (rec.matches) bits.push(plural(rec.matches, 'match', 'matches'));
+                if (rec.wins) bits.push(rec.wins + ' won');
+                return { line: bits.length ? bits.join(' · ') : 'settings, no matches yet', when: '' };
+            }
+        },
+        {
+            id: 'waveshaper',
+            name: 'waveshaper 98',
+            icon: '⌁',
+            keys: ['mrhakan98-waveshaper-v2'],
+            open: 'waveshaper',
+            summary() {
+                const d = json('mrhakan98-waveshaper-v2');
+                if (!d) return null;
+                return { line: d.best ? 'best ' + d.best : 'settings, no score yet', when: '' };
+            }
+        },
+        {
             id: 'trollproblem',
             name: 'the troll problem',
             icon: '🚋',
