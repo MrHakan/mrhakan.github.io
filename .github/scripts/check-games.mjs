@@ -489,14 +489,17 @@ section('my documents');
         }
         expect(shared.length === 0, 'and no key belongs to two of them', shared.join(', '));
         // the games the site actually has should all be in the folder
-        for (const want of ['echoes', 'jokerz', 'becomeuser', 'trollproblem', 'wizardz']) {
+        for (const want of ['echoes', 'jokerz', 'becomeuser', 'trollproblem', 'wizardz', 'dungeonz', 'brawlz', 'waveshaper']) {
             expect(ids.indexOf(want) >= 0, want + ' has a document');
         }
         // the keys have to be the ones the games really write
         const realKeys = [read('games/echoes/echoes-core.js'), read('games/jokerz/balatro.js'), read('games/become-user/become-user.js'),
-            read('games/troll-problem/troll-problem.js'), read('games/wizardz/wizardz.js')].join('\n');
+            read('games/troll-problem/troll-problem.js'), read('games/wizardz/wizardz.js'), read('games/dungeonz/dungeonz.js'),
+            read('games/rift-rumble/rift.js'), read('games/waveshaper/waveshaper.js')].join('\n');
         const wrong = ['ECHOES_OF_THE_TIDE_SAVE', 'jokerz98-run', 'becomeuser-run-v1',
-            'trollproblem-run-v3', 'mrhakan98-wizardz-avatar'].filter(k => !realKeys.includes(k));
+            'trollproblem-run-v3', 'mrhakan98-wizardz-avatar', 'mrhakan98-dungeonz-meta', 'mrhakan98-dungeonz-dungeon',
+            'mrhakan98-dungeonz-settings', 'mrhakan98-rift-record', 'mrhakan98-rift-prefs', 'mrhakan98-waveshaper-v2']
+            .filter(k => !realKeys.includes(k));
         expect(wrong.length === 0, 'and each one names a key its game really writes', wrong.join(', '));
 
         // a document with nothing saved reports nothing, not a broken row
@@ -528,6 +531,19 @@ section('my documents');
         expect(opened.ok && (opened.skipped || []).indexOf('not-ours') >= 0 && !opened.files['not-ours'],
             'a key this site does not own is dropped rather than written',
             JSON.stringify(opened.skipped));
+
+        // the newer games travel too, and read back as a line a person understands
+        win.localStorage.setItem('mrhakan98-dungeonz-meta', JSON.stringify({ runs: 3, wins: { bin: 1, registry: 1 }, best: {}, wipes: 2 }));
+        win.localStorage.setItem('mrhakan98-rift-record', JSON.stringify({ matches: 4, wins: 3 }));
+        win.localStorage.setItem('mrhakan98-waveshaper-v2', JSON.stringify({ best: 57, muted: false }));
+        const line = id => (DOC.summaryOf(DOC.DOCS.find(d => d.id === id)) || {}).line;
+        expect(line('dungeonz') === '3 runs · 2 dungeons cleared · 2 wipes' && line('brawlz') === '4 matches · 3 won'
+            && line('waveshaper') === 'best 57', 'dungeonz, brawlz and waveshaper have documents that say what is in them',
+            [line('dungeonz'), line('brawlz'), line('waveshaper')].join(' | '));
+        const newer = DOC.unpack(DOC.pack(null));
+        expect(newer.ok && ['mrhakan98-dungeonz-meta', 'mrhakan98-rift-record', 'mrhakan98-waveshaper-v2'].every(k => k in newer.files),
+            'and they go in the backup', JSON.stringify(newer.error || Object.keys(newer.files)));
+        ['mrhakan98-dungeonz-meta', 'mrhakan98-rift-record', 'mrhakan98-waveshaper-v2'].forEach(k => win.localStorage.removeItem(k));
 
         // and it survives a real round trip
         const saved = win.localStorage.getItem('ECHOES_OF_THE_TIDE_SAVE');
