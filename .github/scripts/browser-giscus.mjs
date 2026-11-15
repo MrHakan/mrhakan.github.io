@@ -126,6 +126,8 @@ try {
         await page.screenshot({ path: '.ci-shots/boards-legacy-' + name + '.png', fullPage: true });
 
         await fillBoard(page, 'shouts');
+        // the chooser opens after the click is handled, not during it: wait for it, then look
+        await page.getByRole('button', { name: 'Giscus ile devam et', exact: true }).waitFor({ timeout: 5000 }).catch(() => { });
         check(await page.getByRole('button', { name: 'Giscus ile devam et', exact: true }).isVisible() && await page.getByRole('button', { name: 'Eski usul', exact: true }).isVisible(), name + ': submitting offers both posting methods');
         await page.getByRole('button', { name: 'vazgeç', exact: true }).click();
         check(await page.locator('#shout-message').inputValue() === draftMessage && requests.length === 0, name + ': cancelling keeps the draft and loads no widget');
