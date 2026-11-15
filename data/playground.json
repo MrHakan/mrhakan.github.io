@@ -1,5 +1,40 @@
 [
   {
+    "name": "🟣 Peg Solitaire 98",
+    "type": "game",
+    "date": "2026-11-15",
+    "url": "/games/peg-solitaire/",
+    "description": "Classic 33-hole peg-jumping puzzle with accessible keyboard/touch play, legal-move hints and unlimited undo.",
+    "icon": "🟣",
+    "tags": [
+      "peg-solitaire",
+      "logic",
+      "board-game",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "📈 Growth Desk 98",
+    "type": "app",
+    "date": "2026-11-15",
+    "url": "/apps/growth-desk/",
+    "description": "Private compound-growth calculator with monthly deposits, inflation-adjusted balances, SVG chart and CSV export.",
+    "icon": "📈",
+    "tags": [
+      "finance",
+      "compound-interest",
+      "savings",
+      "inflation",
+      "calculator",
+      "svg",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "🔐 Codebreaker 98",
     "type": "game",
     "date": "2026-11-14",
