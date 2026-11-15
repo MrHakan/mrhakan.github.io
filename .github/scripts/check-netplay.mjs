@@ -561,6 +561,41 @@ await test('a guest on each road still hears the other, through the host', async
     assert.deepEqual(heard.host.sort(), ['from the direct one', 'from the relayed one'], 'and the host hears each of them once');
     direct.leave(); relayed.leave(); host.leave();
 });
+await test('only the host runs the room: a guest cannot start it, reseat it or sign somebody else out', async () => {
+    const { NP } = world({ relays: [RELAY] });
+    NP.launch = () => { };
+    const host = await NP.host('bus', 'trailz', 'BOSS1');
+    const a = await NP.join('bus', 'BOSS1');
+    await until(() => a.seated);
+    const b = await NP.join('bus', 'BOSS1');
+    await until(() => b.seated && host.players.length === 3 && a.players.length === 3);
+    assert.equal(a.hostId, host.id, 'a guest knows the host from the roster that seated it');
+    const started = [], left = [];
+    [host, a, b].forEach((s, i) => s.on('start', () => started.push(i)));
+    host.on('player-leave', p => left.push(p.id));
+    // a guest trying the host's lines, to everybody and to one
+    a.send('np:start', { gameId: 'trailz', seed: 1, slots: [a.id], at: Date.now() });
+    a.send('np:roster', [{ id: a.id, name: 'boss', host: true }]);
+    a.send('np:game', { gameId: 'wizardz' }, b.id);
+    // and a goodbye in somebody else's name
+    a.send('np:bye', {}, host.id);
+    a.transport.send(a.transport.hostId, { v: NP.VERSION, t: 'np:bye', d: {}, f: b.id, to: host.id });
+    // broken envelopes change nothing either
+    a.transport.send(a.transport.hostId, { v: NP.VERSION, t: 7, f: a.id });
+    a.transport.send(a.transport.hostId, { v: NP.VERSION, t: 'np:chat', d: { text: 'x' } });
+    await sleep(3000);
+    assert.deepEqual(started, []);
+    assert.deepEqual(b.players.map(p => p.id).sort(), [host.id, b.id].sort(), 'b sees the host\'s roster, not the forged one');
+    assert.ok(b.players.find(p => p.id === host.id).host);
+    assert.equal(b.gameId, host.gameId);
+    assert.deepEqual(left.filter(id => id === b.id), [], 'b is still seated');
+    assert.equal(host.players.length, 2, 'a signed itself out, which it may');
+    // and the host's own start still goes through
+    host.players.forEach(p => { p.ready = true; });
+    host.send('np:start', { gameId: 'trailz', seed: 2, slots: host.players.map(p => p.id), at: Date.now() });
+    await until(() => started.includes(2), 3000);
+    host.leave(); b.leave();
+});
 await test('the lobby is told what is happening while it happens', async () => {
     const { NP } = world({ peerMode: 'noroute' });
     const seen = [];

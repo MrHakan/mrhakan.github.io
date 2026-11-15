@@ -1078,8 +1078,11 @@
         else if (p.host) { this.emit('net:down', 'the host disappeared'); }
         this.emit('roster', this.players);
     };
+    // what only the host says. A guest saying one of these is a bug or a forgery,
+    // and on the relays anybody holding the code can post into the room
+    const HOST_ONLY = { 'np:roster': 1, 'np:start': 1, 'np:game': 1, 'np:opts': 1, 'np:ping': 1 };
     Session.prototype._onData = function (pid, env) {
-        if (!env || typeof env !== 'object') return;
+        if (!env || typeof env !== 'object' || typeof env.t !== 'string' || typeof env.f !== 'string') return;
         // anything at all counts as a sign of life
         this.lastRx = Date.now();
         // a relay hiccup or a link changing roads does not have to end the duel
@@ -1090,6 +1093,18 @@
             // one side is running an older cached copy of the site
             this.emit('net:error', 'version mismatch — one of you needs to refresh');
             return;
+        }
+        if (HOST_ONLY[env.t]) {
+            // the host takes none of these, and passes none of them on
+            if (this.isHost) return;
+            // a guest learns who the host is from the first roster that seats it,
+            // which the host signs as itself, and after that hears these from it only
+            if (!this.hostId) {
+                const list = env.t === 'np:roster' && Array.isArray(env.d) ? env.d : null;
+                const host = list && list.find(p => p && p.host);
+                if (!host || host.id !== env.f || !list.some(p => p && p.id === this.id)) return;
+                this.hostId = env.f;
+            } else if (env.f !== this.hostId) return;
         }
         // host is the switchboard: anything not addressed to it moves on, to
         // whoever could not have heard it already. Everyone on the relays
@@ -1150,7 +1165,12 @@
                 this.emit('net:error', (env.d && env.d.reason) || 'that lobby is full');
                 return;
             }
-            case 'np:bye': return this._onLeave(env.f);
+            case 'np:bye': {
+                // the host takes a goodbye only from the road that player came in on
+                const p = this.players.find(x => x.id === env.f);
+                if (this.isHost && p && p.peerId && p.peerId !== pid) return;
+                return this._onLeave(env.f);
+            }
             default:
                 this.emit(env.t, env.d, from);
         }
