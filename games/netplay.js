@@ -647,9 +647,15 @@
         const streams = new Map();       // peer -> how far through their batches we are
         let seen = new Set(), seenBefore = new Set();   // event ids already handled
         let room = null, sk = null, queue = [], flushTimer = null, closed = false;
-        let sent = 0, pool = null;
+        let sent = 0, pool = null, inFlight = null;
 
-        async function flush() {
+        // a batch is sealed and signed before it goes, which takes a moment;
+        // close() waits for one that is on its way rather than cutting it off
+        function flush() {
+            const p = post().finally(() => { if (inFlight === p) inFlight = null; });
+            return (inFlight = p);
+        }
+        async function post() {
             flushTimer = null;
             if (closed || !room || !t.id) { queue = []; return; }
             if (!queue.length) return;
@@ -766,9 +772,13 @@
                 streams.forEach(s => clearTimeout(s.timer));
                 if (pool) pool.close();
             };
-            // one last batch, because it is usually the goodbye
-            if (queue.length && room) flush().then(finish, finish);
-            else finish();
+            // one last batch, because it is usually the goodbye, and the one
+            // already being signed when the door shut is usually it too
+            clearTimeout(flushTimer);
+            if (!inFlight && !(queue.length && room)) return finish();
+            Promise.resolve(inFlight)
+                .then(() => (queue.length && room ? flush() : null))
+                .then(finish, finish);
         };
         return t;
     }
@@ -786,8 +796,9 @@
     // Nobody has to know which it was except the game, which reads .kind and
     // eases off over a relay. A direct link that dies mid-duel moves to the
     // relays the same way, inside the six seconds before Session calls anybody
-    // gone. Every game in the catalog is two players, so this never has to
-    // forward between a guest on each road.
+    // gone. A host can have guests on both roads at once: .kind then says
+    // 'bus' so the games ease off, and .shareRoad tells Session which pairs
+    // already hear each other, so it forwards between the roads and nowhere else.
     const DIRECT_MS = 7000;        // how long a guest gives webrtc to find a route
     const ANSWER_MS = 6000;        // and how long the relays then get to turn up a host
 
@@ -895,6 +906,8 @@
         }
 
         t.open = () => (isHost ? openHost() : openGuest());
+        // two guests on the relays hear each other; nobody else does
+        t.shareRoad = (a, b) => String(a).slice(0, 2) === 'b:' && String(b).slice(0, 2) === 'b:';
         t.send = function (to, msg) {
             if (!isHost) {
                 if (link === direct) direct.send(direct.hostId, msg);
@@ -1033,6 +1046,13 @@
         const host = this.players.find(p => p.host);
         this.send(type, data, host ? host.id : undefined);
     };
+    // did the peer `to` already hear what `from` said, without the host's help?
+    // on one shared bus, yes; a transport that mixes roads says per pair
+    Session.prototype._heard = function (from, to) {
+        const t = this.transport;
+        if (t && typeof t.shareRoad === 'function') return t.shareRoad(from, to);
+        return !!t && t.kind === 'bus';
+    };
     // player ids and transport peer ids are the same thing everywhere
     // except peerjs, where the host addresses guests by connection id
     Session.prototype._peerFor = function (playerId) {
@@ -1058,8 +1078,11 @@
         else if (p.host) { this.emit('net:down', 'the host disappeared'); }
         this.emit('roster', this.players);
     };
+    // what only the host says. A guest saying one of these is a bug or a forgery,
+    // and on the relays anybody holding the code can post into the room
+    const HOST_ONLY = { 'np:roster': 1, 'np:start': 1, 'np:game': 1, 'np:opts': 1, 'np:ping': 1 };
     Session.prototype._onData = function (pid, env) {
-        if (!env || typeof env !== 'object') return;
+        if (!env || typeof env !== 'object' || typeof env.t !== 'string' || typeof env.f !== 'string') return;
         // anything at all counts as a sign of life
         this.lastRx = Date.now();
         // a relay hiccup or a link changing roads does not have to end the duel
@@ -1071,17 +1094,33 @@
             this.emit('net:error', 'version mismatch — one of you needs to refresh');
             return;
         }
-        // host is the switchboard: anything not addressed to it moves on
-        if (this.isHost && this.transport.kind !== 'bus' && env.to && env.to !== '*' && env.to !== this.id) {
-            this.transport.send(this._peerFor(env.to), env);
+        if (HOST_ONLY[env.t]) {
+            // the host takes none of these, and passes none of them on
+            if (this.isHost) return;
+            // a guest learns who the host is from the first roster that seats it,
+            // which the host signs as itself, and after that hears these from it only
+            if (!this.hostId) {
+                const list = env.t === 'np:roster' && Array.isArray(env.d) ? env.d : null;
+                const host = list && list.find(p => p && p.host);
+                if (!host || host.id !== env.f || !list.some(p => p && p.id === this.id)) return;
+                this.hostId = env.f;
+            } else if (env.f !== this.hostId) return;
+        }
+        // host is the switchboard: anything not addressed to it moves on, to
+        // whoever could not have heard it already. Everyone on the relays
+        // hears everything said there; a guest on a direct link hears only
+        // the host, and an auto host can have guests on both roads at once.
+        if (this.isHost && env.to && env.to !== '*' && env.to !== this.id) {
+            const to = this._peerFor(env.to);
+            if (!this._heard(pid, to)) this.transport.send(to, env);
             return;
         }
-        const isBus = this.transport && this.transport.kind === 'bus';
-        if (this.isHost && !isBus && env.to === '*' && env.f !== this.id) {
-            // fan a guest broadcast out to the other guests. a bus needs
-            // no help with this — everyone in the room already has it
+        if (this.isHost && env.to === '*' && env.f !== this.id) {
+            // fan a guest broadcast out to the other guests
             this.players.forEach(p => {
-                if (p.id !== env.f && p.id !== this.id) this.transport.send(this._peerFor(p.id), env);
+                if (p.id === env.f || p.id === this.id) return;
+                const to = this._peerFor(p.id);
+                if (!this._heard(pid, to)) this.transport.send(to, env);
             });
         }
         const from = this.players.find(p => p.id === env.f) || { id: env.f, name: 'someone' };
@@ -1126,7 +1165,12 @@
                 this.emit('net:error', (env.d && env.d.reason) || 'that lobby is full');
                 return;
             }
-            case 'np:bye': return this._onLeave(env.f);
+            case 'np:bye': {
+                // the host takes a goodbye only from the road that player came in on
+                const p = this.players.find(x => x.id === env.f);
+                if (this.isHost && p && p.peerId && p.peerId !== pid) return;
+                return this._onLeave(env.f);
+            }
             default:
                 this.emit(env.t, env.d, from);
         }
@@ -1242,9 +1286,12 @@
     };
     Session.prototype.leave = function () {
         if (!this.alive) return;
+        // the goodbye goes before the door shuts: send() says nothing once
+        // the session is no longer alive, and the transport's close() still
+        // flushes the batch it lands in
+        try { this.send('np:bye', {}); } catch (e) { }
         this.alive = false;
         this.state = 'closed';
-        try { this.send('np:bye', {}); } catch (e) { }
         setTimeout(() => { try { this.transport && this.transport.close(); } catch (e) { } }, 60);
         if (NP.current === this) NP.current = null;
         this.emit('closed');
