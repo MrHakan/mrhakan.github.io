@@ -536,6 +536,31 @@ await test('leaving says goodbye, so nobody waits out the silence', async () => 
     assert.deepEqual(heard, ['the host disappeared']);
     again.leave();
 });
+await test('a guest on each road still hears the other, through the host', async () => {
+    const { NP } = world({ relays: [RELAY] });
+    const host = await NP.host('auto', 'trailz', 'MIXED');
+    const direct = await NP.join('auto', 'MIXED');
+    await until(() => direct.seated && direct.transport.kind === 'peer');
+    const relayed = await NP.join('bus', 'MIXED');
+    await until(() => relayed.seated && host.players.length === 3);
+    assert.equal(host.transport.kind, 'bus', 'the host eases off for everybody once one guest is on the relays');
+    const heard = { direct: [], relayed: [], host: [] };
+    direct.on('chat', m => heard.direct.push(m.text));
+    relayed.on('chat', m => heard.relayed.push(m.text));
+    host.on('chat', m => heard.host.push(m.text));
+    direct.on('tz:poke', d => heard.direct.push('poke ' + d.n));
+    relayed.on('tz:poke', d => heard.relayed.push('poke ' + d.n));
+    direct.send('np:chat', { text: 'from the direct one' });
+    relayed.send('np:chat', { text: 'from the relayed one' });
+    relayed.send('tz:poke', { n: 1 }, direct.id);
+    direct.send('tz:poke', { n: 2 }, relayed.id);
+    await until(() => heard.direct.length >= 2 && heard.relayed.length >= 2 && heard.host.length >= 2, 4000);
+    await sleep(400);
+    assert.deepEqual(heard.direct.sort(), ['from the relayed one', 'poke 1']);
+    assert.deepEqual(heard.relayed.sort(), ['from the direct one', 'poke 2']);
+    assert.deepEqual(heard.host.sort(), ['from the direct one', 'from the relayed one'], 'and the host hears each of them once');
+    direct.leave(); relayed.leave(); host.leave();
+});
 await test('the lobby is told what is happening while it happens', async () => {
     const { NP } = world({ peerMode: 'noroute' });
     const seen = [];
