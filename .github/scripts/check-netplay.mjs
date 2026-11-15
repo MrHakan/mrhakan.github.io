@@ -514,6 +514,28 @@ await test('going quiet is not forever: the duel hears it when the link comes ba
     assert.deepEqual(heard, ['down', 'up']);
     guest.leave(); host.leave();
 });
+await test('leaving says goodbye, so nobody waits out the silence', async () => {
+    const { NP } = world({ relays: [RELAY] });
+    const host = await NP.host('bus', 'wizardz', 'BYE01');
+    const guest = await NP.join('bus', 'BYE01');
+    await until(() => guest.seated && host.players.length === 2);
+    const left = [];
+    host.on('player-leave', p => left.push(p.id));
+    const t0 = Date.now();
+    guest.leave();
+    // silence takes six real seconds to count; a goodbye is one batch away
+    await until(() => left.length, 2500);
+    assert.deepEqual(left, [guest.id]);
+    assert.ok(Date.now() - t0 < 2500);
+    const heard = [];
+    const again = await NP.join('bus', 'BYE01');
+    await until(() => again.seated);
+    again.on('net:down', why => heard.push(why));
+    host.leave();
+    await until(() => heard.length, 2500);
+    assert.deepEqual(heard, ['the host disappeared']);
+    again.leave();
+});
 await test('the lobby is told what is happening while it happens', async () => {
     const { NP } = world({ peerMode: 'noroute' });
     const seen = [];

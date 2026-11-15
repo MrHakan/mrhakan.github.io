@@ -647,9 +647,15 @@
         const streams = new Map();       // peer -> how far through their batches we are
         let seen = new Set(), seenBefore = new Set();   // event ids already handled
         let room = null, sk = null, queue = [], flushTimer = null, closed = false;
-        let sent = 0, pool = null;
+        let sent = 0, pool = null, inFlight = null;
 
-        async function flush() {
+        // a batch is sealed and signed before it goes, which takes a moment;
+        // close() waits for one that is on its way rather than cutting it off
+        function flush() {
+            const p = post().finally(() => { if (inFlight === p) inFlight = null; });
+            return (inFlight = p);
+        }
+        async function post() {
             flushTimer = null;
             if (closed || !room || !t.id) { queue = []; return; }
             if (!queue.length) return;
@@ -766,9 +772,13 @@
                 streams.forEach(s => clearTimeout(s.timer));
                 if (pool) pool.close();
             };
-            // one last batch, because it is usually the goodbye
-            if (queue.length && room) flush().then(finish, finish);
-            else finish();
+            // one last batch, because it is usually the goodbye, and the one
+            // already being signed when the door shut is usually it too
+            clearTimeout(flushTimer);
+            if (!inFlight && !(queue.length && room)) return finish();
+            Promise.resolve(inFlight)
+                .then(() => (queue.length && room ? flush() : null))
+                .then(finish, finish);
         };
         return t;
     }
@@ -1242,9 +1252,12 @@
     };
     Session.prototype.leave = function () {
         if (!this.alive) return;
+        // the goodbye goes before the door shuts: send() says nothing once
+        // the session is no longer alive, and the transport's close() still
+        // flushes the batch it lands in
+        try { this.send('np:bye', {}); } catch (e) { }
         this.alive = false;
         this.state = 'closed';
-        try { this.send('np:bye', {}); } catch (e) { }
         setTimeout(() => { try { this.transport && this.transport.close(); } catch (e) { } }, 60);
         if (NP.current === this) NP.current = null;
         this.emit('closed');
