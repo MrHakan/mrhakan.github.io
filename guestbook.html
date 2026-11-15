@@ -110,19 +110,19 @@
                      was typed with it. js/index.js picks an early one up when it lands. -->
                 <form id="guestbook-form" data-board="gist" onsubmit="event.preventDefault(); this.dataset.early = '1'" class="mb-6 p-3 bg-[#f0f0f0] border border-gray-400">
                     <div class="mb-2">
-                        <label class="text-black font-header text-sm block mb-1">your name:</label>
-                        <input id="gb-name" type="text"
+                        <label for="gb-name" class="text-black font-header text-sm block mb-1">your name:</label>
+                        <input id="gb-name" type="text" name="name" autocomplete="nickname" spellcheck="false"
                             class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" required />
                     </div>
                     <div class="mb-2">
-                        <label class="text-black font-header text-sm block mb-1">your website:</label>
-                        <input id="gb-website" type="text"
+                        <label for="gb-website" class="text-black font-header text-sm block mb-1">your website:</label>
+                        <input id="gb-website" type="text" name="website" inputmode="url" autocomplete="url" spellcheck="false"
                             class="w-full p-1 border border-gray-400 text-black font-pixel text-sm"
                             placeholder="http://" />
                     </div>
                     <div class="mb-3">
-                        <label class="text-black font-header text-sm block mb-1">your message:</label>
-                        <textarea id="gb-message" rows="3"
+                        <label for="gb-message" class="text-black font-header text-sm block mb-1">your message:</label>
+                        <textarea id="gb-message" name="message" rows="3"
                             class="w-full p-1 border border-gray-400 text-black font-pixel text-sm" required></textarea>
                     </div>
                     <button type="submit"
