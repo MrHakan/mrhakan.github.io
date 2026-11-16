@@ -522,6 +522,65 @@ section('somebody who is not a bot');
 }
 
 // ===================================================================
+section('the middle is worth more than the wall');
+// ===================================================================
+// A 28 minute online game, decoded from its replay link: one side kept
+// pushing and held the server almost all game; the other stayed home behind
+// three turrets, bought six modems, trained only when something came close,
+// got 90% of every attacker back as bounty and kill xp, reached the last age
+// first and won with five kings. These are those two, played by script.
+{
+    const counter = (s, side) => {
+        const have = [0, 0, 0];
+        s.u[side].forEach(u => { const r = A.UNITS[u.t].role; if (r < 3) have[r]++; });
+        s.p[side].q.forEach(t => { const r = A.UNITS[t].role; if (r < 3) have[r]++; });
+        return have[0] <= have[1] ? 0 : have[1] <= have[2] * 2 ? 1 : 2;
+    };
+    const can = (s, side, c) => !A.canCommand(s, side, c);
+    const turtle = (s, side) => {
+        const p = s.p[side];
+        if (!p.hold && can(s, side, { c: 'stance', h: 1 })) A.command(s, side, { c: 'stance', h: 1 });
+        const top = p.age < 4 ? 'age' : 'overclock';
+        if (can(s, side, { c: top })) { A.command(s, side, { c: top }); return; }
+        if (p.age === 4 && can(s, side, { c: 'train', r: 3 })) { A.command(s, side, { c: 'train', r: 3 }); return; }
+        const foe = s.u[1 - side][0];
+        const close = foe && Math.abs(foe.x - A.BASE_FRONT[side]) < 520;
+        if (p.spCd <= 0 && close) A.command(s, side, { c: 'special' });
+        if (p.modem < A.MODEM_COST.length && p.gold >= A.MODEM_COST[p.modem]) { A.command(s, side, { c: 'modem' }); return; }
+        if (p.tur.length < A.slotsOf(p) && p.gold >= A.turretCost(1, p.age)) { A.command(s, side, { c: 'turret', k: p.tur.length % 2 }); return; }
+        if (close && p.q.length < 2 && s.u[side].length < 6) A.command(s, side, { c: 'train', r: counter(s, side) });
+    };
+    const contester = (s, side) => {
+        const p = s.p[side];
+        if (p.hold && can(s, side, { c: 'stance', h: 0 })) A.command(s, side, { c: 'stance', h: 0 });
+        const top = p.age < 4 ? 'age' : 'overclock';
+        if (can(s, side, { c: top })) { A.command(s, side, { c: top }); return; }
+        const next = A.AGES[p.age + 1];
+        if (next && p.xp >= next.xp * 0.9 && p.gold < next.gold) return;
+        if (p.spCd <= 0 && s.u[1 - side].length >= 2) A.command(s, side, { c: 'special' });
+        if (p.modem < 3 && p.gold >= A.MODEM_COST[p.modem] && s.u[side].length >= 4) { A.command(s, side, { c: 'modem' }); return; }
+        if (p.tur.length < 1 && p.gold > A.turretCost(0, p.age) * 2) { A.command(s, side, { c: 'turret', k: 0 }); return; }
+        if (p.age === 4 && can(s, side, { c: 'train', r: 3 }) && p.gold > A.UNITS[A.BOSS].cost * 1.3) { A.command(s, side, { c: 'train', r: 3 }); return; }
+        if (s.u[side].length + p.q.length < A.POP_CAP && p.q.length < 3) A.command(s, side, { c: 'train', r: counter(s, side) });
+    };
+    let won = 0, held = 0, ticks = 0;
+    const N = 24;
+    for (let i = 0; i < N; i++) {
+        const s = A.newGame(900 + i * 13), mid = i % 2, home = 1 - mid;
+        let next = 0;
+        while (!s.over && s.tick < 60 * 60 * HZ) {
+            if (A.seconds(s) >= next) { contester(s, mid); turtle(s, home); next += 1; }
+            A.step(s);
+            ticks++;
+            if (A.serverOwner(s) === mid) held++;
+        }
+        if (s.winner === mid) won++;
+    }
+    expect(held / ticks >= 0.8, 'the side that keeps an army out holds the server', pct(held / ticks) + ' of the time');
+    expect(won / N >= 0.65, 'and beats the side that sits at home on modems and turrets', won + ' of ' + N + ' (was 2 of 24 before the server mattered)');
+}
+
+// ===================================================================
 section('how long a game is');
 // ===================================================================
 {

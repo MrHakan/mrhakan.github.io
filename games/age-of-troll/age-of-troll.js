@@ -468,7 +468,7 @@
                     showSpecial(g, e, fancy, mine);
                     break;
                 case 'server':
-                    addBanner(g, g.watch ? nameOf(g, e.s) + ' took the server' : mine ? 'you took the server: more gold, more xp' : 'they took the server', mine ? '#c8ffc8' : '#ffd0d0');
+                    addBanner(g, g.watch ? nameOf(g, e.s) + ' took the server' : mine ? 'you took the server: more gold, double xp, kills pay more' : 'they took the server', mine ? '#c8ffc8' : '#ffd0d0');
                     break;
                 case 'modem':
                     if (mine && !g.watch) say('modem upgraded: income is now +' + Math.round(A.incomeOf(g.s, g.me) * 10) / 10 + '/s');
@@ -1941,7 +1941,7 @@
                 <li><b>hold / march</b>: held units wait at your rally line, so they arrive as a wave and not a trickle. every kill pays the killer, so a trickle is a gift.</li>
                 <li><b>turrets</b>: a ping gun reaches far, a spam cannon hits a crowd. every new age or two opens a slot. your wall also has a free firewall.</li>
                 <li><b>modem</b>: more income forever. buy too many too early and a rush walks in.</li>
-                <li><b>the server</b> in the middle pays whoever stands on it: more gold, more xp. sitting on your wall hands it over.</li>
+                <li><b>the server</b> in the middle pays whoever stands on it: more gold, double the xp, and every kill pays a tenth more. sitting on your wall hands it over, and modems alone will not make up for it.</li>
                 <li><b>special</b>: one per age, on a long cooldown, aimed at their front.</li>
                 <li><b>overclock</b>: the age button once there are no ages left. how a stalemate breaks.</li>
                 <li><b>disk full</b>: at ${Math.round(A.DISK_FULL_AT / 60)} minutes both walls start failing, so it always ends, and whoever was ahead wins.</li>
