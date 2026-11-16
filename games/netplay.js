@@ -235,6 +235,15 @@
         const conns = new Map();     // peerId -> DataConnection (host side)
         const signedRoutes = new Map();  // a verified auto identity -> its direct connection
         let hostConn = null;         // guest side
+        // Plain peer mode signs too: a broker ID is reusable once its owner
+        // leaves, so it is never a player identity on its own. Auto passes
+        // rawWire and does its own signing with the key it shares with the relays.
+        const sk = opts && opts.rawWire ? null : bip340.newKey();
+        let proof = null;
+        // nothing goes out under a proof that has not been made yet
+        let signedReady = null;
+        const signed = sk ? new Promise(resolve => { signedReady = resolve; }) : Promise.resolve();
+        const wrap = msg => (sk ? { auth: { id: t.id, proof }, msg } : msg);
 
         function wire(conn) {
             let identity = null, receiving = Promise.resolve(), ended = false;
@@ -248,18 +257,17 @@
                     const auth = packet && typeof packet === 'object' && packet.auth;
                     const msg = auth ? packet.msg : packet;
                     if (!identity) {
-                        if (auth) {
-                            if (!/^[0-9a-f]{64}$/.test(auth.id) || !/^[0-9a-f]{128}$/.test(auth.proof)) return;
-                            const hash = await bip340.sha256(new TextEncoder().encode(JSON.stringify(['netplay-direct-v2', code, conn.peer])));
-                            if (!await bip340.verify(hash, bip340.fromHex(auth.id), bip340.fromHex(auth.proof)) || ended) return;
-                            identity = auth.id;
-                            signedRoutes.set(identity, conn);
-                        } else {
-                            if (/^[0-9a-f]{64}$/.test(conn.peer)) return;
-                            identity = conn.peer;
+                        if (!auth) {
+                            if (packet && typeof packet.v === 'number' && packet.v !== NP.VERSION) t.h.error && t.h.error('version mismatch — one of you needs to refresh');
+                            return;
                         }
+                        if (!/^[0-9a-f]{64}$/.test(auth.id) || !/^[0-9a-f]{128}$/.test(auth.proof)) return;
+                        const hash = await bip340.sha256(new TextEncoder().encode(JSON.stringify(['netplay-direct-v2', code, conn.peer])));
+                        if (!await bip340.verify(hash, bip340.fromHex(auth.id), bip340.fromHex(auth.proof)) || ended) return;
+                        identity = auth.id;
+                        signedRoutes.set(identity, conn);
                         if (!isHost) t.hostId = identity;
-                    } else if (auth && auth.id !== identity) return;
+                    } else if (!auth || auth.id !== identity) return;
                     t.h.data && t.h.data(identity, msg);
                 }).catch(() => { });
             });
@@ -293,7 +301,15 @@
                     t.h.error && t.h.error(type || 'network trouble');
                 });
                 peer.on('open', (id) => {
-                    t.id = id;
+                    if (!sk) { t.id = id; return opened(id); }
+                    (async () => {
+                        t.id = bip340.toHex(await bip340.pubkey(sk));
+                        const hash = await bip340.sha256(new TextEncoder().encode(JSON.stringify(['netplay-direct-v2', code, id])));
+                        proof = bip340.toHex(await bip340.sign(hash, sk));
+                        signedReady();
+                    })().then(() => opened(id), () => fail('could not make a signing key'));
+                });
+                function opened(id) {
                     if (isHost) {
                         if (!settled) { settled = true; resolve(); }
                         return;
@@ -311,14 +327,14 @@
                     // ice has given up, so there is no point waiting out the clock
                     conn.on('iceStateChanged', state => { if (state === 'failed') fail('no direct route to the host'); });
                     setTimeout(() => fail('the host never answered — check the code'), answerMs);
-                });
+                }
                 if (isHost) {
                     peer.on('connection', (conn) => {
-                        conn.on('open', () => {
+                        conn.on('open', () => signed.then(() => {
                             conns.set(conn.peer, conn);
                             wire(conn);
                             t.h.peer && t.h.peer(conn.peer);
-                        });
+                        }));
                     });
                 }
                 peer.on('disconnected', () => {
@@ -330,10 +346,10 @@
         };
         t.send = function (to, msg) {
             if (isHost) {
-                if (!to || to === '*') conns.forEach(c => { try { c.send(msg); } catch (e) { } });
-                else { const c = signedRoutes.get(to) || conns.get(to); if (c) { try { c.send(msg); } catch (e) { } } }
+                if (!to || to === '*') conns.forEach(c => { try { c.send(wrap(msg)); } catch (e) { } });
+                else { const c = signedRoutes.get(to) || conns.get(to); if (c) { try { c.send(wrap(msg)); } catch (e) { } } }
             } else if (hostConn) {
-                try { hostConn.send(msg); } catch (e) { }
+                try { hostConn.send(wrap(msg)); } catch (e) { }
             }
         };
         t.close = function () {
@@ -680,6 +696,8 @@
         const t = { kind: 'bus', id: null, h: {}, code };
         const known = new Set();         // peers we have told the session about
         const verifying = new Set();     // duplicate relay copies share one signature check
+        const pendingByKey = new Map();  // signature checks in flight, per key
+        let strangersPending = 0;
         const streams = new Map();       // peer -> how far through their batches we are
         let seen = new Set(), seenBefore = new Set();   // event ids already handled
         let room = null, sk = null, queue = [], flushTimer = null, closed = false, closing = false;
@@ -754,12 +772,21 @@
                 !/^[0-9a-f]{128}$/.test(ev.sig) || typeof ev.content !== 'string' || ev.content.length > 262144 ||
                 !Number.isInteger(ev.created_at) || Math.abs(Date.now() / 1000 - ev.created_at) > 120 ||
                 !Array.isArray(ev.tags) || !ev.tags.some(tag => Array.isArray(tag) && tag[0] === 'd' && tag[1] === room.tag) ||
-                seen.has(ev.id) || seenBefore.has(ev.id) || verifying.size >= 64) return;
+                seen.has(ev.id) || seenBefore.has(ev.id)) return;
             // Only identical signed copies share pending work: an unverified
             // signature must not reserve the ID against a different, valid copy.
             const copy = JSON.stringify([ev.id, ev.sig, ev.pubkey, ev.kind, ev.created_at, ev.tags, ev.content]);
             if (verifying.has(copy)) return;
+            // Bounded work for strangers only. A player who already proved the
+            // room key is never throttled: its public key is no secret, so a cap
+            // per known key would let forgeries that merely claim it use up its
+            // share. A stranger's knock and hello repeat until answered, so
+            // throttling throwaway keys during a flood delays a join, not a game.
+            const stranger = !known.has(ev.pubkey), mine = pendingByKey.get(ev.pubkey) || 0;
+            if (stranger && (mine >= 16 || strangersPending >= 64)) return;
             verifying.add(copy);
+            pendingByKey.set(ev.pubkey, mine + 1);
+            if (stranger) strangersPending++;
             try {
                 // A relay is not trusted to check the signature. Do not let an invalid
                 // copy poison deduplication, create a peer or affect Session liveness.
@@ -777,6 +804,9 @@
                 else deliver(ev.pubkey, batch);
             } finally {
                 verifying.delete(copy);
+                const left = (pendingByKey.get(ev.pubkey) || 1) - 1;
+                if (left) pendingByKey.set(ev.pubkey, left); else pendingByKey.delete(ev.pubkey);
+                if (stranger) strangersPending--;
             }
         }
         t.open = function () {
@@ -892,23 +922,16 @@
                 const msg = auth ? packet.msg : packet;
                 let id = bindings.get(conn);
                 if (!id) {
-                    if (auth) {
-                        if (!/^[0-9a-f]{64}$/.test(auth.id) || !/^[0-9a-f]{128}$/.test(auth.proof)) return;
-                        if (!await bip340.verify(await proofHash(pid), bip340.fromHex(auth.id), bip340.fromHex(auth.proof))) return;
-                        id = auth.id;
-                    } else {
-                        // Plain PeerTransport uses its actual broker ID. Never
-                        // accept an old auto UUID as an unsigned logical identity.
-                        // A broker ID is not proof of a signing public key. Reserve
-                        // that namespace even if PeerJS lets a client request it.
-                        if (!msg || msg.f !== pid || /^[0-9a-f]{64}$/.test(pid)) return;
-                        id = pid;
-                    }
+                    // Every protocol 2 direct mode signs; a broker ID alone is
+                    // reusable after its owner leaves and proves nothing.
+                    if (!auth || !/^[0-9a-f]{64}$/.test(auth.id) || !/^[0-9a-f]{128}$/.test(auth.proof)) return;
+                    if (!await bip340.verify(await proofHash(pid), bip340.fromHex(auth.id), bip340.fromHex(auth.proof))) return;
+                    id = auth.id;
                     if (closed || retired.has(conn)) return;
                     bindings.set(conn, id);
                     routes.set(id, pid);
                     if (!isHost) t.hostId = id;
-                } else if (auth ? auth.id !== id : id !== pid) return;
+                } else if (!auth || auth.id !== id) return;
                 if (!isHost && msg && msg.t === 'np:bye' && msg.f === id) goodbye = true;
                 if (isHost || link === direct) t.h.data && t.h.data('p:' + id, msg);
             }).catch(() => { });

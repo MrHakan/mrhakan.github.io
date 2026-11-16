@@ -744,7 +744,11 @@ is the player ID on both direct and relay routes, so a fallback keeps the same
 seat. Nostr events are checked locally before their sender, decrypted payload
 or sequence can affect a session. Direct connections prove that same key once,
 bound to the room and broker ID; ordinary game frames reuse the authenticated
-connection. A plain PeerJS ID cannot stand in for a signing public key.
+connection. Plain peer mode signs the same way: a broker ID is reusable once
+its owner leaves, so it is never a player identity on its own. Relay
+signature checks are bounded only for keys that have not yet proved the room
+key, so a flood of throwaway keys, or forgeries claiming a player's public
+key, cannot crowd out players already in the room.
 
 Only that authenticated speaker may claim its player ID. The pinned host may
 forward guest traffic between routes, but only the host may send roster, game,

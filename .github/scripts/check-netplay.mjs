@@ -784,6 +784,64 @@ await test('a reused PeerJS ID does not inherit the signing identity of a closed
     assert.equal(host.players.find(p => p.id === victim.id).ready, false);
     conn.close(); attacker.destroy(); victim.leave(); host.leave();
 });
+await test('a reused broker ID cannot speak for a plain peer player who has left', async () => {
+    const { NP, net } = world({ relays: [RELAY] });
+    const host = await NP.host('peer', 'trailz', 'PEER2');
+    const victim = await NP.join('peer', 'PEER2');
+    await until(() => victim.seated && host.players.length === 2);
+    const brokerId = [...net.peers.keys()].find(id => id.startsWith('mrh98-'));
+    const reusedId = [...net.peers.keys()].find(id => id !== brokerId);
+    const Peer = net.peers.get(brokerId).constructor, heard = [];
+    host.on('chat', message => heard.push(message));
+    net.conns[0].close();
+    await sleep(500);
+    const attacker = new Peer(reusedId);
+    await new Promise(resolve => attacker.on('open', resolve));
+    const conn = attacker.connect(brokerId);
+    await new Promise(resolve => conn.on('open', resolve));
+    const forged = { v: NP.VERSION, t: 'np:chat', f: victim.id, d: { text: 'gg I quit' }, to: '*' };
+    conn.send(forged);
+    conn.send({ auth: { id: victim.id }, msg: forged });
+    await sleep(2000);
+    assert.deepEqual(heard.filter(m => m.id === victim.id), [], 'nobody speaks for the departed player');
+    conn.close(); attacker.destroy(); victim.leave(); host.leave();
+});
+await test('a flood of strangers on the relays cannot crowd out a player already in the room', async () => {
+    let network, flood = false;
+    const { NP, net } = world({ relays: [RELAY], deliver(send, url, ev) {
+        if (!flood) return setTimeout(send, 1);
+        // Throwaway keys, the room's tag, junk signatures: all still pending
+        // when every relay copy of the real event arrives in the same turn.
+        const junk = () => Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+        for (const socket of network.sockets) {
+            if (socket.url !== url) continue;
+            for (const sub of socket.subs.keys()) {
+                for (let i = 0; i < 80; i++) {
+                    socket.onmessage?.({ data: JSON.stringify(['EVENT', sub, { ...ev, id: junk(), pubkey: junk(), sig: junk() + junk() }]) });
+                }
+                // and forgeries that claim the real sender's public key, which is
+                // no secret: they must not use up that player's share either
+                for (let i = 0; i < 40; i++) {
+                    socket.onmessage?.({ data: JSON.stringify(['EVENT', sub, { ...ev, id: junk(), sig: junk() + junk() }]) });
+                }
+                socket.onmessage?.({ data: JSON.stringify(['EVENT', sub, ev]) });
+            }
+        }
+    } });
+    network = net;
+    const a = NP.TRANSPORTS.bus.make('FLOOD', true), b = NP.TRANSPORTS.bus.make('FLOOD', false);
+    const lb = wired(b); wired(a);
+    await a.open(); await b.open();
+    a.send('*', 'hello');
+    await until(() => lb.data.length === 1, 4000);
+    flood = true;
+    a.send('*', 'still here');
+    await until(() => lb.data.length === 2, 4000);
+    await sleep(300);
+    assert.deepEqual(texts(lb), ['hello', 'still here']);
+    assert.equal(lb.peers.length, 1);
+    a.close(); b.close();
+});
 await test('real Sessions seat, exchange chat and start across plain-peer and auto combinations', async () => {
     for (const [hostMode, guestMode] of [['auto', 'peer'], ['peer', 'auto'], ['peer', 'peer']]) {
         const { NP } = world({ relays: [RELAY] });
