@@ -18,7 +18,7 @@
 // ===================================================================
 import fs from 'fs';
 import path from 'path';
-import vm from 'vm';
+import { createTestScope, loadGameScript } from './game-test-context.mjs';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -34,9 +34,9 @@ const section = n => console.log('\n== ' + n + ' ==');
 const pct = n => (n * 100).toFixed(1) + '%';
 
 const window = {};
-const ctx = vm.createContext({ window, console, Math, Float64Array, Uint8Array, Set, Object, Array, Number });
-vm.runInContext(read('games/wizardz/wizardz-data.js'), ctx);
-vm.runInContext(read('games/wizardz/wizardz-sigil.js'), ctx);
+const ctx = createTestScope({ window, console, Math, Float64Array, Uint8Array, Set, Object, Array, Number });
+loadGameScript(read('games/wizardz/wizardz-data.js'), ctx, 'games/wizardz/wizardz-data.js');
+loadGameScript(read('games/wizardz/wizardz-sigil.js'), ctx, 'games/wizardz/wizardz-sigil.js');
 const D = window.WZ, R = window.WZ_SIGIL;
 const SPELLS = D.SPELLS;
 

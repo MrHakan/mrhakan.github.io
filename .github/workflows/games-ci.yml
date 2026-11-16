@@ -42,6 +42,9 @@ jobs:
             - name: Check workflow timeout contracts
               run: node .github/scripts/check-workflow-timeouts.mjs
 
+            - name: Check test loaders and browser diagnostics
+              run: node .github/scripts/check-test-infrastructure.mjs
+
             - name: Check Playground metadata tooling
               run: node .github/scripts/check-playground-metadata.mjs
 

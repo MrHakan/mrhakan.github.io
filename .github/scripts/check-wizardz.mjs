@@ -12,7 +12,7 @@
 // ===================================================================
 import fs from 'fs';
 import path from 'path';
-import vm from 'vm';
+import { createTestScope, loadGameScript } from './game-test-context.mjs';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -28,12 +28,12 @@ const section = n => console.log('\n== ' + n + ' ==');
 const pct = n => (n * 100).toFixed(0) + '%';
 
 const window = {};
-const ctx = vm.createContext({ window, console });
-vm.runInContext(read('games/wizardz/wizardz-data.js'), ctx);
-vm.runInContext(read('games/ps1/ps1-world.js'), ctx);
-vm.runInContext(read('games/wizardz/wizardz-sim.js'), ctx);
-vm.runInContext(read('games/ps1/ps1-gl.js'), ctx);
-vm.runInContext(read('games/wizardz/wizardz-gl.js'), ctx);
+const ctx = createTestScope({ window, console });
+loadGameScript(read('games/wizardz/wizardz-data.js'), ctx, 'games/wizardz/wizardz-data.js');
+loadGameScript(read('games/ps1/ps1-world.js'), ctx, 'games/ps1/ps1-world.js');
+loadGameScript(read('games/wizardz/wizardz-sim.js'), ctx, 'games/wizardz/wizardz-sim.js');
+loadGameScript(read('games/ps1/ps1-gl.js'), ctx, 'games/ps1/ps1-gl.js');
+loadGameScript(read('games/wizardz/wizardz-gl.js'), ctx, 'games/wizardz/wizardz-gl.js');
 const D = window.WZ, S = window.WZ_SIM, A = D.ARENA;
 const HZ = S.HZ;
 const SPELLS = D.SPELLS;

@@ -15,11 +15,16 @@
 import { chromium, devices } from 'playwright';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import { createBrowserDiagnostics } from './browser-diagnostics.mjs';
+import { waitForPort, waitForLobbyReady } from './browser-readiness.mjs';
 import { TRIANGLE, ZBOLT, live, takeMouse, inkDraw, shoot, faceOff, hpOf, MOUSE_LOCK, honestMouse } from './wizardz-play.mjs';
 
 const BASE = (process.env.SITE_URL || 'http://localhost:8104').replace(/\/$/, '');
 const SHOTS = process.env.WZ_SHOTS || '.ci-shots';
 fs.mkdirSync(SHOTS, { recursive: true });
+const diagnostics = createBrowserDiagnostics({ suite: 'wizardz', dir: SHOTS });
+diagnostics.phase('startup');
+let diagnosticFailure = false;
 const RELAY_PORT = 8500 + Math.floor(Math.random() * 90);
 const RELAY = 'ws://127.0.0.1:' + RELAY_PORT;
 
@@ -27,9 +32,9 @@ let failures = 0, checks = 0;
 const expect = (cond, msg, detail) => {
     checks++;
     if (cond) console.log('  ok    ' + msg + (detail ? '  (' + detail + ')' : ''));
-    else { failures++; console.log('  FAIL  ' + msg + (detail ? '\n        ' + detail : '')); }
+    else { failures++; diagnostics.failure(msg + (detail ? ': ' + detail : '')); console.log('  FAIL  ' + msg + (detail ? '\n        ' + detail : '')); }
 };
-const section = n => console.log('\n== ' + n + ' ==');
+const section = n => { diagnostics.phase(n); console.log('\n== ' + n + ' =='); };
 
 const FAKE_PEERJS = String.raw`
 (function () {
@@ -95,14 +100,17 @@ const FAKE_PEERJS = String.raw`
 })();`;
 
 const relay = spawn(process.execPath, ['server/nostr-test-relay.mjs'], { env: { ...process.env, PORT: String(RELAY_PORT) }, stdio: 'ignore' });
-await new Promise(r => setTimeout(r, 500));
+diagnostics.installSignals(() => relay.kill());
+await waitForPort(RELAY_PORT);
 // a software gpu is what CI has. WZ_GPU=1 asks for the machine's own, for measuring
 const launchArgs = process.env.WZ_GPU ? ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu'] : ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const browser = await chromium.launch(Object.assign({ args: launchArgs }, process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}));
 const errors = [];
+diagnostics.installSignals(async () => { relay.kill(); await browser.close(); });
 
 async function context(opts) {
     const ctx = await browser.newContext(opts);
+    diagnostics.trackContext(ctx);
     await honestMouse(ctx);
     await ctx.route('**/*', route => {
         const u = route.request().url();
@@ -240,11 +248,16 @@ try {
         const files = await p.evaluate(() => performance.getEntriesByType('resource').filter(r => /games\/wizardz\//.test(r.name)).map(r => r.name.split('/').pop()));
         expect(files.length === 5, 'then all five files do', files.join(', '));
         await p.waitForSelector('#wz-solo', { timeout: 8000 });
-        await p.waitForTimeout(400);
+        await p.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
         await p.screenshot({ path: SHOTS + '/wz-menu.png' });
         await p.click('#wz-solo');
         await p.waitForSelector('.wz-bot', { timeout: 8000 });
-        await p.waitForTimeout(300);
+        await p.waitForFunction(() => {
+            const c = document.querySelector('canvas[data-botav]'); if (!c) return false;
+            const d = c.getContext('2d').getImageData(0, 0, 100, 118).data, colours = new Set();
+            for (let i = 0; i < d.length; i += 16) colours.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
+            return colours.size > 4;
+        });
         await p.screenshot({ path: SHOTS + '/wz-bots.png' });
         const porch = await p.evaluate(() => {
             const c = document.querySelector('canvas[data-botav]').getContext('2d').getImageData(0, 0, 100, 118).data;
@@ -714,7 +727,7 @@ try {
         // typed by a person: nothing happens, nothing happens, then it has happened
         const typed = presets[3];
         await p.click('#wz-loid');
-        await p.keyboard.press('Control+A');
+        await p.keyboard.press('ControlOrMeta+A');
         await p.keyboard.type(typed.code.replace(/-/g, '').slice(0, 11).toLowerCase());
         expect(await carrying() === standard, 'eleven characters in, nothing has changed', await p.textContent('#wz-lomsg'));
         expect(!(await p.getAttribute('#wz-lomsg', 'class')).includes('wz-bad'), 'and nobody is being told off for typing');
@@ -767,7 +780,7 @@ try {
         expect(own[0] === swap && own.length === 8 && new Set(own).size === 8, 'you can still build your own', own.join(', '));
         const ownId = await p.inputValue('#wz-load-id');
         expect(ownId !== presets[5].code && await p.evaluate(([id, l]) => WZ.loadoutFromId(id).list.join() === l.join(), [ownId, own]), 'and it gets an id of its own', ownId);
-        await p.evaluate(() => { navigator.clipboard = undefined; });
+        await p.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }); });
         await p.click('#wz-load-copy');
         expect((await p.textContent('#wz-load-msg')).includes(ownId), 'and there is a way of getting it out', await p.textContent('#wz-load-msg'));
         await p.fill('#wz-load-id', presets[8].code);
@@ -903,9 +916,8 @@ try {
     async function startMatch(host, guest) {
         await host.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
         await guest.click('#np-ready');
-        await host.waitForTimeout(500);
         await host.click('#np-ready');
-        await host.waitForTimeout(300);
+        await waitForLobbyReady(host);
         await host.click('#np-start');
         await Promise.all([host.waitForSelector('#wz-canvas', { timeout: 30000 }), guest.waitForSelector('#wz-canvas', { timeout: 30000 })]);
         await Promise.all([live(host), live(guest)]);
@@ -1599,8 +1611,10 @@ try {
 } catch (e) {
     expect(false, 'the run fell over', String(e.stack || e.message).split('\n').slice(0, 6).join('\n        '));
 } finally {
-    await browser.close();
-    relay.kill();
+    await diagnostics.flush();
+    diagnostics.phase('teardown');
+    try { await browser.close(); }
+    finally { relay.kill(); diagnosticFailure = (await diagnostics.finish({ failures })).status !== 'passed'; }
 }
 console.log('\n' + (failures ? failures + ' of ' + checks + ' browser checks FAILED' : 'all ' + checks + ' browser checks passed'));
-process.exit(failures ? 1 : 0);
+process.exit(failures || diagnosticFailure ? 1 : 0);
