@@ -1,5 +1,16 @@
 [
   {
+    "name": "⚓ Harbor Master 98",
+    "app": "harbormaster",
+    "type": "game",
+    "date": "2026-11-15",
+    "url": "/games/harbor-master/",
+    "description": "Route Patron, Joe Cool and Sahur into matching docks, keep traffic apart and survive a two-minute harbor watch. Seeded arrivals, keyboard and touch controls, and local records.",
+    "icon": "⚓",
+    "daily": false,
+    "tags": ["maritime", "traffic-control", "arcade", "keyboard", "touch", "offline"]
+  },
+  {
     "name": "🟣 Peg Solitaire 98",
     "type": "game",
     "date": "2026-11-15",

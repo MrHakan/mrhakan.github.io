@@ -243,6 +243,18 @@
             }
         },
         {
+            id: 'harbormaster',
+            name: 'harbor master 98',
+            icon: '⚓',
+            keys: ['harbor-master-98-best'],
+            open: 'harbormaster',
+            summary() {
+                const saved = raw('harbor-master-98-best'), best = Number(saved);
+                if (saved === null || !Number.isSafeInteger(best) || best < 0) return null;
+                return { line: 'best ' + best + ' points', when: '' };
+            }
+        },
+        {
             id: 'snake',
             name: 'snake',
             icon: '🐍',

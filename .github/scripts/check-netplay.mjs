@@ -27,7 +27,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms / SPEED));
 function world(options = {}) {
     const sockets = new Set();
     const net = {
-        sockets, published: {}, opened: {},
+        sockets, timers: new Set(), published: {}, opened: {},
         policy: options.policy || (() => true),   // (url, event, n) -> true, or the reason it was refused
         deliver: options.deliver || null,         // (send, url, event, n) -> how an accepted event reaches subscribers
         unreachable: new Set(options.unreachable || []),
@@ -134,8 +134,13 @@ function world(options = {}) {
         } }
     };
     const fast = {
-        setTimeout: (fn, ms) => setTimeout(fn, (ms || 0) / SPEED),
-        clearTimeout, setInterval: (fn, ms) => setInterval(fn, ms / SPEED), clearInterval
+        setTimeout: (fn, ms) => {
+            const timer = setTimeout(() => { net.timers.delete(timer); fn(); }, (ms || 0) / SPEED);
+            net.timers.add(timer);
+            return timer;
+        },
+        clearTimeout: timer => { net.timers.delete(timer); clearTimeout(timer); },
+        setInterval: (fn, ms) => setInterval(fn, ms / SPEED), clearInterval
     };
     // eslint-disable-next-line no-new-func
     new Function('window', 'localStorage', 'performance', 'WebSocket', 'document', 'Peer', 'fetch',
@@ -200,6 +205,61 @@ await test('every message arrives once, however many relays carry it', async () 
     assert.equal(lb.peers.length, 1);
     assert.equal(lb.errors.length + la.errors.length, 0);
     a.close(); b.close();
+});
+await test('invalid signed events cannot create peers, deliver data or poison dedupe', async () => {
+    let captured;
+    const { NP, net } = world({ relays: [RELAY], deliver: (send, url, ev) => { captured = ev; } });
+    const a = NP.TRANSPORTS.bus.make('SIG01', true), b = NP.TRANSPORTS.bus.make('SIG01', false);
+    wired(a); const lb = wired(b);
+    await a.open(); await b.open();
+    a.send('*', 'authenticated');
+    await until(() => captured);
+    const socket = [...net.sockets][1];
+    const inject = ev => socket.onmessage({ data: JSON.stringify(['EVENT', 'np', ev]) });
+    const sk = NP.bip340.newKey(), pub = NP.bip340.toHex(await NP.bip340.pubkey(sk));
+    const wrongRoom = await NP.nostr.signEvent(sk, pub, NP.nostr.KIND, [['d', 'wrong-room']], captured.content);
+    for (const ev of [
+        { ...captured, sig: '0'.repeat(128) },
+        { ...captured, id: 'f'.repeat(64) },
+        { ...captured, pubkey: pub },
+        { ...captured, tags: null },
+        { ...captured, tags: [null] },
+        { ...captured, created_at: -1 },
+        { ...captured, content: 'x'.repeat(300000) }, wrongRoom
+    ]) inject(ev);
+    await sleep(2500);
+    assert.deepEqual(lb.data, [], 'a relay is not trusted to check signatures or room tags');
+    assert.deepEqual(lb.peers, [], 'reject before peer/liveness callbacks');
+    inject(captured);
+    await until(() => lb.data.length === 1);
+    inject(captured);
+    await sleep(500);
+    assert.deepEqual(texts(lb), ['authenticated'], 'bad copies do not suppress a later valid event, and valid duplicates arrive once');
+    a.close(); b.close();
+});
+await test('an invalid in-flight signature cannot suppress a valid copy of the same event', async () => {
+    const { NP, net } = world({ relays: [RELAY], deliver: (send, url, ev) => {
+        for (const socket of net.sockets) {
+            if (socket.url !== url) continue;
+            for (const sub of socket.subs.keys()) {
+                socket.onmessage({ data: JSON.stringify(['EVENT', sub, { ...ev, sig: '0'.repeat(128) }]) });
+            }
+        }
+        // No await or timer: the forged signature is still being checked when
+        // the real relay copy (and its duplicate) reaches the same callback.
+        send(); send();
+    } });
+    const a = NP.TRANSPORTS.bus.make('RACE1', true), b = NP.TRANSPORTS.bus.make('RACE1', false);
+    wired(a); const lb = wired(b);
+    try {
+        await a.open(); await b.open();
+        a.send('*', 'valid after corrupt copy');
+        await sleep(5000);
+        assert.deepEqual(texts(lb), ['valid after corrupt copy'], 'an unverified claimed ID cannot suppress the authentic event');
+        assert.deepEqual(lb.peers, [a.id], 'the authenticated peer is announced exactly once');
+    } finally {
+        a.close(); b.close();
+    }
 });
 await test('someone else\'s room is noise', async () => {
     const { NP } = world();
@@ -313,8 +373,12 @@ await test('a closed connection stays closed', async () => {
     await a.open();
     const before = net.opened[RELAY];
     a.close();
+    assert.equal(net.sockets.size, 0, 'closing with no work closes the pool synchronously');
+    a.send('*', 'after close');
+    a.close();
     await sleep(3000);
     assert.equal(net.opened[RELAY], before);
+    assert.equal(net.published[RELAY] || 0, 0);
 });
 await test('the last thing said before closing gets said', async () => {
     const { NP, net } = world({ relays: [RELAY] });
@@ -326,6 +390,71 @@ await test('the last thing said before closing gets said', async () => {
     a.close();
     await until(() => net.published[RELAY] === 1);
 });
+for (const queued of [false, true]) {
+    await test('closing waits for every overlapping batch' + (queued ? ' before draining the queue' : ''), async () => {
+        const { NP, net } = world({ relays: [RELAY] });
+        const a = NP.TRANSPORTS.bus.make('DRAIN', true);
+        const log = wired(a), held = [];
+        const sign = NP.bip340.sign;
+        let signCalls = 0;
+        // Only pause the first two signatures; encryption and signing stay real.
+        NP.bip340.sign = async (...args) => {
+            if (++signCalls <= 2) await new Promise(resolve => held.push(resolve));
+            return sign(...args);
+        };
+        try {
+            await a.open();
+            // Let the already-settled open timeout expire before tracking leaks.
+            await until(() => net.timers.size === 0);
+            const socket = [...net.sockets][0];
+            a.send('*', 'older');
+            await until(() => held.length === 1);
+            a.send('*', 'newer');
+            await until(() => held.length === 2);
+            if (queued) a.send('*', 'goodbye');
+            a.close();
+            a.close();
+            held[1]();                // the newest post finishes, the older is still signing
+            await until(() => (net.published[RELAY] || 0) >= 1);
+            await new Promise(resolve => setImmediate(resolve));
+            assert.equal(socket.readyState, 1, 'the older batch must keep the pool open');
+            assert.equal(signCalls, 2, 'the queued goodbye waits for every earlier post');
+            a.send('*', 'too late');
+            assert.equal(net.timers.size, 0, 'closing refuses new messages without scheduling a flush');
+            held[0]();
+            await until(() => net.sockets.size === 0);
+            assert.equal(net.published[RELAY], queued ? 3 : 2, 'all accepted batches were published before closing');
+            assert.equal(signCalls, queued ? 3 : 2, 'repeated close does not duplicate a drain');
+            assert.equal(net.timers.size, 0, 'no transport timers survive the drain');
+            assert.deepEqual(log.errors, []);
+
+            const keyHash = await NP.bip340.sha256(new TextEncoder().encode('mrhakan98-key|DRAIN'));
+            const key = await crypto.subtle.importKey('raw', keyHash, 'AES-GCM', false, ['decrypt']);
+            const batches = [];
+            for (const ev of socket.sentFrames) {
+                assert.equal(await NP.nostr.verifyEvent(ev), true);
+                const raw = Buffer.from(ev.content, 'base64');
+                const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.subarray(0, 12) }, key, raw.subarray(12));
+                batches.push(JSON.parse(new TextDecoder().decode(plain)));
+            }
+            assert.deepEqual(batches, [
+                [{ n: 2 }, { to: '*', msg: 'newer' }],
+                [{ n: 1 }, { to: '*', msg: 'older' }],
+                ...(queued ? [[{ n: 3 }, { to: '*', msg: 'goodbye' }]] : [])
+            ], 'the original batch numbers and contents survive out-of-order signing');
+            a.send('*', 'after close');
+            a.close();
+            await sleep(3000);
+            assert.equal(net.published[RELAY], batches.length, 'nothing is sent after the pool closes');
+            assert.equal(net.opened[RELAY], 1, 'closed sockets do not reconnect');
+            assert.equal(net.timers.size, 0);
+        } finally {
+            NP.bip340.sign = sign;
+            held.forEach(release => release());
+            a.close();
+        }
+    });
+}
 await test('the built in list has enough relays on it, and not the ones that have turned on us', () => {
     const { NP, localStorage } = world();
     localStorage.removeItem('mrhakan98-netplay-relays');
@@ -467,7 +596,7 @@ await test('but a host saying goodbye does not send the guest looking for it', a
     await host.open();
     await guest.open();
     await until(() => host.kind === 'peer');
-    host.send('*', { t: 'np:bye' });
+    host.send('*', { t: 'np:bye', f: host.id });
     await sleep(100);
     net.conns[0].close();
     await sleep(600);
@@ -560,6 +689,190 @@ await test('a guest on each road still hears the other, through the host', async
     assert.deepEqual(heard.relayed.sort(), ['from the direct one', 'poke 2']);
     assert.deepEqual(heard.host.sort(), ['from the direct one', 'from the relayed one'], 'and the host hears each of them once');
     direct.leave(); relayed.leave(); host.leave();
+});
+await test('copying the host ID cannot authorize signed guest controls', async () => {
+    const { NP } = world({ relays: [RELAY] });
+    NP.launch = () => { };
+    const host = await NP.host('bus', 'trailz', 'COPY1');
+    const a = await NP.join('bus', 'COPY1');
+    const b = await NP.join('bus', 'COPY1');
+    await until(() => a.seated && b.seated && a.players.length === 3 && b.players.length === 3 && b.gameId === 'trailz' && b.players.some(p => p.id === host.id && p.host));
+    const roster = () => b.players.map(({ id, name, ready, host }) => ({ id, name, ready, host }));
+    const before = roster(), started = [];
+    b.on('start', () => started.push(true));
+    for (const [t, d] of [
+        ['np:start', { gameId: 'wizardz' }],
+        ['np:roster', [{ id: host.id, host: true }, { id: b.id }]],
+        ['np:game', { gameId: 'wizardz' }]
+    ]) a.transport.send('*', { v: NP.VERSION, t, d, f: host.id, to: '*' });
+    await sleep(3000);
+    assert.deepEqual(started, [], 'a valid guest signature is not a host signature');
+    assert.equal(b.gameId, 'trailz');
+    assert.deepEqual(roster(), before);
+    host.send('np:start', { gameId: 'trailz' });
+    await until(() => started.length === 1);
+    a.leave(); b.leave(); host.leave();
+});
+await test('a relay signature cannot be rebound to another player by hello, ready or bye', async () => {
+    const { NP } = world({ relays: [RELAY] });
+    const host = await NP.host('bus', 'trailz', 'BIND1');
+    const a = await NP.join('bus', 'BIND1'), b = await NP.join('bus', 'BIND1');
+    await until(() => a.seated && b.seated && host.players.length === 3);
+    const victim = host.players.find(p => p.id === b.id), peer = victim.peerId, name = victim.name;
+    for (const [t, d] of [['np:ready', { ready: true }], ['np:hello', { name: 'forged' }], ['np:bye', {}]]) {
+        a.transport.send('*', { v: NP.VERSION, t, d, f: b.id, to: '*' });
+    }
+    await sleep(3000);
+    assert.equal(host.players.length, 3);
+    assert.equal(victim.peerId, peer, 'a forged hello cannot rewrite the authenticated route');
+    assert.equal(victim.name, name);
+    assert.equal(victim.ready, false);
+    b.send('np:ready', { ready: true });
+    await until(() => victim.ready === true);
+    a.leave(); b.leave(); host.leave();
+});
+await test('a Session keeps its signing identity and seat when direct play moves to the relays', async () => {
+    const { NP, net } = world({ relays: [RELAY] });
+    const host = await NP.host('auto', 'trailz', 'ROAD2');
+    const guest = await NP.join('auto', 'ROAD2');
+    await until(() => guest.seated && guest.transport.kind === 'peer');
+    const identity = guest.id, departed = [], heard = [];
+    assert.match(identity, /^[0-9a-f]{64}$/);
+    host.on('player-leave', p => departed.push(p.id));
+    host.on('tz:input', (d, from) => heard.push({ d, id: from.id }));
+    net.conns[0].close();
+    await until(() => guest.transport.kind === 'bus' && host.players.find(p => p.id === identity)?.peerId === 'b:' + identity, 6000);
+    guest.send('tz:input', { turn: 7 });
+    await until(() => heard.length);
+    assert.equal(guest.id, identity);
+    assert.equal(host.players.filter(p => p.id === identity).length, 1);
+    assert.deepEqual(heard, [{ d: { turn: 7 }, id: identity }]);
+    assert.deepEqual(departed, []);
+    guest.leave(); host.leave();
+});
+await test('an unsigned PeerJS ID cannot impersonate a signing public key', async () => {
+    const { NP, net } = world({ relays: [RELAY] });
+    const host = await NP.host('auto', 'trailz', 'KEYID');
+    const victim = await NP.join('bus', 'KEYID');
+    await until(() => victim.seated && net.peers.size > 0);
+    const broker = [...net.peers.keys()][0], Peer = net.peers.get(broker).constructor;
+    const attacker = new Peer(victim.id);
+    await new Promise(resolve => attacker.on('open', resolve));
+    const conn = attacker.connect(broker);
+    await new Promise(resolve => conn.on('open', resolve));
+    conn.send({ v: NP.VERSION, t: 'np:ready', f: victim.id, d: { ready: true }, to: '*' });
+    await sleep(2000);
+    assert.equal(host.players.find(p => p.id === victim.id).ready, false);
+    conn.close(); attacker.destroy(); victim.leave(); host.leave();
+});
+await test('a reused PeerJS ID does not inherit the signing identity of a closed connection', async () => {
+    const { NP, net } = world({ relays: [RELAY] });
+    const host = await NP.host('auto', 'trailz', 'REUSE');
+    const victim = await NP.join('auto', 'REUSE');
+    await until(() => victim.seated && victim.transport.kind === 'peer');
+    const brokerId = [...net.peers.keys()].find(id => id.startsWith('mrh98-'));
+    const reusedId = [...net.peers.keys()].find(id => id !== brokerId);
+    const Peer = net.peers.get(brokerId).constructor;
+    net.conns[0].close();
+    await until(() => victim.transport.kind === 'bus' && host.players.find(p => p.id === victim.id)?.peerId === 'b:' + victim.id, 6000);
+    const attacker = new Peer(reusedId);
+    await new Promise(resolve => attacker.on('open', resolve));
+    const conn = attacker.connect(brokerId);
+    await new Promise(resolve => conn.on('open', resolve));
+    conn.send({ auth: { id: victim.id }, msg: { v: NP.VERSION, t: 'np:ready', f: victim.id, d: { ready: true }, to: '*' } });
+    await sleep(2000);
+    assert.equal(host.players.find(p => p.id === victim.id).ready, false);
+    conn.close(); attacker.destroy(); victim.leave(); host.leave();
+});
+await test('a reused broker ID cannot speak for a plain peer player who has left', async () => {
+    const { NP, net } = world({ relays: [RELAY] });
+    const host = await NP.host('peer', 'trailz', 'PEER2');
+    const victim = await NP.join('peer', 'PEER2');
+    await until(() => victim.seated && host.players.length === 2);
+    const brokerId = [...net.peers.keys()].find(id => id.startsWith('mrh98-'));
+    const reusedId = [...net.peers.keys()].find(id => id !== brokerId);
+    const Peer = net.peers.get(brokerId).constructor, heard = [];
+    host.on('chat', message => heard.push(message));
+    net.conns[0].close();
+    await sleep(500);
+    const attacker = new Peer(reusedId);
+    await new Promise(resolve => attacker.on('open', resolve));
+    const conn = attacker.connect(brokerId);
+    await new Promise(resolve => conn.on('open', resolve));
+    const forged = { v: NP.VERSION, t: 'np:chat', f: victim.id, d: { text: 'gg I quit' }, to: '*' };
+    conn.send(forged);
+    conn.send({ auth: { id: victim.id }, msg: forged });
+    await sleep(2000);
+    assert.deepEqual(heard.filter(m => m.id === victim.id), [], 'nobody speaks for the departed player');
+    conn.close(); attacker.destroy(); victim.leave(); host.leave();
+});
+await test('a flood of strangers on the relays cannot crowd out a player already in the room', async () => {
+    let network, flood = false;
+    const { NP, net } = world({ relays: [RELAY], deliver(send, url, ev) {
+        if (!flood) return setTimeout(send, 1);
+        // Throwaway keys, the room's tag, junk signatures: all still pending
+        // when every relay copy of the real event arrives in the same turn.
+        const junk = () => Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+        for (const socket of network.sockets) {
+            if (socket.url !== url) continue;
+            for (const sub of socket.subs.keys()) {
+                for (let i = 0; i < 80; i++) {
+                    socket.onmessage?.({ data: JSON.stringify(['EVENT', sub, { ...ev, id: junk(), pubkey: junk(), sig: junk() + junk() }]) });
+                }
+                // and forgeries that claim the real sender's public key, which is
+                // no secret: they must not use up that player's share either
+                for (let i = 0; i < 40; i++) {
+                    socket.onmessage?.({ data: JSON.stringify(['EVENT', sub, { ...ev, id: junk(), sig: junk() + junk() }]) });
+                }
+                socket.onmessage?.({ data: JSON.stringify(['EVENT', sub, ev]) });
+            }
+        }
+    } });
+    network = net;
+    const a = NP.TRANSPORTS.bus.make('FLOOD', true), b = NP.TRANSPORTS.bus.make('FLOOD', false);
+    const lb = wired(b); wired(a);
+    await a.open(); await b.open();
+    a.send('*', 'hello');
+    await until(() => lb.data.length === 1, 4000);
+    flood = true;
+    a.send('*', 'still here');
+    await until(() => lb.data.length === 2, 4000);
+    await sleep(300);
+    assert.deepEqual(texts(lb), ['hello', 'still here']);
+    assert.equal(lb.peers.length, 1);
+    a.close(); b.close();
+});
+await test('real Sessions seat, exchange chat and start across plain-peer and auto combinations', async () => {
+    for (const [hostMode, guestMode] of [['auto', 'peer'], ['peer', 'auto'], ['peer', 'peer']]) {
+        const { NP } = world({ relays: [RELAY] });
+        NP.launch = () => { };
+        const host = await NP.host(hostMode, 'trailz', 'PLAIN');
+        const guest = await NP.join(guestMode, 'PLAIN');
+        await until(() => guest.seated && host.players.length === 2, 4000);
+        const messages = [];
+        host.on('chat', msg => messages.push(msg));
+        guest.send('np:chat', { text: 'plain and auto' });
+        await until(() => messages.length === 1);
+        assert.equal(messages[0].id, guest.id);
+        const starts = [];
+        guest.on('start', () => starts.push(true));
+        host.startGame();
+        await until(() => starts.length === 1);
+        guest.leave(); host.leave();
+    }
+});
+await test('cached version-one identities request a refresh without seating or starting anyone', async () => {
+    const { NP, net } = world({ relays: [RELAY] });
+    const host = await NP.host('auto', 'trailz', 'OLDV1');
+    const guest = await NP.join('auto', 'OLDV1');
+    await until(() => guest.seated);
+    const errors = [];
+    host.on('net:error', message => errors.push(message));
+    net.conns[0].send({ v: NP.VERSION - 1, t: 'np:hello', f: 'legacy-auto-id', d: { name: 'old client' }, to: '*' });
+    await until(() => errors.length, 2500);
+    assert.match(errors[0], /refresh/);
+    assert.equal(host.players.length, 2);
+    guest.leave(); host.leave();
 });
 await test('only the host runs the room: a guest cannot start it, reseat it or sign somebody else out', async () => {
     const { NP } = world({ relays: [RELAY] });
