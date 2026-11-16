@@ -3,7 +3,7 @@
 //
 //   solo     the desktop loads none of it until asked; the start menu and the
 //            address bar open it; a match against a bot from the menu's own
-//            buttons: real keys drive, turn and fire, at most five shells of
+//            buttons: real keys drive, turn and fire, at most three shells of
 //            yours fly at once, a beam goes where its dotted line said, the
 //            picture is a teal floor with grey walls, and the clock turned up
 //            to the end of the match and the table
@@ -223,10 +223,20 @@ try {
         await hold(p, 'ArrowDown', 300);
         const a3 = await tank(p, 0);
         expect(Math.hypot(a3.x - a2.x, a3.y - a2.y) > 4, 'the down arrow backs it up');
-        // fire: at most five of mine in the air
+        expect(await p.locator('.tk-ammo').waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false), 'reload and shell-slot status is visible during a match');
+        expect(await p.locator('.tk-ammo .tk-slot').count() === 3, 'the local cannon has exactly three visible shell slots');
+        const markings = await p.evaluate(() => {
+            const g = TK_ENGINE.state(), c = document.getElementById('tk-canvas'), a = TK.ARENAS[g.s.maze.arena];
+            const rgb = [1, 3, 5].map(i => parseInt(a.mark.slice(i, i + 2), 16));
+            const pixels = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+            let n = 0; for (let i = 0; i < pixels.length; i += 4) if (rgb.every((v, k) => pixels[i + k] === v)) n++;
+            return n;
+        });
+        expect(markings > 80, 'the combat yards have visible arena-colour floor markings', markings + ' pixels');
+        // Rapid input still fires, but only within the new authoritative budget.
         for (let k = 0; k < 8; k++) { await p.keyboard.press('Space'); await p.waitForTimeout(110); }
         const mine = await state(p, g => g.s.shells.filter(b => b.o === 0 && b.k === 's').length);
-        expect(mine === 5 || (mine >= 3 && mine <= 5), 'space fires, and no more than five shells of yours fly at once', mine + ' in the air');
+        expect(await state(p, g => (g.shots?.[0] || 0) > 0 && TK.SHELLS === 3) && mine <= 3, 'space fires, and no more than three shells of yours fly at once', mine + ' in the air');
         await p.screenshot({ path: SHOTS + '/tk-solo.png' });
         const look = await colours(p);
         expect(look.teal > 0.05 && look.floor > 0.25 && look.grey > 0.01, 'the picture: a teal desktop, a lighter floor, grey walls', JSON.stringify(look));
@@ -299,6 +309,8 @@ try {
         expect(await p.isVisible('#tk-stick') && await p.isVisible('#tk-fire'), 'the thumbs are out: a stick and a fire button');
         await fight(p);
         await p.evaluate(() => { const g = TK_ENGINE.state(); for (let i = 1; i < g.s.n; i++) { g.bots[i] = null; g.s.seats[i].bot = ''; } });
+        expect(await p.locator('.tk-ammo .tk-slot').count() === 3, 'the phone shows all three shell slots before firing');
+        await p.screenshot({ path: SHOTS + '/tk-phone-ready.png' });
         const t0 = await tank(p, 0);
         // push the stick the other way from where the tank faces, and hold it
         const box = await p.locator('#tk-stick').boundingBox();

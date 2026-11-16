@@ -5,7 +5,7 @@
 //                says, and the same seed is the same maze
 //   the tank     drives, turns, and never ends up inside a wall
 //   the shells   come off walls like light off a mirror, run out of time,
-//                five at most, and get the tank that fired them too
+//                three at most, and get the tank that fired them too
 //   the files    each of the six does its thing
 //   a round      the last one standing gets the point, first to the match's
 //                points wins it, a draw is a draw
@@ -17,6 +17,7 @@
 //   node .github/scripts/check-tankz.mjs            (--report for the bot numbers)
 // ===================================================================
 import { createRequire } from 'module';
+import { spawnSync } from 'node:child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -76,10 +77,16 @@ section('the maze');
 // ===================================================================
 {
     let unreachable = 0, borders = 0, sizes = new Set(), same = true, loops = 0;
+    let deadEnds = 0, hubs = 0, bare = 0;
+    const arenas = new Set();
     for (let seed = 1; seed <= 300; seed++) {
         const n = 2 + (seed % 7);
         const m = S.makeMaze(seed * 7919, n, TK.SIZES[seed % 3].id);
         sizes.add(m.cols + 'x' + m.rows);
+        deadEnds += m.nb.filter(neighbours => neighbours.length < 2).length;
+        if (m.rooms?.length && m.rooms.every(room => room.w >= 2 && room.h >= 2)) hubs++;
+        arenas.add(m.arena);
+        if (m.rects.length <= 4) bare++;
         const d = S.bfs(m, 0);
         if (d.some(v => v < 0)) unreachable++;
         if (!m.h[0].every(Boolean) || !m.h[m.rows].every(Boolean) || !m.v.every(r => r[0] && r[m.cols])) borders++;
@@ -88,6 +95,10 @@ section('the maze');
         const again = S.makeMaze(seed * 7919, n, TK.SIZES[seed % 3].id);
         if (JSON.stringify(again.h) !== JSON.stringify(m.h) || JSON.stringify(again.v) !== JSON.stringify(m.v)) same = false;
     }
+    expect(deadEnds === 0, 'every cell has at least two exits, so a shell cannot pin a tank in a dead-end pocket', deadEnds + ' dead ends');
+    expect(hubs === 300, 'every map mixes corridors with a marked open combat yard', hubs + ' of 300');
+    expect(arenas.size === 3 && !arenas.has(undefined), 'three seeded arena layouts provide different landmarks');
+    expect(bare === 0, 'opening yards never erases all interior cover');
     expect(unreachable === 0, 'in 300 mazes every cell reaches every other', unreachable + ' with a cut-off cell');
     expect(borders === 0, 'and the border is closed all the way round');
     expect(loops > 280, 'nearly every maze has loops in it, not one single path', loops + ' of 300');
@@ -154,12 +165,31 @@ section('the shells');
     }
     expect(escaped === 0, '480 shells bouncing for ten seconds each: none gets out of the maze', escaped + ' out');
 
-    // five at most
+    // Rapid input is rate-limited by the authoritative simulation, not the UI.
+    const spam = fightMatch(2);
+    openMaze(spam, 32, 32);
+    put(spam, 0, 96, 96, 0); put(spam, 1, C * 30.5, C * 30.5, 0);
+    for (let k = 0; k < TK.TICK; k++) { S.input(spam, 0, 0, k + 1); S.step(spam); }
+    const shots = spam.events.filter(e => e.e === 'shot' && e.i === 0);
+    expect(shots.length === 3, 'sixty presses in one second produce three deliberate shots, not a shell dump', shots.length + ' shots');
+    expect(shots.slice(1).every((e, i) => e.k - shots[i].k >= TK.TICK * 0.3), 'normal cannon shots have a real recovery window');
+    expect(TK.SHELLS === 3 && spam.shells.filter(b => b.o === 0).length === 3, 'three shell slots bound each tank\'s ricochet pressure');
+    expect(TK.SHELL_LIFE <= 7, 'missed shells clear within seven seconds instead of lingering for nine');
+    const giantCounter = spawnSync(process.execPath, ['-e', `
+        require('./games/tankz/tankz-data.js'); require('./games/tankz/tankz-sim.js');
+        const s = TK_SIM.newMatch({seed: 1, seats: [{id:'a'}, {id:'b'}]});
+        s.phase = 'fight'; TK_SIM.input(s, 0, 0, Number.MAX_SAFE_INTEGER); TK_SIM.step(s);
+        if (s.tanks[0].fpSeen !== Number.MAX_SAFE_INTEGER || s.shells.length > 1) process.exit(1);
+    `], { cwd: ROOT, timeout: 1500, encoding: 'utf8' });
+    expect(giantCounter.status === 0, 'a giant remote press counter is consumed in bounded work, not a host-freezing loop', giantCounter.error?.code || giantCounter.status);
+
+
+    // The slot cap holds even when presses are spaced beyond the recovery window.
     const f = fightMatch(2);
     openMaze(f, 8, 4);
     put(f, 0, 96, 96, 0); put(f, 1, C * 7.5, C * 3.5, 0);
-    for (let k = 0; k < 8; k++) { f.tanks[0].in.fp++; for (let j = 0; j < 7; j++) S.step(f); }
-    expect(f.shells.filter(b => b.o === 0).length === TK.SHELLS, 'eight presses, five shells: the limit', f.shells.length + ' shells');
+    for (let k = 0; k < 8; k++) { f.tanks[0].in.fp++; for (let j = 0; j < Math.ceil(TK.FIRE_GAP * TK.TICK) + 1; j++) S.step(f); }
+    expect(f.shells.filter(b => b.o === 0).length === TK.SHELLS, 'eight spaced presses still respect the shell-slot limit', f.shells.length + ' shells');
     // and they run out of time
     for (const b of f.shells) b.age = TK.SHELL_LIFE - 0.01;
     S.step(f); S.step(f);
@@ -369,6 +399,11 @@ section('the room');
     expect(m && m.people.length === 2 && m.bots === 3 && m.match === '5678:1234' && r.phase === 'match', 'into a match: two people, three bots');
     const back = ROOM.readStart(JSON.parse(JSON.stringify(m)));
     expect(back && back.people.length === 2 && back.opts.points === 3, 'and a guest reads it back the same');
+    const staleStart = JSON.parse(JSON.stringify(m)); delete staleStart.rules;
+    expect(ROOM.readStart(staleStart) === null, 'a pre-overhaul start cannot mix old maze rules with the new simulation');
+    const staleRoom = JSON.parse(JSON.stringify(ROOM.view(r))); staleRoom.v = 1;
+    expect(ROOM.read(staleRoom) === null, 'an old room is rejected before players ready up with incompatible maps');
+
     expect(ROOM.readStart(Object.assign({}, m, { match: 'x' })) === null && ROOM.readStart(Object.assign({}, m, { bots: 9 })) === null, 'but not one that does not add up');
     ROOM.join(r, 'L', 'late');
     expect(r.seats.find(s => s.id === 'L').playing === false, 'somebody arriving during a match waits for the next one');
@@ -418,6 +453,14 @@ section('the wire');
     let off = 0;
     for (const b of h.shells) { const c = g.shells.find(x => x.id === b.id); if (c) off = Math.max(off, Math.hypot(c.x - b.x, c.y - b.y)); }
     expect(h.shells.length && off < 1, 'a guest flies the shells on by itself between snapshots and lands where the host does', off.toFixed(3) + ' units');
+    const reload = fightMatch(2, 71);
+    reload.tanks[0].in.fp = 1; S.step(reload);
+    const mirror = S.newMatch({ seed: 71, seats: seats(2), puppet: true });
+    S.applySnapshot(mirror, JSON.parse(JSON.stringify(S.snapshot(reload))));
+    expect(mirror.tanks[0].cool > 0 && Math.abs(mirror.tanks[0].cool - reload.tanks[0].cool) <= 0.011, 'a guest sees the authoritative reload cooldown');
+    S.coast(mirror, 0.05);
+    expect(mirror.tanks[0].cool > 0 && Math.abs(mirror.tanks[0].cool - (reload.tanks[0].cool - 0.05)) <= 0.011, 'guest reload indicators count down between snapshots');
+
     // a guest's word on where its tank is, kept to what a tank could do
     const p = fightMatch(2, 3);
     openMaze(p, 6, 3);

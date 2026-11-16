@@ -79,7 +79,34 @@
         // and then some loops, so nobody is ever in a dead end for long
         for (let y = 1; y < rows; y++) for (let x = 0; x < cols; x++) if (h[y][x] && rnd(r) < TK.LOOPS) h[y][x] = false;
         for (let y = 0; y < rows; y++) for (let x = 1; x < cols; x++) if (v[y][x] && rnd(r) < TK.LOOPS) v[y][x] = false;
-        return buildMaze(cols, rows, h, v, seed);
+        // A recognisable combat yard breaks up corridors; cover stays outside it.
+        const arena = floor(rnd(r) * TK.ARENAS.length);
+        const rooms = [];
+        if (arena === 1 && cols >= 6 && rows >= 5) {
+            rooms.push({ x: 1, y: 1, w: 2, h: 2 }, { x: cols - 3, y: rows - 3, w: 2, h: 2 });
+        } else {
+            const w = arena === 2 && cols >= 7 ? 3 : 2;
+            rooms.push({ x: floor((cols - w) / 2), y: floor((rows - 2) / 2), w, h: 2 });
+        }
+        for (const room of rooms) {
+            for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x + 1; x < room.x + room.w; x++) v[y][x] = false;
+            for (let y = room.y + 1; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) h[y][x] = false;
+        }
+        // Open a second exit from every pocket. Only internal walls come down,
+        // so connectivity, the closed border and tank clearance are preserved.
+        for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+            const exits = (x > 0 && !v[y][x] ? 1 : 0) + (x < cols - 1 && !v[y][x + 1] ? 1 : 0)
+                + (y > 0 && !h[y][x] ? 1 : 0) + (y < rows - 1 && !h[y + 1][x] ? 1 : 0);
+            if (exits >= 2) continue;
+            const closed = [];
+            if (x > 0 && v[y][x]) closed.push([v[y], x]);
+            if (x < cols - 1 && v[y][x + 1]) closed.push([v[y], x + 1]);
+            if (y > 0 && h[y][x]) closed.push([h[y], x]);
+            if (y < rows - 1 && h[y + 1][x]) closed.push([h[y + 1], x]);
+            const [line, at] = closed[floor(rnd(r) * closed.length)];
+            line[at] = false;
+        }
+        return Object.assign(buildMaze(cols, rows, h, v, seed), { arena, rooms });
     }
     function buildMaze(cols, rows, h, v, seed) {
         const m = { seed, cols, rows, h, v, W: cols * C, H: rows * C, rects: [], nb: [] };
@@ -342,8 +369,9 @@
             if (!t.alive) { t.fpSeen = t.in.fp; continue; }
             if (!t.remote) moveTank(m, t, t.in.mv, DT);
             if (t.cool > 0) t.cool -= DT;
-            let presses = 0;
-            while (t.fpSeen < t.in.fp) { t.fpSeen++; if (presses++ < 3) press(s, t.i); }
+            const presses = min(3, max(0, t.in.fp - t.fpSeen));
+            t.fpSeen = t.in.fp;
+            for (let k = 0; k < presses; k++) press(s, t.i);
             if (t.w) t.held += DT;
             if (t.burst > 0) {
                 t.burstT -= DT;
@@ -559,6 +587,7 @@
     function coast(s, dt) {
         if (s.phase !== 'fight' && s.phase !== 'after') return;
         const m = s.maze;
+        for (const t of s.tanks) t.cool = max(0, t.cool - dt);
         for (const b of s.shells) {
             if (b.life <= 0 || b.age >= b.life) continue;
             if (b.k === 'm') steer(s, b, dt);
@@ -755,7 +784,7 @@
             k: s.tick, r: s.round, ph: PHASES.indexOf(s.phase), pt: s.phaseT, rt: s.roundT, ms: s.maze.seed, lw: s.lastWinner, wn: s.winner,
             sc: s.scores.slice(),
             st: [s.kills.slice(), s.deaths.slice(), s.selfs.slice()],
-            t: s.tanks.map(t => [r1(t.x), r1(t.y), round(t.a * 1000) / 1000, t.alive ? 1 : 0, t.w ? W_IDS.indexOf(t.w) : -1, t.moving ? 1 : 0, t.frag ? 1 : 0, t.fpSeen]),
+            t: s.tanks.map(t => [r1(t.x), r1(t.y), round(t.a * 1000) / 1000, t.alive ? 1 : 0, t.w ? W_IDS.indexOf(t.w) : -1, t.moving ? 1 : 0, t.frag ? 1 : 0, t.fpSeen, r2(max(0, t.cool))]),
             b: s.shells.map(b => [b.id, KINDS.indexOf(b.k), b.o, r2(b.x), r2(b.y), r2(b.vx), r2(b.vy), r2(b.age), r2(b.life), b.r, b.bounced ? 1 : 0]),
             p: s.picks.map(p => [p.id, round(p.x), round(p.y), p.w]),
             m: s.mines.map(q => [q.id, q.o, round(q.x), round(q.y), r1(q.age)]),
@@ -805,7 +834,8 @@
             t.sx = num(a[0]) ? a[0] : t.x; t.sy = num(a[1]) ? a[1] : t.y; t.sa = num(a[2]) ? a[2] : t.a;
             t.x = t.sx; t.y = t.sy; t.a = t.sa;
             t.alive = a[3] === 1; t.w = a[4] >= 0 && a[4] < W_IDS.length ? W_IDS[a[4]] : ''; t.moving = a[5] === 1; t.frag = a[6] ? 1 : 0;
-            t.fpSeen = a[7] | 0;
+            t.fpSeen = Number.isSafeInteger(a[7]) && a[7] >= 0 ? a[7] : 0;
+            t.cool = num(a[8]) ? clamp(a[8], 0, TK.FIRE_GAP) : 0;
         });
         if (Array.isArray(d.b)) s.shells = d.b.filter(a => Array.isArray(a) && a.length >= 11).slice(0, 400).map(a => ({ id: a[0], k: KINDS[a[1]] || 's', o: a[2] | 0, x: +a[3], y: +a[4], vx: +a[5], vy: +a[6], age: +a[7], life: +a[8], r: +a[9] || 2, bounced: a[10] === 1, tgt: -1 }));
         if (Array.isArray(d.p)) s.picks = d.p.filter(a => Array.isArray(a)).slice(0, 12).map(a => ({ id: a[0], x: +a[1], y: +a[2], w: clamp(a[3] | 0, 0, W_IDS.length - 1) }));

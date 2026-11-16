@@ -1,5 +1,7 @@
 [
 
+    { "date": "2026-11-16", "icon": "🪖", "title": "tankz: make each shell count", "text": "the cannon now takes a breath between shots: three shell slots, a visible reload meter, and missed shots clear sooner. the mazes have marked combat yards, cover and a second exit from every cell instead of dead-end pockets. bank shots and the six files stay. everybody needs a refresh before joining an updated room.", "button": "drive", "app": "tankz" },
+
     { "date": "2026-11-16", "icon": "🏰", "title": "age of troll: new castles", "text": "the walls got rebuilt. a desk at dial-up, then a fortress made out of a beige pc: the case is the keep, a keyboard is the curtain wall, keycaps are the battlements and the gate is a floppy slot. towers come with the ages, banners and a roof in your colour, turrets on the battlements, and damage that cracks the stone instead of the sky.", "button": "take a look", "app": "ageoftroll" },
 
     { "date": "2026-11-16", "icon": "🖥", "title": "age of troll: the server matters", "text": "sitting at home on six modems and three turrets won games it should not have: the wall paid back nearly everything it shot. now the server in the middle doubles your xp and makes your kills pay more, kill xp is lower, and the last three modems cost what they are worth. take the middle. old replay links say they are from an older version.", "button": "fight for it", "app": "ageoftroll" },
