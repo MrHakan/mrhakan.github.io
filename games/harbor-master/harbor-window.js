@@ -17,7 +17,7 @@
             style.href = 'games/harbor-master/harbor-window.css';
             document.head.appendChild(style);
         }
-        const app = createAppWindow('harbor master 98', { icon: 'anchor', width: Math.min(980, viewportWidth() - 24) });
+        const app = createAppWindow('harbor master 98', { icon: 'explore', width: Math.min(980, viewportWidth() - 24) });
         app.win.classList.add('harbor-window');
         const frame = document.createElement('iframe');
         frame.className = 'harbor-frame';

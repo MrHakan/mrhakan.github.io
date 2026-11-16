@@ -448,7 +448,7 @@ function openWaveShaper() {
 
 function openHarborMaster() {
     if (window.startHarborMaster) { startHarborMaster(); return; }
-    const { body, win } = createAppWindow('harbor master 98', { icon: 'anchor', width: 320 });
+    const { body, win } = createAppWindow('harbor master 98', { icon: 'explore', width: 320 });
     body.innerHTML = '<div class="bj-loading">raising the harbor chart...</div>';
     LAZY.load('games/harbor-master/harbor-window.js').then(() => {
         replaceLazyWindow(win, () => startHarborMaster());
