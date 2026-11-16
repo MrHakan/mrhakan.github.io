@@ -209,8 +209,20 @@ input paths before writing. It is not a generator for the game itself or a
 replacement for browser checks. The external daily publisher should run the
 preflight before committing; its implementation is not part of this repo.
 
-Both verification jobs have explicit timeouts. Wizardz's browser step is
+### CI scheduling
+
+Verification uses one Node job and three sequential browser lanes (`arena`,
+`worlds`, `desktop`): at most four test runners per workflow, not one per game.
+PRs run this workflow directly; main pushes run it **only** through Pages'
+reusable `verify` job. The build still waits for every lane to pass.
+Obsolete PR runs are cancelled when a new commit arrives; Pages verification
+is not cancelled by that policy. Each lane keeps its own screenshot artifact.
+
+All verification jobs have 30-minute limits. Wizardz's browser step remains
 limited to 15 minutes so a hung game cannot hold the Pages queue for hours.
+The workflow contract check guards coverage, grouping, triggers and deploy
+prerequisites. See [the timing baseline](.github/CI-TIMINGS.md) for measurements,
+projections and how to review them before a PR.
 
 There is no framework. Each script loads the real files, asserts, and
 exits non-zero if anything drifted.

@@ -6,28 +6,19 @@ name: Check the games
 # them apart when they are drawn badly, and makes sure the multiplayer
 # relay still relays. Deploys wait for it — see deploy.yml.
 
+# Main pushes are verified by deploy.yml's reusable-workflow call. Adding a
+# second push trigger here would run the entire suite twice for the same SHA.
 on:
-    push:
-        branches: [main]
-        paths:
-            - "games/**"
-            - "apps/**"
-            - "server/**"
-            - "index.html"
-            - "guestbook.html"
-            - "links.html"
-            - "js/**"
-            - "css/**"
-            - "sw.js"
-            - "data/site.json"
-            - "data/news.json"
-            - "data/github.json"
-            - "data/playground.json"
-            - ".github/scripts/**"
-            - ".github/workflows/games-ci.yml"
     pull_request:
     workflow_call:
     workflow_dispatch:
+
+# Retire obsolete PR commits, never cancel verification owned by a Pages run.
+# github.workflow is the caller's name for workflow_call; keep this group
+# distinct from deploy.yml's "pages" group so a child cannot cancel its parent.
+concurrency:
+    group: games-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
     contents: read
@@ -170,10 +161,17 @@ jobs:
             - name: Check the trophy room and the manifest
               run: node .github/scripts/check-trophies.mjs
 
+    # Three sequential lanes, balanced from successful Actions step timings.
+    # Keep one Node runner + three browser runners, not a runner per game.
     browser:
-        name: it actually opens in a browser
+        name: browser / ${{ matrix.group }}
         runs-on: ubuntu-latest
-        timeout-minutes: 60
+        timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            max-parallel: 3
+            matrix:
+                group: [arena, worlds, desktop]
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -187,6 +185,7 @@ jobs:
               run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
 
             - name: Smoke test every daily Playground page
+              if: matrix.group == 'desktop'
               run: |
                   python3 -m http.server 8095 &
                   site_pid=$!
@@ -198,6 +197,7 @@ jobs:
                   SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-waveshaper.mjs
 
             - name: Boot the site, open the game, draw a sigil, run two lobbies
+              if: matrix.group == 'desktop'
               env:
                   # the "public relays" transport is exercised against our own
                   # stand-in relay, so CI does not lean on strangers' servers
@@ -217,6 +217,7 @@ jobs:
             # whatever the network allows, and a direct link dying mid-duel.
             # It brings its own stand-ins for peerjs and the relays
             - name: Invite links, and what happens with no direct route
+              if: matrix.group == 'desktop'
               run: |
                   python3 -m http.server 8092 &
                   sleep 2
@@ -226,6 +227,7 @@ jobs:
             # list and through quick match, hosts going, and rubbish on the relay.
             # It brings its own server and stand-in relay
             - name: Open lobbies and quick match
+              if: matrix.group == 'desktop'
               run: node .github/scripts/browser-lobbies.mjs
 
             # the reading layer, driven the way a person drives it: type a
@@ -234,6 +236,7 @@ jobs:
             # python's http.server does not answer an unknown path with
             # 404.html the way github pages does.
             - name: Deep links, the address bar, favorites and quoting
+              if: matrix.group == 'desktop'
               run: |
                   python3 -m http.server 8097 &
                   site_pid=$!
@@ -247,6 +250,7 @@ jobs:
             # tic-tac-toe it expects to lose, tiles merged in 2048, and the
             # pet's clock wound back nine hours to see if it gets hungry.
             - name: Play the arcade and the toys
+              if: matrix.group == 'desktop'
               run: |
                   python3 -m http.server 8096 &
                   site_pid=$!
@@ -261,6 +265,7 @@ jobs:
             # cannot be dragged by a finger, and a game that needs a hover
             # cannot be played by one
             - name: Open it all on a phone
+              if: matrix.group == 'desktop'
               run: |
                   python3 -m http.server 8097 &
                   site_pid=$!
@@ -272,6 +277,7 @@ jobs:
             # and the RPG, which is all DOM and two canvases: roll a
             # character, sail, fight, forge and put a line in the water
             - name: Play echoes of the tide
+              if: matrix.group == 'worlds'
               run: |
                   python3 -m http.server 8098 &
                   site_pid=$!
@@ -284,6 +290,7 @@ jobs:
             # another between two browsers, direct and over the relays. It brings
             # its own stand-ins for peerjs and the relays
             - name: Play age of troll
+              if: matrix.group == 'worlds'
               run: |
                   python3 -m http.server 8103 &
                   site_pid=$!
@@ -297,6 +304,7 @@ jobs:
             # browsers direct and over the relays, a link dying and a player going.
             # It brings its own stand-ins for peerjs and the relays
             - name: Play wizardz
+              if: matrix.group == 'arena'
               timeout-minutes: 15
               run: |
                   python3 -m http.server 8104 &
@@ -310,6 +318,7 @@ jobs:
             # up, a phone, and two browsers direct and over the relays with the link
             # dying and a guest walking out. Its own stand-ins for peerjs and the relays
             - name: Play dungeonz
+              if: matrix.group == 'worlds'
               run: |
                   python3 -m http.server 8105 &
                   site_pid=$!
@@ -323,6 +332,7 @@ jobs:
             # and four browsers direct and over the relays with a player dropping out.
             # It brings its own server and stand-ins for peerjs and the relays
             - name: Play the troll problem
+              if: matrix.group == 'worlds'
               run: node .github/scripts/browser-troll-problem.mjs
 
             # a match from the start menu to the end with real keys, the picture from every camera,
@@ -330,20 +340,24 @@ jobs:
             # three over the relays with the bytes counted and a newcomer taking a seat, eight
             # browsers in one match over the relays, and the open lobby list. It brings its own server and stand-ins for peerjs and the relays
             - name: Play Brawlz 98 with four browsers
+              if: matrix.group == 'arena'
               run: node .github/scripts/browser-rift-animation.mjs && node .github/scripts/browser-rift-rumble.mjs
 
             - name: Ride trailz
+              if: matrix.group == 'arena'
               run: node .github/scripts/browser-trailz.mjs
 
             # a match from the start menu to its table with real keys, three people at one
             # keyboard, a phone's stick and fire button, two browsers through the room and back to
             # it with a latecomer, and three over the relays with the bytes counted and one walking out
             - name: Drive tankz
+              if: matrix.group == 'arena'
               run: node .github/scripts/browser-tankz.mjs
             # one player and two on one keyboard with real keys and the mouse, a phone, two tabs
             # through the room and two matches, four browsers over a real relay with lag and a
             # drop, and the desktop lobby. It brings its own server and relay
             - name: Play blastz
+              if: matrix.group == 'desktop'
               run: node .github/scripts/browser-blastz.mjs
 
             # what players ran into on the two 3d shooters: fullscreen on a 2560x1440 screen at
@@ -351,21 +365,25 @@ jobs:
             # the mouse locked, and firing with the right button held. A stand-in pointer lock that
             # behaves like Chrome's, and its own server
             - name: The 3d shooters, as players found them
+              if: matrix.group == 'worlds'
               run: node .github/scripts/browser-ps1-feel.mjs
 
             # the auto scaler moves a real mouse by a known number of real pixels on
             # the screens people have, and presses every button in the news panel.
             # It brings its own server and sends nothing off the machine
             - name: The auto scaler and the news panel
+              if: matrix.group == 'desktop'
               run: node .github/scripts/browser-scale.mjs
 
             # the trophy room opened, earned in, and fed broken saves; the install
             # button; Chrome's own installability verdict; and every game opened
             # with the cable out. It brings its own server on localhost
             - name: The trophy room, the install and offline
+              if: matrix.group == 'desktop'
               run: node .github/scripts/browser-trophies.mjs
 
             - name: Giscus isolation, responsive boards and failure recovery
+              if: matrix.group == 'desktop'
               run: |
                   python3 -m http.server 8102 &
                   site_pid=$!
@@ -378,7 +396,7 @@ jobs:
               if: always()
               uses: actions/upload-artifact@v4
               with:
-                  name: screenshots
+                  name: screenshots-${{ matrix.group }}
                   path: .ci-shots/
                   if-no-files-found: ignore
                   include-hidden-files: true
