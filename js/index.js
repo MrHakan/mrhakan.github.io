@@ -297,6 +297,8 @@ function appActions() {
         blastz: openBlastz,
         brawlz: openRiftRumble,
         waveshaper: openWaveShaper,
+        harbormaster: openHarborMaster,
+        harbor: openHarborMaster,
         becomeuser: openBecomeUser,
         wizardz: () => openWizardz(),
         wizardzbot: () => openWizardz('bot'),

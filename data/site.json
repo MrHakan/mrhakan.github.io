@@ -164,6 +164,17 @@
     ],
     "changelog": [
         {
+            "version": "10.5",
+            "date": "2026-11-16",
+            "changes": [
+                "harbor master 98: patron wants the cargo quay, joe cool has a ferry to catch, sahur wants the night berth. plot waypoints, keep ships apart, and finish a two-minute watch. repeatable traffic seeds, keyboard and touch, local records",
+                "the harbor record travels in my documents backups too. it opens as a desktop window from the games tab and the start menu, with no account or outside service",
+                "a playground publication preflight checks the page, catalog, routes and deploy files together. missing open graph fields can be derived from the page's own title and description without rewriting the game",
+                "verification jobs have time limits, and a stuck wizardz browser step cannot keep the pages deploy queue for hours",
+                "online player ids are bound to verified signing keys across direct and relay routes. copied ids cannot impersonate another player, and goodbye drains before disconnecting. old cached clients need a refresh; code-only joins still trust the first signed host"
+            ]
+        },
+        {
             "version": "10.4",
             "date": "2026-11-14",
             "changes": [

@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 const base = (process.env.SITE_URL || 'http://127.0.0.1:8095').replace(/\/$/, '');
 // Native desktop apps are exercised by their integration tests, not the standalone-page contract.
 const catalog = JSON.parse(await readFile('data/playground.json', 'utf8')).filter(item => !item.app);
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true,
+    ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}) });
 const failures = [];
 
 for (const viewport of [{ name: 'desktop', width: 1280, height: 800 }, { name: 'mobile', width: 390, height: 844 }]) {

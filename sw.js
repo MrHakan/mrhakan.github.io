@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v60';
+const CACHE = 'mrhakan98-v61';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -76,6 +76,10 @@ const PRECACHE_LATER = [
     '/games/rift-rumble/art/rig-oleey.webp',
     '/games/rift-rumble/art/rig-yeter.webp',
     '/games/rift-rumble/art/rig-pffft.webp',
+    '/games/harbor-master/',
+    '/games/harbor-master/?embed=1',
+    '/games/harbor-master/harbor-window.js',
+    '/games/harbor-master/harbor-window.css',
     '/games/waveshaper/',
     '/games/waveshaper/?embed=1',
     '/games/waveshaper/waveshaper-sim.js',
