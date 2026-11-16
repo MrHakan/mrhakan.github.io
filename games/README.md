@@ -1,5 +1,27 @@
 # games
 
+## harbor master 98
+
+`harbor-master/index.html` is a local-only arcade game. On the site it opens
+as a desktop popup window (`harbor-window.js` frames `?embed=1`) from the games
+tab, the start menu and search; the page also works on its own. Route ships into the lettered berth matching their
+captain: Patron (cargo A), Joe Cool (ferry B), Sahur (night shift C). Each
+docking earns 100; a collision, wrong berth or grounding ends the two-minute
+watch. Choose a ship, tap waypoints and its berth, or use the manifest and
+matching-berth button. On the focused chart, arrows move the crosshair,
+Enter adds a waypoint, Backspace undoes it and Escape clears the route.
+
+The inline `harbor-sim` script exports a DOM-free fixed-20-Hz simulation.
+Arrivals use a seeded integer PRNG, admission waits for a clear entrance,
+and relative-motion collision checks prevent ships tunnelling between ticks.
+`check-harbor-master.mjs` covers rules; `browser-harbor-master.mjs` plays the
+real keyboard and touch controls. Hidden tabs pause explicitly, with no
+catch-up on return. `harbor-master-98-best` stores only the local record.
+Its catalog entry uses `daily:false` and `app: "harbormaster"`, so the games tab
+launches the popup instead of a new tab. Minimising the window pauses the watch.
+
+The sections below describe the larger desktop games.
+
 Every game here is at least two files — `<name>-data.js` (content) and
 `<name>.js` (engine) — loaded on demand by `extras.js` and rendered into
 a window from `createAppWindow()`. No build step, no framework, no
@@ -395,6 +417,19 @@ So over the relays it needs 3 snapshots a second rather than 8. Guests send
 numbered commands, resend whatever the next snapshots have not acknowledged, and
 the host ignores a number it has seen, because relays drop and reorder things.
 
+### the server is worth holding
+
+A decoded 28 minute online game showed the other way to win: stay home behind
+turrets, buy all six modems, train only when something comes close, and let
+the wall hand back 90% of every attacker as bounty and kill xp. The side that
+pushed held the server almost all game and still lost. Now the server doubles
+the age's xp trickle (`SERVER.xp` 0.4 to 1.0) and its holder's kills pay a
+tenth more (`SERVER.kill`), kill xp is 0.4 of a unit's cost (was 0.5), and the
+last three modems cost 1600, 3200 and 6000 (were 1150, 2100 and 3700).
+`check-age-of-troll.mjs` plays that turtle against a side that keeps an army
+out: it has to win at least 65% (2 of 24 before, 20 of 24 now), while every
+bot plan stays between 20% and 80% against the field.
+
 ### replays
 
 The rules read no clock, no `Math.random` and no frame time, and the only
@@ -714,6 +749,31 @@ and Brawlz 98's twelve fighters (their cutout rigs and skeleton, holding a gun).
 four players on one computer (two share the keyboard, gamepads for more) or online in
 the same kind of room as Brawlz 98, bots in the empty seats. Everything about it is in
 [blastz/README.md](blastz/README.md).
+
+## multiplayer identity and compatibility
+
+Protocol 2 gives each auto session one ephemeral signing key. Its public key
+is the player ID on both direct and relay routes, so a fallback keeps the same
+seat. Nostr events are checked locally before their sender, decrypted payload
+or sequence can affect a session. Direct connections prove that same key once,
+bound to the room and broker ID; ordinary game frames reuse the authenticated
+connection. Plain peer mode signs the same way: a broker ID is reusable once
+its owner leaves, so it is never a player identity on its own. Relay
+signature checks are bounded only for keys that have not yet proved the room
+key, so a flood of throwaway keys, or forgeries claiming a player's public
+key, cannot crowd out players already in the room.
+
+Only that authenticated speaker may claim its player ID. The pinned host may
+forward guest traffic between routes, but only the host may send roster, game,
+options and start controls. Pending relay batches, including goodbye, drain
+before the transport closes. Cached protocol-1 clients need to refresh; there
+is no unsigned fallback to the old auto identities.
+
+This is not account authentication or a private-membership system. A code-only
+relay join trusts the first signed host roster that seats it: the invite does
+not pin a host key in advance. Keep the room code private, and keep validating
+game intents on the authoritative host. Signing alone does not prevent cheating
+by a participant or a dishonest host.
 
 ## adding multiplayer to a game
 

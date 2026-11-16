@@ -468,7 +468,7 @@
                     showSpecial(g, e, fancy, mine);
                     break;
                 case 'server':
-                    addBanner(g, g.watch ? nameOf(g, e.s) + ' took the server' : mine ? 'you took the server: more gold, more xp' : 'they took the server', mine ? '#c8ffc8' : '#ffd0d0');
+                    addBanner(g, g.watch ? nameOf(g, e.s) + ' took the server' : mine ? 'you took the server: more gold, double xp, kills pay more' : 'they took the server', mine ? '#c8ffc8' : '#ffd0d0');
                     break;
                 case 'modem':
                     if (mine && !g.watch) say('modem upgraded: income is now +' + Math.round(A.incomeOf(g.s, g.me) * 10) / 10 + '/s');
@@ -627,6 +627,19 @@
 
     function drawWall(c, leftEdge, flip, side, p, t) {
         const age = p.age, plan = wallPlan(age), W = plan.W;
+        // Landscape crops sky from the scene, not from the fixed HUD. Fit only
+        // the castle art below it, anchored at the gate's ground-level edge;
+        // the lane, troops and simulation keep their original coordinates.
+        const highest = Math.min(...plan.parts.map(part => part[1]),
+            ...plan.mounts.map(mount => mount[1] - 18), plan.flag ? plan.flag[1] - 26 : GY - 104);
+        const cropTop = Math.max(0, Math.round(H * scale) - cv.height);
+        const ceiling = cropTop / scale + 38;
+        const fit = Math.min(1, Math.max(1, GY - ceiling) / (GY - highest));
+        const gateX = leftEdge + (flip ? 0 : W);
+        c.save();
+        c.translate(gateX, GY);
+        c.scale(fit, fit);
+        c.translate(-gateX, -GY);
         const mine = side === G.me;
         const tint = mine ? COLOR.me : COLOR.foe, tintHi = mine ? COLOR.meHi : COLOR.foeHi;
         const X = (x, w) => leftEdge + (flip ? W - x - w : x);
@@ -879,6 +892,7 @@
             c.fillStyle = 'rgba(255,255,255,' + (hit * 0.18) + ')';
             plan.parts.forEach(([x, y, w, h]) => c.fillRect(X(x, w), y - 2, w, h + 2));
         }
+        c.restore();
     }
 
     function drawServer(c, t) {
@@ -2076,7 +2090,7 @@
                 <li><b>hold / march</b>: held units wait at your rally line, so they arrive as a wave and not a trickle. every kill pays the killer, so a trickle is a gift.</li>
                 <li><b>turrets</b>: a ping gun reaches far, a spam cannon hits a crowd. every new age or two opens a slot. your wall also has a free firewall.</li>
                 <li><b>modem</b>: more income forever. buy too many too early and a rush walks in.</li>
-                <li><b>the server</b> in the middle pays whoever stands on it: more gold, more xp. sitting on your wall hands it over.</li>
+                <li><b>the server</b> in the middle pays whoever stands on it: more gold, double the xp, and every kill pays a tenth more. sitting on your wall hands it over, and modems alone will not make up for it.</li>
                 <li><b>special</b>: one per age, on a long cooldown, aimed at their front.</li>
                 <li><b>overclock</b>: the age button once there are no ages left. how a stalemate breaks.</li>
                 <li><b>disk full</b>: at ${Math.round(A.DISK_FULL_AT / 60)} minutes both walls start failing, so it always ends, and whoever was ahead wins.</li>

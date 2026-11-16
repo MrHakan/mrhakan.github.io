@@ -117,13 +117,17 @@
     AOT.unitFor = (age, role) => role === 3 ? AOT.UNITS[AOT.BOSS] : AOT.UNITS[age * 3 + role];
 
     AOT.BOUNTY = 0.4;               // of a dead unit's cost, to whoever killed it
-    AOT.KILL_XP = 0.5;              // of a dead unit's cost
+    AOT.KILL_XP = 0.4;              // of a dead unit's cost. Was 0.5: with the bounty a
+                                    // wall handed back 90% of every attacker it shot, and
+                                    // sitting at home out-levelled the side that fought
     AOT.BASE_HIT_XP = 0.012;        // per point of wall damage
     AOT.BASE_HIT_GOLD = 0.016;      // so pushing a wall pays for the push
 
     // the modem: greed, as a button. each level adds this much to the age's income
     AOT.MODEM_STEP = 0.24;
-    AOT.MODEM_COST = [160, 320, 620, 1150, 2100, 3700];
+    // the first three are a plan; the last three were a way to win without
+    // fighting (1150, 2100, 3700), so they cost what they are worth now
+    AOT.MODEM_COST = [160, 320, 620, 1600, 3200, 6000];
 
     // two turrets, and an age's version of each. a slot opens with the age
     AOT.TURRETS = [
@@ -148,11 +152,14 @@
 
     // the server in the middle of the lane. Whoever holds it gets paid more, so
     // two sides that only guard their walls are both giving up the same prize.
+    // It has to be worth more than modems and a wall that shoots for free, or
+    // the side that never leaves home wins (it did, 22 games in 24).
     AOT.SERVER = {
         radius: 150,                // units this close count as being on it
         capture: 12,                // seconds to swing it from neutral to yours
         income: 0.2,                // on top of the age's income
-        xp: 0.4                     // on top of the age's trickle
+        xp: 1.0,                    // on top of the age's trickle: double it (was 0.4)
+        kill: 0.1                   // more bounty and kill xp while you hold it
     };
 
     // one special per age, on a long cooldown, aimed at the enemy's front

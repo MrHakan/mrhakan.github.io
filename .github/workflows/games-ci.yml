@@ -36,6 +36,7 @@ jobs:
     games:
         name: spells, sigils and wiring
         runs-on: ubuntu-latest
+        timeout-minutes: 30
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -47,8 +48,17 @@ jobs:
 
             # no npm install anywhere in here on purpose: the site has no
             # dependencies and neither does its test suite
+            - name: Check workflow timeout contracts
+              run: node .github/scripts/check-workflow-timeouts.mjs
+
+            - name: Check Playground metadata tooling
+              run: node .github/scripts/check-playground-metadata.mjs
+
             - name: Validate the daily Playground catalog
               run: node .github/scripts/check-playground.mjs
+
+            - name: Check Harbor Master traffic and saves
+              run: node .github/scripts/check-harbor-master.mjs
 
             - name: Check WAVESHAPER rules and input
               run: node .github/scripts/check-waveshaper.mjs
@@ -163,6 +173,7 @@ jobs:
     browser:
         name: it actually opens in a browser
         runs-on: ubuntu-latest
+        timeout-minutes: 60
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -183,6 +194,7 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-playground.mjs
+                  SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-harbor-master.mjs
                   SITE_URL=http://127.0.0.1:8095 node .github/scripts/browser-waveshaper.mjs
 
             - name: Boot the site, open the game, draw a sigil, run two lobbies
@@ -279,11 +291,13 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8103 node .github/scripts/browser-age-of-troll.mjs
+                  SITE_URL=http://localhost:8103 node .github/scripts/browser-aot-castles.mjs
 
             # a match to the end with a real mouse, a phone with real thumbs, two
             # browsers direct and over the relays, a link dying and a player going.
             # It brings its own stand-ins for peerjs and the relays
             - name: Play wizardz
+              timeout-minutes: 15
               run: |
                   python3 -m http.server 8104 &
                   site_pid=$!

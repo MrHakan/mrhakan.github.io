@@ -1,0 +1,22 @@
+.harbor-window .app-window-body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.harbor-frame {
+    display: block;
+    border: 0;
+    width: 100%;
+    height: min(78vh, 820px);
+    background: #c0c0c0;
+}
+.harbor-window.fs-active .app-window-body,
+.harbor-window.maximized .app-window-body { flex: 1; }
+.harbor-window.fs-active .harbor-frame,
+.harbor-window.maximized .harbor-frame {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+}

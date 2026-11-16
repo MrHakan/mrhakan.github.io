@@ -8,6 +8,31 @@
     <atom:link href="https://mrhakan.github.io/feed.xml" rel="self" type="application/rss+xml" />
 
     <item>
+      <title>v10.5 — harbor master, and a safer publication preflight</title>
+      <link>https://mrhakan.github.io/games/harbor-master/</link>
+      <guid isPermaLink="false">mrhakan-v10.5</guid>
+      <pubDate>Mon, 16 Nov 2026 00:52:58 +0300</pubDate>
+      <description><![CDATA[
+        Harbor Master 98 puts Patron, Joe Cool and Sahur in charge of ships.
+        Select a vessel, plot waypoints and bring it into the matching berth
+        without a collision. Two-minute watches, repeatable traffic seeds,
+        keyboard and touch controls, local records and no outside service.
+        Its record travels in My Documents backups too.
+        It opens as a desktop window from the games tab and the start menu.
+
+        Playground releases now have a publication preflight and an opt-in
+        repair for missing Open Graph metadata. Existing social copy and game
+        code stay intact. Browser verification has time limits so a hung game
+        cannot hold the Pages deployment queue for hours.
+
+        Multiplayer binds player IDs to verified signing keys across direct
+        and relay routes, and drains goodbye before disconnecting. Older cached
+        clients need a refresh. Code-only joins still trust the first signed
+        host; this is not account authentication.
+      ]]></description>
+    </item>
+
+    <item>
       <title>v10.4 — brawlz, blastz and tankz</title>
       <link>https://mrhakan.github.io/?app=changelog</link>
       <guid isPermaLink="false">mrhakan-v10.4</guid>

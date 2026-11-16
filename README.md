@@ -186,6 +186,32 @@ node .github/scripts/browser-mobile.mjs
 
 ## The tests
 
+### Publishing a Playground drop
+
+Finish the page, its `data/playground.json` entry and sitemap URL before
+publishing them together. Missing social metadata blocks Pages just like a
+broken game does. The preflight never changes the page:
+
+```sh
+npm run playground:preflight
+```
+
+If a new page is missing `og:title` or `og:description`, derive just those
+fields from its own title and description, inspect the diff, and check again:
+
+```sh
+npm run playground:metadata -- --write
+npm run playground:preflight
+```
+
+The repair preserves existing social copy and game code, and validates all
+input paths before writing. It is not a generator for the game itself or a
+replacement for browser checks. The external daily publisher should run the
+preflight before committing; its implementation is not part of this repo.
+
+Both verification jobs have explicit timeouts. Wizardz's browser step is
+limited to 15 minutes so a hung game cannot hold the Pages queue for hours.
+
 There is no framework. Each script loads the real files, asserts, and
 exits non-zero if anything drifted.
 
