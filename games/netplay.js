@@ -34,7 +34,7 @@
     const NP = {};
     window.Netplay = NP;
 
-    NP.VERSION = 1;                 // protocol version, bumped on breaking changes
+    NP.VERSION = 2;                 // sender binding; cached v1 clients must refresh
     const PEER_PREFIX = 'mrh98-';   // namespaces our codes on the shared public broker
     // in order: if one cdn is down or blocked, the other one gets a go
     const PEERJS_CDNS = [
@@ -233,12 +233,44 @@
         const answerMs = (opts && opts.answerMs) || 15000;
         let peer = null;
         const conns = new Map();     // peerId -> DataConnection (host side)
+        const signedRoutes = new Map();  // a verified auto identity -> its direct connection
         let hostConn = null;         // guest side
 
         function wire(conn) {
-            conn.on('data', d => t.h.data && t.h.data(conn.peer, d));
-            conn.on('close', () => { conns.delete(conn.peer); t.h.leave && t.h.leave(conn.peer); });
-            conn.on('error', () => { conns.delete(conn.peer); t.h.leave && t.h.leave(conn.peer); });
+            let identity = null, receiving = Promise.resolve(), ended = false;
+            conn.on('data', packet => {
+                // AutoTransport owns authentication on its raw direct leg. The
+                // standalone peer mode must understand that same signed wrapper.
+                // the connection object is the token: a broker ID can be reused
+                if (opts && opts.rawWire) return t.h.data && t.h.data(conn.peer, packet, conn);
+                receiving = receiving.then(async () => {
+                    if (ended) return;
+                    const auth = packet && typeof packet === 'object' && packet.auth;
+                    const msg = auth ? packet.msg : packet;
+                    if (!identity) {
+                        if (auth) {
+                            if (!/^[0-9a-f]{64}$/.test(auth.id) || !/^[0-9a-f]{128}$/.test(auth.proof)) return;
+                            const hash = await bip340.sha256(new TextEncoder().encode(JSON.stringify(['netplay-direct-v2', code, conn.peer])));
+                            if (!await bip340.verify(hash, bip340.fromHex(auth.id), bip340.fromHex(auth.proof)) || ended) return;
+                            identity = auth.id;
+                            signedRoutes.set(identity, conn);
+                        } else {
+                            if (/^[0-9a-f]{64}$/.test(conn.peer)) return;
+                            identity = conn.peer;
+                        }
+                        if (!isHost) t.hostId = identity;
+                    } else if (auth && auth.id !== identity) return;
+                    t.h.data && t.h.data(identity, msg);
+                }).catch(() => { });
+            });
+            const leave = () => {
+                ended = true;
+                conns.delete(conn.peer);
+                if (signedRoutes.get(identity) === conn) signedRoutes.delete(identity);
+                t.h.leave && t.h.leave(identity || conn.peer, conn);
+            };
+            conn.on('close', leave);
+            conn.on('error', leave);
         }
 
         t.open = function () {
@@ -268,7 +300,9 @@
                     }
                     const conn = peer.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' });
                     hostConn = conn;
-                    t.hostId = PEER_PREFIX + code;
+                    // Plain peer guests learn the host's logical ID from this
+                    // specific channel; auto keeps the physical route internally.
+                    t.hostId = opts && opts.rawWire ? PEER_PREFIX + code : null;
                     conn.on('open', () => {
                         wire(conn);
                         if (!settled) { settled = true; resolve(); }
@@ -297,7 +331,7 @@
         t.send = function (to, msg) {
             if (isHost) {
                 if (!to || to === '*') conns.forEach(c => { try { c.send(msg); } catch (e) { } });
-                else { const c = conns.get(to); if (c) { try { c.send(msg); } catch (e) { } } }
+                else { const c = signedRoutes.get(to) || conns.get(to); if (c) { try { c.send(msg); } catch (e) { } } }
             } else if (hostConn) {
                 try { hostConn.send(msg); } catch (e) { }
             }
@@ -305,6 +339,7 @@
         t.close = function () {
             conns.forEach(c => { try { c.close(); } catch (e) { } });
             conns.clear();
+            signedRoutes.clear();
             try { hostConn && hostConn.close(); } catch (e) { }
             try { peer && peer.destroy(); } catch (e) { }
         };
@@ -641,19 +676,22 @@
     }
     NP.nostr = { KIND: NOSTR_KIND, bip340, RelayPool, signEvent, verifyEvent };
 
-    function NostrTransport(code, isHost) {
+    function NostrTransport(code, isHost, identity) {
         const t = { kind: 'bus', id: null, h: {}, code };
         const known = new Set();         // peers we have told the session about
+        const verifying = new Set();     // duplicate relay copies share one signature check
         const streams = new Map();       // peer -> how far through their batches we are
         let seen = new Set(), seenBefore = new Set();   // event ids already handled
-        let room = null, sk = null, queue = [], flushTimer = null, closed = false;
-        let sent = 0, pool = null, inFlight = null;
+        let room = null, sk = null, queue = [], flushTimer = null, closed = false, closing = false;
+        let sent = 0, pool = null;
+        const inFlight = new Set();
 
-        // a batch is sealed and signed before it goes, which takes a moment;
-        // close() waits for one that is on its way rather than cutting it off
+        // batches can overlap while they are sealed and signed; close() must
+        // wait for all of them, not just the most recently started one
         function flush() {
-            const p = post().finally(() => { if (inFlight === p) inFlight = null; });
-            return (inFlight = p);
+            const p = post().finally(() => inFlight.delete(p));
+            inFlight.add(p);
+            return p;
         }
         async function post() {
             flushTimer = null;
@@ -672,7 +710,7 @@
             }
         }
         function enqueue(to, msg) {
-            if (closed) return;
+            if (closed || closing) return;
             queue.push({ to: to || '*', msg });
             // one signature per batch instead of one per message, which
             // also keeps the relays from calling it flooding
@@ -711,21 +749,35 @@
             }
         }
         async function onEvent(ev) {
-            if (!ev || ev.kind !== NOSTR_KIND || seen.has(ev.id) || seenBefore.has(ev.id)) return;
-            seen.add(ev.id);
-            // two generations, so forgetting old ids cannot let a slow relay's
-            // copy of a recent one back in
-            if (seen.size > 400) { seenBefore = seen; seen = new Set(); }
-            if (ev.pubkey === t.id) return;
-            let batch = null;
-            try { batch = await unseal(room.key, ev.content); } catch (e) { return; }  // someone else's room
-            if (!Array.isArray(batch)) return;
-            if (!known.has(ev.pubkey)) {
-                known.add(ev.pubkey);
-                t.h.peer && t.h.peer(ev.pubkey);
+            if (closed || !room || !ev || ev.kind !== NOSTR_KIND || ev.pubkey === t.id ||
+                !/^[0-9a-f]{64}$/.test(ev.id) || !/^[0-9a-f]{64}$/.test(ev.pubkey) ||
+                !/^[0-9a-f]{128}$/.test(ev.sig) || typeof ev.content !== 'string' || ev.content.length > 262144 ||
+                !Number.isInteger(ev.created_at) || Math.abs(Date.now() / 1000 - ev.created_at) > 120 ||
+                !Array.isArray(ev.tags) || !ev.tags.some(tag => Array.isArray(tag) && tag[0] === 'd' && tag[1] === room.tag) ||
+                seen.has(ev.id) || seenBefore.has(ev.id) || verifying.size >= 64) return;
+            // Only identical signed copies share pending work: an unverified
+            // signature must not reserve the ID against a different, valid copy.
+            const copy = JSON.stringify([ev.id, ev.sig, ev.pubkey, ev.kind, ev.created_at, ev.tags, ev.content]);
+            if (verifying.has(copy)) return;
+            verifying.add(copy);
+            try {
+                // A relay is not trusted to check the signature. Do not let an invalid
+                // copy poison deduplication, create a peer or affect Session liveness.
+                if (!await verifyEvent(ev) || closed) return;
+                let batch;
+                try { batch = await unseal(room.key, ev.content); } catch (_) { return; }
+                if (closed || !Array.isArray(batch) || seen.has(ev.id) || seenBefore.has(ev.id)) return;
+                seen.add(ev.id);
+                if (seen.size > 400) { seenBefore = seen; seen = new Set(); }
+                if (!known.has(ev.pubkey)) {
+                    known.add(ev.pubkey);
+                    t.h.peer && t.h.peer(ev.pubkey);
+                }
+                if (batch[0] && typeof batch[0].n === 'number') inOrder(ev.pubkey, batch[0].n, batch.slice(1));
+                else deliver(ev.pubkey, batch);
+            } finally {
+                verifying.delete(copy);
             }
-            if (batch[0] && typeof batch[0].n === 'number') inOrder(ev.pubkey, batch[0].n, batch.slice(1));
-            else deliver(ev.pubkey, batch);
         }
         t.open = function () {
             return new Promise((resolve, reject) => {
@@ -733,7 +785,7 @@
                 t.h.status && t.h.status('signing in to the public relays...');
                 roomFromCode(code).then(r => {
                     room = r;
-                    sk = bip340.newKey();
+                    sk = identity || bip340.newKey();
                     return bip340.pubkey(sk);
                 }).then(pub => {
                     if (closed) return reject(new Error('closed before the relays answered'));
@@ -765,18 +817,19 @@
         };
         t.send = function (to, msg) { enqueue(to, msg); };
         t.close = function () {
-            if (closed) return;
+            if (closed || closing) return;
+            closing = true;
             const finish = () => {
                 closed = true;
                 clearTimeout(flushTimer);
                 streams.forEach(s => clearTimeout(s.timer));
                 if (pool) pool.close();
             };
-            // one last batch, because it is usually the goodbye, and the one
-            // already being signed when the door shut is usually it too
+            // Finish every batch already being signed before draining the last
+            // queued messages, which usually include the goodbye.
             clearTimeout(flushTimer);
-            if (!inFlight && !(queue.length && room)) return finish();
-            Promise.resolve(inFlight)
+            if (!inFlight.size && !(queue.length && room)) return finish();
+            Promise.all(inFlight)
                 .then(() => (queue.length && room ? flush() : null))
                 .then(finish, finish);
         };
@@ -803,12 +856,77 @@
     const ANSWER_MS = 6000;        // and how long the relays then get to turn up a host
 
     function AutoTransport(code, isHost) {
-        const t = { id: randId(), h: {}, code, hostId: null };
-        const direct = PeerTransport(code, isHost, { answerMs: DIRECT_MS });
-        let relays = NostrTransport(code, isHost);
+        const t = { id: null, h: {}, code, hostId: null };
+        const sk = bip340.newKey();
+        const direct = PeerTransport(code, isHost, { answerMs: DIRECT_MS, rawWire: true });
+        let relays = NostrTransport(code, isHost, sk);
         let link = null;           // guest: whichever one is carrying the game
         let closed = false, goodbye = false, heard = false, onHeard = null;
         const viaDirect = new Set(), viaRelays = new Set();   // host: who came in which way
+        // Authentication belongs to one physical connection, never to a PeerJS
+        // ID that a different client may obtain after this one disconnects.
+        const bindings = new WeakMap(), receiving = new WeakMap(), retired = new WeakSet();
+        const routes = new Map();
+        let proof = null, directReady;
+
+        // One proof per connection identity, not one signature per game frame.
+        // Domain separation prevents reuse in another room or as a Nostr event.
+        const proofHash = pid => bip340.sha256(new TextEncoder().encode(JSON.stringify(['netplay-direct-v2', code, pid])));
+        function openDirect() {
+            directReady = (async () => {
+                await direct.open();
+                proof = bip340.toHex(await bip340.sign(await proofHash(direct.id), sk));
+            })();
+            return directReady;
+        }
+        function directData(pid, packet, conn) {
+            if (!conn || retired.has(conn)) return;
+            const previous = receiving.get(conn) || Promise.resolve();
+            const next = previous.then(async () => {
+                if (closed || retired.has(conn) || !packet || typeof packet !== 'object') return;
+                if (!packet.auth && typeof packet.v === 'number' && packet.v !== NP.VERSION) {
+                    t.h.error && t.h.error('version mismatch — one of you needs to refresh');
+                    return;
+                }
+                const auth = packet.auth;
+                const msg = auth ? packet.msg : packet;
+                let id = bindings.get(conn);
+                if (!id) {
+                    if (auth) {
+                        if (!/^[0-9a-f]{64}$/.test(auth.id) || !/^[0-9a-f]{128}$/.test(auth.proof)) return;
+                        if (!await bip340.verify(await proofHash(pid), bip340.fromHex(auth.id), bip340.fromHex(auth.proof))) return;
+                        id = auth.id;
+                    } else {
+                        // Plain PeerTransport uses its actual broker ID. Never
+                        // accept an old auto UUID as an unsigned logical identity.
+                        // A broker ID is not proof of a signing public key. Reserve
+                        // that namespace even if PeerJS lets a client request it.
+                        if (!msg || msg.f !== pid || /^[0-9a-f]{64}$/.test(pid)) return;
+                        id = pid;
+                    }
+                    if (closed || retired.has(conn)) return;
+                    bindings.set(conn, id);
+                    routes.set(id, pid);
+                    if (!isHost) t.hostId = id;
+                } else if (auth ? auth.id !== id : id !== pid) return;
+                if (!isHost && msg && msg.t === 'np:bye' && msg.f === id) goodbye = true;
+                if (isHost || link === direct) t.h.data && t.h.data('p:' + id, msg);
+            }).catch(() => { });
+            receiving.set(conn, next);
+        }
+        function retire(pid, conn) {
+            if (!conn) return;
+            retired.add(conn);
+            const id = bindings.get(conn);
+            if (id && routes.get(id) === pid) routes.delete(id);
+        }
+        function sendDirect(to, msg) {
+            // Both direct modes understand the signed auto wrapper in protocol 2.
+            return directReady.then(() => {
+                if (closed) return;
+                direct.send(to, { auth: { id: t.id, proof }, msg });
+            }).catch(() => { });
+        }
 
         Object.defineProperty(t, 'kind', {
             get: () => (isHost
@@ -820,10 +938,10 @@
         function openHost() {
             direct.h = {
                 peer: pid => { viaDirect.add(pid); t.h.peer && t.h.peer('p:' + pid); say('connected directly'); },
-                data: (pid, msg) => { t.h.data && t.h.data('p:' + pid, msg); },
+                data: directData,
                 // Not a goodbye: those arrive as np:bye, and Session notices real
                 // silence by itself. This may be a guest on its way back by relay.
-                leave: pid => { viaDirect.delete(pid); }
+                leave: (pid, conn) => { retire(pid, conn); viaDirect.delete(pid); }
             };
             relays.h = {
                 peer: pid => { viaRelays.add(pid); t.h.peer && t.h.peer('b:' + pid); say('connected through the public relays'); },
@@ -834,7 +952,7 @@
                 const why = [];
                 const down = e => { why.push(e.message); if (why.length === 2) reject(new Error(why.join(', and '))); };
                 say('opening the lobby...');
-                direct.open().then(resolve, down);
+                openDirect().then(resolve, down);
                 relays.open().then(resolve, down);
             });
         }
@@ -844,9 +962,9 @@
                 peer: pid => {
                     heard = true;
                     if (onHeard) onHeard();
-                    if (link === relays) t.h.peer && t.h.peer(pid);
+                    if (link === relays) t.h.peer && t.h.peer('b:' + pid);
                 },
-                data: (pid, msg) => { if (link === relays) t.h.data && t.h.data(pid, msg); },
+                data: (pid, msg) => { if (link === relays) t.h.data && t.h.data('b:' + pid, msg); },
                 error: msg => { if (link === relays) t.h.error && t.h.error(msg); }
             };
         }
@@ -866,16 +984,13 @@
         }
         function openGuest() {
             direct.h = {
-                data: (pid, msg) => {
-                    if (msg && msg.t === 'np:bye') goodbye = true;
-                    if (link === direct) t.h.data && t.h.data(pid, msg);
-                },
-                leave: () => fallBack()
+                data: directData,
+                leave: (pid, conn) => { retire(pid, conn); fallBack(); }
             };
             listenForHost();
             const listening = relays.open().then(() => true, () => false);
             say('trying a direct connection...');
-            return direct.open().then(() => {
+            return openDirect().then(() => {
                 link = direct;
                 relays.close();
                 say('connected directly');
@@ -896,7 +1011,7 @@
             if (closed || goodbye || link !== direct) return;
             link = null;
             say('lost the direct link, moving to the public relays...');
-            relays = NostrTransport(code, false);
+            relays = NostrTransport(code, false, sk);
             listenForHost();
             relays.open().then(() => {
                 link = relays;
@@ -905,21 +1020,27 @@
             }, () => { t.h.error && t.h.error('the direct link died and the public relays will not answer'); });
         }
 
-        t.open = () => (isHost ? openHost() : openGuest());
+        t.open = async () => {
+            t.id = bip340.toHex(await bip340.pubkey(sk));
+            return isHost ? openHost() : openGuest();
+        };
         // two guests on the relays hear each other; nobody else does
         t.shareRoad = (a, b) => String(a).slice(0, 2) === 'b:' && String(b).slice(0, 2) === 'b:';
         t.send = function (to, msg) {
             if (!isHost) {
-                if (link === direct) direct.send(direct.hostId, msg);
+                if (link === direct) sendDirect(direct.hostId, msg);
                 else if (link === relays) relays.send('*', msg);
                 return;
             }
             if (to && to !== '*') {
                 if (to.slice(0, 2) === 'b:') relays.send(to.slice(2), msg);
-                else direct.send(to.replace(/^p:/, ''), msg);
+                else {
+                    const id = to.replace(/^p:/, '');
+                    sendDirect(routes.get(id) || id, msg);
+                }
                 return;
             }
-            if (viaDirect.size) direct.send('*', msg);
+            viaDirect.forEach(pid => sendDirect(pid, msg));
             // stay audible on the relays for anyone still looking, until a guest
             // has come in directly and there is nobody left to hear it
             if (viaRelays.size || !viaDirect.size) relays.send('*', msg);
@@ -1083,17 +1204,16 @@
     const HOST_ONLY = { 'np:roster': 1, 'np:start': 1, 'np:game': 1, 'np:opts': 1, 'np:ping': 1 };
     Session.prototype._onData = function (pid, env) {
         if (!env || typeof env !== 'object' || typeof env.t !== 'string' || typeof env.f !== 'string') return;
-        // anything at all counts as a sign of life
-        this.lastRx = Date.now();
-        // a relay hiccup or a link changing roads does not have to end the duel
-        if (this._downSent) { this._downSent = false; this.emit('net:up'); }
-        const seen = this.players.find(p => p.id === env.f);
-        if (seen) seen.seen = this.lastRx;
+        // Version feedback grants no authority and changes no room/liveness state.
         if (env.v !== NP.VERSION) {
-            // one side is running an older cached copy of the site
             this.emit('net:error', 'version mismatch — one of you needs to refresh');
             return;
         }
+        // Auto exposes the verified logical identity, prefixed only for routing.
+        // A host may forward a guest's envelope; no other speaker may claim it.
+        const speaker = this.transport && this.transport.shareRoad ? String(pid).replace(/^[pb]:/, '') : pid;
+        const forwarded = !this.isHost && this.hostId && speaker === this.hostId;
+        if (env.f !== speaker && !forwarded) return;
         if (HOST_ONLY[env.t]) {
             // the host takes none of these, and passes none of them on
             if (this.isHost) return;
@@ -1102,10 +1222,17 @@
             if (!this.hostId) {
                 const list = env.t === 'np:roster' && Array.isArray(env.d) ? env.d : null;
                 const host = list && list.find(p => p && p.host);
-                if (!host || host.id !== env.f || !list.some(p => p && p.id === this.id)) return;
-                this.hostId = env.f;
-            } else if (env.f !== this.hostId) return;
+                if (!host || host.id !== speaker || env.f !== speaker || !list.some(p => p && p.id === this.id)) return;
+                // A direct connection also anchors the first roster to that peer.
+                if (this.transport.hostId && this.transport.hostId !== speaker) return;
+                this.hostId = speaker;
+            } else if (speaker !== this.hostId || env.f !== this.hostId) return;
         }
+        // Only authenticated, authorized traffic keeps a player alive.
+        this.lastRx = Date.now();
+        if (this._downSent) { this._downSent = false; this.emit('net:up'); }
+        const seen = this.players.find(p => p.id === env.f);
+        if (seen) seen.seen = this.lastRx;
         // host is the switchboard: anything not addressed to it moves on, to
         // whoever could not have heard it already. Everyone on the relays
         // hears everything said there; a guest on a direct link hears only
