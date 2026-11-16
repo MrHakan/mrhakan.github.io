@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#008080"><meta name="description" content="Trace connected number paths to hit a target sum in this quick offline logic puzzle."><title>🧩 Path Sum 98 · Playground</title><meta property="og:title" content="🧩 Path Sum 98"><meta property="og:description" content="Trace connected number paths to hit a target sum in this quick offline logic puzzle."><link rel="canonical" href="https://mrhakan.github.io/games/path-sum/"><style>*{box-sizing:border-box}html{min-height:100%;background:#008080}body{margin:0;padding:12px;font:14px Tahoma,Verdana,sans-serif;color:#243447}.window{max-width:980px;margin:auto;background:#c0c0c0;padding:4px;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:7px 7px #005757}.title{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;background:linear-gradient(90deg,#000080,#187cae);color:white}h1{font-size:20px;margin:0}.close{background:#eee;padding:10px;color:#123;text-decoration:none}.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(240px,.8fr);gap:12px;padding:12px}.panel{min-width:0;padding:14px;background:#eee;border:2px inset #ddd}button,input,select{font:inherit}button,select{min-height:44px;padding:9px;background:#c0c0c0;color:#123;border:2px solid;border-color:#fff #555 #555 #fff;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid orange;outline-offset:2px}p{line-height:1.5}.actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}#status{padding:12px;background:#fff;border:2px inset #ddd;min-height:48px}footer{padding:10px;border-top:1px solid #888;font-size:12px}@media(max-width:700px){body{padding:5px}.layout{grid-template-columns:1fr}.panel{padding:10px}h1{font-size:17px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;max-width:490px;margin:16px auto}.tile{aspect-ratio:1;min-width:0;min-height:0;padding:0;font-weight:bold;font-size:clamp(16px,3.4vw,25px);background:#fafafa}.tile.chosen{background:#2d6a84;color:#fff}.tile.next{border-color:#f0c340}.tile.hint{outline:4px solid #ec8c24;outline-offset:-5px}.stats{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-weight:bold}.target{font-size:28px;color:#002d72}.help{font-size:13px;color:#445}</style></head><body><main class="window"><header class="title"><h1>🧩 Path Sum 98</h1><a class="close" href="../../" aria-label="Back to Playground">✕ Playground</a></header><div class="layout"><section class="panel"><h2>Connect four numbers</h2><p>Pick four horizontally or vertically adjacent tiles. No repeats. Make their sum equal the target!</p><div class="stats"><span>Target: <strong class="target" id="target">—</strong></span><span id="sum">Sum: 0</span><span id="score">Solved: 0</span></div><div class="board" id="board" role="group" aria-label="Five by five number puzzle board"></div><p id="status" role="status" aria-live="polite">Select any tile to begin.</p><div class="actions"><button type="button" id="undo">↶ Undo</button><button type="button" id="hint">💡 Hint</button><button type="button" id="new">↻ New puzzle</button></div><p class="help">Keyboard: Tab to a tile and Enter or Space to select. Escape undoes your last pick. A hint shows one step of a valid solution.</p></section><aside class="panel"><h2>How it works</h2><p>Every puzzle is built with at least one valid four-tile route. You can discover a different route too.</p><p><strong>Goal:</strong> Reach the exact target in four moves. Incorrect attempts can be undone or restarted.</p><p id="best">Session progress is saved locally.</p><div class="actions"><button type="button" id="reset">Reset path</button></div></aside></div><footer>Path Sum 98 · No account, ads, tracking or network requests.</footer></main><script>
+'use strict';
+const $=id=>document.getElementById(id);
+let grid=[],target=0,path=[],solution=[],hintIndex=-1,solved=0,locked=false;
+try{solved=Math.max(0,Number(localStorage.getItem('path-sum-98-solved'))||0)}catch{}
+const neighbors=i=>[i-5,i+5,i%5?i-1:-1,i%5<4?i+1:-1].filter(n=>n>=0&&n<25);
+const random=n=>Math.floor(Math.random()*n);
+function generate(){
+ grid=Array.from({length:25},()=>1+random(9));path=[];locked=false;hintIndex=-1;
+ let current=random(25);solution=[current];
+ while(solution.length<4){const options=neighbors(current).filter(n=>!solution.includes(n));if(!options.length){current=random(25);solution=[current];continue}current=options[random(options.length)];solution.push(current)}
+ target=solution.reduce((s,i)=>s+grid[i],0);$('status').textContent='Select any tile to begin.';render();
+}
+function choose(i){
+ if(locked)return;
+ if(path.includes(i)){if(path[path.length-1]===i){path.pop();hintIndex=-1;render()}return}
+ if(path.length&& !neighbors(path[path.length-1]).includes(i)){$('status').textContent='Choose a neighboring tile, not a diagonal.';return}
+ path.push(i);hintIndex=-1;
+ const total=path.reduce((s,n)=>s+grid[n],0);
+ if(path.length===4){
+  if(total===target){locked=true;solved++;try{localStorage.setItem('path-sum-98-solved',String(solved))}catch{}$('status').textContent='✓ Perfect path! Select New puzzle to continue.'}
+  else $('status').textContent='Not quite: '+total+' instead of '+target+'. Undo or reset and try again.';
+ }else $('status').textContent='Keep going: '+(4-path.length)+' tiles left.';
+ render();
+}
+function render(){
+ $('board').replaceChildren();
+ grid.forEach((n,i)=>{const b=document.createElement('button');b.type='button';b.className='tile'+(path.includes(i)?' chosen':'')+(hintIndex===i?' hint':'')+(path.length&&!path.includes(i)&&neighbors(path[path.length-1]).includes(i)?' next':'');b.textContent=n;b.setAttribute('aria-label','Row '+(Math.floor(i/5)+1)+', column '+(i%5+1)+', number '+n+(path.includes(i)?', selected':''));b.setAttribute('aria-pressed',String(path.includes(i)));b.disabled=locked;b.addEventListener('click',()=>choose(i));$('board').append(b)});
+ $('target').textContent=target;$('sum').textContent='Sum: '+path.reduce((s,n)=>s+grid[n],0)+' · '+path.length+'/4';$('score').textContent='Solved: '+solved;
+ $('undo').disabled=locked||!path.length;$('hint').disabled=locked;$('reset').disabled=locked||!path.length;
+ $('best').textContent='Puzzles solved on this device: '+solved;
+}
+$('undo').addEventListener('click',()=>{if(path.length&&!locked){path.pop();hintIndex=-1;$('status').textContent='Last tile removed.';render()}});
+$('reset').addEventListener('click',()=>{if(!locked){path=[];hintIndex=-1;$('status').textContent='Path cleared.';render()}});
+$('new').addEventListener('click',generate);
+$('hint').addEventListener('click',()=>{if(locked)return;let prefix=solution.slice(0,path.length);if(prefix.every((v,i)=>v===path[i])){hintIndex=solution[path.length];$('status').textContent='Highlighted tile is one valid next step.'}else{hintIndex=solution[0];$('status').textContent='Reset your path to follow the highlighted solution start.'}render()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!locked&&path.length){path.pop();hintIndex=-1;$('status').textContent='Last tile removed.';render()}});
+generate();
+</script></body></html>
