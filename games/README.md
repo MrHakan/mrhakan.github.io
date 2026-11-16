@@ -1,5 +1,27 @@
 # games
 
+## harbor master 98
+
+`harbor-master/index.html` is a local-only arcade game. On the site it opens
+as a desktop popup window (`harbor-window.js` frames `?embed=1`) from the games
+tab, the start menu and search; the page also works on its own. Route ships into the lettered berth matching their
+captain: Patron (cargo A), Joe Cool (ferry B), Sahur (night shift C). Each
+docking earns 100; a collision, wrong berth or grounding ends the two-minute
+watch. Choose a ship, tap waypoints and its berth, or use the manifest and
+matching-berth button. On the focused chart, arrows move the crosshair,
+Enter adds a waypoint, Backspace undoes it and Escape clears the route.
+
+The inline `harbor-sim` script exports a DOM-free fixed-20-Hz simulation.
+Arrivals use a seeded integer PRNG, admission waits for a clear entrance,
+and relative-motion collision checks prevent ships tunnelling between ticks.
+`check-harbor-master.mjs` covers rules; `browser-harbor-master.mjs` plays the
+real keyboard and touch controls. Hidden tabs pause explicitly, with no
+catch-up on return. `harbor-master-98-best` stores only the local record.
+Its catalog entry uses `daily:false` and `app: "harbormaster"`, so the games tab
+launches the popup instead of a new tab. Minimising the window pauses the watch.
+
+The sections below describe the larger desktop games.
+
 Every game here is at least two files — `<name>-data.js` (content) and
 `<name>.js` (engine) — loaded on demand by `extras.js` and rendered into
 a window from `createAppWindow()`. No build step, no framework, no
@@ -714,6 +736,27 @@ and Brawlz 98's twelve fighters (their cutout rigs and skeleton, holding a gun).
 four players on one computer (two share the keyboard, gamepads for more) or online in
 the same kind of room as Brawlz 98, bots in the empty seats. Everything about it is in
 [blastz/README.md](blastz/README.md).
+
+## multiplayer identity and compatibility
+
+Protocol 2 gives each auto session one ephemeral signing key. Its public key
+is the player ID on both direct and relay routes, so a fallback keeps the same
+seat. Nostr events are checked locally before their sender, decrypted payload
+or sequence can affect a session. Direct connections prove that same key once,
+bound to the room and broker ID; ordinary game frames reuse the authenticated
+connection. A plain PeerJS ID cannot stand in for a signing public key.
+
+Only that authenticated speaker may claim its player ID. The pinned host may
+forward guest traffic between routes, but only the host may send roster, game,
+options and start controls. Pending relay batches, including goodbye, drain
+before the transport closes. Cached protocol-1 clients need to refresh; there
+is no unsigned fallback to the old auto identities.
+
+This is not account authentication or a private-membership system. A code-only
+relay join trusts the first signed host roster that seats it: the invite does
+not pin a host key in advance. Keep the room code private, and keep validating
+game intents on the authoritative host. Signing alone does not prevent cheating
+by a participant or a dishonest host.
 
 ## adding multiplayer to a game
 

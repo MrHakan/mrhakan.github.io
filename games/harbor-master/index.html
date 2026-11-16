@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
+<meta name="description" content="Route the cursed emoji crew into matching docks, keep ships apart and survive a busy harbor shift. A private offline arcade game.">
+<meta property="og:title" content="⚓ Harbor Master 98">
+<meta property="og:description" content="Plot safe routes, dock the cursed emoji crew and keep port.exe running. Mouse, touch and keyboard; no account required.">
+<link rel="canonical" href="https://mrhakan.github.io/games/harbor-master/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='27'%3E%E2%9A%93%3C/text%3E%3C/svg%3E">
+<script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embedded = 'true';</script>
+<title>⚓ Harbor Master 98 · Playground</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px 12px;background:#008080;color:#202427;font:14px Tahoma,Verdana,sans-serif}button,input{font:inherit}button,a,input{touch-action:manipulation}button{color:#172024;background:#c0c0c0;border:2px outset #fff;padding:8px 12px;cursor:pointer}button:active{border-style:inset}button:disabled{cursor:default;color:#62676a}button:focus-visible,a:focus-visible,input:focus-visible,canvas:focus-visible{outline:3px solid #ffb900;outline-offset:3px}a{color:#06275d}main{max-width:1120px;margin:0 auto;background:#c0c0c0;border:3px outset #eee;box-shadow:7px 8px 0 #004747}.titlebar{background:linear-gradient(90deg,#000080,#106bad);color:#fff;padding:9px 12px;display:flex;align-items:center;gap:12px}.titlebar h1{font-size:16px;margin:0;flex:1}.titlebar span{font:12px monospace}.menubar{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid #8a8a8a;flex-wrap:wrap}.lead{padding:16px 18px 4px}.lead h2{font-size:26px;letter-spacing:-1px;margin:0 0 6px}.lead p{margin:0;max-width:740px;line-height:1.5}.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 18px}.toolbar input{width:100px;padding:7px;background:#fff;border:2px inset #eee}.start{font-weight:bold}.metrics{display:flex;flex-wrap:wrap;gap:18px;padding:11px 18px;background:#e9e8da;border-block:1px solid #92968c}.metrics b{font:700 20px 'Courier New',monospace;margin-left:6px}.playarea{display:grid;grid-template-columns:minmax(0,1fr) 238px;gap:14px;padding:16px}.chart-wrap{min-width:0}.chart-wrap canvas{display:block;width:100%;height:auto;background:#072f43;border:3px inset #e9e9e9;cursor:crosshair;touch-action:manipulation}.chart-caption{display:flex;justify-content:space-between;gap:12px;font:12px monospace;margin:8px 0;color:#26383d}.panel{background:#d7d7cc;border:2px inset #eee;padding:12px;min-width:0}.panel h2{font-size:14px;margin:0 0 12px}.dock-key{margin:0 0 12px;padding:0;list-style:none}.dock-key li{padding:6px 0;border-bottom:1px solid #b7b9b1}.dock-key strong{display:inline-block;min-width:24px}.fleet{display:grid;gap:7px}.fleet button{text-align:left;width:100%;overflow-wrap:anywhere;padding:9px}.fleet button[aria-pressed=true]{border-style:inset;background:#fff3b4}.orders{display:grid;gap:7px;margin-top:12px}.status{margin:0 16px 14px;padding:10px 12px;border:2px inset #eee;background:#eeeadd;min-height:44px;line-height:1.4}.instructions{margin:0 16px 16px;line-height:1.6}.instructions summary{cursor:pointer;font-weight:bold}.instructions p{margin:6px 0}.footer{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;border-top:1px solid #92968c;padding:9px 16px;font-size:12px}.badge{background:#e7f3e8;padding:3px 7px;border:1px solid #427a62}kbd{font:12px monospace;border:1px solid #888;background:#eee;padding:1px 4px}@media(max-width:760px){body{padding:8px}.playarea{grid-template-columns:1fr;padding:10px}.panel{display:grid;grid-template-columns:1fr 1fr;gap:8px}.panel h2{grid-column:1/-1;margin-bottom:0}.dock-key{margin:0}.orders{grid-column:1/-1;grid-template-columns:1fr 1fr;margin:0}.lead,.toolbar{padding:12px}.lead h2{font-size:23px}.metrics{gap:12px;padding:10px 12px}.metrics b{font-size:18px}.titlebar span{display:none}}@media(pointer:coarse){button{min-height:44px}input{font-size:16px;min-height:44px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+html[data-embedded] body{padding:0;background:#c0c0c0}html[data-embedded] .titlebar,html[data-embedded] .menubar,html[data-embedded] .lead{display:none}html[data-embedded] main{margin:0;max-width:none;border:0;box-shadow:none}
+</style>
+</head>
+<body>
+<main>
+<header class="titlebar"><h1>harbor master 98</h1><span>PORT.EXE · DISPATCH TERMINAL</span><b aria-hidden="true">⚓</b></header>
+<nav class="menubar" aria-label="Game navigation"><a href="../../" aria-label="Back to Playground">← back to playground</a><span class="badge">offline · no account · no traffic data</span></nav>
+<section class="lead" aria-labelledby="watch-title"><h2 id="watch-title">your port. their problems.</h2><p>Patron wants the cargo quay. Joe Cool has a ferry to catch. Sahur is still half asleep. Plot their routes, keep the ships apart and finish a two-minute watch.</p></section>
+<div class="toolbar"><button type="button" id="start" class="start">start shift</button><button type="button" id="pause" disabled>pause</button><button type="button" id="restart">new shift</button><label for="seed">traffic seed</label><input id="seed" type="number" min="0" max="4294967295" step="1" value="98" aria-describedby="seed-help"><span id="seed-help">same seed, same arrivals</span></div>
+<div class="metrics" aria-label="Shift figures"><span>score <b id="score">0</b></span><span>docked <b id="docked">0</b></span><span>watch left <b id="clock">2:00</b></span><span>local best <b id="best">0</b></span></div>
+<div class="playarea"><section class="chart-wrap" aria-label="Harbor traffic"><canvas id="chart" width="800" height="520" tabindex="0" role="application" aria-label="harbor chart" aria-describedby="chart-help">Select a ship in the manifest. Arrow keys move the chart cursor; Enter adds a waypoint. Use the matching berth button to dock.</canvas><div class="chart-caption"><span>WESTERN APPROACH →</span><span>chart 98 / not for navigation</span></div></section><aside class="panel" aria-label="Dispatch controls"><h2>berth directory</h2><ul class="dock-key"><li><strong>A</strong> cargo · Patron</li><li><strong>B</strong> ferry · Joe Cool</li><li><strong>C</strong> night shift · Sahur</li></ul><div><h2>traffic manifest</h2><div id="fleet" class="fleet"></div></div><div class="orders"><button type="button" id="berth">route to matching berth</button><button type="button" id="clear">clear route</button></div></aside></div>
+<p id="status" class="status" role="status" aria-live="polite">Your first watch starts here. Select a ship, then tap the water to add waypoints.</p>
+<details class="instructions"><summary>how to keep port.exe running</summary><p id="chart-help"><b>Mouse / touch:</b> select a ship or its manifest button, then tap the chart to add route points. Tap its labelled berth for the final approach. Routes happen immediately; watch the other traffic.</p><p><b>Keyboard:</b> select a manifest button, focus the chart, use <kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> to move the crosshair and <kbd>Enter</kbd> to add a waypoint. <kbd>Backspace</kbd> removes the last point; <kbd>Escape</kbd> clears the route. The matching-berth button works without the chart.</p><p>Each safe docking earns 100. A collision, wrong berth or grounding ends the watch. New ships wait outside if the entrance is busy. Hidden tabs pause; resume when you are ready. This is arcade fiction, not seamanship training.</p></details>
+<footer class="footer"><span>MRHAKAN PORT AUTHORITY · EST. 1998</span><span>records stay in this browser</span></footer>
+</main>
+<script id="harbor-sim">
+(() => {
+  'use strict';
+  const HZ = 20, DT = 1 / HZ;
+  const DOCKS = [{ x: 740, y: 100, name: 'A · cargo', captain: 'Patron', color: '#ffd36c' },
+    { x: 740, y: 260, name: 'B · ferry', captain: 'Joe Cool', color: '#84e8d5' },
+    { x: 740, y: 420, name: 'C · night shift', captain: 'Sahur', color: '#d4b0ff' }];
+  function create(seed = 98) {
+    return { version: 1, seed: seed >>> 0, random: seed >>> 0, time: 0, ticks: 0, accumulator: 0,
+      paused: false, over: false, reason: '', score: 0, docked: 0, events: [], nextId: 2, nextSpawn: 10,
+      ships: [{ id: 1, type: 0, x: 60, y: 180, vx: 1, vy: 0, speed: 26, radius: 12, waypoints: [] }] };
+  }
+  function route(state, id, points) {
+    const ship = state.ships.find(s => s.id === id);
+    if (state.over || !ship || !Array.isArray(points) || points.length > 32 ||
+      points.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 20 || p.x > 780 || p.y < 20 || p.y > 500)) return false;
+    ship.waypoints = points.map(p => ({ x: p.x, y: p.y }));
+    return true;
+  }
+  function move(ship, seconds) {
+    let distance = ship.speed * seconds;
+    while (distance > 0) {
+      const target = ship.waypoints[0];
+      if (!target) { ship.x += ship.vx * distance; ship.y += ship.vy * distance; break; }
+      const dx = target.x - ship.x, dy = target.y - ship.y, length = Math.hypot(dx, dy);
+      if (length < 0.0001) { ship.waypoints.shift(); continue; }
+      ship.vx = dx / length; ship.vy = dy / length;
+      const travel = Math.min(length, distance);
+      ship.x += ship.vx * travel; ship.y += ship.vy * travel; distance -= travel;
+      if (travel >= length) ship.waypoints.shift();
+    }
+  }
+  function admit(state) {
+    if (state.over || state.ships.length >= 6) return false;
+    const random = () => {
+      state.random = (Math.imul(state.random, 1664525) + 1013904223) >>> 0;
+      return state.random / 4294967296;
+    };
+    for (let i = 0; i < 32; i++) {
+      const y = 45 + Math.floor(random() * 430);
+      if (state.ships.some(s => Math.hypot(s.x - 30, s.y - y) < 80)) continue;
+      const type = Math.floor(random() * 3);
+      const ship = { id: state.nextId++, type, x: 30, y, vx: 1, vy: 0,
+        speed: 24 + Math.floor(random() * 9), radius: 12, waypoints: [] };
+      state.ships.push(ship);
+      state.events.push({ kind: 'arrival', id: ship.id, type });
+      return true;
+    }
+    return false;
+  }
+  function step(state, delta) {
+    if (state.over || state.paused || !Number.isFinite(delta) || delta < 0 || delta > 1) return false;
+    state.accumulator += delta;
+    while (state.accumulator + 1e-9 >= DT && !state.over) {
+      state.accumulator = Math.max(0, state.accumulator - DT);
+      state.time = ++state.ticks / HZ;
+      const previous = state.ships.map(s => ({ x: s.x, y: s.y }));
+      state.ships.forEach(s => move(s, DT));
+      // Closest point in relative motion catches a crossing even between drawn frames.
+      for (let i = 0; i < state.ships.length; i++) for (let j = i + 1; j < state.ships.length; j++) {
+        const a = state.ships[i], b = state.ships[j], p = previous[i], q = previous[j];
+        const rx = p.x - q.x, ry = p.y - q.y, dx = a.x - p.x - b.x + q.x, dy = a.y - p.y - b.y + q.y;
+        const length = dx * dx + dy * dy;
+        const at = length ? Math.max(0, Math.min(1, -(rx * dx + ry * dy) / length)) : 0;
+        if (Math.hypot(rx + at * dx, ry + at * dy) < a.radius + b.radius) {
+          state.over = true; state.reason = 'collision'; return true;
+        }
+      }
+      const docked = [];
+      for (const ship of state.ships) {
+        const berth = DOCKS.findIndex(d => Math.hypot(ship.x - d.x, ship.y - d.y) < 18);
+        if (berth >= 0 && berth !== ship.type) { state.over = true; state.reason = 'wrong berth'; return true; }
+        if (ship.x < ship.radius || ship.x > 800 - ship.radius || ship.y < ship.radius || ship.y > 520 - ship.radius) {
+          state.over = true; state.reason = 'grounding'; return true;
+        }
+        if (berth === ship.type) docked.push(ship.id);
+      }
+      for (const id of docked) {
+        const ship = state.ships.find(s => s.id === id);
+        state.score += 100; state.docked++;
+        state.events.push({ kind: 'dock', id, type: ship.type });
+      }
+      state.ships = state.ships.filter(s => !docked.includes(s.id));
+      if (state.time >= 120) { state.over = true; state.reason = 'shift complete'; }
+      else if (state.time >= state.nextSpawn) {
+        state.nextSpawn = state.time + (admit(state) ? Math.max(5, 10 - state.time / 30) : 1);
+      }
+    }
+    return true;
+  }
+  window.HARBOR_MASTER = { create, route, step, admit, DOCKS, HZ };
+})();
+</script>
+<script>
+(() => {
+  'use strict';
+  const S = window.HARBOR_MASTER, canvas = document.getElementById('chart'), ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id), names = ['Patron', 'Joe Cool', 'Sahur'];
+  const key = 'harbor-master-98-best', letters = ['A', 'B', 'C'];
+  function readBest() {
+    try { const n = Number(localStorage.getItem(key)); if (Number.isSafeInteger(n) && n >= 0) return n; } catch (_) { /* private mode */ }
+    return 0;
+  }
+  let best = readBest();
+  let state, selected, phase = 'ready', raf = 0, last = 0, fleetKey = '', cursor = { x: 80, y: 180 };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const say = message => { $('status').textContent = message; };
+  const active = () => state.ships.find(s => s.id === selected);
+  function select(id) {
+    selected = id;
+    const ship = active();
+    if (ship) { cursor = { x: ship.x, y: ship.y }; say(`Ship ${id} · ${names[ship.type]} wants berth ${letters[ship.type]}. Tap the chart to add waypoints.`); }
+    sync(); draw();
+  }
+  function sync() {
+    $('score').textContent = state.score; $('docked').textContent = state.docked; $('best').textContent = best;
+    const seconds = Math.max(0, 120 - Math.floor(state.time));
+    $('clock').textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+    $('pause').disabled = phase !== 'playing'; $('pause').textContent = state.paused ? 'resume' : 'pause';
+    $('start').disabled = phase === 'playing'; $('seed').disabled = phase === 'playing';
+    $('start').textContent = phase === 'over' ? 'try again' : 'start shift';
+    const list = state.ships.map(s => s.id + ':' + s.type).join(',');
+    if (list !== fleetKey) {
+      fleetKey = list;
+      const buttons = state.ships.map(ship => {
+        const b = document.createElement('button'); b.type = 'button'; b.dataset.ship = ship.id;
+        b.textContent = `ship ${ship.id} · ${names[ship.type]} → ${letters[ship.type]}`;
+        b.addEventListener('click', () => select(ship.id)); return b;
+      });
+      $('fleet').replaceChildren(...buttons);
+      if (!active()) selected = state.ships[0]?.id;
+    }
+    $('fleet').querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.ship === selected)); b.disabled = state.over; });
+    $('clear').disabled = !active() || state.over; $('berth').disabled = !active() || state.over;
+  }
+  function draw() {
+    ctx.fillStyle = '#07384d'; ctx.fillRect(0, 0, 800, 520);
+    ctx.lineWidth = 1; ctx.strokeStyle = '#175367';
+    for (let x = 20; x < 800; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 520); ctx.stroke(); }
+    for (let y = 20; y < 520; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(800, y); ctx.stroke(); }
+    ctx.fillStyle = '#e6dbbe'; ctx.fillRect(788, 0, 12, 520);
+    ctx.fillStyle = '#86bac4'; ctx.font = '12px monospace'; ctx.fillText('ENTRANCE', 18, 28);
+    ctx.fillText('KEEP A SAFE DISTANCE', 245, 497);
+    S.DOCKS.forEach((dock, i) => {
+      ctx.fillStyle = dock.color; ctx.fillRect(714, dock.y - 29, 74, 58);
+      ctx.strokeStyle = '#062938'; ctx.lineWidth = 3; ctx.strokeRect(714, dock.y - 29, 74, 58);
+      ctx.fillStyle = '#132a3a'; ctx.font = 'bold 21px monospace'; ctx.fillText(letters[i], 729, dock.y + 1);
+      ctx.font = '10px monospace'; ctx.fillText(['CARGO', 'FERRY', 'NIGHT'][i], 721, dock.y + 19);
+    });
+    state.ships.forEach(ship => {
+      const dock = S.DOCKS[ship.type];
+      ctx.strokeStyle = dock.color; ctx.lineWidth = ship.id === selected ? 3 : 1.5;
+      ctx.setLineDash([5, 7]); ctx.beginPath(); ctx.moveTo(ship.x, ship.y);
+      ship.waypoints.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke(); ctx.setLineDash([]);
+      if (!reduced.matches) { ctx.strokeStyle = '#5c9da9'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ship.x - ship.vx * 20, ship.y - ship.vy * 20); ctx.lineTo(ship.x - ship.vx * 37, ship.y - ship.vy * 37); ctx.stroke(); }
+      ctx.save(); ctx.translate(ship.x, ship.y); ctx.rotate(Math.atan2(ship.vy, ship.vx));
+      ctx.fillStyle = dock.color; ctx.strokeStyle = '#061f2d'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(7, -10); ctx.lineTo(-14, -10); ctx.lineTo(-14, 10); ctx.lineTo(7, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1c5365'; ctx.fillRect(-7, -6, 11, 12); ctx.restore();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; ctx.fillText(ship.id + letters[ship.type], ship.x - 12, ship.y - 19);
+      if (ship.id === selected) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ship.x, ship.y, 24, 0, Math.PI * 2); ctx.stroke(); }
+    });
+    if (active() && !state.over) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cursor.x - 8, cursor.y); ctx.lineTo(cursor.x + 8, cursor.y); ctx.moveTo(cursor.x, cursor.y - 8); ctx.lineTo(cursor.x, cursor.y + 8); ctx.stroke();
+    }
+    if (phase !== 'playing' || state.paused) {
+      ctx.fillStyle = '#001522d9'; ctx.fillRect(150, 209, 500, 94); ctx.strokeStyle = '#77b9bf'; ctx.strokeRect(150, 209, 500, 94);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = 'bold 22px monospace';
+      ctx.fillText(phase === 'over' ? 'SHIFT CLOSED' : phase === 'ready' ? 'TAKE THE WATCH' : 'WATCH PAUSED', 400, 247);
+      ctx.font = '13px monospace'; ctx.fillText(phase === 'over' ? state.reason + ' · ' + state.score + ' points' : phase === 'ready' ? 'start shift, select a ship, plot a route' : 'resume when you are ready', 400, 277); ctx.textAlign = 'left';
+    }
+  }
+  function stop() { cancelAnimationFrame(raf); raf = 0; last = 0; }
+  function readSeed() {
+    const seed = $('seed').valueAsNumber;
+    return Number.isSafeInteger(seed) && seed >= 0 && seed <= 4294967295 ? seed : 98;
+  }
+  function reset() {
+    stop(); phase = 'ready';
+    state = S.create(readSeed()); $('seed').value = state.seed;
+    state.paused = true; selected = state.ships[0].id; fleetKey = ''; cursor = { x: 80, y: 180 };
+    say('Fresh watch. Select a ship and plot a course before the traffic picks up.'); sync(); draw();
+  }
+  function frame(now) {
+    raf = 0;
+    if (phase !== 'playing' || state.paused || document.hidden) return;
+    const delta = last ? Math.min((now - last) / 1000, 0.1) : 0; last = now;
+    S.step(state, delta);
+    state.events.splice(0).forEach(event => say(event.kind === 'dock'
+      ? `${names[event.type]} safely alongside. +100. Keep the approaches clear.`
+      : `Ship ${event.id} · ${names[event.type]} arriving for berth ${letters[event.type]}.`));
+    if (state.over) {
+      phase = 'over'; best = Math.max(best, state.score, readBest());
+      try { localStorage.setItem(key, String(best)); } catch (_) { /* records are optional */ }
+      say(`Watch ended: ${state.reason}. ${state.docked} docked, ${state.score} points. New shift for another try.`);
+    }
+    sync(); draw();
+    if (phase === 'playing' && !state.paused) raf = requestAnimationFrame(frame);
+  }
+  function play() {
+    if (phase === 'over' || (phase === 'ready' && readSeed() !== state.seed)) reset();
+    $('seed').value = state.seed;
+    phase = 'playing'; state.paused = false; last = 0;
+    say('You have the watch. Select a ship, add waypoints and finish at its lettered berth.');
+    sync(); draw(); if (!raf) raf = requestAnimationFrame(frame);
+  }
+  function pause() {
+    if (phase !== 'playing') return;
+    state.paused = !state.paused; stop();
+    say(state.paused ? 'Watch paused. Resume explicitly; no catch-up traffic.' : 'Back on watch.');
+    sync(); draw(); if (!state.paused) raf = requestAnimationFrame(frame);
+  }
+  function order(point) {
+    const ship = active(); if (!ship) { say('Select a ship in the manifest first.'); return; }
+    if (S.route(state, ship.id, ship.waypoints.concat(point))) {
+      cursor = point; say(`Ship ${ship.id}: ${ship.waypoints.length} waypoints ordered for berth ${letters[ship.type]}.`);
+    } else say('Route not changed: keep up to 32 waypoints inside the water.');
+    sync(); draw();
+  }
+  canvas.addEventListener('pointerdown', event => {
+    const box = canvas.getBoundingClientRect();
+    const point = { x: Math.max(20, Math.min(780, (event.clientX - box.left) / box.width * 800)), y: Math.max(20, Math.min(500, (event.clientY - box.top) / box.height * 520)) };
+    const berth = S.DOCKS.find(d => Math.hypot(point.x - d.x, point.y - d.y) < 26);
+    const ship = state.ships.find(s => Math.hypot(point.x - s.x, point.y - s.y) < 27);
+    if (ship && !berth) select(ship.id); else order(berth ? { x: berth.x, y: berth.y } : point);
+    canvas.focus({ preventScroll: true });
+  });
+  canvas.addEventListener('keydown', event => {
+    const moves = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] };
+    if (moves[event.key]) { event.preventDefault(); cursor = { x: Math.max(20, Math.min(780, cursor.x + moves[event.key][0])), y: Math.max(20, Math.min(500, cursor.y + moves[event.key][1])) }; draw(); }
+    else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); order({ ...cursor }); }
+    else if ((event.key === 'Backspace' || event.key === 'Escape') && active()) {
+      event.preventDefault(); S.route(state, selected, event.key === 'Escape' ? [] : active().waypoints.slice(0, -1)); draw();
+    }
+  });
+  $('clear').addEventListener('click', () => { if (active()) { S.route(state, selected, []); say('Orders cleared. The ship keeps its last heading until you plot another course.'); draw(); } });
+  $('berth').addEventListener('click', () => { const s = active(); if (s) { const d = S.DOCKS[s.type]; order({ x: d.x, y: d.y }); } });
+  $('start').addEventListener('click', play); $('pause').addEventListener('click', pause); $('restart').addEventListener('click', reset);
+  document.addEventListener('visibilitychange', () => { if (document.hidden && phase === 'playing' && !state.paused) pause(); });
+  // the desktop window asks for a pause when it is minimised
+  window.addEventListener('message', event => {
+    if (event.origin === location.origin && event.data && event.data.type === 'harbor-pause' && phase === 'playing' && !state.paused) pause();
+  });
+  window.addEventListener('pagehide', stop); reduced.addEventListener('change', draw);
+  window.HARBOR_MASTER_APP = { state: () => state };
+  reset();
+})();
+</script>
+</body>
+</html>

@@ -446,6 +446,15 @@ function openWaveShaper() {
     }).catch(() => { body.innerHTML = lazyFail('the wave would not open bradar'); });
 }
 
+function openHarborMaster() {
+    if (window.startHarborMaster) { startHarborMaster(); return; }
+    const { body, win } = createAppWindow('harbor master 98', { icon: 'anchor', width: 320 });
+    body.innerHTML = '<div class="bj-loading">raising the harbor chart...</div>';
+    LAZY.load('games/harbor-master/harbor-window.js').then(() => {
+        replaceLazyWindow(win, () => startHarborMaster());
+    }).catch(() => { body.innerHTML = lazyFail('the harbor would not open bradar'); });
+}
+
 function openRiftRumble() {
     if (window.startRiftRumble) { startRiftRumble(); return; }
     const { body, win } = createAppWindow('Brawlz 98', { icon: 'sports_esports', width: 320 });
@@ -1000,6 +1009,7 @@ function siteSearchIndex() {
         ['tankz 98', 'game', () => openTankz(), 'tanks maze bouncing shells ricochet top down local 3 player same keyboard bots multiplayer online'],
         ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
         ['blastz 98', 'game', () => openBlastz(), 'blastz guns shooter knockback platform push off lives crates bombs 2d multiplayer 4 player local bots'],
+        ['harbor master 98', 'game', () => openHarborMaster(), 'harbor port ships docking traffic control route waypoints berth maritime sea patron joe cool sahur'],
         ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
