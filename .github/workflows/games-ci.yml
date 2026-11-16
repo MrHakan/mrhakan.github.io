@@ -291,6 +291,7 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8103 node .github/scripts/browser-age-of-troll.mjs
+                  SITE_URL=http://localhost:8103 node .github/scripts/browser-aot-castles.mjs
 
             # a match to the end with a real mouse, a phone with real thumbs, two
             # browsers direct and over the relays, a link dying and a player going.

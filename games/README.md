@@ -417,6 +417,19 @@ So over the relays it needs 3 snapshots a second rather than 8. Guests send
 numbered commands, resend whatever the next snapshots have not acknowledged, and
 the host ignores a number it has seen, because relays drop and reorder things.
 
+### the server is worth holding
+
+A decoded 28 minute online game showed the other way to win: stay home behind
+turrets, buy all six modems, train only when something comes close, and let
+the wall hand back 90% of every attacker as bounty and kill xp. The side that
+pushed held the server almost all game and still lost. Now the server doubles
+the age's xp trickle (`SERVER.xp` 0.4 to 1.0) and its holder's kills pay a
+tenth more (`SERVER.kill`), kill xp is 0.4 of a unit's cost (was 0.5), and the
+last three modems cost 1600, 3200 and 6000 (were 1150, 2100 and 3700).
+`check-age-of-troll.mjs` plays that turtle against a side that keeps an army
+out: it has to win at least 65% (2 of 24 before, 20 of 24 now), while every
+bot plan stays between 20% and 80% against the field.
+
 ### replays
 
 The rules read no clock, no `Math.random` and no frame time, and the only

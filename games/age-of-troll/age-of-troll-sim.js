@@ -413,9 +413,11 @@
                     if (u.hp <= 0) {
                         dead = true;
                         const type = A.UNITS[u.t], killer = s.p[other];
-                        const bounty = type.cost * A.BOUNTY;
+                        // holding the middle pays for the fighting there too
+                        const held = serverOwner(s) === other ? 1 + A.SERVER.kill : 1;
+                        const bounty = type.cost * A.BOUNTY * held;
                         killer.gold += bounty; killer.earned += bounty;
-                        killer.xp += type.cost * A.KILL_XP;
+                        killer.xp += type.cost * A.KILL_XP * held;
                         killer.kills++;
                         s.p[side].lost++;
                         say(s, { e: 'die', s: side, x: u.x, t: u.t, id: u.id, g: Math.round(bounty) });
@@ -739,7 +741,7 @@
     // ended on: a replay from older rules is turned away before it starts, and
     // one that still plays out differently is caught before anybody watches it.
     // -----------------------------------------------------------------
-    const RULES_REV = 1;              // bump on any change to how step() or command() behave
+    const RULES_REV = 2;              // bump on any change to how step() or command() behave
     const REPLAY_FORMAT = 1;
     const REPLAY_LIMIT = {
         chars: 160000,                // of text. half an hour of a person clicking is two or three thousand
