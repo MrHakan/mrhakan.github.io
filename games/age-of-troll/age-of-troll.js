@@ -580,59 +580,172 @@
     }
 
     // -----------------------------------------------------------------
-    // a wall. It is a computer that has been through something: a desk at dial-up,
-    // a tower by msn, a castle of bevels by the time the trolls run it. Drawn from
-    // the left wall's point of view; `flip` mirrors the shapes and not the writing.
+    // a wall. It is a computer that has been through something. At dial-up it
+    // is a desk. From msn on it is a fortress built out of a beige pc: the
+    // case is the keep, the curtain wall is a keyboard, the battlements are its
+    // keycaps and the gate is a floppy slot. A front tower comes with the
+    // forum, a rear one with rage comics, and by the trolls' age that tower has
+    // a roof in your colour. Drawn from the left wall's point of view; `flip`
+    // mirrors the shapes and not the writing. The tallest point stays under
+    // the score bars at the top of the lane.
     // -----------------------------------------------------------------
-    const WALL_H = [128, 154, 182, 208, 232];
+    const WALL_H = [104, 132, 150, 168, 184];          // the keep, ground to battlements
+    const FACE = '#d4d0c8', SHADE = '#b8b4ac', DEEP = '#8c8880', LINE = '#404040';
+    function wallPlan(age) {
+        const W = 150;
+        if (age === 0) {
+            const sw = 62, sh = 50;
+            return {
+                age, W, top: GY - WALL_H[0], keep: null, curtain: null, front: null, rear: null,
+                screen: { x: 34, y: GY - 34 - sh - 8, w: sw, h: sh },
+                parts: [[2, GY - 34, 146, 22], [34, GY - 34 - sh - 8, sw, sh + 8], [104, GY - 54, 40, 20]],
+                mounts: [[40, GY - 34 - sh - 8]],
+                flag: null
+            };
+        }
+        const rear = age >= 3 ? { x: 0, w: 24, h: WALL_H[age] + 8 } : null;
+        const keep = { x: rear ? 18 : 6, w: 60 + age * 4, h: WALL_H[age] };
+        const curtainH = [0, 60, 70, 80, 90][age];
+        const front = age >= 2 ? { x: W - 30, w: 30, h: curtainH + 30 + age * 4 } : null;
+        const cx = keep.x + keep.w, curtain = { x: cx, w: (front ? front.x : W) - cx, h: curtainH };
+        const top = GY - keep.h;
+        const screen = { x: keep.x + 5, y: top + 10, w: keep.w - 10, h: 40 + age * 4 };
+        const parts = [[keep.x, top - 8, keep.w, keep.h + 8], [curtain.x, GY - curtainH - 8, curtain.w, curtainH + 8]];
+        if (front) parts.push([front.x, GY - front.h - 8, front.w, front.h + 8]);
+        if (rear) parts.push([rear.x, GY - rear.h - (age >= 4 ? 22 : 8), rear.w, rear.h + 22]);
+        // where turrets stand: a battlement each, as many as the age has slots
+        const keepTop = top - 2, wallTop = GY - curtainH - 2;
+        const mounts = [
+            [[keep.x + 6, keepTop], [curtain.x + 10, wallTop]],
+            [[keep.x + 6, keepTop], [curtain.x + 4, wallTop]],
+            [[keep.x + 6, keepTop], [curtain.x + 2, wallTop], [front && front.x + 3, GY - (front ? front.h : 0) - 2]],
+            [[keep.x + 4, keepTop], [keep.x + keep.w - 30, keepTop], [curtain.x + 1, wallTop], [front && front.x + 3, GY - (front ? front.h : 0) - 2]]
+        ][age - 1];
+        const flag = rear ? [rear.x + 11, GY - rear.h - (age >= 4 ? 22 : 8)] : [keep.x + keep.w - 14, top - 8];
+        return { age, W, top, keep, curtain, front, rear, screen, parts, mounts, flag };
+    }
+
     function drawWall(c, leftEdge, flip, side, p, t) {
-        const age = p.age, W = 150;
+        const age = p.age, plan = wallPlan(age), W = plan.W;
         const mine = side === G.me;
         const tint = mine ? COLOR.me : COLOR.foe, tintHi = mine ? COLOR.meHi : COLOR.foeHi;
         const X = (x, w) => leftEdge + (flip ? W - x - w : x);
         const rect = (x, y, w, h, fill) => { c.fillStyle = fill; c.fillRect(X(x, w), y, w, h); };
         const box = (x, y, w, h, fill, inset) => bevel(c, X(x, w), y, w, h, fill, inset);
+        // a chunkier bevel for masonry: two pixels of light and two of shadow
+        const block = (x, y, w, h, fill) => {
+            rect(x, y, w, h, fill);
+            c.fillStyle = '#fff'; c.fillRect(X(x, w) + (flip ? w - 2 : 0), y, 2, h); c.fillRect(X(x, w), y, w, 2);
+            c.fillStyle = DEEP; c.fillRect(X(x, w) + (flip ? 0 : w - 2), y, 2, h); c.fillRect(X(x, w), y + h - 2, w, 2);
+            c.fillStyle = LINE; c.fillRect(X(x, w) + (flip ? 0 : w - 1), y, 1, h); c.fillRect(X(x, w), y + h - 1, w, 1);
+        };
+        const keys = (x, y, w, gap, missing) => {
+            // battlements out of keycaps; some fall off when the wall is in trouble
+            const n = Math.max(2, Math.floor((w + gap) / (8 + gap)));
+            const step = (w - 8) / Math.max(1, n - 1);
+            for (let i = 0; i < n; i++) {
+                if (missing && (i * 7 + age) % 3 === 0) continue;
+                box(Math.round(x + i * step), y, 8, 8, FACE);
+                rect(Math.round(x + i * step) + 2, y + 2, 4, 1, '#ffffff');
+            }
+        };
         const frac = Math.max(0, p.hp / A.AGES[age].hp);
-        const top = GY - WALL_H[age];
         const label = (text, x, y, w, color, size) => {
             c.fillStyle = color; c.font = (size || 9) + 'px Tahoma, "MS Sans Serif", sans-serif';
             c.textAlign = 'center';
             c.fillText(text, X(x, w) + w / 2, y);
         };
-        // something to stand it all on
-        box(0, GY - 12, W, 12, '#c0c0c0');
+        const broken = frac < 0.5;
 
-        // a desk first, and the tower that replaces it
+        // the plinth everything stands on
+        block(0, GY - 12, W, 12, SHADE);
+        rect(4, GY - 7, W - 8, 1, DEEP);
+
         if (age === 0) {
+            // a desk, the monitor on it and the modem with its aerial
             rect(2, GY - 34, 146, 6, '#a07840');
             rect(2, GY - 34, 146, 1, '#d0a868');
+            rect(2, GY - 29, 146, 1, '#6a4a20');
             rect(8, GY - 28, 8, 16, '#7a5a30');
             rect(134, GY - 28, 8, 16, '#7a5a30');
+            rect(10, GY - 28, 2, 16, '#9a7a48');
+            rect(136, GY - 28, 2, 16, '#9a7a48');
         } else {
-            box(4, top + 58, 62, WALL_H[age] - 70, '#d4d0c8');       // tower
-            for (let i = 0; i < 3; i++) box(12, top + 68 + i * 15, 46, 11, '#c0c0c0', true);
-            rect(14, top + 72, 26, 2, '#404040');
-            rect(47, top + 72, 5, 4, Math.floor(t * 2) % 2 ? '#30e030' : '#106010');
-            box(12, GY - 30, 16, 12, '#c0c0c0');
-        }
-        if (age >= 2) box(0, top + 40, W, 20, '#c0c0c0');            // rampart
-        if (age >= 2) {
-            // crenellations, out of toolbar buttons
-            const n = age >= 3 ? 7 : 5, bw = Math.floor(W / (n * 2 - 1));
-            for (let i = 0; i < n; i++) box(i * bw * 2, top + 26, bw, 14, '#d4d0c8');
-        }
-        if (age >= 4) {
-            box(0, top - 26, 34, 92, '#b8b4ac');
-            box(W - 34, top - 26, 34, 92, '#b8b4ac');
-            for (let i = 0; i < 3; i++) {
-                box(i * 13, top - 36, 8, 10, '#d4d0c8');
-                box(W - 34 + i * 13, top - 36, 8, 10, '#d4d0c8');
+            const { keep, curtain, front, rear, top } = plan;
+            // the rear tower, behind the keep
+            if (rear) {
+                const ry = GY - rear.h;
+                block(rear.x, ry, rear.w, rear.h, SHADE);
+                for (let i = 0; i < 3; i++) rect(rear.x + 9, ry + 22 + i * 34, 5, 12, '#202020');
+                if (age >= 4) {
+                    // a roof in your colour, stepped like a pixel spire
+                    for (let i = 0; i < 6; i++) {
+                        const ww = rear.w + 4 - i * 4;
+                        rect(rear.x - 2 + i * 2, ry - 4 - i * 4, ww, 4, i % 2 ? tint : tintHi);
+                    }
+                    rect(rear.x - 2, ry - 1, rear.w + 4, 1, LINE);
+                } else {
+                    keys(rear.x + 1, ry - 8, rear.w - 2, 3, broken);
+                }
+            }
+            // the keep: the case of a beige tower pc
+            block(keep.x, top, keep.w, keep.h, FACE);
+            keys(keep.x + 2, top - 8, keep.w - 4, 4, broken);
+            // seams of the case, and its drive bays low on the front
+            rect(keep.x + 3, top + 6, keep.w - 6, 1, SHADE);
+            const bayY = plan.screen.y + plan.screen.h + 8;
+            const bays = Math.max(1, Math.min(3, Math.floor((GY - 14 - bayY - 22) / 12)));
+            const bayX = keep.x + (age >= 2 ? 20 : 8), bayW = keep.w - (age >= 2 ? 40 : 16);
+            for (let i = 0; i < bays; i++) {
+                box(bayX, bayY + i * 12, bayW, 9, '#c0c0c0', true);
+                rect(bayX + 4, bayY + i * 12 + 4, bayW - 18, 1, LINE);
+            }
+            const ledY = bayY + bays * 12 + 4;
+            rect(keep.x + keep.w - 16, ledY, 5, 3, Math.floor(t * 2) % 2 ? '#30e030' : '#106010');
+            box(keep.x + 8, ledY - 1, 10, 7, '#c0c0c0');
+            // banners in your colour, hung from the keep below its screen
+            if (age >= 2) {
+                const by = plan.screen.y + plan.screen.h + 4, bh = Math.min(40, GY - 18 - by);
+                for (const bx of [keep.x + 6, keep.x + keep.w - 16]) {
+                    rect(bx, by, 10, bh, tint);
+                    rect(bx, by, 10, 2, tintHi);
+                    rect(bx + 1, by + bh, 4, 3, tint); rect(bx + 5, by + bh, 4, 3, tint);
+                    for (const [ex, ey] of [[2, 8], [5, 8], [2, 11], [5, 11]]) rect(bx + ex, by + ey, 2, 2, '#fff');
+                }
+            }
+            // the curtain wall: a keyboard on its side
+            const wy = GY - curtain.h;
+            block(curtain.x, wy, curtain.w, curtain.h, SHADE);
+            keys(curtain.x + 2, wy - 8, curtain.w - 4, 3, broken);
+            for (let r = 0; r < 3; r++) {
+                const ry = wy + 8 + r * 10;
+                if (ry + 7 > GY - 34) break;
+                for (let k = 0; k + 9 <= curtain.w - 6; k += 10) box(curtain.x + 4 + k + (r % 2) * 4, ry, 7, 7, '#c8c4bc');
+            }
+            // the gate: a floppy slot, the dark way out for every troll you train
+            const gw = Math.min(26, curtain.w - 8), gh = Math.min(40, curtain.h - 14);
+            const gx = curtain.x + Math.round((curtain.w - gw) / 2), gy = GY - 12 - gh;
+            box(gx - 3, gy - 3, gw + 6, gh + 3, '#c0c0c0');
+            rect(gx, gy, gw, gh, '#141414');
+            rect(gx, gy, gw, 3, '#9aa0a8');                      // the metal shutter, slid open
+            rect(gx + 2, gy + 6, gw - 4, 1, '#2a2a2a');
+            rect(gx - 3, gy - 7, gw + 6, 3, tint);               // the label on the slot
+            // the front tower, facing the enemy
+            if (front) {
+                const fy = GY - front.h;
+                block(front.x, fy, front.w, front.h, FACE);
+                keys(front.x + 1, fy - 8, front.w - 2, 3, broken);
+                for (let i = 0; i < 2; i++) rect(front.x + 12, fy + 14 + i * 30, 5, 12, '#202020');
+                if (age >= 3) {
+                    rect(front.x + 5, fy + 50, 20, 26, tint);
+                    rect(front.x + 5, fy + 50, 20, 2, tintHi);
+                    for (const [ex, ey] of [[9, 58], [16, 58], [9, 65], [16, 65]]) rect(front.x + ex, fy + ey, 5, 5, '#fff');
+                }
             }
         }
 
         // the window: the part that is really the base
-        const sw = 62 + age * 11, sh = 50 + age * 12;
-        const wx = age === 0 ? 34 : W - sw - 4, wy = age === 0 ? GY - 34 - sh - 8 : top + (age >= 2 ? 62 : 8) ;
+        const { x: wx, y: wy, w: sw, h: sh } = plan.screen;
         box(wx, wy, sw, sh, '#c0c0c0');
         // a title bar, in your colour
         const tb = X(wx + 2, sw - 4);
@@ -642,7 +755,7 @@
         box(wx + sw - 12, wy + 3, 8, 8, '#c0c0c0');
         c.textAlign = 'left';
         c.fillStyle = '#fff'; c.font = 'bold 8px Tahoma, "MS Sans Serif", sans-serif';
-        c.fillText(['dial-up.exe', 'msn.exe', 'forum.exe', 'rage.exe', 'troll.exe'][age], tb + 2, wy + 10);
+        c.fillText(['dial-up.exe', 'msn.exe', 'forum.exe', 'rage.exe', 'troll.exe'][age], tb + (flip ? 12 : 2), wy + 10);
         // what is on the screen
         const sx = wx + 4, sy = wy + 14, iw = sw - 8, ih = sh - 18;
         const bsod = frac < 0.22;
@@ -662,7 +775,7 @@
             rect(sx + 5, sy + ih - 7, iw - 10, 1, '#808080');
             rect(sx + 5, sy + ih - 4, iw - 22, 1, '#808080');
         } else if (age === 2) {
-            for (let i = 0; i < 5; i++) { rect(sx + 3, sy + 4 + i * 8, 5, 5, '#000080'); rect(sx + 11, sy + 5 + i * 8, iw - 18 - (i * 7) % 15, 2, '#606060'); }
+            for (let i = 0; i < 4; i++) { rect(sx + 3, sy + 4 + i * 8, 5, 5, '#000080'); rect(sx + 11, sy + 5 + i * 8, iw - 18 - (i * 7) % 15, 2, '#606060'); }
         } else if (age === 3) {
             const q = sprite(A.UNITS[9].sprite), rr = sprite(A.UNITS[11].sprite);
             const w2 = (iw - 3) / 2;
@@ -673,7 +786,7 @@
         } else {
             const k = sprite(A.UNITS[12].sprite);
             if (k.cv) {
-                const hh = ih - 4, ww = hh / k.ratio;
+                const hh = ih - 4, ww = Math.min(iw - 4, hh / k.ratio);
                 c.drawImage(k.cv, X(sx + (iw - ww) / 2, ww), sy + 2, ww, hh);
             }
         }
@@ -682,36 +795,58 @@
             box(wx + 20, wy + sh, sw - 40, 8, '#c0c0c0');
             box(104, GY - 54, 40, 20, '#d4d0c8');         // the modem
             for (let i = 0; i < 4; i++) rect(108 + i * 7, GY - 48, 4, 3, Math.floor(t * 5 + i) % 2 ? '#30e030' : '#106010');
-            rect(141, GY - 76, 2, 22, '#404040');
-            rect(138, GY - 78, 8, 3, '#404040');
+            rect(141, GY - 80, 2, 26, LINE);
+            // a pennant in your colour on the aerial
+            const wave = motion() ? Math.round(Math.sin(t * 4)) : 0;
+            rect(130, GY - 80 + wave, 11, 6, tint);
+            rect(130, GY - 80 + wave, 11, 1, tintHi);
         }
         // your flag
-        if (age >= 1) {
-            const fx = 8;
-            rect(fx, top - (age >= 4 ? 62 : 26), 2, 26, '#404040');
+        if (plan.flag) {
+            const [fx, fy] = plan.flag;
+            rect(fx, fy - 26, 2, 26, LINE);
             const wave = motion() ? Math.sin(t * 4) * 1.5 : 0;
-            rect(fx + 2, top - (age >= 4 ? 62 : 26) + wave, 20, 11, tint);
-            rect(fx + 2, top - (age >= 4 ? 62 : 26) + wave, 20, 1, tintHi);
+            rect(fx + 2, fy - 26 + wave, 20, 11, tint);
+            rect(fx + 2, fy - 26 + wave, 20, 1, tintHi);
         }
 
-        // what it costs to be hit
+        // what it costs to be hit: soot and cracks on the stone itself, never in the sky
         if (frac < 0.72) {
-            c.strokeStyle = 'rgba(0,0,0,.65)'; c.lineWidth = 1.2;
+            c.save();
             c.beginPath();
-            const cracks = frac < 0.4 ? 5 : 2;
+            plan.parts.forEach(([x, y, w, h]) => c.rect(X(x, w), y, w, h));
+            c.clip();
+            c.fillStyle = 'rgba(40,30,20,' + (0.08 + (0.72 - frac) * 0.35).toFixed(3) + ')';
+            plan.parts.forEach(([x, y, w, h]) => c.fillRect(X(x, w), y, w, h));
+            c.strokeStyle = 'rgba(30,24,20,.8)'; c.lineWidth = 1.5;
+            c.beginPath();
+            const cracks = frac < 0.4 ? 6 : 3;
             for (let i = 0; i < cracks; i++) {
-                const cx = 24 + (i * 47) % 110, cy = top + 40 + (i * 53) % Math.max(30, WALL_H[age] - 60);
+                const [px, py, pw, ph] = plan.parts[i % plan.parts.length];
+                const cx = px + 6 + (i * 37) % Math.max(8, pw - 20), cy = py + 10 + (i * 53) % Math.max(10, ph - 40);
                 c.moveTo(X(cx, 0), cy);
-                c.lineTo(X(cx + 12, 0), cy + 10);
-                c.lineTo(X(cx + 6, 0), cy + 22);
-                c.lineTo(X(cx + 18, 0), cy + 32);
+                c.lineTo(X(cx + 7, 0), cy + 9);
+                c.lineTo(X(cx + 3, 0), cy + 19);
+                c.lineTo(X(cx + 10, 0), cy + 28);
             }
             c.stroke();
+            c.restore();
+        }
+        if (frac < 0.4 && motion()) {
+            // smoke from the top of the keep
+            const sx0 = plan.keep ? plan.keep.x + plan.keep.w / 2 : 70, sy0 = plan.keep ? plan.top - 10 : GY - 100;
+            for (let i = 0; i < 4; i++) {
+                const k = (t * 0.6 + i / 4) % 1, size = 6 + k * 10;
+                c.fillStyle = 'rgba(70,70,70,' + (0.45 * (1 - k)).toFixed(3) + ')';
+                c.fillRect(X(sx0 - size / 2 + Math.sin(t + i) * 6 + k * 14, size), sy0 - k * 50, size, size);
+            }
         }
         if (frac < 0.5) {
+            // error dialogs, stuck to the keep
             const n = frac < 0.25 ? 2 : 1;
+            const ox = plan.keep ? plan.keep.x + 4 : 26, oy = plan.keep ? plan.screen.y + plan.screen.h + 6 : GY - 74;
             for (let i = 0; i < n; i++) {
-                const ex = 26 + i * 46, ey = GY - 70 - i * 42;
+                const ex = ox + i * 30, ey = oy + i * 30;
                 box(ex, ey, 62, 28, '#c0c0c0');
                 rect(ex + 2, ey + 2, 58, 7, '#000080');
                 rect(ex + 6, ey + 13, 11, 11, '#e02020');
@@ -720,11 +855,11 @@
             }
         }
 
-        // turrets on the roof
-        const roofY = age === 0 ? wy - 2 : top + (age >= 2 ? 26 : 6);
+        // turrets on the battlements
         p.tur.forEach((tu, i) => {
+            const m = plan.mounts[i] || plan.mounts[plan.mounts.length - 1];
             const kick = G.turretKick[side][i] || 0;
-            const tx = 10 + i * 34, ty = roofY - 18;
+            const tx = m[0], ty = m[1] - 18;
             box(tx, ty + 8, 24, 10, tu.k === 0 ? '#c0c0c0' : '#b0b0d0');
             const tierCol = ['#808080', '#3060c0', '#30a050', '#c08020', '#c02050'][tu.a];
             rect(tx + 4, ty + 10, 16, 3, tierCol);
@@ -734,7 +869,7 @@
             } else {
                 // a spam cannon: a fat one, with a speaker on it
                 box(tx + 8 - kick * 3, ty, 20, 10, '#808080');
-                c.fillStyle = '#404040';
+                c.fillStyle = LINE;
                 c.beginPath(); c.arc(X(tx + 26 - kick * 3, 0), ty + 5, 4, 0, Math.PI * 2); c.fill();
             }
         });
@@ -742,7 +877,7 @@
         const hit = G.wallHit[side];
         if (hit > 0) {
             c.fillStyle = 'rgba(255,255,255,' + (hit * 0.18) + ')';
-            c.fillRect(X(0, W), top - 10, W, WALL_H[age] + 10);
+            plan.parts.forEach(([x, y, w, h]) => c.fillRect(X(x, w), y - 2, w, h + 2));
         }
     }
 
