@@ -1,5 +1,36 @@
 [
   {
+    "name": "🧾 Bill Split Desk 98",
+    "type": "app",
+    "date": "2026-11-16",
+    "url": "/apps/bill-split-desk/",
+    "description": "Itemize a shared bill, add tax and tip, and split the total fairly with exact cent rounding and copyable results.",
+    "icon": "🧾",
+    "tags": [
+      "finance",
+      "calculator",
+      "bill-splitting",
+      "tip",
+      "offline"
+    ]
+  },
+  {
+    "name": "🧩 Path Sum 98",
+    "type": "game",
+    "date": "2026-11-16",
+    "url": "/games/path-sum/",
+    "description": "Trace four adjacent number tiles to reach a target sum. Guaranteed solutions, undo, hints and touch-friendly keyboard-accessible play.",
+    "icon": "🧩",
+    "tags": [
+      "number-puzzle",
+      "logic",
+      "pathfinding",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
     "name": "⚓ Harbor Master 98",
     "app": "harbormaster",
     "type": "game",
@@ -8,7 +39,14 @@
     "description": "Route Patron, Joe Cool and Sahur into matching docks, keep traffic apart and survive a two-minute harbor watch. Seeded arrivals, keyboard and touch controls, and local records.",
     "icon": "⚓",
     "daily": false,
-    "tags": ["maritime", "traffic-control", "arcade", "keyboard", "touch", "offline"]
+    "tags": [
+      "maritime",
+      "traffic-control",
+      "arcade",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
   },
   {
     "name": "🟣 Peg Solitaire 98",
