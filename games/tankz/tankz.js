@@ -596,6 +596,24 @@
         x.fillStyle = 'rgba(0,0,0,.16)';
         const dot = max(1, round(k * 1.2));
         for (let cy = 0; cy <= m.rows; cy++) for (let cx = 0; cx <= m.cols; cx++) x.fillRect(X(cx * TK.CELL) - dot / 2, X(cy * TK.CELL) - dot / 2, dot, dot);
+        // Quiet tile seams and marked yards make routes readable without adding
+        // decorative obstacles that disagree with collision or ricochets.
+        x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = max(1, round(k));
+        for (let cy = 1; cy < m.rows; cy++) { x.beginPath(); x.moveTo(X(0), X(cy * TK.CELL)); x.lineTo(X(m.W), X(cy * TK.CELL)); x.stroke(); }
+        for (let cx = 1; cx < m.cols; cx++) { x.beginPath(); x.moveTo(X(cx * TK.CELL), X(0)); x.lineTo(X(cx * TK.CELL), X(m.H)); x.stroke(); }
+        const arena = TK.ARENAS[m.arena || 0];
+        for (const [i, room] of (m.rooms || []).entries()) {
+            const l = round(X(room.x * TK.CELL + 8)), t = round(X(room.y * TK.CELL + 8));
+            const w = round((room.w * TK.CELL - 16) * k), h = round((room.h * TK.CELL - 16) * k);
+            x.fillStyle = 'rgba(0,40,50,.12)'; x.fillRect(l, t, w, h);
+            x.fillStyle = arena.mark;
+            const edge = max(2, round(2 * k)), arm = max(6, round(13 * k));
+            for (const [dx, dy] of [[0, 0], [w - arm, 0], [0, h - edge], [w - arm, h - edge]]) x.fillRect(l + dx, t + dy, arm, edge);
+            for (const [dx, dy] of [[0, 0], [w - edge, 0], [0, h - arm], [w - edge, h - arm]]) x.fillRect(l + dx, t + dy, edge, arm);
+            x.font = 'bold ' + max(8, round(10 * k)) + 'px Tahoma, sans-serif';
+            x.textAlign = 'center'; x.textBaseline = 'middle';
+            x.fillText(arena.name.toUpperCase() + ' ' + (i + 1), l + w / 2, t + h / 2, max(1, w - arm));
+        }
         // the walls: raised grey, like every button in the house
         const e = max(1, round(k * 1.1));
         const rects = m.rects.map(q => [X(q.x0), X(q.y0), (q.x1 - q.x0) * k, (q.y1 - q.y0) * k]);
@@ -755,6 +773,17 @@
     // ===============================================================
     // the hud
     // ===============================================================
+    function ammoPaint(g) {
+        const rows = g.locals.map(L => {
+            const t = g.s.tanks[L.seat];
+            if (!t || !t.alive) return '';
+            const used = g.s.shells.filter(b => b.o === L.seat && b.k === 's').length;
+            const free = max(0, TK.SHELLS - used), ready = round(100 * (1 - max(0, t.cool) / TK.FIRE_GAP));
+            const label = t.w ? TK.WEAPON_BY_ID[t.w].name : t.burst ? 'burst.bat' : free === 0 ? 'shells in flight' : t.cool > 0 ? 'reloading' : 'cannon ready';
+            return `<div class="tk-ammo-row"><b style="color:${COL(L.seat).css}">${g.locals.length > 1 ? esc(g.s.seats[L.seat].name) : 'cannon'}</b><span class="tk-slots" aria-label="${free} of ${TK.SHELLS} shell slots available">${Array.from({ length: TK.SHELLS }, (_, i) => `<i class="tk-slot${i < free ? ' ready' : ''}"></i>`).join('')}</span><span class="tk-reload" role="progressbar" aria-label="reload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ready}"><i style="width:${ready}%"></i></span><small>${esc(label)}</small></div>`;
+        }).join('');
+        return rows ? `<div class="tk-ammo" aria-label="cannon status">${rows}</div>` : '';
+    }
     function hudPaint(g, now) {
         if (!hud) return;
         const s = g.s;
@@ -772,10 +801,11 @@
         hud.innerHTML = `
             <div class="tk-top">
                 <ol class="tk-board">${s.seats.map((p, i) => `<li class="${s.tanks[i].alive ? '' : 'out'}${isMine(g, i) ? ' me' : ''}"><i style="background:${COL(i).css}"></i><span>${esc(p.name)}${p.bot ? ' <em>bot</em>' : ''}</span>${s.tanks[i].w && s.tanks[i].alive ? `<u title="${esc(TK.WEAPON_BY_ID[s.tanks[i].w].name)}" style="color:${TK.WEAPON_BY_ID[s.tanks[i].w].col}">${TK.WEAPON_BY_ID[s.tanks[i].w].glyph}</u>` : ''}<b>${s.scores[i]}</b></li>`).join('')}</ol>
-                <div class="tk-round">round ${s.round} · first to ${s.points}${g.ff > 1 ? ' · fast forward' : ''}${g.online ? ' · ' + (onRelays(g) ? 'relays' : 'direct') : ''}</div>
+                <div class="tk-round">${esc(TK.ARENAS[s.maze.arena || 0].name)} · round ${s.round} · first to ${s.points}${g.ff > 1 ? ' · fast forward' : ''}${g.online ? ' · ' + (onRelays(g) ? 'relays' : 'direct') : ''}</div>
             </div>
             ${big}
             <div class="tk-feed">${g.feed.map(f => `<div style="opacity:${min(1, f.t)}">${esc(f.text)}</div>`).join('')}</div>
+            ${ammoPaint(g)}
             <div class="tk-help">${help}</div>
             ${g.netDown ? '<div class="tk-net">lost the host bradar... waiting for them</div>' : ''}`;
     }
@@ -979,6 +1009,7 @@
     // guest: the host's room, and the host's word that a match begins
     function onRoomView(d, from) {
         if (room || !session || !from || from.id !== hostId()) return;
+        if (d && Number.isInteger(d.v) && d.v !== TK.RULES_REV) { lost('tankz rules changed; everybody must refresh before joining.', true); return; }
         const next = ROOM.read(d);
         if (!next || (view && next.rev <= view.rev)) return;
         view = next; viewAt = performance.now();
