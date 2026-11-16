@@ -26,6 +26,17 @@
 .tk-help b { color: #fff; }
 .tk-net, .tk-lost { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); padding: 6px 10px; background: #ffffe1; border: 1px solid #000; z-index: 3; }
 
+/* ammunition is feedback, not an input gate: the host still owns every shot */
+.tk-ammo { position: absolute; right: 8px; bottom: 24px; display: grid; gap: 3px; padding: 4px 6px; color: #fff; background: rgba(0, 40, 40, .88); border: 1px solid #9ac8c8; font-size: 11px; }
+.tk-ammo-row { display: flex; align-items: center; gap: 5px; }
+.tk-ammo-row b { text-shadow: 1px 1px #000; }
+.tk-ammo-row small { font-size: 10px; min-width: 68px; }
+.tk-slots { display: inline-flex; gap: 3px; }
+.tk-slot { width: 5px; height: 10px; background: #264848; border: 1px solid #759090; }
+.tk-slot.ready { background: #ffe080; border-color: #fff2b0; }
+.tk-reload { display: inline-block; width: 28px; height: 5px; background: #183030; border: 1px solid #759090; }
+.tk-reload i { display: block; height: 100%; background: #9de0c0; }
+
 /* the thumbs: a stick and a trigger */
 .tk-thumbs { position: absolute; inset: 0; pointer-events: none; }
 .tk-thumbs[hidden] { display: none; }
@@ -99,6 +110,7 @@
     .tk-logo { font-size: 32px; }
     .tk-big { font-size: 18px; }
     .tk-board li span { max-width: 52px; }
+    .tk-ammo { bottom: 134px; right: 12px; }
     .tk-round { display: none; }
     .tk-help { display: none; }
     .tk-room-cols { grid-template-columns: 1fr; }

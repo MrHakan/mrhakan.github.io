@@ -11,7 +11,7 @@
 // ===================================================================
 import fs from 'fs';
 import path from 'path';
-import vm from 'vm';
+import { createTestScope, loadGameScript } from './game-test-context.mjs';
 import zlib from 'zlib';
 import { fileURLToPath } from 'url';
 
@@ -30,10 +30,10 @@ const section = n => console.log('\n== ' + n + ' ==');
 // what a browser has and a bare vm context does not, for the replays
 const WEB_BITS = { CompressionStream, DecompressionStream, TextEncoder, TextDecoder, structuredClone };
 const loadRules = (tweak) => {
-    const c = vm.createContext({ console, ...WEB_BITS });
-    vm.runInContext(read('games/age-of-troll/age-of-troll-data.js'), c);
+    const c = createTestScope({ console, ...WEB_BITS });
+    loadGameScript(read('games/age-of-troll/age-of-troll-data.js'), c, 'games/age-of-troll/age-of-troll-data.js');
     if (tweak) tweak(c.AOT);
-    vm.runInContext(read('games/age-of-troll/age-of-troll-sim.js'), c);
+    loadGameScript(read('games/age-of-troll/age-of-troll-sim.js'), c, 'games/age-of-troll/age-of-troll-sim.js');
     return c.AOT;
 };
 const A = loadRules();

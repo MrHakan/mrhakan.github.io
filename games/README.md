@@ -710,6 +710,24 @@ site's own.
 | `tankz.js` | the window, the keys (three people at one keyboard), the thumbs and pads, the picture in a 2d canvas, the room and the wire |
 | `tankz.css` | its styles. They come with the game, not with the desktop |
 
+### cannon pacing and the arenas
+
+The normal cannon recovers for 0.36 seconds between shots, with three shell
+slots per tank; missed shells expire after seven seconds. The HUD shows free
+slots and reload progress on desktop and touch, including authoritative guest
+cooldowns. A rapid input stream cannot bypass the host's limits, and even a
+huge press counter takes bounded work to process. `burst.bat` remains the
+rapid-fire pickup; the six special weapons and ricochet physics are unchanged.
+
+Seeded maps combine corridors with marked combat yards: control yard, freight
+depot or relay station. Every cell has at least two immediate exits, while
+walls remain for cover and bank shots. The layout and markings are derived
+from the seed, so host and guest still build identical maps.
+
+Tankz rules/room revision 2 is intentionally incompatible with the old maze
+generator. Everybody must refresh before joining an updated room; mismatched
+room/start messages are rejected instead of playing different maps together.
+
 ### the files on the floor
 
 | file | what it does |

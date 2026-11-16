@@ -15,6 +15,7 @@
     'use strict';
 
     const TK = {
+        RULES_REV: 2,             // maze layouts and cannon pacing must match across peers
         TICK: 60,
         CELL: 64,
         WALL: 6,                  // wall thickness, centred on the grid line
@@ -29,9 +30,9 @@
         // the plain shell
         SHELL_SPEED: 190,
         SHELL_R: 3,
-        SHELL_LIFE: 9,            // seconds before it fizzles
-        SHELLS: 5,                // at most this many of yours in the air
-        FIRE_GAP: 0.09,           // seconds between two shots
+        SHELL_LIFE: 7,            // clear missed ricochets before they blanket a round
+        SHELLS: 3,                // each shot commits one of three visible shell slots
+        FIRE_GAP: 0.36,           // deliberate cannon fire; burst.bat remains the rapid-fire pickup
 
         // a round
         READY: 1.1,               // frozen at the start, the maze on the screen
@@ -46,6 +47,11 @@
             { id: 'large', name: 'large', add: 2 }
         ],
         LOOPS: 0.2,               // of the inner walls a spanning maze keeps, this many come down again
+        ARENAS: [
+            { name: 'control yard', mark: '#d8bc70' },
+            { name: 'freight depot', mark: '#b8cba0' },
+            { name: 'relay station', mark: '#86cbd4' }
+        ],
 
         // files on the floor
         DROP_FIRST: 3,            // seconds into a round before the first

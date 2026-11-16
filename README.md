@@ -222,7 +222,9 @@ All verification jobs have 30-minute limits. Wizardz's browser step remains
 limited to 15 minutes so a hung game cannot hold the Pages queue for hours.
 The workflow contract check guards coverage, grouping, triggers and deploy
 prerequisites. See [the timing baseline](.github/CI-TIMINGS.md) for measurements,
-projections and how to review them before a PR.
+projections and how to review them before a PR. Wizardz/AoT phase profiles,
+bounded failure screenshots and test-loader benchmarks are described in
+[the test performance notes](.github/TEST-PERFORMANCE.md).
 
 There is no framework. Each script loads the real files, asserts, and
 exits non-zero if anything drifted.

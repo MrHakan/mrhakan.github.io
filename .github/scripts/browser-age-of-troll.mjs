@@ -13,10 +13,15 @@
 import { chromium, devices } from 'playwright';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import { createBrowserDiagnostics } from './browser-diagnostics.mjs';
+import { waitForPort, waitForLobbyReady } from './browser-readiness.mjs';
 
 const BASE = (process.env.SITE_URL || 'http://localhost:8103').replace(/\/$/, '');
 const SHOTS = process.env.AOT_SHOTS || '.ci-shots';
 fs.mkdirSync(SHOTS, { recursive: true });
+const diagnostics = createBrowserDiagnostics({ suite: 'age-of-troll', dir: SHOTS });
+diagnostics.phase('startup');
+let diagnosticFailure = false;
 const RELAY_PORT = 8600 + Math.floor(Math.random() * 90);
 const RELAY = 'ws://127.0.0.1:' + RELAY_PORT;
 
@@ -24,9 +29,9 @@ let failures = 0, checks = 0;
 const expect = (cond, msg, detail) => {
     checks++;
     if (cond) console.log('  ok    ' + msg + (detail ? '  (' + detail + ')' : ''));
-    else { failures++; console.log('  FAIL  ' + msg + (detail ? '\n        ' + detail : '')); }
+    else { failures++; diagnostics.failure(msg + (detail ? ': ' + detail : '')); console.log('  FAIL  ' + msg + (detail ? '\n        ' + detail : '')); }
 };
-const section = n => console.log('\n== ' + n + ' ==');
+const section = n => { diagnostics.phase(n); console.log('\n== ' + n + ' =='); };
 
 const FAKE_PEERJS = String.raw`
 (function () {
@@ -92,12 +97,15 @@ const FAKE_PEERJS = String.raw`
 })();`;
 
 const relay = spawn(process.execPath, ['server/nostr-test-relay.mjs'], { env: { ...process.env, PORT: String(RELAY_PORT) }, stdio: 'ignore' });
-await new Promise(r => setTimeout(r, 500));
+diagnostics.installSignals(() => relay.kill());
+await waitForPort(RELAY_PORT);
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const errors = [];
+diagnostics.installSignals(async () => { relay.kill(); await browser.close(); });
 
 async function context(opts) {
     const ctx = await browser.newContext(opts);
+    diagnostics.trackContext(ctx);
     await ctx.route('**/*', route => {
         const u = route.request().url();
         if (/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(u) || u.startsWith('data:') || u.startsWith('blob:')) return route.continue();
@@ -207,7 +215,7 @@ try {
         await p.selectOption('#aot-plan', 'balanced');
         await p.click('#aot-solo');
         await live(p);
-        await p.waitForTimeout(300);
+        await p.waitForFunction(() => { const c = document.querySelector('#aot-canvas'); return c.width > 0 && c.clientWidth > 500 && c.clientHeight > 180; });
         const size = await p.evaluate(() => { const c = document.querySelector('#aot-canvas'); return { w: c.clientWidth, h: c.clientHeight, bw: c.width }; });
         expect(size.w > 500 && size.h > 180 && size.bw > 0, 'the lane has a size', JSON.stringify(size));
 
@@ -220,7 +228,7 @@ try {
         await p.waitForFunction(() => AOT_ENGINE.state().s.u[0].length === 1, null, { timeout: 5000 });
         expect(true, 'and it walks out of the door a moment later');
         const x0 = await state(p, g => g.s.u[0][0].x);
-        await p.waitForTimeout(800);
+        await p.waitForFunction(x => AOT_ENGINE.state().s.u[0][0]?.x > x, x0, { timeout: 3000 }).catch(() => {});
         expect(await state(p, g => g.s.u[0][0].x) > x0, 'and keeps walking');
         await p.focus('#aot-canvas');
         await p.keyboard.press('2');
@@ -248,7 +256,7 @@ try {
         await p.waitForFunction(() => document.querySelector('.aot-body').closest('.app-window').style.display === 'none', null, { timeout: 4000 });
         await p.locator('.taskbar-window-btn', { hasText: 'age of troll' }).click();
         await p.click('#aot-pause');
-        await p.waitForTimeout(400);
+        await p.waitForFunction(tick => AOT_ENGINE.state().s.tick > tick, tickPaused, { timeout: 3000 }).catch(() => {});
         expect(await state(p, g => g.s.tick) > tickPaused, 'and the button starts it again');
 
         // a long game has to survive the tab
@@ -425,7 +433,7 @@ try {
     {
         const ctx = await context({ viewport: { width: 1180, height: 900 } });
         // context() turns sound off for everybody else. A later script wins.
-        await ctx.addInitScript(() => localStorage.setItem('sound-enabled', 'true'));
+        await ctx.addInitScript(() => { try { localStorage.setItem('sound-enabled', 'true'); } catch (e) { } });
         // playwright's own calls count as a gesture, so the browser's flag is up before
         // this has done anything. Here it goes up on a real press, and nothing else.
         await ctx.addInitScript(() => {
@@ -544,7 +552,8 @@ try {
         const p = await open(ctx);
         await p.evaluate(() => openAgeOfTroll('bot'));
         await live(p);
-        await p.waitForTimeout(400);
+        await p.waitForFunction(() => { const c = document.querySelector('#aot-canvas'); return c.width > 0 && c.clientHeight >= 110; });
+        await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         await p.screenshot({ path: SHOTS + '/aot-phone.png' });
         const m = await p.evaluate(() => ({
             page: document.documentElement.scrollWidth, screen: document.documentElement.clientWidth,
@@ -598,7 +607,8 @@ try {
         const p = await open(ctx);
         await p.evaluate(() => openAgeOfTroll('bot'));
         await live(p);
-        await p.waitForTimeout(400);
+        await p.waitForFunction(() => { const c = document.querySelector('#aot-canvas'); return c.width > 0 && c.clientHeight >= 110; });
+        await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const m = await p.evaluate(() => {
             const c = document.querySelector('#aot-canvas').getBoundingClientRect();
             const a = document.querySelector('.aot-cmd[data-cmd="u0"]').getBoundingClientRect();
@@ -636,9 +646,8 @@ try {
     async function startMatch(host, guest) {
         await host.waitForFunction(() => document.querySelectorAll('.np-player:not(.np-empty)').length === 2, null, { timeout: 20000 });
         await guest.click('#np-ready');
-        await host.waitForTimeout(400);
         await host.click('#np-ready');
-        await host.waitForTimeout(200);
+        await waitForLobbyReady(host);
         await host.click('#np-start');
         await Promise.all([live(host), live(guest)]);
     }
@@ -900,8 +909,10 @@ try {
     expect(false, 'the run fell over', String(e.stack || e.message).split('\n').slice(0, 6).join('\n        ') +
         (errors.length ? '\n        page errors: ' + [...new Set(errors)].slice(0, 6).join('\n        ') : ''));
 } finally {
-    await browser.close();
-    relay.kill();
+    await diagnostics.flush();
+    diagnostics.phase('teardown');
+    try { await browser.close(); }
+    finally { relay.kill(); diagnosticFailure = (await diagnostics.finish({ failures })).status !== 'passed'; }
 }
 console.log('\n' + (failures ? failures + ' of ' + checks + ' browser checks FAILED' : 'all ' + checks + ' browser checks passed'));
-process.exit(failures ? 1 : 0);
+process.exit(failures || diagnosticFailure ? 1 : 0);

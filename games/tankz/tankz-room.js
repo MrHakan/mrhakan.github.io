@@ -115,7 +115,7 @@
         room.seats.forEach(s => { s.ready = false; s.playing = true; });
         room.rev++;
         return {
-            match: room.matchId, seed, at, opts: Object.assign({}, room.opts),
+            rules: TK.RULES_REV, match: room.matchId, seed, at, opts: Object.assign({}, room.opts),
             people: room.seats.map(s => ({ id: s.id, name: s.name })), bots: botsFor(room)
         };
     }
@@ -141,7 +141,7 @@
     // the copy guests get. Arrays, not objects: it goes out often
     function view(room) {
         return {
-            v: 1, rev: room.rev, host: room.host, phase: room.phase, count: Math.round(room.count), played: room.played, match: room.matchId,
+            v: TK.RULES_REV, rev: room.rev, host: room.host, phase: room.phase, count: Math.round(room.count), played: room.played, match: room.matchId,
             o: [room.opts.bots, room.opts.level, room.opts.points, room.opts.size], bots: botsFor(room),
             seats: room.seats.map(s => [s.id, s.name, s.ready ? 1 : 0, s.wins, s.playing ? 1 : 0, s.n]),
             last: room.last && [room.last.match, room.last.winner, room.last.rows.map(r => [r.id, r.name, r.pts, r.kills, r.deaths, r.selfs, r.bot ? 1 : 0, r.col])]
@@ -149,7 +149,7 @@
     }
     // a guest never trusts the shape of what arrives: null unless all of it is sane
     function read(w) {
-        if (!w || typeof w !== 'object' || w.v !== 1 || !int(w.rev, 0, 1e12) || !text(w.host)) return null;
+        if (!w || typeof w !== 'object' || w.v !== TK.RULES_REV || !int(w.rev, 0, 1e12) || !text(w.host)) return null;
         if (!PHASES.includes(w.phase) || !int(w.count, 0, 60000) || !int(w.played, 0, 1e6) || !text(w.match) || !int(w.bots, 0, MAX_SEATS)) return null;
         if (!Array.isArray(w.o) || w.o.length !== 4) return null;
         const opts = cleanOpts({ bots: w.o[0], level: w.o[1], points: w.o[2], size: w.o[3] });
@@ -174,7 +174,7 @@
     }
     // a match description from the host, checked the same way before a guest uses it
     function readStart(d) {
-        if (!d || typeof d !== 'object' || typeof d.match !== 'string' || d.match.length > 64) return null;
+        if (!d || typeof d !== 'object' || d.rules !== TK.RULES_REV || typeof d.match !== 'string' || d.match.length > 64) return null;
         if (!Number.isSafeInteger(d.seed) || !Number.isSafeInteger(d.at) || d.match !== d.at + ':' + d.seed) return null;
         if (!Array.isArray(d.people) || !d.people.length || d.people.length > MAX_SEATS || !int(d.bots, 0, MAX_SEATS) || d.people.length + d.bots > MAX_SEATS || d.people.length + d.bots < 2) return null;
         const people = [];
@@ -182,7 +182,7 @@
             if (!p || typeof p.id !== 'string' || !p.id || p.id.length > 64) return null;
             people.push({ id: p.id, name: label(p.name, 'tank') });
         }
-        return { match: d.match, seed: d.seed, at: d.at, opts: cleanOpts(d.opts), people, bots: d.bots };
+        return { rules: d.rules, match: d.match, seed: d.seed, at: d.at, opts: cleanOpts(d.opts), people, bots: d.bots };
     }
 
     root.TK_ROOM = { COUNTDOWN, MAX_SEATS, LEVELS, create, join, leave, intent, setOpt, tick, begin, finish, view, read, readStart, seat: seatOf, botsFor, cleanOpts };
