@@ -1,5 +1,36 @@
 [
   {
+    "name": "🃏 Memory Flip 98",
+    "type": "game",
+    "date": "2026-11-17",
+    "url": "/games/memory-flip/",
+    "description": "Flip and match eight pairs with a one-time peek, keyboard/touch controls and locally saved best scores.",
+    "icon": "🃏",
+    "tags": [
+      "memory",
+      "cards",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "⚓ Squat Desk 98",
+    "type": "app",
+    "date": "2026-11-17",
+    "url": "/apps/squat-desk/",
+    "description": "Explore an educational Barrass-style ship squat estimate, speed sensitivity and indicative clearance.",
+    "icon": "⚓",
+    "tags": [
+      "maritime",
+      "squat",
+      "ship-handling",
+      "calculator",
+      "offline"
+    ]
+  },
+  {
     "name": "🧾 Bill Split Desk 98",
     "type": "app",
     "date": "2026-11-16",
