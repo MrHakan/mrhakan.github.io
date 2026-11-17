@@ -475,14 +475,21 @@ try {
         const meters = await Promise.all(pages.map(meter));
         await host.evaluate(() => TK_ENGINE.drive(0, 'normal'));
         for (const gp of guests) await gp.evaluate(() => TK_ENGINE.drive(1, 'normal'));
+        const baseline = await state(host, g => ({ tick: g.s.tick, round: g.s.round, event: g.s.evN }));
+        // Observe the entire measurement: a fired shell may be gone at its final instant.
+        const progress = host.waitForFunction(start => {
+            const s = TK_ENGINE.state().s;
+            return s.tick > start.tick && (s.round > start.round || s.shells.length > 0 || s.log.some(e => e.n > start.event && e.e === 'shot'));
+        }, baseline, { timeout: 8000 }).then(() => true, () => false);
         meters.forEach(m => { m.on = true; });
         await host.waitForTimeout(8000);
         meters.forEach(m => { m.on = false; });
         const kb = m => ((m.sent + m.got) / 8 / 1024).toFixed(1);
         console.log('        bytes a second: host ' + kb(meters[0]) + ' KB, guests ' + kb(meters[1]) + ' and ' + kb(meters[2]) + ' KB');
         expect((meters[0].sent + meters[0].got) / 8 < 60 * 1024, 'the host stays under 60 KB a second over the relays', kb(meters[0]) + ' KB/s');
-        const moved = await state(host, g => g.s.shells.length + g.s.round);
-        expect(moved > 1, 'and the match goes on: shells and rounds');
+        const moved = await progress;
+        const progressState = await state(host, g => ({ seed: g.s.seed, tick: g.s.tick, round: g.s.round, phase: g.s.phase, shells: g.s.shells.length }));
+        expect(moved, 'and the match goes on: shells and rounds', JSON.stringify(progressState));
         // a guest walks out: a bot drives on
         const leaver = guests[1];
         const seat = await state(leaver, g => g.me);

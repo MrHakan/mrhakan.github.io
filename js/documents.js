@@ -288,6 +288,7 @@
                 'wallpaper', 'screensaver', 'sound-enabled', 'crt-off', 'sparkles-off',
                 'stars-off', 'motion-off', 'assistant-off', 'jokerz98-music',
                 'mrhakan98-netplay-profile', 'mrhakan98-netplay-mode',
+                'mrhakan98-party-prefs', 'mrhakan98-party-contacts', 'mrhakan98-party-history',
                 'mrhakan98-netplay-relay', 'mrhakan98-netplay-relays'
             ],
             summary() {

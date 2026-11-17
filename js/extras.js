@@ -530,6 +530,26 @@ function npLoadScripts() {
     return npLoading;
 }
 
+// Persistent parties are independent of game and Messenger window cleanup.
+let messengerLoading = null;
+function openMessenger98() {
+    if (window.startMessenger98) { startMessenger98(); return Promise.resolve(); }
+    if (!messengerLoading) messengerLoading = npLoadScripts()
+        .then(() => LAZY.load('games/party/party.js'))
+        .then(() => new Promise((resolve, reject) => {
+            if (document.getElementById('ms98-style')) { resolve(); return; }
+            const link = document.createElement('link'); link.id = 'ms98-style';
+            link.rel = 'stylesheet'; link.href = 'games/party/messenger.css';
+            link.onload = resolve; link.onerror = () => { link.remove(); reject(new Error('Messenger98 stylesheet unavailable')); };
+            document.head.appendChild(link);
+        }))
+        .then(() => LAZY.load('games/party/messenger.js'))
+        .catch(err => { messengerLoading = null; throw err; });
+    return messengerLoading.then(() => startMessenger98()).catch(err => {
+        showToast('Messenger98', 'Could not load Messenger98: ' + err.message);
+    });
+}
+
 // the lobby on its own — pick a game, make a code, hand it to a friend
 function openNetplay(opts) {
     if (window.Netplay) { Netplay.openLobby(opts || {}); return; }
@@ -541,6 +561,11 @@ function openNetplay(opts) {
         body.innerHTML = lazyFail('could not load the netplay files bradar');
     });
 }
+
+// A stored invitation triggers a restore attempt, never a public lobby listing.
+try {
+    if (localStorage.getItem('mrhakan98-party-resume')) setTimeout(() => openMessenger98(), 0);
+} catch (_) { /* Storage can be disabled; manual Messenger use still works. */ }
 
 function wzLoadScripts() {
     if (window.startWizardz) return Promise.resolve();
@@ -668,7 +693,8 @@ let screensaverTimer = null;
 let screensaverRAF = null;
 
 function getScreensaverId() {
-    const id = localStorage.getItem('screensaver') || 'mystify';
+    let id = 'mystify';
+    try { id = localStorage.getItem('screensaver') || 'mystify'; } catch (_) { }
     return SCREENSAVERS[id] ? id : 'mystify';
 }
 
@@ -1013,6 +1039,7 @@ function siteSearchIndex() {
         ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],
+        ['Messenger98', 'app', () => openMessenger98(), 'messenger party persistent friends private messages chat multiplayer'],
         ['multiplayer lobby', 'game', () => openNetplay(), 'online netplay invite code join host friend peer to peer lobby chat versus'],
         ['solitaire', 'game', () => openSolitaire(), 'klondike cards patience'],
         ['minesweeper', 'game', () => openMinesweeper(), 'mines bombs flags'],
