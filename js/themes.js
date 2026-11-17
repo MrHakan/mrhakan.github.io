@@ -310,12 +310,6 @@ function themeSafeCssValue(v) {
 // a selector-shaped string, used when a theme brings raw css. we only allow
 // selectors that already exist in the node registry, so raw css can restyle
 // the desktop but can never reach outside it.
-function themeAllowedSelectors() {
-    const out = new Set();
-    Object.values(THEME_NODES).forEach(n => n.sel.forEach(s => out.add(s)));
-    return out;
-}
-
 function themeValidate(raw) {
     const errors = [];
     const warnings = [];

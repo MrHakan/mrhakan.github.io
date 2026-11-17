@@ -299,6 +299,16 @@ function appActions() {
         waveshaper: openWaveShaper,
         harbormaster: openHarborMaster,
         harbor: openHarborMaster,
+        okey: () => openClassic('okey'),
+        kartz: () => openClassic('kartz'),
+        tavla: () => openClassic('tavla'),
+        lavatide: () => openClassic('lavatide'),
+        popz: () => openClassic('popz'),
+        goldclaw: () => openClassic('goldclaw'),
+        pizzashift: () => openClassic('pizzashift'),
+        learntoglide: () => openClassic('learntoglide'),
+        blockroll: () => openClassic('blockroll'),
+        deepdrill: () => openClassic('deepdrill'),
         becomeuser: openBecomeUser,
         wizardz: () => openWizardz(),
         wizardzbot: () => openWizardz('bot'),
@@ -360,15 +370,24 @@ function startMenuAction(action) {
 }
 
 // start menu flyouts: hover on desktop, tap on touch
+// long flyouts spill into columns, down to the taskbar
+function fitFlyoutColumns(sub) {
+    const fly = sub.querySelector('.start-flyout-columns'), item = fly && fly.querySelector('.start-item');
+    if (!item) return;
+    const room = (document.getElementById('taskbar')?.getBoundingClientRect().top ?? innerHeight) - sub.getBoundingClientRect().top - 12;
+    fly.style.setProperty('--flyout-rows', Math.max(6, Math.floor(room / (item.getBoundingClientRect().height || 28))));
+}
+
 function initStartFlyouts() {
     document.querySelectorAll('.start-sub').forEach(sub => {
         const btn = sub.querySelector('.has-sub');
         if (!btn) return;
+        sub.addEventListener('mouseenter', () => fitFlyoutColumns(sub));
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const wasOpen = sub.classList.contains('open');
             document.querySelectorAll('.start-sub').forEach(s => s.classList.remove('open'));
-            if (!wasOpen) { sub.classList.add('open'); playSound('click'); }
+            if (!wasOpen) { fitFlyoutColumns(sub); sub.classList.add('open'); playSound('click'); }
         });
     });
 }

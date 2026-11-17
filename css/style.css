@@ -1820,6 +1820,22 @@ body.concert-mode { overflow: hidden !important; height: calc(100dvh / var(--z, 
     display: block;
 }
 
+/* long menus spill into columns to the right, the way Windows 98 does it */
+@media (min-width: 768px) {
+    .start-flyout.start-flyout-columns {
+        width: auto;
+        max-height: none;
+        overflow: visible;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(var(--flyout-rows, 14), auto);
+        grid-auto-columns: 190px;
+    }
+    .start-sub:hover>.start-flyout.start-flyout-columns,
+    .start-sub.open>.start-flyout.start-flyout-columns {
+        display: grid;
+    }
+}
+
 @media (max-width: 767px) {
     .start-flyout {
         left: 0;

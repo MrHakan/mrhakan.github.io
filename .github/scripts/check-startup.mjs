@@ -32,7 +32,7 @@ const section = n => console.log('\n== ' + n + ' ==');
 
 // gzipped, the way a browser gets them
 const BUDGET = {
-    scripts: 145 * 1024,      // every <script src> on the desktop
+    scripts: 146 * 1024,      // every <script src> on the desktop (+1kb: routes and search rows for ten 2000s classics, whose code loads lazily)
     styles: 52 * 1024,        // both stylesheets, which block the first paint
     image: 24 * 1024          // any one image the desktop paints at boot
 };
