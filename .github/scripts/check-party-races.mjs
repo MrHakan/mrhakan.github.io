@@ -144,6 +144,21 @@ await test('a redirect retries after an older reconnect finishes in another gene
     await until(() => nextLeader.isHost && guest.code === nextLeader.code && guest.status === 'Connected' && nextLeader.members.length === 3);
     assert.ok(attempts >= 3,'the current generation retries after the stale attempt drains');
 });
+await test('a leader cannot substitute a member DM key behind a retained fingerprint',async n => {
+    const {a,b,host,guest} = await n.pair(), c = n.client();
+    for (const np of [a,b,c]) np.CATALOG[0].max = 3;
+    const recipient = await c.Party.join(host.code,{mode:'local'});
+    await until(() => guest.members.length === 3 && guest.members.find(m => m.id === recipient.id)?.keyStatus === 'verified');
+    await guest.addFriend(recipient.id);
+    const honest = guest.members.find(m => m.id === recipient.id), leader = guest.members.find(m => m.id === host.id);
+    const forged = guest.members.map(m => m.id === recipient.id ? {...m,publicKey:leader.publicKey} : m).map(({keyStatus,...m}) => m);
+    n.control(host).send('party:state',{epoch:host.epoch,revision:1e6,hostKey:leader.publicKey,gameId:host.gameId,options:host.gameOptions,members:forged,messages:[],match:null});
+    await until(() => guest.members.find(m => m.id === recipient.id)?.publicKey === leader.publicKey);
+    await until(() => guest.members.find(m => m.id === recipient.id)?.keyStatus === 'mismatch');
+    assert.equal(guest.members.find(m => m.id === recipient.id).fingerprint,honest.fingerprint,'the forged entry keeps the saved fingerprint');
+    await assert.rejects(guest.sendDirect(recipient.id,'Leader must not read this'),/key/i);
+    await assert.rejects(guest.addFriend(recipient.id),/key/i);
+});
 for (const [type,data,version] of [['np:full',{reason:'Unadmitted denial'},2],['np:hello',{},0]]) {
     await test('unadmitted '+type+' cannot abort a match during preparation',async n => {
         const {a,b,host} = await n.pair(), c=n.client(), gate=deferred(), loading=deferred();

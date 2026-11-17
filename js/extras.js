@@ -532,8 +532,8 @@ function npLoadScripts() {
 
 // Persistent parties are independent of game and Messenger window cleanup.
 let messengerLoading = null;
-function openMessenger98() {
-    if (window.startMessenger98) { startMessenger98(); return Promise.resolve(); }
+function openMessenger98(opts) {
+    if (window.startMessenger98) { startMessenger98(opts); return Promise.resolve(); }
     if (!messengerLoading) messengerLoading = npLoadScripts()
         .then(() => LAZY.load('games/party/party.js'))
         .then(() => new Promise((resolve, reject) => {
@@ -545,7 +545,7 @@ function openMessenger98() {
         }))
         .then(() => LAZY.load('games/party/messenger.js'))
         .catch(err => { messengerLoading = null; throw err; });
-    return messengerLoading.then(() => startMessenger98()).catch(err => {
+    return messengerLoading.then(() => startMessenger98(opts)).catch(err => {
         showToast('Messenger98', 'Could not load Messenger98: ' + err.message);
     });
 }

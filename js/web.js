@@ -159,6 +159,14 @@ const WEB = (function () {
             openNetplay({ joinCode: invite, autoJoin: true });
             return true;
         }
+        // ?party=ABCDE — a Messenger98 invitation. Same shape as ?lobby=.
+        const party = (query.get('party') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+        if (party.length >= 4 && typeof openMessenger98 === 'function') {
+            const mode = query.get('mode');
+            clearUrl();
+            openMessenger98({ joinCode: party, mode: ['local', 'bus'].includes(mode) ? mode : 'auto' });
+            return true;
+        }
         const slug = query.get('app');
         if (!slug) return false;
         const hash = (location.hash || '').replace(/^#/, '');

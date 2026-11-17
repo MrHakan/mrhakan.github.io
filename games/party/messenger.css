@@ -6,6 +6,7 @@
 .ms98-body button:disabled { color: #777; cursor: default; }
 #ms98-code { width: 65px; text-transform: uppercase; }
 #ms98-name { width: 110px; }
+#ms98-invite-link { flex: 1 1 200px; font: 11px monospace; }
 #ms98-status { padding: 6px; border: 2px inset white; overflow-wrap: anywhere; }
 #ms98-players { background: #fff; border: 2px inset #eee; max-height: 160px; overflow: auto; }
 .ms98-member { padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
