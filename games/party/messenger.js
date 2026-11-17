@@ -4,6 +4,8 @@
     const P = Netplay.Party;
     let view = null, bound = null, subscriptions = [], unread = 0, lastMessage = null;
     let muted = P.preferences.mute !== false, typingTimer;
+    const inviteLink = party => location.origin + location.pathname.replace(/index\.html?$/, '') + '?party=' + party.code + (party.mode && party.mode !== 'auto' ? '&mode=' + party.mode : '');
+    const clock = at => Number.isFinite(at) ? '[' + new Date(at).toTimeString().slice(0, 5) + '] ' : '';
     function tray() {
         let b = document.getElementById('ms98-tray');
         if (!b) {
@@ -46,6 +48,7 @@
         const q = id => body.querySelector('#ms98-' + id);
         q('host').disabled = q('join').disabled = !!party;
         q('invite').textContent = party ? party.code : 'No party';
+        q('invite-link').value = party ? inviteLink(party) : ''; q('copy').disabled = !party;
         q('status').textContent = party ? party.status + (party.match ? ' · ' + party.match.state + (party.match.error ? ': ' + party.match.error : '') : '') : 'Create a party or join with an invitation code. Closing this window does not leave.';
         q('leave').disabled = q('send').disabled = q('return').disabled = !party;
         q('game').disabled = !party?.isHost;
@@ -59,9 +62,9 @@
         for (const m of party?.members || []) {
             const row = document.createElement('div');row.className='ms98-member';row.dataset.memberId=m.id;
             const state = m.presence==='reconnecting' ? 'Reconnecting' : m.presence==='afk' ? 'AFK' : party.match?.state==='playing'&&party.match.participants.includes(m.id)&&m.ready ? 'In game' : m.ready ? 'Ready' : 'Online';
-            const label = document.createElement('span'); label.textContent=(m.avatar||'🙂')+' '+m.name+(m.id===party.hostId?' (Host)':'')+' — '+state+(m.autoFollow?'':' · Not following');row.appendChild(label);
+            const label = document.createElement('span'); label.textContent=(m.avatar||'🙂')+' '+m.name+(m.id===party.hostId?' (Host)':'')+' — '+state+(m.autoFollow?'':' · Not following')+(m.keyStatus==='mismatch'?' · ⚠ Key mismatch, private messages blocked':'');row.appendChild(label);
             if(m.id!==party.id){
-                const button=(text,fn)=>{const b=document.createElement('button');b.textContent=text;b.dataset.memberId=m.id;b.setAttribute('aria-label',text+' '+m.name);b.onclick=()=>run(fn);row.appendChild(b);};
+                const button=(text,fn)=>{const b=document.createElement('button');b.textContent=text;b.dataset.memberId=m.id;b.setAttribute('aria-label',text+' '+m.name);b.disabled=m.keyStatus==='mismatch'&&text!=='Transfer leadership';b.onclick=()=>run(fn);row.appendChild(b);};
                 button('Add friend',()=>party.addFriend(m.id));
                 button('Private message',()=>{const text=window.prompt('Private message to '+m.name+' (first-contact TOFU, not an account)');if(text)return party.sendDirect(m.id,text);});
                 if(party.isHost)button('Transfer leadership',()=>party.transferLeadership(m.id));
@@ -73,20 +76,34 @@
         const log=q('chatlog'); const signature=JSON.stringify(party?.messages||[]);
         if(lastMessage!==signature){
             lastMessage=signature;log.replaceChildren();
-            for(const m of party?.messages||[]){const el=document.createElement('div');el.className=m.system?'ms98-system':'';el.textContent=(m.system?'• ':m.direct?'[Private] '+m.name+': ':m.name+': ')+m.text;log.appendChild(el);}log.scrollTop=log.scrollHeight;
+            for(const m of party?.messages||[]){const el=document.createElement('div');el.className=m.system?'ms98-system':'';el.textContent=clock(m.at)+(m.system?'• ':m.direct?'[Private] '+m.name+': ':m.name+': ')+m.text;log.appendChild(el);}log.scrollTop=log.scrollHeight;
         }
         const options=q('options');
         if(options.dataset.game!==party?.gameId){options.replaceChildren();options.dataset.game=party?.gameId||'';
             for(const o of Netplay.byId(party?.gameId)?.options||[]){const label=document.createElement('label');label.textContent=o.label+' ';const select=document.createElement('select');select.dataset.option=o.key;for(const v of o.values){const option=document.createElement('option');option.value=v[0];option.textContent=v[1];select.appendChild(option);}select.onchange=()=>run(()=>{const opts={...party.gameOptions,[o.key]:select.value};party.selectGame(party.gameId,opts);});label.appendChild(select);options.appendChild(label);}}
         options.querySelectorAll('select').forEach(s=>{s.disabled=!party?.isHost;s.value=party?.gameOptions[s.dataset.option];});
     }
-    window.startMessenger98 = function () {
-        if(view?.win.isConnected){view.win.style.display='flex';view.win.dispatchEvent(new Event('pointerdown'));markRead();render();return;}
+    // An invite link waits for any saved party to restore, then never replaces it silently.
+    function acceptInvite(code, mode) {
+        code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+        if (code.length < 4 || !view) return;
+        view.body.querySelector('#ms98-code').value = code;
+        if (['auto', 'local', 'bus'].includes(mode)) view.body.querySelector('#ms98-mode').value = mode;
+        restoring.then(() => {
+            if (!view) return;
+            if (P.current?.alive) { if (P.current.code !== code) say('You are already in party ' + P.current.code + '. Leave it before joining ' + code + '.'); return; }
+            say('Joining party ' + code + '…');
+            run(() => P.join(code, {mode: view.body.querySelector('#ms98-mode').value}));
+        });
+    }
+    window.startMessenger98 = function (opts) {
+        if(view?.win.isConnected){view.win.style.display='flex';view.win.dispatchEvent(new Event('pointerdown'));markRead();render();acceptInvite(opts?.joinCode,opts?.mode);return;}
         const app=createAppWindow('Messenger98',{icon:'group',width:620}); view=app;lastMessage=null;
         app.body.classList.add('ms98-body');
         app.body.innerHTML = '<div class="ms98-banner">Messenger98 — Your party stays together</div>'+
             '<div class="ms98-toolbar"><label>Nickname <input id="ms98-name" maxlength="16"></label><label>Avatar <select id="ms98-avatar"><option>🙂</option><option>🧙</option><option>🐱</option><option>🤖</option><option>⚓</option></select></label><button id="ms98-profile">Save profile</button></div>'+
             '<div class="ms98-toolbar"><label>Connection <select id="ms98-mode"><option value="auto">Auto (Internet)</option><option value="local">Local tabs</option><option value="bus">Bus (Internet relay)</option></select></label><button id="ms98-host">Create party</button><input id="ms98-code" maxlength="5" aria-label="Party invitation code"><button id="ms98-join">Join party</button> Code: <strong id="ms98-invite"></strong></div>'+
+            '<div class="ms98-toolbar"><input id="ms98-invite-link" readonly aria-label="Party invitation link"><button id="ms98-copy">Copy invite link</button></div>'+
             '<div id="ms98-status" role="status"></div><div class="ms98-toolbar"><label><input type="checkbox" id="ms98-auto-follow" checked>Auto-follow games</label><label>Presence <select id="ms98-presence"><option value="online">Online</option><option value="afk">AFK</option></select></label><label><input type="checkbox" id="ms98-mute" checked>Mute notifications</label></div>'+
             '<div id="ms98-players" aria-label="Party members"></div><details><summary>Saved friends (this browser only)</summary><div id="ms98-contacts"></div></details>'+
             '<div class="ms98-toolbar"><label>Game <select id="ms98-game"></select></label><button id="ms98-start">Party start / Retry</button><button id="ms98-return">Return to party / Cancel</button></div><div id="ms98-options"></div>'+
@@ -104,14 +121,16 @@
         q('mute').onchange=()=>{muted=q('mute').checked;P.setPreferences({mute:muted});};
         q('profile').onclick=()=>run(()=>{Netplay.setName(q('name').value);Netplay.setAvatar(q('avatar').value);P.current?.setProfile({name:q('name').value,avatar:q('avatar').value});});
         q('reconnect').onclick=()=>P.current?.retryReconnect();
+        q('copy').onclick=()=>{const field=q('invite-link');if(!field.value)return;const fallback=()=>{field.focus();field.select();say('Copy the selected invite link and send it to a friend.');};
+            if(navigator.clipboard?.writeText)navigator.clipboard.writeText(field.value).then(()=>say('Invite link copied. Anyone who opens it joins this party.'),fallback);else fallback();};
         q('form').onsubmit=e=>{e.preventDefault();run(()=>{if(P.current?.sendChat(q('chat-input').value))q('chat-input').value='';});};
         q('chat-input').oninput=()=>P.current?.typing();
         const visibility = new MutationObserver(markRead);
         visibility.observe(app.win,{attributes:true,attributeFilter:['style']});
         app.win._cleanup=()=>{visibility.disconnect();view=null;lastMessage=null;tray();};
         app.win.addEventListener('pointerdown',markRead);
-        unread=0;bind();render();
+        unread=0;bind();render();acceptInvite(opts?.joinCode,opts?.mode);
     };
     tray();
-    P.restore().then(()=>{bind();render();}).catch(err=>say('Restore failed: '+err.message));
+    const restoring = P.restore().then(()=>{bind();render();}).catch(err=>say('Restore failed: '+err.message));
 })();

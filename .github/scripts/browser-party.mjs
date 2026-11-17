@@ -99,7 +99,7 @@ async function context(options = {}) {
     });
     return ctx;
 }
-async function person(ctx,name,{blocked=false}={}) {
+async function person(ctx,name,{blocked=false,url=BASE}={}) {
     const p=await ctx.newPage();
     await p.addInitScript(({name,relayPort,blocked})=>{
         try {
@@ -114,10 +114,10 @@ async function person(ctx,name,{blocked=false}={}) {
         const send=BroadcastChannel.prototype.postMessage;
         BroadcastChannel.prototype.postMessage=function(value){if(window.__partyWire.length<2000)window.__partyWire.push(JSON.stringify(value));return send.call(this,value);};
     },{name,relayPort,blocked});
-    await p.goto(BASE,{waitUntil:'load'});
+    await p.goto(url,{waitUntil:'load'});
     await p.waitForFunction(()=>typeof startMenuAction==='function');
     await p.evaluate(()=>document.getElementById('boot-screen')?.remove());
-    await p.evaluate(()=>startMenuAction('messenger'));
+    if(url===BASE)await p.evaluate(()=>startMenuAction('messenger'));
     await p.waitForSelector('#ms98-host',{timeout:10000});
     await p.waitForFunction(()=>!!window.Netplay?.Party);
     await p.evaluate(name=>Netplay.saveProfile({...Netplay.profile(),id:'qa-'+name.toLowerCase(),name}),name);
@@ -223,6 +223,18 @@ try {
     ua.once('dialog',dialog=>dialog.accept('Private message from the real UI'));
     await ua.getByRole('button',{name:'Private message UIGuest',exact:true}).click();await contains(ub,'Private message from the real UI');
     uiCheck(true,'Private message works through the real member button');
+    uiCheck(await ua.locator('#ms98-chatlog div').last().textContent().then(text=>/^\[\d\d:\d\d\] /.test(text)),'chat lines show the local time they were sent');
+    const invite=await ua.inputValue('#ms98-invite-link');
+    uiCheck(invite===BASE+'/?party='+uiCode+'&mode=local','Messenger shows a shareable invite link: '+invite);
+    const uc=await person(uiCtx,'UILinked',{url:invite});
+    await Promise.all([count(ua,3),count(uc,3)]);
+    uiCheck((await controller(uc)).code===uiCode,'opening an invite link joins that party without typing the code');
+    uiCheck(!(await uc.evaluate(()=>location.search)).includes('party='),'the invite code is removed from the address bar after use');
+    const already=await person(uiCtx,'UIAlready');const otherCode=await host(already);
+    await already.goto(invite,{waitUntil:'load'});await already.waitForFunction(()=>Netplay.Party.current?.alive,null,{timeout:30000});
+    await already.waitForFunction(()=>document.querySelector('#ms98-status')?.textContent.includes('Leave'),null,{timeout:10000});
+    uiCheck((await controller(already)).code===otherCode,'an invite link never silently moves a member out of their current party');
+    await already.evaluate(()=>Netplay.Party.current.leave());await uc.evaluate(()=>Netplay.Party.current.leave());
     await ua.screenshot({path:path.join(SHOTS,'messenger-desktop.png')});
     await ua.evaluate(()=>Netplay.Party.current.leave());await ub.evaluate(()=>Netplay.Party.current.leave());await uiCtx.close();
     assert.equal(uiFailures.length,0,uiFailures.join('; '));

@@ -85,10 +85,12 @@
         let autoFollow = true, presence = 'online', matchSession = null, unsubs = [], reconnectTimer = null, reconnecting = false, retries = 0, generation = 0;
         let staged = null, staging = null, handoff = null, prepareTimer = null, reconnectInFlight = false, stateRevision = 0, authorityProof = null, preparation = 0, redirectTarget = null;
         const handlers = {}, rates = new Map(), challenges = new Map(), prepared = new Map(), admitted = new Map(), seenDM = new Set();
+        // Fingerprints are recomputed locally; a snapshot's claimed fingerprint is never trusted.
+        const keyPrints = new Map([[ident.publicKey, ident.fingerprint]]);
         const p = {
             get id() { return raw.id; }, get hostId() { return raw.isHost ? raw.id : raw.hostId; }, get isHost() { return raw.isHost; },
-            get code() { return raw.code; }, get alive() { return alive; }, get epoch() { return epoch; },
-            get members() { return copy(members); }, get messages() { return copy(messages); }, get match() { return match ? copy(match) : null; },
+            get code() { return raw.code; }, get mode() { return mode; }, get alive() { return alive; }, get epoch() { return epoch; },
+            get members() { return copy(members).map(m => ({...m, keyStatus: keyStatus(m)})); }, get messages() { return copy(messages); }, get match() { return match ? copy(match) : null; },
             get gameId() { return gameId; }, get gameOptions() { return copy(gameOptions); }, get storageAvailable() { return storageOK; },
             get status() { return reconnecting ? 'Reconnecting' : !storageOK ? 'Connected — storage unavailable; refresh cannot restore this party' : 'Connected'; },
             on(type, fn) { (handlers[type] ||= []).push(fn); return () => p.off(type, fn); },
@@ -133,14 +135,16 @@
                     handoff = {id,token,resolve,reject,timer}; send('offer', {to:id,token}); emit('change');
                 });
             },
-            addFriend(id) {
-                const m = members.find(m => m.id === id && m.publicKey); if (!m) throw Error('Member identity is not verified yet');
+            async addFriend(id) {
+                const m = await verifiedMember(id);
                 const list = manager.contacts.filter(f => f.fingerprint !== m.fingerprint);
                 list.push({name:m.name,avatar:m.avatar,fingerprint:m.fingerprint,publicKey:m.publicKey}); save('contacts', list.slice(-100)); emit('change');
             },
             async sendDirect(id, text) {
-                text = String(text || '').trim().slice(0, 500); const m = members.find(m => m.id === id && m.publicKey && m.presence !== 'reconnecting');
-                if (!alive || !epoch || !m || id === raw.id) throw Error('Private messages require a connected party member');
+                text = String(text || '').trim().slice(0, 500);
+                if (!alive || !epoch || id === raw.id || !members.some(m => m.id === id && m.publicKey && m.presence !== 'reconnecting')) throw Error('Private messages require a connected party member');
+                const m = await verifiedMember(id);
+                if (!alive || !epoch || m.presence === 'reconnecting') throw Error('Private messages require a connected party member');
                 if (!text || !allowed('dm-send', 8)) return false;
                 const messageId = random(), context = [epoch,raw.id,id,messageId].join('|');
                 const payload = await seal(m.publicKey, text, context);
@@ -155,6 +159,27 @@
             },
             retryReconnect() { if (!alive || !reconnecting) return; retries = 0; scheduleReconnect(); }
         };
+        function keyStatus(m) {
+            if (!m.publicKey) return 'none';
+            const print = keyPrints.get(m.publicKey);
+            return print === undefined ? 'pending' : print === m.fingerprint ? 'verified' : 'mismatch';
+        }
+        async function learnKey(key) {
+            if (typeof key !== 'string' || key.length > 200 || keyPrints.has(key)) return;
+            let print;
+            try { print = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', un64(key)))); } catch (_) { print = null; }
+            keyPrints.set(key, print);
+            if (keyPrints.size > 256) keyPrints.delete(keyPrints.keys().next().value);
+            if (alive) emit('change');
+        }
+        async function verifiedMember(id) {
+            const found = members.find(m => m.id === id && m.publicKey);
+            if (!found) throw Error('Member identity is not verified yet');
+            await learnKey(found.publicKey);
+            const m = members.find(m => m.id === id && m.publicKey);
+            if (!m || keyStatus(m) !== 'verified') throw Error('This member key does not match its fingerprint; refusing to trust it');
+            return m;
+        }
         function emit(type, data) { for (const f of [...handlers[type] || []]) { try { f(data); } catch (_) {} } }
         function onlyHost() { if (!alive || !raw.isHost || reconnecting) throw Error('Only the connected party host can do that'); }
         function idle() { if (match && ['playing','preparing'].includes(match.state)) throw Error('Return to party first; running game host migration is not supported'); }
@@ -186,6 +211,7 @@
             }
             if (!old && members.length >= 32) return;
             const m = old || {id,ready:false};
+            keyPrints.set(data.publicKey, data.fingerprint);
             Object.assign(m,{name:String(data.name || 'Player').slice(0,16),avatar:typeof data.avatar === 'string' ? data.avatar.slice(0,8) : null,publicKey:data.publicKey,fingerprint:data.fingerprint,presence:data.presence === 'afk' ? 'afk' : 'online',autoFollow:data.autoFollow !== false,seen:Date.now()});
             if (!old) { members.push(m); notice(m.name + ' joined the party'); }
             publish();
@@ -210,7 +236,8 @@
                 try { optionsFor(d.gameId,d.options); } catch (_) { return; }
                 hostKey = d.hostKey; epoch = d.epoch; stateRevision = d.revision; gameId = d.gameId; gameOptions = d.options;
                 const previousMessageIds = new Set(messages.map(m => m.id));
-                members = d.members.slice(0,32); const localDM = messages.filter(m => m.direct);
+                members = d.members.slice(0,32).filter(m => m && typeof m === 'object').map(({keyStatus,...m}) => m); for (const m of members) learnKey(m.publicKey);
+                const localDM = messages.filter(m => m.direct);
                 messages = (Array.isArray(d.messages) ? d.messages : []).filter(m => m && typeof m.text === 'string' && m.text.length <= 500).slice(-LIMIT).concat(localDM).slice(-LIMIT);
                 for (const m of messages) if (!previousMessageIds.has(m.id)) emit('message',m);
                 const oldMatch = match; match = d.match && NP.byId(d.match.gameId) && Array.isArray(d.match.participants) ? d.match : null;

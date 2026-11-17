@@ -57,7 +57,15 @@ the party. The party invitation code and transport member IDs change. A failed
 redirect retains the new invitation and uses the bounded reconnect scheduler to
 join the new leader rather than retrying the retired room. Friends
 use key fingerprints rather than those transient IDs. Members disconnected
-during a handoff may need the new invitation. Transport failures during the
+during a handoff may need the new invitation.
+
+Messenger shows a copyable invite link (`/?party=CODE`, plus `&mode=local` or
+`&mode=bus` for non-default transports). Opening it loads Messenger, waits for
+any saved party to restore, and joins the invited party. It never silently
+replaces an existing party: a member who is already in another party is asked
+to leave first. The code is removed from the address bar after use.
+
+Transport failures during the
 redirect are not an atomic, server-backed transaction. No leadership transfer
 is allowed while a match is preparing or playing.
 
@@ -75,7 +83,12 @@ A member proves possession of its ECDH private key with an encrypted challenge
 bound to its authenticated Netplay member ID. The party host distributes this
 binding. Contacts store public keys/fingerprints using first-contact TOFU
 (trust on first use), NOT verified real-world/account identities. The host is
-trusted to introduce members honestly. Verify fingerprints/invitations through
+trusted to introduce members honestly. Each client recomputes the SHA-256
+fingerprint of every introduced public key locally and never trusts the
+fingerprint claimed in a snapshot. A key that does not match its displayed
+fingerprint is shown as a key mismatch, and both private messages and contact
+saving for that member are refused. A host can still introduce a fresh member
+with a consistent key it controls, so verify fingerprints/invitations through
 another channel when identity matters. A compromised first contact, host, origin
 script, browser storage, or device remains outside this protection. There is no
 forward secrecy, password recovery, cross-device login or global DM routing.
