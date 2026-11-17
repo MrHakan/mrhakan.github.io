@@ -389,7 +389,9 @@ const WEB = (function () {
     const SIZES = [11, 12, 13, 15, 17];
 
     function textSize() {
-        const n = parseInt(localStorage.getItem(SIZE_KEY) || '', 10);
+        let saved = '';
+        try { saved = localStorage.getItem(SIZE_KEY) || ''; } catch (_) { }
+        const n = parseInt(saved, 10);
         return SIZES.indexOf(n) !== -1 ? n : 12;
     }
 

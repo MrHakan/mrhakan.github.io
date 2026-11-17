@@ -237,6 +237,7 @@ const SITE_MAP = [
             ['tankz 98 (tanks in a maze)', 'openTankz()'],
             ['blastz 98 (guns and knockback)', 'openBlastz()'],
             ['harbor master 98 (port traffic)', 'openHarborMaster()'],
+            ['Messenger98 — persistent party chat', 'openMessenger98()'],
             ['multiplayer lobby', 'openNetplay()'],
             ['solitaire', 'openSolitaire()'],
             ['minesweeper', 'openMinesweeper()'], ['snake', 'openSnake()'], ['pong', 'openPong()'],

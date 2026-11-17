@@ -505,7 +505,7 @@ const wallpapers = [
 function applyWallpaper(id) {
     document.body.classList.remove(...wallpapers.map(w => `wp-${w.id}`));
     if (id && id !== 'space') document.body.classList.add(`wp-${id}`);
-    localStorage.setItem('wallpaper', id || 'space');
+    try { localStorage.setItem('wallpaper', id || 'space'); } catch (_) { }
 }
 function openControlPanel() {
     const { body } = createAppWindow('display properties', { icon: 'wallpaper', width: 330 });
@@ -582,11 +582,12 @@ function openControlPanel() {
     sn.onchange = () => sn.checked ? startSnow() : stopSnow();
 }
 function applyDisplayPrefs() {
+    const preference = key => { try { return localStorage.getItem(key); } catch (_) { return null; } };
     const crtEl = document.querySelector('.crt-overlay');
-    if (crtEl) crtEl.style.display = localStorage.getItem('crt-off') === '1' ? 'none' : '';
+    if (crtEl) crtEl.style.display = preference('crt-off') === '1' ? 'none' : '';
     const starEl = document.querySelector('.star-overlay');
-    if (starEl) starEl.style.display = localStorage.getItem('stars-off') === '1' ? 'none' : '';
-    applyWallpaper(localStorage.getItem('wallpaper') || 'space');
+    if (starEl) starEl.style.display = preference('stars-off') === '1' ? 'none' : '';
+    applyWallpaper(preference('wallpaper') || 'space');
 }
 
 // ---------- dial-up connection simulator ----------

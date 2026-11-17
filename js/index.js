@@ -306,6 +306,7 @@ function appActions() {
         ageoftrollbot: () => openAgeOfTroll('bot'),
         dungeonz: () => openDungeonz(),
         dungeonzbot: () => openDungeonz('solo'),
+        messenger: () => openMessenger98(),
         netplay: () => openNetplay(),
         defrag: openDefrag,
         documents: openDocuments,
@@ -1281,7 +1282,13 @@ const win98Sounds = {
     notify: 'src/windowsxpstartup_201910/Windows XP Notify.mp3',
     balloon: 'src/windowsxpstartup_201910/Windows XP Balloon.mp3'
 };
-let soundEnabled = localStorage.getItem('sound-enabled') !== 'false';
+function readDesktopPreference(key) {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+}
+function saveDesktopPreference(key, value) {
+    try { localStorage.setItem(key, value); } catch (_) { }
+}
+let soundEnabled = readDesktopPreference('sound-enabled') !== 'false';
 function playSound(type) {
     if (!soundEnabled) return;
     // Until the visitor touches the page the browser refuses to play anything,
@@ -1293,7 +1300,7 @@ function playSound(type) {
 }
 function toggleSound() {
     soundEnabled = !soundEnabled;
-    localStorage.setItem('sound-enabled', soundEnabled);
+    saveDesktopPreference('sound-enabled', soundEnabled);
     updateSoundUI();
     if (soundEnabled) playSound('ding');
     // the button means quiet, and a song nobody chose should listen to it
@@ -1672,8 +1679,8 @@ function initVisitorCounter() {
         done = true;
         badge.classList.add('hidden');
         led.classList.remove('hidden');
-        const count = parseInt(localStorage.getItem('visitor-count') || '0', 10) + 1;
-        localStorage.setItem('visitor-count', count);
+        const count = parseInt(readDesktopPreference('visitor-count') || '0', 10) + 1;
+        saveDesktopPreference('visitor-count', count);
         led.textContent = String(count).padStart(6, '0');
     };
     badge.addEventListener('error', fallback);
@@ -1750,7 +1757,7 @@ async function fetchEntriesFromRepo(kind) {
         localStorage.setItem(cacheKey, JSON.stringify(valid));
         return valid;
     } catch (e) {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = readDesktopPreference(cacheKey);
         if (cached) return JSON.parse(cached);
         throw e;
     }
@@ -1990,7 +1997,7 @@ async function fetchBoard(kind) {
         fetchEntriesFromRepo(kind).catch(() => null)
     ]);
     if (gist === null && archive === null) {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = readDesktopPreference(cacheKey);
         if (cached) return JSON.parse(cached);
         throw new Error('the board would not load');
     }
@@ -2990,7 +2997,7 @@ const assistantTips = [
 ];
 let assistantTimer = null;
 function initAssistant() {
-    if (localStorage.getItem('assistant-off') === '1') return;
+    if (readDesktopPreference('assistant-off') === '1') return;
     assistantTimer = setTimeout(showAssistant, 25000);
 }
 function showAssistant() {
@@ -3013,7 +3020,7 @@ function showAssistant() {
     document.body.appendChild(el);
     playSound('balloon');
     el.querySelector('#assistant-ok').onclick = () => { hideAssistant(); assistantTimer = setTimeout(showAssistant, 45000); };
-    el.querySelector('#assistant-off').onclick = () => { localStorage.setItem('assistant-off', '1'); hideAssistant(); showToast('clippy.exe', 'fine. i never liked you either'); };
+    el.querySelector('#assistant-off').onclick = () => { saveDesktopPreference('assistant-off', '1'); hideAssistant(); showToast('clippy.exe', 'fine. i never liked you either'); };
     el.querySelector('.assistant-troll').onclick = () => { el.querySelector('.assistant-troll').classList.add('spin'); playSound('click'); };
 }
 function hideAssistant() {

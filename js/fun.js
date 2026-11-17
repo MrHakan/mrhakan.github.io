@@ -904,7 +904,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initPlayClock();
     paintInstall();
     if (siteInstalled()) unlockAchievement('installed');
-    if (localStorage.getItem('sparkles-off') === '1') {
+    let sparklesOff = false;
+    try { sparklesOff = localStorage.getItem('sparkles-off') === '1'; } catch (_) { }
+    if (sparklesOff) {
         document.removeEventListener('mousemove', createSparkle);
     }
 });

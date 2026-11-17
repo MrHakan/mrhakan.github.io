@@ -45,6 +45,9 @@ jobs:
             - name: Check test loaders and browser diagnostics
               run: node .github/scripts/check-test-infrastructure.mjs
 
+            - name: Check persistent parties and Messenger protocol
+              run: node .github/scripts/check-party.mjs
+
             - name: Check Playground metadata tooling
               run: node .github/scripts/check-playground-metadata.mjs
 
@@ -232,6 +235,11 @@ jobs:
             - name: Open lobbies and quick match
               if: matrix.group == 'desktop'
               run: node .github/scripts/browser-lobbies.mjs
+
+            - name: Party lifecycle, Messenger and shared game launches
+              if: matrix.group == 'desktop'
+              timeout-minutes: 6
+              run: node .github/scripts/browser-party.mjs
 
             # the reading layer, driven the way a person drives it: type a
             # name in the address bar, press back, star a page and reload.

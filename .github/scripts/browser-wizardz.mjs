@@ -580,6 +580,9 @@ try {
         const cdp = await ctx.newCDPSession(p);
         await p.evaluate(() => openWizardz('solo'));
         await p.waitForFunction(() => window.WZ_ENGINE && WZ_ENGINE.state(), null, { timeout: 30000 });
+        // This section isolates real multitouch input: hostile stun correctly cancels ink.
+        // Bot combat is exercised separately in solo, every-map and 4 v 4 scenarios.
+        await p.evaluate(() => { WZ_ENGINE.state().brains = {}; });
         await live(p);
         const fit = await p.evaluate(() => {
             const s = document.querySelector('#wz-stage').getBoundingClientRect();

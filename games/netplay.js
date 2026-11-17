@@ -1135,8 +1135,10 @@
     // is addressed to a third player the host forwards it. Star
     // topology, one hop, nothing clever.
     // ===============================================================
-    function Session(transport, isHost, code) {
+    function Session(transport, isHost, code, options) {
         const s = this;
+        s.connectionOptions = options || {};
+        s.partyOnly = !!s.connectionOptions.partyOnly;
         s.transport = transport;
         s.isHost = !!isHost;
         s.code = code;
@@ -1183,6 +1185,7 @@
     Session.prototype.send = function (type, data, to) {
         if (!this.transport || !this.alive) return;
         const env = { v: NP.VERSION, t: type, d: data, f: this.id, to: to || '*' };
+        if (this.connectionOptions.matchId) env.matchId = this.connectionOptions.matchId;
         if (this.isHost) this.transport.send(to && to !== '*' ? this._peerFor(to) : '*', env);
         else this.transport.send(this.transport.hostId, env);
     };
@@ -1224,33 +1227,47 @@
     };
     // what only the host says. A guest saying one of these is a bug or a forgery,
     // and on the relays anybody holding the code can post into the room
-    const HOST_ONLY = { 'np:roster': 1, 'np:start': 1, 'np:game': 1, 'np:opts': 1, 'np:ping': 1 };
+    const HOST_ONLY = { 'np:roster': 1, 'np:start': 1, 'np:game': 1, 'np:opts': 1, 'np:ping': 1, 'np:full': 1 };
     Session.prototype._onData = function (pid, env) {
         if (!env || typeof env !== 'object' || typeof env.t !== 'string' || typeof env.f !== 'string') return;
-        // Version feedback grants no authority and changes no room/liveness state.
-        if (env.v !== NP.VERSION) {
-            this.emit('net:error', 'version mismatch — one of you needs to refresh');
-            return;
-        }
+        // Party match channels never consume gameplay from another generation.
+        if (this.connectionOptions.matchId && !env.t.startsWith('np:') && env.matchId !== this.connectionOptions.matchId) return;
         // Auto exposes the verified logical identity, prefixed only for routing.
         // A host may forward a guest's envelope; no other speaker may claim it.
         const speaker = this.transport && this.transport.shareRoad ? String(pid).replace(/^[pb]:/, '') : pid;
         const forwarded = !this.isHost && this.hostId && speaker === this.hostId;
         if (env.f !== speaker && !forwarded) return;
+        // Match guests trust admission-derived host rosters, never stranger hellos.
+        if (this.connectionOptions.matchId && !this.isHost) {
+            const host = this.hostId || this.connectionOptions.expectedHostId;
+            if (env.f !== host && (env.t === 'np:hello' || !this.players.some(p => p.id === env.f))) return;
+        }
+        if (this.connectionOptions.matchId && this.isHost && env.v !== NP.VERSION && !this.players.some(p => p.id === env.f)) return;
+        // Version feedback grants no authority and changes no room/liveness state.
+        if (env.v !== NP.VERSION) {
+            this.emit('net:error', 'version mismatch — one of you needs to refresh');
+            return;
+        }
         if (HOST_ONLY[env.t]) {
             // the host takes none of these, and passes none of them on
             if (this.isHost) return;
             // a guest learns who the host is from the first roster that seats it,
             // which the host signs as itself, and after that hears these from it only
-            if (!this.hostId) {
+            const expectedFullHost = env.t === 'np:full' && (this.connectionOptions.expectedHostId || this.transport.hostId);
+            if (!this.hostId && expectedFullHost) {
+                if (speaker !== expectedFullHost || env.f !== expectedFullHost) return;
+            } else if (!this.hostId) {
                 const list = env.t === 'np:roster' && Array.isArray(env.d) ? env.d : null;
                 const host = list && list.find(p => p && p.host);
                 if (!host || host.id !== speaker || env.f !== speaker || !list.some(p => p && p.id === this.id)) return;
                 // A direct connection also anchors the first roster to that peer.
                 if (this.transport.hostId && this.transport.hostId !== speaker) return;
+                if (this.connectionOptions.expectedHostId && this.connectionOptions.expectedHostId !== speaker) return;
                 this.hostId = speaker;
             } else if (speaker !== this.hostId || env.f !== this.hostId) return;
         }
+        // Admission-gated matches do not route or execute traffic from unseated senders.
+        if (this.isHost && this.connectionOptions.admit && env.t !== 'np:hello' && !this.players.some(p => p.id === env.f)) return;
         // Only authenticated, authorized traffic keeps a player alive.
         this.lastRx = Date.now();
         if (this._downSent) { this._downSent = false; this.emit('net:up'); }
@@ -1327,6 +1344,20 @@
     };
     Session.prototype._onHello = function (pid, env) {
         const prof = env.d || {};
+        const gate = this.connectionOptions.admit;
+        if (this.isHost && gate && !this.players.some(p => p.id === env.f)) {
+            this._admitting = this._admitting || new Set();
+            if (this._admitting.has(env.f)) return;
+            this._admitting.add(env.f);
+            Promise.resolve(gate(env.f, prof.admission)).then(ok => {
+                if (!ok || !this.alive) return;
+                const admit = this.connectionOptions.admit;
+                this.connectionOptions.admit = null;
+                this._onHello(pid, env);
+                this.connectionOptions.admit = admit;
+            }).catch(() => {}).finally(() => this._admitting.delete(env.f));
+            return;
+        }
         let p = this.players.find(x => x.id === env.f);
         if (!p) {
             p = { id: env.f, name: String(prof.name || 'wizard').slice(0, 16), avatar: prof.avatar || null, ready: false, host: false, ping: 0 };
@@ -1339,7 +1370,7 @@
         }
         p.peerId = pid;
         if (this.isHost) {
-            const cap = (NP.byId(this.gameId) || {}).max || 8;
+            const cap = this.partyOnly ? 32 : (NP.byId(this.gameId) || {}).max || 8;
             if (this.players.length > cap) {
                 this.send('np:full', { reason: 'lobby is full' }, p.id);
                 this.players = this.players.filter(x => x !== p);
@@ -1359,7 +1390,8 @@
         this.emit('roster', this.players);
     };
     Session.prototype._onStart = function (d) {
-        if (!d || !d.gameId) return;
+        if (this.partyOnly || !this.alive || !d || !d.gameId) return;
+        if (this.connectionOptions.matchId && d.matchId !== this.connectionOptions.matchId) return;
         this.gameId = d.gameId;
         this.state = 'playing';
         this.emit('start', d);
@@ -1370,7 +1402,7 @@
         const prof = NP.profile();
         this.me.name = prof.name;
         this.me.avatar = prof.avatar;
-        this.send('np:hello', { name: prof.name, avatar: prof.avatar });
+        this.send('np:hello', { name: prof.name, avatar: prof.avatar, admission: this.connectionOptions.admission });
         if (this.isHost) this.broadcastRoster();
         this.emit('roster', this.players);
     };
@@ -1422,7 +1454,9 @@
         const problem = g.startProblem && g.startProblem(this);
         if (problem) { this.emit('net:error', problem); toast('netplay', problem); return; }
         const slots = this.players.map(p => p.id);
+        if (this.partyOnly) return;
         const d = { gameId: this.gameId, seed: Math.floor(Math.random() * 1e9), slots, at: Date.now() };
+        if (this.connectionOptions.matchId) d.matchId = this.connectionOptions.matchId;
         if (g.options) d.options = this.gameOptions;
         if (g.teams) { d.teams = {}; this.players.forEach(p => { d.teams[p.id] = this.teamOf(p); }); }
         this.send('np:start', d);
@@ -1630,6 +1664,8 @@
     NP.launch = function (session, opts) {
         const id = opts.gameId;
         NP.loadGame(id).then(g => {
+            if (!session.alive) return;
+            if (session.connectionOptions.matchId) NP.current = session;
             if (NP.lobbyWin) { try { NP.lobbyWin.close(); } catch (e) { } NP.lobbyWin = null; }
             g.start(session, opts);
         }).catch(err => {
@@ -1654,33 +1690,33 @@
             throw err;
         });
     }
-    NP.host = function (mode, gameId, code, onStatus) {
+    NP.host = function (mode, gameId, code, onStatus, options) {
         code = code || makeCode(5);
         const spec = NP.TRANSPORTS[mode] || NP.TRANSPORTS.auto;
         const t = spec.make(code, true);
         return opening(t, onStatus).then(() => {
-            const s = new Session(t, true, code);
+            const s = new Session(t, true, code, options);
             s.mode = NP.TRANSPORTS[mode] ? mode : 'auto';
             s.id = t.id || s.id;
             s.me.id = s.id;
             s.me.host = true;
             s.gameId = gameId || NP.CATALOG[0].id;
             s.startPings();
-            NP.current = s;
+            if (!s.connectionOptions.background) NP.current = s;
             return s;
         });
     };
-    NP.join = function (mode, code, onStatus) {
+    NP.join = function (mode, code, onStatus, options) {
         code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
         if (code.length < 4) return Promise.reject(new Error('that code looks wrong'));
         const spec = NP.TRANSPORTS[mode] || NP.TRANSPORTS.auto;
         const t = spec.make(code, false);
         return opening(t, onStatus).then(() => {
-            const s = new Session(t, false, code);
+            const s = new Session(t, false, code, options);
             s.id = t.id || s.id;
             s.me.id = s.id;
             s.startPings();          // the guest side only watches for silence
-            NP.current = s;
+            if (!s.connectionOptions.background) NP.current = s;
             setTimeout(() => s.announceProfile(), 30);
             // a hello can fall between two relays, so keep knocking until seated
             const knock = setInterval(() => {

@@ -1,4 +1,5 @@
 [
+    { "date": "2026-11-17", "icon": "💬", "title": "Messenger98 and persistent parties", "text": "keep your party and chat when game windows close. opt in to follow the host into catalog games, stay afk in chat, save local contacts, and send recipient-encrypted private messages. no accounts or global online directory; running game hosts cannot migrate safely.", "button": "Open Messenger98", "app": "messenger" },
 
     { "date": "2026-11-16", "icon": "🪖", "title": "tankz: make each shell count", "text": "the cannon now takes a breath between shots: three shell slots, a visible reload meter, and missed shots clear sooner. the mazes have marked combat yards, cover and a second exit from every cell instead of dead-end pockets. bank shots and the six files stay. everybody needs a refresh before joining an updated room.", "button": "drive", "app": "tankz" },
 

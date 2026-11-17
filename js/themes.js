@@ -970,7 +970,8 @@ const THEME_PRESETS = [
 // boot — restore whatever was active last time
 // ===================================================================
 function themeInit() {
-    const id = localStorage.getItem(THEME_KEY_ACTIVE);
+    let id;
+    try { id = localStorage.getItem(THEME_KEY_ACTIVE); } catch (_) { return; }
     if (!id) return;
     const t = themeById(id);
     if (t) themeApply(t);
