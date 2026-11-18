@@ -1108,3 +1108,45 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## tavla 98
+
+Backgammon the way the coffee house plays it: no doubling cube, a mars (and a
+backgammon too) is worth 2, a plain win 1. The first game opens with one die
+each, after that the last game's winner rolls first. Matches are first to 5, 3
+or one game. Solo is you against a bot (easy, normal or hard); online is one on
+one through the desktop lobby, or an invite link (`join/tavla/`).
+
+| file | what is in it |
+| --- | --- |
+| `tavla-sim.js` | the rules, the turn (both dice if you can, the larger if only one, doubles four times), the match, the bots and the move notation. No page in it, so node runs it |
+| `tavla.js` | the window, the wooden board on a canvas, click/drag/touch/keys, undo, the move log, auto bear-off, the bots' pacing and the wire |
+| `tavla.css` | its styles. They come with the game, not with the desktop |
+
+The board is 24 points; white (seat 0) runs 24 → 1 and red mirrors it. The rules
+think in each seat's own numbering (`rel`, 24 is the bar, -1 off), and the board
+is drawn from the viewer's side, so a guest playing red still has its home at
+the bottom right. `legalSteps` only offers moves that start a turn using as many
+dice as possible; `check-tavla.mjs` holds it to a brute force on 1200 positions
+out of real games. The bots score a position on pips, blots in range, made
+points, primes, anchors and checkers on the bar; easy is sloppy on purpose,
+normal takes the best position, hard looks one roll ahead at every reply.
+
+### online
+
+Host authoritative. The host is white, owns the match and rolls every die. A
+guest sends what it wants to do (`tavla:act`, with a running number) and shows
+its own moves at once; the host checks every action against the rules, applies
+it and sends the whole state back (`tavla:state`, with the last number it took).
+The guest takes the host's state once its own actions are acknowledged, so a
+refused move snaps back. The host resends every 4 seconds and answers
+`tavla:hi`. A guest who leaves gets a normal bot; if the host leaves, the guest
+finishes the match against a bot on its own screen.
+
+### saves
+
+`mrhakan98-tavla-prefs` keeps the bot level, the match length and auto bear-off;
+`mrhakan98-tavla-stats` keeps games, wins, mars wins, matches and online games;
+`mrhakan98-tavla-save` keeps a solo match in progress, offered as "continue" in
+the menu. Achievements it calls if the desktop has them: `tavla`, `tavla_mars`.
+`node .github/scripts/tavla-preview.mjs` makes `join/tavla/preview.jpg` again.
