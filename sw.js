@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v62';
+const CACHE = 'mrhakan98-v63';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -86,6 +86,44 @@ const PRECACHE_LATER = [
     '/games/waveshaper/waveshaper.js',
     '/games/waveshaper/waveshaper-window.js',
     '/games/waveshaper/waveshaper-window.css',
+    '/games/classics.js',
+    '/games/frame-window.js',
+    '/games/frame-window.css',
+    '/games/okey/okey-sim.js',
+    '/games/okey/okey.js',
+    '/games/okey/okey.css',
+    '/games/kartz/kartz-sim.js',
+    '/games/kartz/kartz.js',
+    '/games/kartz/kartz.css',
+    '/games/tavla/tavla-sim.js',
+    '/games/tavla/tavla.js',
+    '/games/tavla/tavla.css',
+    '/games/popz/popz-sim.js',
+    '/games/popz/popz.js',
+    '/games/popz/popz.css',
+    '/games/lava-tide/lavatide-sim.js',
+    '/games/lava-tide/lavatide.js',
+    '/games/lava-tide/lavatide.css',
+    '/games/gold-claw/',
+    '/games/gold-claw/?embed=1',
+    '/games/gold-claw/gold-claw-sim.js',
+    '/games/gold-claw/gold-claw.js',
+    '/games/pizza-shift/',
+    '/games/pizza-shift/?embed=1',
+    '/games/pizza-shift/pizza-shift-sim.js',
+    '/games/pizza-shift/pizza-shift.js',
+    '/games/learn-to-glide/',
+    '/games/learn-to-glide/?embed=1',
+    '/games/learn-to-glide/learn-to-glide-sim.js',
+    '/games/learn-to-glide/learn-to-glide.js',
+    '/games/block-roll/',
+    '/games/block-roll/?embed=1',
+    '/games/block-roll/block-roll-sim.js',
+    '/games/block-roll/block-roll.js',
+    '/games/deep-drill/',
+    '/games/deep-drill/?embed=1',
+    '/games/deep-drill/deep-drill-sim.js',
+    '/games/deep-drill/deep-drill.js',
     '/js/arcade.js',
     '/js/toys.js',
     '/js/defrag.js',

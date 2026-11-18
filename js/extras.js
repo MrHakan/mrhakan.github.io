@@ -455,6 +455,9 @@ function openHarborMaster() {
     }).catch(() => { body.innerHTML = lazyFail('the harbor would not open bradar'); });
 }
 
+// games/classics.js
+function openClassic(k) { (window.openClassicNow ? Promise.resolve() : LAZY.load('games/classics.js')).then(() => openClassicNow(k)); }
+
 function openRiftRumble() {
     if (window.startRiftRumble) { startRiftRumble(); return; }
     const { body, win } = createAppWindow('Brawlz 98', { icon: 'sports_esports', width: 320 });
@@ -1036,6 +1039,7 @@ function siteSearchIndex() {
         ['trailz 98', 'game', () => openTrailz(), 'light cycles tron lightcycle trails walls grid neon racing bots multiplayer 8 player 3d'],
         ['blastz 98', 'game', () => openBlastz(), 'blastz guns shooter knockback platform push off lives crates bombs 2d multiplayer 4 player local bots'],
         ['harbor master 98', 'game', () => openHarborMaster(), 'harbor port ships docking traffic control route waypoints berth maritime sea patron joe cool sahur'],
+        ...[['okey 98', 'okey', 'okey 101 rummy tiles'], ['kartz 98', 'kartz', 'batak king pisti cards'], ['tavla 98', 'tavla', 'backgammon dice'], ['lava & tide 98', 'lavatide', 'fireboy watergirl co-op platformer'], ['popz 98', 'popz', 'bubble trouble pang co-op'], ['gold claw 98', 'goldclaw', 'gold miner hook'], ['pizza shift 98', 'pizzashift', 'papa pizzeria cooking'], ['learn to glide 98', 'learntoglide', 'learn to fly penguin'], ['block roll 98', 'blockroll', 'bloxorz block puzzle'], ['deep drill 98', 'deepdrill', 'motherload mining']].map(([n, k, w]) => [n, 'game', () => openClassic(k), w]),
         ['waveshaper 98', 'game', () => openWaveShaper(), 'wave square triangle vector four buttons reflex gamepad controller'],
         ['dungeonz 98', 'game', () => openDungeonz(), 'dungeon raid coop co-op party boss minions level up skills checkpoint shrine 3d ps1 wizard bots multiplayer 4 player'],
         ['age of troll: 1 v bot', 'game', () => openAgeOfTroll('bot'), 'age of war single player bot ai practice cpu computer strategy trolls'],

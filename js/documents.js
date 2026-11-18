@@ -47,6 +47,25 @@
     // keys: everything this document owns. the first is the one that
     // decides whether the document exists at all.
     // summary: one line a person can read, out of whatever is stored.
+    // 2000s classics: one row each so a backup carries their saves.
+    const CLASSIC_DOCS = [
+        ['okey', 'okey 98', '🀄', ['mrhakan98-okey-stats', 'mrhakan98-okey-save', 'mrhakan98-okey-prefs']],
+        ['kartz', 'kartz 98', '🃏', ['mrhakan98-kartz-stats', 'mrhakan98-kartz-save', 'mrhakan98-kartz-prefs']],
+        ['tavla', 'tavla 98', '🎲', ['mrhakan98-tavla-stats', 'mrhakan98-tavla-save', 'mrhakan98-tavla-prefs']],
+        ['popz', 'popz 98', '🎈', ['mrhakan98-popz-best', 'mrhakan98-popz-prefs']],
+        ['goldclaw', 'gold claw 98', '⛏️', ['mrhakan98-goldclaw-best-level', 'mrhakan98-goldclaw-best-money']],
+        ['pizzashift', 'pizza shift 98', '🍕', ['mrhakan98-pizzashift-save']],
+        ['learntoglide', 'learn to glide 98', '🐧', ['mrhakan98-learntoglide-save', 'mrhakan98-learntoglide-records', 'mrhakan98-learntoglide-howto']],
+        ['blockroll', 'block roll 98', '🧱', ['mrhakan98-blockroll-save']],
+        ['deepdrill', 'deep drill 98', '🪨', ['mrhakan98-deepdrill-save', 'mrhakan98-deepdrill-best']],
+        ['lavatide', 'lava & tide 98', '🔥', ['mrhakan98-lavatide-best', 'mrhakan98-lavatide-prefs']]
+    ].map(([id, name, icon, keys]) => ({
+        id, name, icon, keys, open: id,
+        summary() {
+            const set = keys.filter(k => raw(k) !== null);
+            return set.length ? { line: plural(set.length, 'saved file'), when: '' } : null;
+        }
+    }));
     const DOCS = [
         {
             id: 'echoes',
@@ -266,6 +285,7 @@
                 return { line: 'best score ' + best, when: '' };
             }
         },
+        ...CLASSIC_DOCS,
         {
             id: 'achievements',
             name: 'trophy room',

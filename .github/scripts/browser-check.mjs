@@ -82,19 +82,56 @@ try {
     await waitLive(solo);
 
     await takeMouse(solo);
+    // Sample the accepted cast and the projectile spawn before the next simulation tick.
+    await solo.evaluate(() => {
+        const sim = WZ_SIM, original = sim.command, game = WZ_ENGINE.state();
+        window.fireballProbe = { ink: null, shot: null, attempts: [] };
+        sim.command = function (state, seat, cmd) {
+            if (state !== game.s || seat !== game.me) return original.apply(this, arguments);
+            const w = state.wiz[seat], before = w.ink, id = state.nextId;
+            const loaded = w.chamber?.s;
+            const result = original.apply(this, arguments);
+            const probe = window.fireballProbe;
+            if (result === null && cmd.c === 'cast' && cmd.s === 'fireball') {
+                probe.ink = { spent: before - w.ink, cost: WZ.byId('fireball').cost };
+            }
+            if (cmd.c === 'fire' && loaded === 'fireball') {
+                probe.attempts.push(result);
+                if (result === null) {
+                    probe.shot = state.ents.find(e => e.id >= id && e.s === 'fireball' && e.o === seat)?.id ?? null;
+                    sim.command = original;
+                }
+            }
+            return result;
+        };
+        window.restoreFireballProbe = () => { sim.command = original; };
+    });
     await inkDraw(solo, TRIANGLE);
     const afterDraw = await solo.evaluate(() => {
         const g = WZ_ENGINE.state(), w = g.wiz[g.me];
-        return { chamber: w.chamber && w.chamber.s, ink: w.ink, start: WZ.ARENA.startInk, hint: g.hint && g.hint.text };
+        return { chamber: w.chamber && w.chamber.s, ink: window.fireballProbe.ink, hint: g.hint && g.hint.text };
     });
     expect(afterDraw.chamber === 'fireball', 'drawing a triangle loaded a fireball', JSON.stringify(afterDraw));
-    expect(afterDraw.ink < afterDraw.start, 'casting cost ink', 'ink ' + afterDraw.ink);
+    expect(afterDraw.ink?.cost > 0 && Math.abs(afterDraw.ink.spent - afterDraw.ink.cost) < 1e-6,
+        'casting cost ink', JSON.stringify(afterDraw.ink));
     expect(/fireball/.test(afterDraw.hint || ''), 'the game says what it read', afterDraw.hint);
-    await solo.mouse.down();
-    await solo.waitForTimeout(120);
-    await solo.mouse.up();
-    const fired = await solo.evaluate(() => WZ_ENGINE.state().ents.some(e => e.s === 'fireball'));
-    expect(fired, 'and a click put it in the air');
+    const readyToFire = await solo.waitForFunction(() => {
+        const g = WZ_ENGINE.state(), w = g.wiz[g.me];
+        return !g.stance && !w.stance && !w.dead && WZ_SIM.canAct(w) && w.chamber?.s === 'fireball' && w.fireCd <= 0 && !(g.fireClock > 0);
+    }, null, { timeout: 2500 }).then(() => true, () => false);
+    let fired = false;
+    if (readyToFire) {
+        await solo.mouse.down();
+        try {
+            fired = await solo.waitForFunction(() => window.fireballProbe.shot !== null, null, { timeout: 2500 }).then(() => true, () => false);
+        } finally { await solo.mouse.up(); }
+    }
+    const fireEvidence = await solo.evaluate(() => {
+        window.restoreFireballProbe();
+        const g = WZ_ENGINE.state(), w = g.wiz[g.me];
+        return { ...window.fireballProbe, stance: g.stance, fireCd: w.fireCd, chamber: w.chamber?.s };
+    });
+    expect(fired, 'and a click put it in the air', JSON.stringify({ readyToFire, ...fireEvidence }));
     await solo.screenshot({ path: SHOTS + '/2-duel.png' });
 
     // the machine has to be both dangerous and survivable: a player who
@@ -894,8 +931,8 @@ try {
         const perrs = [];
         p.on('pageerror', e => perrs.push(e.message));
         await p.goto(BASE, { waitUntil: 'load' });
-        await p.keyboard.press('Enter');
-        await p.waitForTimeout(1800);
+        await p.waitForFunction(() => typeof startMenuAction === 'function');
+        await p.evaluate(() => document.getElementById('boot-screen')?.remove());
 
         const seen = await p.evaluate(() => ({
             coarse: window.TOUCH.coarse(),
@@ -936,23 +973,28 @@ try {
             kb && Math.round(kb.y + kb.height) + ' vs ' + p.viewportSize().height);
 
         const where = () => p.evaluate(() => window.ET_ENGINE.where());
+        const touch = await phone.newCDPSession(p);
+        const sendTouch = (type, touchPoints = []) => touch.send('Input.dispatchTouchEvent', { type, touchPoints });
+        const keyCenter = async () => {
+            const box = await key.boundingBox();
+            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        };
         const from = await where();
-        await p.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2);
-        await p.mouse.down();
-        await p.waitForTimeout(500);
-        await p.mouse.up();
-        await p.waitForTimeout(300);
+        await sendTouch('touchStart', [await keyCenter()]);
+        let moved;
+        try {
+            moved = await p.waitForFunction(y => window.ET_ENGINE.where()?.y > y, from.y, { timeout: 2500 }).then(() => true, () => false);
+        } finally { await sendTouch('touchEnd'); }
         const to = await where();
-        expect(to && to.y > from.y, 'holding a key on the pad walks the diver',
-            JSON.stringify([from && from.y, to && to.y]));
+        expect(moved, 'holding a key on the pad walks the diver', JSON.stringify({ from, to }));
 
-        // a finger that slides off the key must not leave it walking forever
-        await p.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2);
-        await p.mouse.down();
-        await p.waitForTimeout(150);
-        await p.mouse.move(4, 4);
-        await p.mouse.up();
-        await p.waitForTimeout(500);
+        // A finger sliding off the key must still send its release.
+        await sendTouch('touchStart', [await keyCenter()]);
+        try {
+            await p.locator('.tp-key.tp-down.down').waitFor();
+            await sendTouch('touchMove', [{ x: 4, y: 4 }]);
+        } finally { await sendTouch('touchEnd'); }
+        await p.waitForFunction(() => !document.querySelector('.tp-key.tp-down.down') && !window.ET_ENGINE.where()?.walking);
         const restA = await where();
         await p.waitForTimeout(500);
         const restB = await where();

@@ -1,0 +1,37 @@
+/* popz 98: the window's styles. They load with the game, not with the desktop. */
+.pz-body { background: #008080; padding: 0 !important; overflow: hidden; }
+.pz-stage { position: relative; overflow: hidden; background: #004848; touch-action: none; user-select: none; -webkit-user-select: none; font: 12px Tahoma, "MS Sans Serif", sans-serif; color: #000; }
+.pz-canvas { display: block; width: 100%; }
+.pz-over { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 8px; overflow-y: auto; }
+.pz-over.on { display: flex; }
+.pz-panel { width: min(470px, 100%); max-height: 100%; overflow-y: auto; padding: 10px 12px; background: #c0c0c0; border: 2px solid; border-color: #dfdfdf #000 #000 #dfdfdf; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080, 3px 3px 0 rgba(0, 0, 0, .3); box-sizing: border-box; }
+.pz-logo { font: italic 900 40px "Arial Black", Tahoma, sans-serif; color: #000080; text-align: center; text-shadow: 2px 2px 0 #fff, 4px 4px 0 #808080; line-height: 1.1; }
+.pz-logo span { font-size: 17px; vertical-align: top; margin-left: 4px; color: #d82020; text-shadow: 1px 1px 0 #fff; }
+.pz-sub { margin: 4px 0 8px; line-height: 1.4; text-align: center; }
+.pz-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 10px; margin-bottom: 6px; }
+.pz-opts label { display: flex; flex-direction: column; gap: 2px; }
+.pz-sel { min-height: 26px; background: #fff; border: 2px solid; border-color: #808080 #fff #fff #808080; font: 12px Tahoma, sans-serif; padding: 2px; }
+.pz-btns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0 4px; }
+.pz-btn { min-width: 76px; min-height: 28px; padding: 3px 12px; font: 12px Tahoma, sans-serif; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: inset -1px -1px 0 #808080; cursor: pointer; }
+.pz-btn:active { border-color: #404040 #fff #fff #404040; box-shadow: inset 1px 1px 0 #808080; }
+.pz-btn:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
+.pz-go { font-weight: bold; }
+.pz-rec { margin-top: 6px; padding: 3px 6px; background: #fff; border: 1px solid; border-color: #808080 #fff #fff #808080; text-align: center; }
+.pz-help { line-height: 1.45; }
+.pz-help h3 { margin: 6px 0 2px; font-size: 12px; color: #000080; }
+.pz-help ul { margin: 0; padding-left: 16px; }
+.pz-help b { white-space: nowrap; }
+.pz-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 2px 8px; }
+.pz-items i { display: inline-block; min-width: 22px; margin-right: 4px; padding: 0 2px; font: bold 10px Tahoma, sans-serif; font-style: normal; text-align: center; color: #fff; border: 1px solid #000; }
+.pz-title { padding: 3px 6px; margin: -10px -12px 8px; color: #fff; font-weight: bold; background: linear-gradient(90deg, #000080, #1084d0); }
+.pz-big { font: bold 22px Tahoma, sans-serif; text-align: center; margin: 4px 0; }
+.pz-note { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); padding: 4px 8px; background: #ffffe1; border: 1px solid #000; z-index: 3; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+.pz-note[hidden] { display: none; }
+
+/* thumbs: walk left, walk right, fire */
+.pz-pad { display: flex; gap: 6px; padding: 6px; background: #c0c0c0; border-top: 1px solid #fff; touch-action: none; user-select: none; -webkit-user-select: none; }
+.pz-pad[hidden] { display: none; }
+.pz-pad button { flex: 1; min-height: 52px; font: bold 16px Tahoma, sans-serif; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; touch-action: none; }
+.pz-pad button.on { border-color: #404040 #fff #fff #404040; background: #a8a8a8; }
+.pz-pad .pz-fire { flex: 1.4; color: #fff; background: #b01818; }
+.pz-pad .pz-fire.on { background: #800000; }

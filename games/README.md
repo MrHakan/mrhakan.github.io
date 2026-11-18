@@ -1108,3 +1108,363 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## popz 98
+
+Bubble popping in the Pang / Bubble Trouble genre, for one, two at one keyboard, one with a bot
+buddy, or two online. You stand on the floor and fire a rope straight up; a bubble it touches
+splits into two smaller ones (four sizes, the smallest just pops), and bigger bubbles bounce
+higher. Clear the room before the clock runs out: seconds left are bonus points, a bubble on your
+head or the clock hitting zero costs a life and restarts the level. 24 original levels with steel
+blocks (ropes stop under them, bubbles bounce off them) and glass ones (a rope breaks them). Popped
+bubbles sometimes drop double rope, sticky rope, a shield, freeze, dynamite or an extra life. The
+levels, names and look are the site's own.
+
+| file | what is in it |
+| --- | --- |
+| `popz-sim.js` | the rules at a fixed 60 steps a second, the 24 levels, the items, a seeded random number generator inside the state, the bot, and the snapshot a guest gets. No page in it, so node runs it |
+| `popz.js` | the window, the keys (arrows + up/enter, a d + w/space), the thumb buttons and tap-to-walk, the picture in a 2d canvas, the menu, pause, saves and the wire |
+| `popz.css` | its styles, loaded by `popz.js` |
+
+Online the host runs the rules and the bots; a guest sends its walk bits and a press counter
+(`popz:i`), the host sends the game back twenty times a second (six over the relays, `popz:s`) and
+a new game to everybody with `popz:go`. Between snapshots the guest moves everything on with the
+same rules in puppet mode, which never splits, kills or picks anything up. A guest who leaves is
+replaced by a bot. Saves: `mrhakan98-popz-best` (best score, furthest level, games, wins) and
+`mrhakan98-popz-prefs`. Tests: `check-popz.mjs` (the rules, the wire, a bot clearing levels 1 to 5
+on every seed and every level on some seed) and `browser-popz.mjs`; `popz-preview.mjs` draws
+`join/popz/preview.jpg`.
+## okey 98
+
+Turkish tile rummy for four: 106 tiles (red, yellow, blue and black 1-13 twice, and two
+false jokers), an indicator turned up in the middle, and the okey, the next number in its
+colour (13 is followed by 1), as the wild tile. The false jokers play as the okey's own
+face. Draw from the pile or take the tile the player on your left threw, throw one to your
+right. Runs are one colour in a row (12-13-1 yes, 13-1-2 no), groups one number in three or
+four colours. It is the coffee house game, asked for by name; the look (a green felt table
+on a canvas, a wooden rack, Win98 dialogs), the bots and their names are the site's own.
+
+Two rule sets, picked in the menu or the lobby (`mode`):
+
+| rules | how it goes |
+| --- | --- |
+| classic okey | 14 tiles each, 15 for the dealer. Finish with 14 tiles all in runs and groups, or seven pairs, by dropping the 15th on the indicator. Everybody starts on 10 or 20 points; a finish costs each of the others 2, doubled for throwing the okey to finish and doubled for pairs. Showing the indicator's twin on your first turn costs them 1. The match ends when somebody hits 0; most points wins |
+| okey 101 | 21 tiles each, 22 for the dealer. Open by laying down 101 points of runs and groups (or five pairs), then add your tiles to any meld on the table; finish by playing out every tile. Penalties: 202 for never opening, otherwise what is left in the rack (an okey is 101), doubled for a pairs opener; the finisher gets -101. Finishing on the okey, in one go or on pairs doubles the hand. Throwing the okey or a tile that fits the table costs 101 on the spot; a discard you take has to go on the table that turn, or back. 1, 3 or 5 hands; lowest total wins |
+
+| file | what is in it |
+| --- | --- |
+| `okey-sim.js` | the tiles, the meld search, the rules (`apply`: a move in, yes and what happened or no and why), what one seat may see (`view`), the scoring and the bots. No page in it, so node runs it |
+| `okey.js` | the window, the canvas table and rack, the mouse, fingers and keys, the dialogs, the save and the wire |
+| `okey.css` | its styles; okey.js loads them, the desktop does not |
+
+The rack is yours alone: drag tiles anywhere in it (two rows of fifteen, three of ten on a
+phone), or sort by runs or by groups. Drag a tile to your corner to throw it, onto the
+indicator to finish, onto a meld to add it; drag or click the pile to draw. Keys: arrows
+move, shift+arrows carry a tile, space selects, d draw, t take, x/enter throw, f finish,
+l lay down, b put back, i show twin, s/g sort, p pause, h help.
+
+The meld search takes the faces in order and tries every meld the first one left can be in
+(groups with the colours after it, runs upwards, okeys in the holes, a 1 after the 13),
+memoised on the counts. The bots score a hand by it, plus a little for tiles nearly in a
+meld and a lot for an okey kept. They take the discard only when it beats a blind draw,
+keep away from what the next seat has been picking up, and in 101 open as soon as they
+can and never throw a tile that fits the table. easy adds noise, hard defends harder.
+
+### online
+
+The desktop lobby (or an invite link, `join/okey/`) starts everybody with the same seed and
+list of players: the first four sit, bots take the rest. The host runs the match and the
+bots. A guest sends `okey:act` (what it wants to do) and gets back `okey:st`: a numbered view
+of the table as that seat may see it (its own tiles, how many the others hold, never which,
+and nobody else's pile draws). The host checks every move with the same `apply` as its own,
+and says no with `okey:no`. `okey:hi` asks for the table again. A guest that leaves gets a
+bot; one that sits on its turn for a minute has a move made for it; the next hand deals
+itself fifteen seconds after the last.
+
+### saves and tests
+
+`mrhakan98-okey-save` keeps a solo match in progress (the match and the rack's order), so
+the menu offers to continue after a reload. `mrhakan98-okey-stats` keeps matches, wins,
+hands, hands won and okey and pairs finishes; `mrhakan98-okey-prefs` the menu's choices.
+`check-okey.mjs` holds the rules and runs 120 seeded bot matches with every tile accounted
+for after every move; `browser-okey.mjs` plays it with a real mouse, keys and taps, solo,
+101, on a phone and in two pages over the lobby. `node .github/scripts/okey-preview.mjs`
+makes `join/okey/preview.jpg` again.
+## tavla 98
+
+Backgammon the way the coffee house plays it: no doubling cube, a mars (and a
+backgammon too) is worth 2, a plain win 1. The first game opens with one die
+each, after that the last game's winner rolls first. Matches are first to 5, 3
+or one game. Solo is you against a bot (easy, normal or hard); online is one on
+one through the desktop lobby, or an invite link (`join/tavla/`).
+
+| file | what is in it |
+| --- | --- |
+| `tavla-sim.js` | the rules, the turn (both dice if you can, the larger if only one, doubles four times), the match, the bots and the move notation. No page in it, so node runs it |
+| `tavla.js` | the window, the wooden board on a canvas, click/drag/touch/keys, undo, the move log, auto bear-off, the bots' pacing and the wire |
+| `tavla.css` | its styles. They come with the game, not with the desktop |
+
+The board is 24 points; white (seat 0) runs 24 → 1 and red mirrors it. The rules
+think in each seat's own numbering (`rel`, 24 is the bar, -1 off), and the board
+is drawn from the viewer's side, so a guest playing red still has its home at
+the bottom right. `legalSteps` only offers moves that start a turn using as many
+dice as possible; `check-tavla.mjs` holds it to a brute force on 1200 positions
+out of real games. The bots score a position on pips, blots in range, made
+points, primes, anchors and checkers on the bar; easy is sloppy on purpose,
+normal takes the best position, hard looks one roll ahead at every reply.
+
+### online
+
+Host authoritative. The host is white, owns the match and rolls every die. A
+guest sends what it wants to do (`tavla:act`, with a running number) and shows
+its own moves at once; the host checks every action against the rules, applies
+it and sends the whole state back (`tavla:state`, with the last number it took).
+The guest takes the host's state once its own actions are acknowledged, so a
+refused move snaps back. The host resends every 4 seconds and answers
+`tavla:hi`. A guest who leaves gets a normal bot; if the host leaves, the guest
+finishes the match against a bot on its own screen.
+
+### saves
+
+`mrhakan98-tavla-prefs` keeps the bot level, the match length and auto bear-off;
+`mrhakan98-tavla-stats` keeps games, wins, mars wins, matches and online games;
+`mrhakan98-tavla-save` keeps a solo match in progress, offered as "continue" in
+the menu. Achievements it calls if the desktop has them: `tavla`, `tavla_mars`.
+`node .github/scripts/tavla-preview.mjs` makes `join/tavla/preview.jpg` again.
+## gold claw 98
+
+`gold-claw/index.html` is a framed single-player game: `games/classics.js`
+opens it through `frame-window.js` as `?embed=1` from `startMenuAction('goldclaw')`
+or `/?app=goldclaw`, and the page also works on its own. A claw swings from the
+winch; shoot it (down, space, a click or a tap on the mine), reel in gold,
+diamonds, rocks, mystery bags and moles (some carry a diamond), and bank the
+level's money goal before the 60 second clock runs out. Heavy things reel
+slowly, tnt barrels blow up their neighbours (and other barrels), up lights a
+dynamite stick to drop what is on the hook, and `n` or the done button ends a
+level early once the goal is met. Between levels the shop offers a random few
+of dynamite, strength drink, lucky clover, rock collector's book and diamond
+polish; perks last one level. Missing a goal ends the run.
+
+`gold-claw-sim.js` is the DOM-free rules: a fixed 60 Hz tick, a seeded
+generator kept in the state, seven hand-tuned layout templates filled per
+level from `hash(seed, level)` and topped up until the field is worth 1.9x the
+goal step, and a greedy bot. `gold-claw.js` draws it (sprites pre-rendered once,
+pooled particles, the repo's cursed emoji as the miner), handles input and
+saves. It pauses on `{type: 'game-pause'}` and on a hidden tab, and stays silent
+when `sound-enabled` is `false`. `window.GOLDCLAW_ENGINE` (state, newGame(seed),
+setTimeScale, fastForward) is for the tests. Records: `mrhakan98-goldclaw-best-level`
+and `mrhakan98-goldclaw-best-money`.
+
+`check-goldclaw.mjs` covers the swing, grabbing, reel speeds, values and perks,
+moles, chained tnt, dynamite, bags, the shop, 2400 layouts (every item inside
+the swing, apart, and hookable) and 250 seeded bot runs that all end in a valid
+game over. `browser-goldclaw.mjs` opens it from the start menu, wins level 1
+with real key presses, minimises the window to pause it, shops with the mouse,
+uses dynamite, loses a level, reloads to find the record, and plays on a phone.
+## kartz 98
+
+The Turkish card table, for two to four, with bots in the empty seats. One
+standard 52 card deck and three games, picked in the menu or by the lobby's
+`game` option:
+
+- **batak**: four players, thirteen cards each. Bid 5 to 13 tricks or pass,
+  starting left of the dealer; if everybody else passes the dealer has to bid.
+  The highest bidder names trumps and leads. Follow suit and beat the best card
+  of that suit on the table if you can; void, you must trump, and over-trump if
+  you can. Trumps are not led until broken. Bidder made it: + tricks; went down:
+  minus the bid; everybody else + tricks. First to 31 (or 51).
+- **king**: twenty hands, the chooser going round the table. Six penalty
+  contracts, each called twice per table (no tricks -50, no hearts -30, no
+  jacks/kings -60, no queens -100, king of hearts -320, last two -180 a trick)
+  and two trump hands per player (+50 a trick). A penalty hand stops as soon as
+  there is nothing left to lose. The whole game always sums to zero.
+- **pisti**: two players, or four as partners across. Match the top card or
+  throw a jack to take the pile; a lone card taken by its twin is a pisti (10,
+  20 for jacks). Aces and jacks 1, two of clubs 2, ten of diamonds 3, most
+  cards 3. First to 51 (or 151).
+
+| file | what is in it |
+| --- | --- |
+| `kartz-sim.js` | the rules of all three, the bots, a seat's view and the action reader. No page in it, so node runs it |
+| `kartz.js` | the window, the DOM cards, clicks, keys and taps, the bots' pace, the score sheet window, the save, and the wire |
+| `kartz.css` | its styles, loaded with the game |
+
+A match is one JSON object with its seeded rng inside; the only ways to change
+it are `act(st, seat, action)` for the seat to move and `advance(st)` for the
+table (sweep a trick, deal the next hand). Online the host runs it: guests send
+`kartz:act` intents, the host reads and checks them against the rules and sends
+each seat its own `kartz:state` view (other hands are backs, the deck a number,
+pisti's face down cards stay face down). A guest that walks out becomes a bot,
+and the host can deal again at the end.
+
+Keys: left/right and enter choose and play, `s` the score sheet, `p` pause
+(alone only), `h` the rules. A solo table saves as it goes
+(`mrhakan98-kartz-save`) and the menu offers to resume it; the records are in
+`mrhakan98-kartz-stats`, the menu choices in `mrhakan98-kartz-prefs`.
+
+`check-kartz.mjs` holds the rules and runs about a thousand seeded bot tables
+(and the bots against random play); `browser-kartz.mjs` plays each game with
+real clicks and keys, a phone, and two browsers at one table in `local` mode;
+`kartz-preview.mjs` draws `join/kartz/preview.jpg` from the game itself.
+## learn to glide 98
+
+`games/learn-to-glide/` is a framed single player game in the spirit of the
+old flash launch games: a penguin slides down a ramp on a cliff, launches and
+glides (lift against drag, a wing that stalls if you pull too hard), burns
+rockets, pops balloons for a kick and gets slowed by soggy clouds. Every
+launch is a day; distance, height, top speed and balloons pay cash for five
+upgrade lines (ramp, sled, glider, rockets, payload). Smash the ice wall
+3200 m out at 50 m/s inside 30 days; fewer days, better medal.
+
+- `learn-to-glide-sim.js` (`LTG_SIM`) is the whole game with no DOM: a fixed
+  60 Hz step, a seeded sky per day, the shop, the season books, a scripted
+  pilot and a planned shopper used by the tests.
+- `learn-to-glide.js` draws on one 800x450 canvas, reads keys (arrows/W/S,
+  space for rockets, enter, p), the pad buttons and the sky itself, and pauses
+  on `{type:'game-pause'}` and hidden tabs. `LTG_ENGINE` is the test hook.
+- saves: `mrhakan98-learntoglide-save` (the season), `-records` (best days,
+  best distance, wins), `-howto` (manual seen).
+- `check-learntoglide.mjs` holds the rules: tiers, saves, determinism, every
+  upgrade flying farther, the wall needing a pilot, and hundreds of seasons.
+  `browser-learntoglide.mjs` plays it from the start menu with real keys,
+  clicks and touches, on a desktop and a 390px phone.
+## pizza shift 98
+
+`pizza-shift/index.html` is a framed single player game in the spirit of the
+2000s pizzeria time-management games. On the site it opens as a desktop popup
+(`frame-window.js` frames `?embed=1`) from the start menu, search and
+`/?app=pizzashift`; the page also works on its own.
+
+Five stations as tabs: **order** (take the order of whoever is at the counter),
+**topping** (pick a topping, tap the pizza: two pieces in every quarter a
+topping covers), **bake** (2 to 4 ovens tick in real time, even while you are
+elsewhere; pull the pizza out in the green zone), **cut** (drag lines through
+the centre, or turn the knife with the arrows and press enter) and **serve**.
+Each pizza is scored 0-100 on toppings, bake, cut and wait; the average sets
+the tip. Ten days, each busier, with halves, quarters, more toppings and
+crowned impatient VIPs. Average 55 to pass a day; a failed day loses its tips
+and is played again. Between days the shop sells an extra oven, hotter ovens,
+a topping scoop (pairs per tap), a steady cutter (cuts snap to the centre) and
+decor that raises patience. Customers are the cursed emoji from `src/emoj/`.
+
+`pizza-shift-sim.js` (`window.PIZZA_SIM`) holds every rule with no DOM and a
+seeded RNG: order generation, scoring, the oven clock, walkouts, the shop and
+save sanitising. `pizza-shift.js` draws it on one canvas plus Win98 buttons and
+dialogs, and exposes `window.PIZZASHIFT_ENGINE` (state, seed, `fastForward`,
+canvas points) for tests. It pauses on the window's `game-pause` message and on
+hidden tabs. Progress (day, money, upgrades, stars, best) is saved in
+`mrhakan98-pizzashift-save`; blocked or corrupt storage starts fresh.
+
+`check-pizzashift.mjs` tests the scoring and seeded orders and plays 40 seeds
+of ten days with a perfect cook (every pizza 100), a sloppy one and an absent
+one. `browser-pizzashift.mjs` plays a whole first day with the mouse, a pizza
+with only the keyboard, taps on a phone, reloads the save, minimises the
+window, fails a day and runs with blocked storage.
+## block roll 98
+
+`block-roll/index.html` is a single player puzzle in the spirit of the old
+roll-the-block flash games, opened from the start menu (`/?app=blockroll`) in a
+desktop popup by `frame-window.js` (`?embed=1` hides the page's own titlebar).
+Roll a 1 x 1 x 2 block across floating tiles and drop it upright into the hole.
+Orange floor cracks under a standing block, round switches react to any touch,
+x switches only to a standing block, and they open, close or flip bridges. The
+blue splitter turns the block into two cubes: space swaps, and two cubes that
+end up side by side merge back. Arrows/WASD, swipes, a tap beside the block or
+the on-screen pad roll it; R restarts, P/Escape pauses, and minimising the
+window or hiding the tab pauses too.
+
+`block-roll-sim.js` holds the DOM-free rules, the 26 original levels (made with
+a solver-driven designer, then frozen as plain maps) and a 0-1 BFS solver over
+(block or both cubes, active cube, bridge mask). `block-roll.js` draws it as a
+2.5D canvas with roll, fall, sink and bridge animations. Each level has a fixed
+six digit passcode and a `par`, the solver's optimal move count;
+`check-blockroll.mjs` proves every level solvable, that par is optimal and that
+each level's switch, splitter or orange floor actually matters.
+`browser-blockroll.mjs` plays levels with real keys, swipes and pad taps, in
+the desktop popup, at phone width and with storage blocked.
+`mrhakan98-blockroll-save` keeps progress, best moves per level and the last
+level played.
+## deep drill 98
+
+`deep-drill/` is a single-player dig-for-ore game in the Motherload mould, framed in a
+desktop popup like the other 2000s classics (`startMenuAction('deepdrill')`, `/?app=deepdrill`;
+the page also runs on its own and reads `?seed=`). A pod on a rusty red planet drills left,
+right and down (never up; it flies up on its thruster), hauls ore back to the surface, sells
+it at the ore buyer and spends the cash at the fuel station, the repair bay, the upgrade shop
+(drill bit, hull, engine, fuel tank, radiator, cargo bay, five marks each) and the item shop
+(dynamite, plastic explosive, quantum teleporter, repair kit, reserve fuel; keys 1-5). Fuel
+burns underground and running dry there ends the run; falls, gas pockets, lava and the heat
+below 600 m dent the hull; grey boulders only yield to explosives. Nine ores get rarer and
+richer with depth, with emoji fossils and lost floppies (instant cash) on the side. At 1500 m
+a cavern holds the planet's core: crack its nine shards while it flares to win.
+
+| file | what is in it |
+| --- | --- |
+| `deep-drill-sim.js` | `window.DEEP_DRILL`: the seeded world (mulberry32), ore tables, fixed 60 Hz physics, drilling, hazards, shops, items, saves and the scripted miner `bot()`. No DOM. |
+| `deep-drill.js` | canvas drawing (8x8 tile chunks cached per chunk version, a light mask for the dark), keys, the touch pad, dialogs, autosave, beeps, the `DEEPDRILL_ENGINE` test hook |
+| `index.html` | the page and its Win98 styles; `?embed=1` hides its own title and menu bars |
+
+The run saves to `mrhakan98-deepdrill-save` every time the pod visits a building, so a wreck
+offers "reload last surface save"; a win clears it. Records live in `mrhakan98-deepdrill-best`.
+It pauses on `{type: 'game-pause'}` from the desktop window and on a hidden tab.
+`check-deepdrill.mjs` tests world generation by seed, physics, shops, items, the core and
+saves, and sends forty seeded bots to 300 m and back to sell; `browser-deepdrill.mjs` plays it
+from the start menu with real keys and a phone's touch pad, through a sale, a reload, a win
+and a wreck.
+## lava & tide 98
+
+A two player co-op puzzle platformer in the spirit of the old flash temple
+games, with its own two: **lava** walks through lava, **tide** walks through
+water, and green goo gets anybody. Twelve hand-made temples, from a walk
+through the pools to a three-storey climb with every gadget at once: plates
+that hold gates and bridges while something stands on them, levers that stay
+where they are pushed (two on one channel work like staircase switches),
+platforms, lifts that do not wait, and stone boxes to push onto plates or use
+as steps. Red gems are lava's, blue gems are tide's; both of you in your own
+doors ends the level, and the time and the gems give a rank: A is every gem
+inside par, B is every gem or par with half of them, C is getting out. Best
+ranks are kept per level, and finishing one opens the next.
+
+- `games/lava-tide/lavatide-sim.js` is the rules and the levels: tiles, bodies,
+  pools, channels, platforms, boxes and doors, stepped at a fixed 60 a second
+  with no DOM and no clock. The same keys from the same state give the same
+  next state, so node replays every level's scripted solution (`sol`, run by
+  the pilot in the same file) and a guest can replay its own keys on top of a
+  snapshot. `snapshot`/`applySnapshot` is the whole state in about 500 bytes,
+  and `applySnapshot` refuses anything malformed.
+- `games/lava-tide/lavatide.js` is the window, the keys and thumbs, the canvas
+  and the wire; `lavatide.css` is loaded by it.
+
+Two at one keyboard: lava on `w a d`, tide on the arrows. Alone: either set
+moves one of them and `tab` or `q` swaps. `r` restarts, `esc`/`p` pauses,
+and minimising the window or hiding the tab pauses too. On a touch screen
+there are ◀ ▶ ▲ buttons under the temple and a swap button.
+
+Online (`NP.CATALOG` id `lavatide`, two seats, the host picks the level to
+start at): the host is lava and runs the world; the guest is tide and sends
+only its keys, every step's keys since the host last acknowledged them, as
+`lavatide:i`. The host plays them back one per step, in order, so tide moves
+on the host exactly as it did on the guest, a few steps later, and sends the
+state back (`lavatide:s`, 20 a second, 6 over the relays) with the last key it
+used. The guest puts that state down and replays its newer keys on top,
+moving only tide (lava comes from the snapshots and glides between them), so
+its own character answers at once and a guess about lava can never end the
+level. When the host has no key for tide yet it holds tide still for the step
+rather than guess, so every key is played exactly once and tide goes exactly
+where it went for the guest: `check-lavatide.mjs` runs that protocol over a
+late, lumpy wire and expects zero corrections. Either player can ask for a restart or the next
+level (`lavatide:ask`); the host checks that it makes sense. A guest who walks
+out leaves the host driving both, the way alone works; a host who walks out
+offers the guest the same level alone.
+
+Saves: `mrhakan98-lavatide-best` (best rank, time and gems per level) and
+`mrhakan98-lavatide-prefs` (keyboard or alone).
+
+Tests: `check-lavatide.mjs` holds the rules, replays every solution twice
+(both doors, every gem, inside par, the same frame both times), checks the
+wire and runs a few thousand seeded random-key runs on every level;
+`browser-lavatide.mjs` plays level 1 with real keys, checks the save across a
+reload, pausing and minimising, finishes every level alone, plays on a phone
+with the thumb buttons, and plays two browsers through the lobby in
+`same browser` mode to the end of a level. `lavatide-preview.mjs` draws
+`join/lavatide/preview.jpg`.

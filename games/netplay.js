@@ -1634,6 +1634,61 @@
                 { key: 'arena', label: 'arena', values: [['sky', 'The Taskbar'], ['moon', 'Recycle Rift'], ['sunset', 'Blue Screen']] }
             ],
             scripts: ['games/rift-rumble/rift-data.js', 'games/rift-rumble/rift-sim.js', 'games/rift-rumble/rift-room.js', 'games/rift-rumble/rift-animation.js', 'games/rift-rumble/rift-art.js', 'games/rift-rumble/rift-fighters.js', 'games/rift-rumble/rift-stages.js', 'games/rift-rumble/rift-render.js', 'games/rift-rumble/rift-menu.js', 'games/rift-rumble/rift.js']
+        },
+        {
+            id: 'okey',
+            name: 'okey 98',
+            icon: 'calculate',
+            min: 2, max: 4,
+            blurb: 'turkish rummy with tiles for four: draw, discard, make your sets and finish with the okey. classic or 101, bots fill the empty seats',
+            options: [
+                { key: 'mode', label: 'rules', values: [['classic', 'classic okey'], ['101', 'okey 101']] }
+            ],
+            scripts: ['games/okey/okey-sim.js', 'games/okey/okey.js']
+        },
+        {
+            id: 'kartz',
+            name: 'kartz 98',
+            icon: 'style',
+            min: 2, max: 4,
+            blurb: 'the card table: batak, king and pisti for up to four. bid, take tricks, sweep the pile, and bots fill the empty seats',
+            options: [
+                { key: 'game', label: 'game', values: [['batak', 'batak'], ['king', 'king'], ['pisti', 'pisti']] }
+            ],
+            scripts: ['games/kartz/kartz-sim.js', 'games/kartz/kartz.js']
+        },
+        {
+            id: 'tavla',
+            name: 'tavla 98',
+            icon: 'casino',
+            min: 2, max: 2,
+            blurb: 'backgammon the way the coffee house plays it: roll, move, hit and bear off. one on one online or against a bot',
+            options: [
+                { key: 'points', label: 'match', values: [['5', 'first to 5'], ['3', 'first to 3'], ['1', 'one game']] }
+            ],
+            scripts: ['games/tavla/tavla-sim.js', 'games/tavla/tavla.js']
+        },
+        {
+            id: 'lavatide',
+            name: 'lava & tide 98',
+            icon: 'castle',
+            min: 2, max: 2,
+            blurb: 'a two player co-op puzzle platformer: lava walks through fire, tide walks through water, and neither of you leaves without the other',
+            options: [
+                { key: 'level', label: 'start at', values: [['1', 'level 1'], ['4', 'level 4'], ['7', 'level 7']] }
+            ],
+            scripts: ['games/lava-tide/lavatide-sim.js', 'games/lava-tide/lavatide.js']
+        },
+        {
+            id: 'popz',
+            name: 'popz 98',
+            icon: 'celebration',
+            min: 1, max: 2,
+            blurb: 'shoot a rope up at the bouncing bubbles and split them until nothing is left. alone or two players together',
+            options: [
+                { key: 'level', label: 'start at', values: [['1', 'level 1'], ['5', 'level 5'], ['10', 'level 10']] }
+            ],
+            scripts: ['games/popz/popz-sim.js', 'games/popz/popz.js']
         }
     ];
     NP.games = {};

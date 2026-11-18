@@ -1,0 +1,22 @@
+.framed-window .app-window-body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.framed-game {
+    display: block;
+    border: 0;
+    width: 100%;
+    height: min(78vh, 820px);
+    background: #c0c0c0;
+}
+.framed-window.fs-active .app-window-body,
+.framed-window.maximized .app-window-body { flex: 1; }
+.framed-window.fs-active .framed-game,
+.framed-window.maximized .framed-game {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+}
