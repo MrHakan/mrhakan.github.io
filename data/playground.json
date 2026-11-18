@@ -1,5 +1,38 @@
 [
   {
+    "name": "✊ RPS Arena 98",
+    "type": "game",
+    "date": "2026-11-18",
+    "url": "/games/rps-arena/",
+    "description": "Offline rock-paper-scissors first-to-five matches with an adaptive rival, keyboard/touch play and local match records.",
+    "icon": "✊",
+    "tags": [
+      "rock-paper-scissors",
+      "arcade",
+      "strategy",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "💳 Loan Planner 98",
+    "type": "app",
+    "date": "2026-11-18",
+    "url": "/apps/loan-planner/",
+    "description": "Private fixed-rate loan calculator comparing scheduled payments, extra principal, interest savings and payoff charts.",
+    "icon": "💳",
+    "tags": [
+      "finance",
+      "loan",
+      "amortization",
+      "calculator",
+      "chart",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "🃏 Memory Flip 98",
     "type": "game",
     "date": "2026-11-17",
