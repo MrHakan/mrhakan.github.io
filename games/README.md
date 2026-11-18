@@ -1108,3 +1108,61 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## lava & tide 98
+
+A two player co-op puzzle platformer in the spirit of the old flash temple
+games, with its own two: **lava** walks through lava, **tide** walks through
+water, and green goo gets anybody. Twelve hand-made temples, from a walk
+through the pools to a three-storey climb with every gadget at once: plates
+that hold gates and bridges while something stands on them, levers that stay
+where they are pushed (two on one channel work like staircase switches),
+platforms, lifts that do not wait, and stone boxes to push onto plates or use
+as steps. Red gems are lava's, blue gems are tide's; both of you in your own
+doors ends the level, and the time and the gems give a rank: A is every gem
+inside par, B is every gem or par with half of them, C is getting out. Best
+ranks are kept per level, and finishing one opens the next.
+
+- `games/lava-tide/lavatide-sim.js` is the rules and the levels: tiles, bodies,
+  pools, channels, platforms, boxes and doors, stepped at a fixed 60 a second
+  with no DOM and no clock. The same keys from the same state give the same
+  next state, so node replays every level's scripted solution (`sol`, run by
+  the pilot in the same file) and a guest can replay its own keys on top of a
+  snapshot. `snapshot`/`applySnapshot` is the whole state in about 500 bytes,
+  and `applySnapshot` refuses anything malformed.
+- `games/lava-tide/lavatide.js` is the window, the keys and thumbs, the canvas
+  and the wire; `lavatide.css` is loaded by it.
+
+Two at one keyboard: lava on `w a d`, tide on the arrows. Alone: either set
+moves one of them and `tab` or `q` swaps. `r` restarts, `esc`/`p` pauses,
+and minimising the window or hiding the tab pauses too. On a touch screen
+there are ◀ ▶ ▲ buttons under the temple and a swap button.
+
+Online (`NP.CATALOG` id `lavatide`, two seats, the host picks the level to
+start at): the host is lava and runs the world; the guest is tide and sends
+only its keys, every step's keys since the host last acknowledged them, as
+`lavatide:i`. The host plays them back one per step, in order, so tide moves
+on the host exactly as it did on the guest, a few steps later, and sends the
+state back (`lavatide:s`, 20 a second, 6 over the relays) with the last key it
+used. The guest puts that state down and replays its newer keys on top,
+moving only tide (lava comes from the snapshots and glides between them), so
+its own character answers at once and a guess about lava can never end the
+level. When the host has no key for tide yet it holds tide still for the step
+rather than guess, so every key is played exactly once and tide goes exactly
+where it went for the guest: `check-lavatide.mjs` runs that protocol over a
+late, lumpy wire and expects zero corrections. Either player can ask for a restart or the next
+level (`lavatide:ask`); the host checks that it makes sense. A guest who walks
+out leaves the host driving both, the way alone works; a host who walks out
+offers the guest the same level alone.
+
+Saves: `mrhakan98-lavatide-best` (best rank, time and gems per level) and
+`mrhakan98-lavatide-prefs` (keyboard or alone).
+
+Tests: `check-lavatide.mjs` holds the rules, replays every solution twice
+(both doors, every gem, inside par, the same frame both times), checks the
+wire and runs a few thousand seeded random-key runs on every level;
+`browser-lavatide.mjs` plays level 1 with real keys, checks the save across a
+reload, pausing and minimising, finishes every level alone, plays on a phone
+with the thumb buttons, and plays two browsers through the lobby in
+`same browser` mode to the end of a level. `lavatide-preview.mjs` draws
+`join/lavatide/preview.jpg`.
