@@ -3,9 +3,113 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
 <title>deep drill 98</title>
 <meta name="description" content="Drill down for ore, watch the fuel and the hull, sell what you carry at the surface and upgrade the pod to go deeper.">
+<meta property="og:title" content="deep drill 98">
+<meta property="og:description" content="A drilling pod, a rusty red planet and a core 1500 m down. Keyboard, mouse and touch; saves in this browser.">
+<link rel="canonical" href="https://mrhakan.github.io/games/deep-drill/">
 <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embedded = 'true';</script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{padding:16px 10px;background:#008080;color:#111;font:13px Tahoma,'MS Sans Serif',Verdana,sans-serif;overflow:hidden}
+button{font:inherit;color:#111;background:#c0c0c0;border:2px outset #fff;padding:4px 10px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button:active,button[aria-pressed=true]{border-style:inset}
+button:disabled{color:#777;text-shadow:1px 1px #fff;cursor:default}
+button:focus-visible,canvas:focus-visible{outline:2px dotted #000;outline-offset:-4px}
+main{max-width:980px;height:calc(100vh - 32px);margin:0 auto;background:#c0c0c0;border:2px outset #fff;box-shadow:5px 6px 0 #004747;display:flex;flex-direction:column;min-height:0}
+.titlebar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;display:flex;align-items:center;gap:8px;font-weight:bold}
+.titlebar h1{font-size:13px;margin:0;flex:1}
+.menubar{display:flex;justify-content:space-between;gap:8px;padding:3px 8px;border-bottom:1px solid #808080;font-size:12px}
+.menubar a{color:#000080}
+html[data-embedded] body{padding:0;background:#c0c0c0}
+html[data-embedded] main{max-width:none;height:100vh;border:0;box-shadow:none}
+html[data-embedded] .titlebar,html[data-embedded] .menubar{display:none}
+.toolbar{display:flex;gap:4px;padding:4px 6px;align-items:center;flex-wrap:wrap}
+.toolbar .best{margin-left:auto;font-size:12px;color:#333}
+.hud{display:flex;flex-wrap:wrap;gap:4px 10px;padding:4px 8px;margin:0 6px;border:2px inset #fff;background:#d4d0c8;font-size:12px;align-items:center}
+.hud .meter{display:flex;align-items:center;gap:4px}
+.bar{width:84px;height:12px;border:2px inset #fff;background:#fff;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:#000080}
+.bar.fuel i{background:#d08000}.bar.hull i{background:#008000}
+.bar.low i{background:#c00000}
+.hud b{font:bold 13px 'Courier New',monospace}
+.hud .hot{color:#c00000;font-weight:bold}
+.stage{position:relative;flex:1;min-height:150px;margin:6px;border:2px inset #fff;background:#000;overflow:hidden}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#prompt{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:none;font-weight:bold;box-shadow:2px 2px 0 #0006}
+#toast{position:absolute;left:8px;right:8px;bottom:8px;text-align:center;pointer-events:none}
+#toast span{display:inline-block;background:#ffffe1;border:1px solid #000;padding:3px 8px;font-size:12px;box-shadow:2px 2px 0 #0005}
+#toast span:empty{display:none}
+.modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0006;padding:8px;z-index:5}
+.modal.open{display:flex}
+.win{background:#c0c0c0;border:2px outset #fff;box-shadow:3px 3px 0 #000a;width:min(460px,100%);max-height:100%;display:flex;flex-direction:column}
+.win header{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:bold;padding:3px 4px 3px 8px;display:flex;align-items:center;gap:6px}
+.win header span{flex:1}
+.win header button{padding:0 6px;font-weight:bold;line-height:16px}
+.win .body{padding:10px 12px;overflow:auto;min-height:0}
+.win .body p{margin:0 0 8px;line-height:1.4}
+.win .face{float:right;width:44px;height:44px;margin:0 0 6px 8px}
+.win table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px}
+.win td,.win th{padding:3px 4px;text-align:left;border-bottom:1px solid #a0a0a0}
+.win td.n,.win th.n{text-align:right}
+.win .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.win kbd{font:11px 'Courier New',monospace;background:#fff;border:1px solid #808080;padding:0 3px}
+.win ul{margin:4px 0 8px;padding-left:18px;line-height:1.45}
+.items{display:flex;gap:4px;padding:0 6px;flex-wrap:wrap}
+.items button{font-size:12px;padding:3px 6px}
+.pad{display:none;gap:6px;padding:6px;justify-content:space-between;align-items:center}
+.pad .dirs{display:flex;gap:6px}
+.pad button{width:56px;height:48px;font-size:20px;padding:0}
+.pad .use{width:auto;padding:0 12px;font-size:14px}
+@media (max-width:700px),(pointer:coarse){.pad{display:flex}}
+#status{margin:0;padding:3px 8px;border-top:1px solid #808080;font-size:12px;min-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){.bar{width:56px}.hud{gap:2px 8px;font-size:11px}.toolbar button{padding:3px 7px}.items button{padding:3px 4px;font-size:11px}}
+</style>
 </head>
-<body><p>deep drill 98 is still being built.</p></body>
+<body>
+<main>
+<header class="titlebar"><h1>deep drill 98</h1><span>DRILL.EXE</span></header>
+<nav class="menubar" aria-label="game navigation"><a href="../../">&larr; back to the desktop</a><span>offline &middot; saves in this browser</span></nav>
+<div class="toolbar">
+  <button type="button" id="new">new run</button>
+  <button type="button" id="pause">pause</button>
+  <button type="button" id="help">how to play</button>
+  <span class="best" id="best">best: 0 m</span>
+</div>
+<div class="hud" aria-label="pod status">
+  <span class="meter">fuel <span class="bar fuel"><i id="fuel-bar"></i></span> <b id="fuel">10</b></span>
+  <span class="meter">hull <span class="bar hull"><i id="hull-bar"></i></span> <b id="hull">10</b></span>
+  <span>depth <b id="depth">0 m</b></span>
+  <span>cash <b id="cash">$0</b></span>
+  <span>cargo <b id="cargo">0/7</b></span>
+  <span id="heat"></span>
+</div>
+<div class="stage" id="stage">
+  <canvas id="view" tabindex="0" role="application" aria-label="mine view" aria-describedby="status"></canvas>
+  <button type="button" id="prompt"></button>
+  <div id="toast" aria-hidden="true"><span id="toast-text"></span></div>
+  <div class="modal" id="modal"><div class="win" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+    <header><span id="dlg-title">deep drill 98</span><button type="button" id="dlg-x" aria-label="close">x</button></header>
+    <div class="body" id="dlg-body"></div>
+  </div></div>
+</div>
+<div class="items" id="items" aria-label="items"></div>
+<div class="pad" aria-label="touch controls">
+  <div class="dirs">
+    <button type="button" data-hold="left" aria-label="left">&#9664;</button>
+    <button type="button" data-hold="right" aria-label="right">&#9654;</button>
+  </div>
+  <button type="button" class="use" id="pad-use">enter</button>
+  <div class="dirs">
+    <button type="button" data-hold="down" aria-label="drill down">&#9660;</button>
+    <button type="button" data-hold="up" aria-label="thrust up">&#9650;</button>
+  </div>
+</div>
+<p id="status" role="status" aria-live="polite">fuel up, dig down, come back rich.</p>
+</main>
+<script src="deep-drill-sim.js"></script>
+<script src="deep-drill.js"></script>
+</body>
 </html>
