@@ -1108,3 +1108,28 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## block roll 98
+
+`block-roll/index.html` is a single player puzzle in the spirit of the old
+roll-the-block flash games, opened from the start menu (`/?app=blockroll`) in a
+desktop popup by `frame-window.js` (`?embed=1` hides the page's own titlebar).
+Roll a 1 x 1 x 2 block across floating tiles and drop it upright into the hole.
+Orange floor cracks under a standing block, round switches react to any touch,
+x switches only to a standing block, and they open, close or flip bridges. The
+blue splitter turns the block into two cubes: space swaps, and two cubes that
+end up side by side merge back. Arrows/WASD, swipes, a tap beside the block or
+the on-screen pad roll it; R restarts, P/Escape pauses, and minimising the
+window or hiding the tab pauses too.
+
+`block-roll-sim.js` holds the DOM-free rules, the 26 original levels (made with
+a solver-driven designer, then frozen as plain maps) and a 0-1 BFS solver over
+(block or both cubes, active cube, bridge mask). `block-roll.js` draws it as a
+2.5D canvas with roll, fall, sink and bridge animations. Each level has a fixed
+six digit passcode and a `par`, the solver's optimal move count;
+`check-blockroll.mjs` proves every level solvable, that par is optimal and that
+each level's switch, splitter or orange floor actually matters.
+`browser-blockroll.mjs` plays levels with real keys, swipes and pad taps, in
+the desktop popup, at phone width and with storage blocked.
+`mrhakan98-blockroll-save` keeps progress, best moves per level and the last
+level played.

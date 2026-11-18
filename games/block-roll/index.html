@@ -5,7 +5,131 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>block roll 98</title>
 <meta name="description" content="Roll a 1 x 1 x 2 block across floating tiles and stand it upright in the hole, with switches, bridges and fragile floors.">
+<meta name="theme-color" content="#008080">
+<link rel="canonical" href="https://mrhakan.github.io/games/block-roll/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='27'%3E%F0%9F%9A%A9%3C/text%3E%3C/svg%3E">
 <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embedded = 'true';</script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{padding:16px 10px;background:#008080;color:#111;font:13px Tahoma,'MS Sans Serif',Verdana,sans-serif;overflow-x:hidden}
+button,input{font:inherit}
+button{color:#111;background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf;padding:5px 11px;cursor:pointer;touch-action:manipulation;min-height:30px}
+button:active:not(:disabled){border-color:#404040 #fff #fff #404040;box-shadow:inset 1px 1px #808080}
+button:disabled{color:#808080;text-shadow:1px 1px #fff;cursor:default}
+button:focus-visible,input:focus-visible{outline:1px dotted #000;outline-offset:-5px}
+canvas:focus-visible{outline:2px dotted #ffd84a;outline-offset:-4px}
+main{max-width:980px;height:calc(100vh - 32px);height:calc(100dvh - 32px);min-height:460px;margin:0 auto;background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;box-shadow:inset -1px -1px #808080,inset 1px 1px #fff,6px 6px 0 #004747;display:flex;flex-direction:column;padding:3px}
+.titlebar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 6px;display:flex;align-items:center;gap:10px;font-weight:bold}
+.titlebar h1{font-size:13px;margin:0;flex:1}
+.titlebar a{color:#fff;font-weight:normal;font-size:12px}
+.toolbar{display:flex;gap:4px;flex-wrap:wrap;padding:4px 2px;align-items:center}
+.toolbar .sep{flex:1}
+.hud{display:flex;flex-wrap:wrap;gap:3px;padding:0 2px 4px}
+.hud span{border:1px solid;border-color:#808080 #fff #fff #808080;padding:2px 7px;background:#c0c0c0;white-space:nowrap}
+.hud b{font:bold 13px 'Courier New',monospace;margin-left:4px}
+.stage{position:relative;flex:1;min-height:250px;border:2px solid;border-color:#808080 #fff #fff #808080;background:#0b1d4a;overflow:hidden}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+.dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 16px));max-height:calc(100% - 16px);overflow:auto;background:#c0c0c0;border:2px solid;border-color:#dfdfdf #000 #000 #dfdfdf;box-shadow:inset -1px -1px #808080,inset 1px 1px #fff,4px 4px 0 #0007;padding:3px;z-index:2}
+.dialog[hidden]{display:none}
+.dialog h2{margin:0;font-size:12px;color:#fff;background:linear-gradient(90deg,#000080,#1084d0);padding:3px 6px}
+.dialog .body{padding:10px 10px 8px;line-height:1.45}
+.dialog p{margin:0 0 8px}
+.dialog .row{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px}
+.dialog .big{font-size:20px;font-weight:bold;letter-spacing:-.5px;margin:2px 0 6px}
+.dialog ul{margin:0 0 8px;padding-left:18px}
+.dialog img{float:right;width:56px;height:56px;margin:0 0 6px 8px;object-fit:contain}
+.legend{display:inline-block;width:12px;height:12px;border:1px solid #000;vertical-align:-2px;margin-right:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px;margin:4px 0 8px}
+.grid button{padding:4px 2px;font-size:12px;line-height:1.2;min-height:44px}
+.grid button small{display:block;color:#000080;font-size:11px}
+.grid button:disabled small{color:#808080}
+.grid button[aria-current]{background:#d8d8f0}
+.code{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.code input{width:96px;padding:4px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;font-family:'Courier New',monospace;font-size:15px}
+.stars{color:#a0700b;font-size:20px;letter-spacing:3px}
+.pad{display:none;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,44px);gap:4px;justify-content:center;padding:6px 0 2px}
+.pad button{padding:0;font-size:18px;min-height:0}
+.pad .u{grid-column:2;grid-row:1}.pad .sw{grid-column:3;grid-row:1;font-size:12px}
+.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+@media (pointer:coarse),(max-width:620px){.pad{display:grid}}
+.status{margin:0;padding:3px 6px;border:1px solid;border-color:#808080 #fff #fff #808080;min-height:22px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+kbd{font:11px 'Courier New',monospace;border:1px solid #808080;background:#fff;padding:0 3px}
+html[data-embedded] body{padding:0;background:#c0c0c0}
+html[data-embedded] .titlebar{display:none}
+html[data-embedded] main{height:100vh;height:100dvh;min-height:0;max-width:none;border:0;box-shadow:none;padding:2px}
+@media (max-width:480px){body{padding:6px 4px}main{height:calc(100vh - 12px);height:calc(100dvh - 12px)}.toolbar button{padding:4px 7px}.hud span{padding:1px 5px}}
+</style>
 </head>
-<body><p>block roll 98 is still being built.</p></body>
+<body>
+<main>
+<header class="titlebar"><h1>block roll 98</h1><a href="../../">back to the desktop</a></header>
+<div class="toolbar">
+<button type="button" id="b-levels">levels</button>
+<button type="button" id="b-restart" title="restart (R)">restart</button>
+<button type="button" id="b-pause" title="pause (P)">pause</button>
+<span class="sep"></span>
+<button type="button" id="b-help">how to play</button>
+</div>
+<div class="hud" aria-label="level figures">
+<span>level <b id="h-level">1</b></span><span>moves <b id="h-moves">0</b></span><span>par <b id="h-par">-</b></span><span>best <b id="h-best">-</b></span><span>stars <b id="h-stars">0</b></span><span>code <b id="h-code">------</b></span>
+</div>
+<div class="stage" id="stage">
+<canvas id="board" tabindex="0" role="application" aria-label="block roll board" aria-describedby="status"></canvas>
+
+<section class="dialog" id="d-title" role="dialog" aria-labelledby="t-title" hidden>
+<h2 id="t-title">block roll 98 - how to play</h2>
+<div class="body">
+<img src="../../src/emoj/heh.png" alt="">
+<p class="big">stand it up in the hole.</p>
+<p>you are a 1 x 1 x 2 block on floating tiles. roll it around and drop it upright into the dark hole. roll off the edge and the level starts over.</p>
+<ul>
+<li><kbd>arrows</kbd> / <kbd>WASD</kbd>, swipe, click beside the block or use the pad to roll</li>
+<li><span class="legend" style="background:#f39b2f"></span>orange floor cracks if you stand on it upright</li>
+<li><span class="legend" style="background:#3c9b49;border-radius:50%"></span>round switch: any touch. <span class="legend" style="background:#c43b3b"></span>x switch: stand on it. both work bridges</li>
+<li><span class="legend" style="background:#3b5bc4"></span>splitter: you become two cubes, <kbd>space</kbd> swaps, bump them side by side to merge</li>
+<li><kbd>R</kbd> restarts, <kbd>P</kbd> pauses. every level has a six digit passcode</li>
+</ul>
+<div class="row"><button type="button" id="t-levels">level select</button><button type="button" id="t-play">play</button></div>
+</div>
+</section>
+
+<section class="dialog" id="d-levels" role="dialog" aria-labelledby="l-title" hidden>
+<h2 id="l-title">level select</h2>
+<div class="body">
+<div class="grid" id="l-grid"></div>
+<form class="code" id="l-code"><label for="l-input">passcode</label><input id="l-input" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="000000"><button type="submit">go</button><span id="l-msg" role="status"></span></form>
+<div class="row"><button type="button" id="l-close">close</button></div>
+</div>
+</section>
+
+<section class="dialog" id="d-pause" role="dialog" aria-labelledby="p-title" hidden>
+<h2 id="p-title">paused</h2>
+<div class="body"><p class="big">block is napping.</p><p>nothing moves until you come back.</p>
+<div class="row"><button type="button" id="p-levels">levels</button><button type="button" id="p-resume">resume</button></div></div>
+</section>
+
+<section class="dialog" id="d-win" role="dialog" aria-labelledby="w-title" hidden>
+<h2 id="w-title">level cleared</h2>
+<div class="body">
+<p class="big" id="w-head">in the hole.</p>
+<p class="stars" id="w-stars"></p>
+<p id="w-text"></p>
+<p id="w-code"></p>
+<div class="row"><button type="button" id="w-retry">retry</button><button type="button" id="w-levels">levels</button><button type="button" id="w-next">next level</button></div>
+</div>
+</section>
+</div>
+<div class="pad" id="pad" aria-label="roll pad">
+<button type="button" class="u" data-dir="U" aria-label="roll up">&#9650;</button>
+<button type="button" class="sw" data-dir="swap" aria-label="swap cube">swap</button>
+<button type="button" class="l" data-dir="L" aria-label="roll left">&#9664;</button>
+<button type="button" class="d" data-dir="D" aria-label="roll down">&#9660;</button>
+<button type="button" class="r" data-dir="R" aria-label="roll right">&#9654;</button>
+</div>
+<p class="status" id="status" role="status" aria-live="polite">loading the tiles...</p>
+</main>
+<script src="block-roll-sim.js"></script>
+<script src="block-roll.js"></script>
+</body>
 </html>
