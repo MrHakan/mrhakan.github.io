@@ -360,10 +360,14 @@ function appActions() {
     };
 }
 
-function startMenuAction(action) {
+function closeStartMenu() {
     startMenuOpen = false;
     const menu = document.getElementById('start-menu');
     if (menu) { menu.classList.add('hidden'); menu.querySelectorAll('.start-sub.open').forEach(s => s.classList.remove('open')); }
+}
+
+function startMenuAction(action) {
+    closeStartMenu();
     const actions = appActions();
     if (actions[action]) actions[action]();
     else showSection(action);

@@ -37,6 +37,7 @@ try{
   if(mobile)await gamesMenu.click();else await gamesMenu.hover();
   await page.locator('#start-menu [onclick="startMenuAction(\'waveshaper\')"]').click();
   const {frame,game}=await gameReady(page);
+  assert.equal(await page.locator('#start-menu').isVisible(),false,'launching from Start closes the menu so it cannot cover the game');
   assert.equal(ctx.pages().length,1,'Start menu must not open a new tab');
   assert.equal(new URL(page.url()).searchParams.get('app'),'waveshaper');
   assert.equal(await frame.locator('#mode').count(),0,'no difficulty selector');
@@ -62,7 +63,13 @@ try{
   assert.equal(await frame.locator('#start').textContent(),'RESUME RUN');
   await frame.locator('#start').click();
   await frame.locator('#pause').click();
-  if(!mobile){await page.locator('.waveshaper-window .fs-btn').click();assert.ok(await win.evaluate(el=>el.classList.contains('fs-active')));await page.locator('.waveshaper-window .fs-btn').click();}
+  if(!mobile){
+   const fullscreen=page.locator('.waveshaper-window.fs-active');
+   await win.locator('.fs-btn').click();
+   await fullscreen.waitFor({state:'visible'});
+   await win.locator('.fs-btn').click();
+   await fullscreen.waitFor({state:'detached'});
+  }
   await page.screenshot({path:'.ci-shots/waveshaper-desktop-'+(mobile?'mobile':'wide')+'.png',fullPage:true});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.locator('.waveshaper-window [title="close"]').click();

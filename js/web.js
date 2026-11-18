@@ -563,7 +563,7 @@ const WEB = (function () {
         const _menu = window.startMenuAction;
         if (typeof _menu === 'function') {
             window.startMenuAction = function (action) {
-                if (isRoute(action)) { open(action); return; }
+                if (isRoute(action)) { closeStartMenu(); open(action); return; }
                 return _menu.apply(this, arguments);
             };
         }
