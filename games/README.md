@@ -1328,3 +1328,35 @@ upgrade lines (ramp, sled, glider, rockets, payload). Smash the ice wall
   upgrade flying farther, the wall needing a pilot, and hundreds of seasons.
   `browser-learntoglide.mjs` plays it from the start menu with real keys,
   clicks and touches, on a desktop and a 390px phone.
+## pizza shift 98
+
+`pizza-shift/index.html` is a framed single player game in the spirit of the
+2000s pizzeria time-management games. On the site it opens as a desktop popup
+(`frame-window.js` frames `?embed=1`) from the start menu, search and
+`/?app=pizzashift`; the page also works on its own.
+
+Five stations as tabs: **order** (take the order of whoever is at the counter),
+**topping** (pick a topping, tap the pizza: two pieces in every quarter a
+topping covers), **bake** (2 to 4 ovens tick in real time, even while you are
+elsewhere; pull the pizza out in the green zone), **cut** (drag lines through
+the centre, or turn the knife with the arrows and press enter) and **serve**.
+Each pizza is scored 0-100 on toppings, bake, cut and wait; the average sets
+the tip. Ten days, each busier, with halves, quarters, more toppings and
+crowned impatient VIPs. Average 55 to pass a day; a failed day loses its tips
+and is played again. Between days the shop sells an extra oven, hotter ovens,
+a topping scoop (pairs per tap), a steady cutter (cuts snap to the centre) and
+decor that raises patience. Customers are the cursed emoji from `src/emoj/`.
+
+`pizza-shift-sim.js` (`window.PIZZA_SIM`) holds every rule with no DOM and a
+seeded RNG: order generation, scoring, the oven clock, walkouts, the shop and
+save sanitising. `pizza-shift.js` draws it on one canvas plus Win98 buttons and
+dialogs, and exposes `window.PIZZASHIFT_ENGINE` (state, seed, `fastForward`,
+canvas points) for tests. It pauses on the window's `game-pause` message and on
+hidden tabs. Progress (day, money, upgrades, stars, best) is saved in
+`mrhakan98-pizzashift-save`; blocked or corrupt storage starts fresh.
+
+`check-pizzashift.mjs` tests the scoring and seeded orders and plays 40 seeds
+of ten days with a perfect cook (every pizza 100), a sloppy one and an absent
+one. `browser-pizzashift.mjs` plays a whole first day with the mouse, a pizza
+with only the keyboard, taps on a phone, reloads the save, minimises the
+window, fails a day and runs with blocked storage.
