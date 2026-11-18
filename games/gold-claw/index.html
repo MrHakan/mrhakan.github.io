@@ -3,9 +3,93 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
 <title>gold claw 98</title>
 <meta name="description" content="Swing the claw, grab gold and diamonds before the clock runs out, and spend the money on dynamite and strength between levels.">
+<meta property="og:title" content="gold claw 98">
+<meta property="og:description" content="Swing the claw, grab gold and diamonds before the clock runs out, and spend the money on dynamite and strength between levels.">
+<link rel="canonical" href="https://mrhakan.github.io/games/gold-claw/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='27'%3E%E2%AD%90%3C/text%3E%3C/svg%3E">
 <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embedded = 'true';</script>
+<style>
+*{box-sizing:border-box}
+html{overflow-x:clip}
+body{margin:0;padding:20px 12px;background:#008080;color:#111;font:13px Tahoma,'MS Sans Serif',Verdana,sans-serif}
+button{font:inherit;color:#111;background:#c0c0c0;border:2px outset #fff;padding:5px 10px;cursor:pointer;touch-action:manipulation}
+button:active:not(:disabled){border-style:inset}
+button:disabled{color:#808080;text-shadow:1px 1px 0 #fff;cursor:default}
+button:focus-visible{outline:1px dotted #000;outline-offset:-5px}
+kbd{font:11px 'Courier New',monospace;background:#fff;border:1px solid #808080;padding:0 3px}
+main{max-width:900px;margin:0 auto;background:#c0c0c0;border:2px outset #fff;box-shadow:6px 6px 0 #004747;display:flex;flex-direction:column}
+.titlebar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:bold;padding:4px 8px;display:flex;gap:8px;align-items:center}
+.titlebar h1{font-size:13px;margin:0;flex:1}
+.menubar{display:flex;flex-wrap:wrap;gap:4px 14px;padding:4px 8px;border-bottom:1px solid #808080;font-size:12px}
+.menubar a{color:#000080}
+.hud{display:flex;flex-wrap:wrap;gap:4px;padding:5px 6px}
+.field{flex:1 1 84px;background:#fff;border:2px inset #fff;padding:2px 6px;white-space:nowrap;display:flex;justify-content:space-between;gap:6px;min-width:0}
+.field span{color:#555;font-size:11px;align-self:center}
+.field b{font:bold 15px 'Courier New',monospace}
+.field.money b{color:#8a6100}
+.field.met{background:#dfffd6}
+.field.low b{color:#c00000}
+.stage{position:relative;margin:0 6px;background:#000;border:2px inset #fff;display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;min-height:0;overflow:hidden}
+.stage canvas{display:block;touch-action:none;cursor:crosshair}
+.overlay{position:absolute;inset:0;display:flex;padding:8px;background:rgba(0,0,40,.45);overflow:auto}
+.overlay[hidden]{display:none}
+.panel{background:#c0c0c0;border:2px outset #fff;box-shadow:2px 2px 0 #000;width:min(420px,100%);margin:auto;flex:none}
+.panel .bar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:bold;padding:3px 6px}
+.panel .body{padding:10px 12px;line-height:1.45}
+.panel h2{font-size:18px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.panel h2 img{width:36px;height:36px;flex:none}
+.panel p{margin:0 0 8px}
+.panel ul{margin:0 0 8px;padding-left:18px}
+.panel .row{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+.panel .primary{font-weight:bold;min-width:110px}
+.offers{display:grid;gap:5px;margin:6px 0}
+.offer{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;text-align:left;padding:5px 8px}
+.offer i{font-style:normal;font-size:20px;text-align:center}
+.offer small{display:block;color:#333;font-size:11px}
+.offer[aria-pressed=true]{border-style:inset;background:#dfffd6}
+.offer em{font:bold 13px 'Courier New',monospace;font-style:normal;color:#8a6100}
+.controls{display:flex;gap:4px;padding:5px 6px}
+.controls button{flex:1 1 0;min-width:0;padding:7px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.statusbar{display:flex;gap:4px;padding:0 6px 5px;font-size:11px}
+.statusbar>span{border:1px inset #fff;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.statusbar>span:first-child{flex:1;min-width:0}
+@media(max-width:520px){body{padding:6px}.field{flex-basis:70px;padding:1px 4px}.field b{font-size:13px}.field span{font-size:10px}.panel h2{font-size:15px}.panel .body{padding:8px}}
+@media(pointer:coarse){button{min-height:40px}}
+html[data-embedded]{height:100%}
+html[data-embedded] body{padding:0;height:100%;background:#c0c0c0}
+html[data-embedded] main{max-width:none;height:100%;border:0;box-shadow:none}
+html[data-embedded] .titlebar,html[data-embedded] .menubar{display:none}
+html[data-embedded] .stage{flex:1 1 0;aspect-ratio:auto;min-height:150px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
 </head>
-<body><p>gold claw 98 is still being built.</p></body>
+<body>
+<main>
+<header class="titlebar"><h1>gold claw 98</h1><span aria-hidden="true">⭐</span></header>
+<nav class="menubar" aria-label="game navigation"><a href="../../">&larr; back to the desktop</a><span>offline · no account · saves stay in this browser</span></nav>
+<div class="hud" aria-label="level figures">
+  <div class="field money"><span>money</span><b id="money">$0</b></div>
+  <div class="field" id="goal-field"><span>goal</span><b id="goal">$650</b></div>
+  <div class="field"><span>level</span><b id="level">1</b></div>
+  <div class="field" id="time-field"><span>time</span><b id="time">60</b></div>
+  <div class="field"><span>tnt</span><b id="tnt">0</b></div>
+</div>
+<div class="stage" id="stage">
+  <canvas id="field" width="640" height="480" role="img" aria-label="the mine: a claw swinging over gold, rocks and diamonds"></canvas>
+  <div class="overlay" id="overlay"></div>
+</div>
+<div class="controls">
+  <button type="button" id="btn-shoot" title="shoot the claw (down / space / tap the mine)">&#9660; shoot</button>
+  <button type="button" id="btn-blast" title="blow up what is on the hook (up)">&#9650; dynamite</button>
+  <button type="button" id="btn-pause" title="pause (p / esc)">pause</button>
+  <button type="button" id="btn-done" title="goal reached: end the level now (n)" disabled>done &#9197;</button>
+</div>
+<div class="statusbar"><span id="status" role="status" aria-live="polite">lower the claw...</span><span id="best">best: level 0</span></div>
+</main>
+<script src="gold-claw-sim.js"></script>
+<script src="gold-claw.js"></script>
+</body>
 </html>
