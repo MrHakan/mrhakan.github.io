@@ -1108,3 +1108,34 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## gold claw 98
+
+`gold-claw/index.html` is a framed single-player game: `games/classics.js`
+opens it through `frame-window.js` as `?embed=1` from `startMenuAction('goldclaw')`
+or `/?app=goldclaw`, and the page also works on its own. A claw swings from the
+winch; shoot it (down, space, a click or a tap on the mine), reel in gold,
+diamonds, rocks, mystery bags and moles (some carry a diamond), and bank the
+level's money goal before the 60 second clock runs out. Heavy things reel
+slowly, tnt barrels blow up their neighbours (and other barrels), up lights a
+dynamite stick to drop what is on the hook, and `n` or the done button ends a
+level early once the goal is met. Between levels the shop offers a random few
+of dynamite, strength drink, lucky clover, rock collector's book and diamond
+polish; perks last one level. Missing a goal ends the run.
+
+`gold-claw-sim.js` is the DOM-free rules: a fixed 60 Hz tick, a seeded
+generator kept in the state, seven hand-tuned layout templates filled per
+level from `hash(seed, level)` and topped up until the field is worth 1.9x the
+goal step, and a greedy bot. `gold-claw.js` draws it (sprites pre-rendered once,
+pooled particles, the repo's cursed emoji as the miner), handles input and
+saves. It pauses on `{type: 'game-pause'}` and on a hidden tab, and stays silent
+when `sound-enabled` is `false`. `window.GOLDCLAW_ENGINE` (state, newGame(seed),
+setTimeScale, fastForward) is for the tests. Records: `mrhakan98-goldclaw-best-level`
+and `mrhakan98-goldclaw-best-money`.
+
+`check-goldclaw.mjs` covers the swing, grabbing, reel speeds, values and perks,
+moles, chained tnt, dynamite, bags, the shop, 2400 layouts (every item inside
+the swing, apart, and hookable) and 250 seeded bot runs that all end in a valid
+game over. `browser-goldclaw.mjs` opens it from the start menu, wins level 1
+with real key presses, minimises the window to pause it, shops with the mouse,
+uses dynamite, loses a level, reloads to find the record, and plays on a phone.
