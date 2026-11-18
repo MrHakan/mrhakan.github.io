@@ -1108,3 +1108,29 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## popz 98
+
+Bubble popping in the Pang / Bubble Trouble genre, for one, two at one keyboard, one with a bot
+buddy, or two online. You stand on the floor and fire a rope straight up; a bubble it touches
+splits into two smaller ones (four sizes, the smallest just pops), and bigger bubbles bounce
+higher. Clear the room before the clock runs out: seconds left are bonus points, a bubble on your
+head or the clock hitting zero costs a life and restarts the level. 24 original levels with steel
+blocks (ropes stop under them, bubbles bounce off them) and glass ones (a rope breaks them). Popped
+bubbles sometimes drop double rope, sticky rope, a shield, freeze, dynamite or an extra life. The
+levels, names and look are the site's own.
+
+| file | what is in it |
+| --- | --- |
+| `popz-sim.js` | the rules at a fixed 60 steps a second, the 24 levels, the items, a seeded random number generator inside the state, the bot, and the snapshot a guest gets. No page in it, so node runs it |
+| `popz.js` | the window, the keys (arrows + up/enter, a d + w/space), the thumb buttons and tap-to-walk, the picture in a 2d canvas, the menu, pause, saves and the wire |
+| `popz.css` | its styles, loaded by `popz.js` |
+
+Online the host runs the rules and the bots; a guest sends its walk bits and a press counter
+(`popz:i`), the host sends the game back twenty times a second (six over the relays, `popz:s`) and
+a new game to everybody with `popz:go`. Between snapshots the guest moves everything on with the
+same rules in puppet mode, which never splits, kills or picks anything up. A guest who leaves is
+replaced by a bot. Saves: `mrhakan98-popz-best` (best score, furthest level, games, wins) and
+`mrhakan98-popz-prefs`. Tests: `check-popz.mjs` (the rules, the wire, a bot clearing levels 1 to 5
+on every seed and every level on some seed) and `browser-popz.mjs`; `popz-preview.mjs` draws
+`join/popz/preview.jpg`.
