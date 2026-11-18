@@ -30,8 +30,10 @@ async function desktop(options) {
     await ctx.addInitScript(() => { try { sessionStorage.setItem('welcomed', '1'); sessionStorage.setItem('booted', '1'); localStorage.setItem('sound-enabled', 'false'); } catch (_) { /* blocked */ } });
     return ctx;
 }
-async function openGame(page) {
-    await page.goto(BASE + '/', { waitUntil: 'load' });
+async function openGame(page, { navigate = true } = {}) {
+    if (navigate) await page.goto(BASE + '/', { waitUntil: 'load' });
+    // The playlist fetch starts at DOMContentLoaded but is not tracked by the load event.
+    await page.waitForFunction(() => typeof tracks !== 'undefined' && tracks.length > 0);
     await page.waitForFunction(() => typeof startMenuAction === 'function');
     await page.evaluate(() => document.getElementById('boot-screen')?.remove());
     await page.evaluate(() => startMenuAction('learntoglide'));
@@ -135,7 +137,7 @@ try {
     const saved = await E(frame, () => JSON.stringify({ d: LTG_ENGINE.game().day, m: LTG_ENGINE.game().money, l: LTG_ENGINE.game().levels }));
     assert.ok(await page.evaluate(() => localStorage.getItem('mrhakan98-learntoglide-save')), 'the save is under the mrhakan98- prefix');
     await page.reload({ waitUntil: 'load' });
-    ({ win, frame } = await openGame(page));
+    ({ win, frame } = await openGame(page, { navigate: false }));
     await frame.getByRole('dialog', { name: 'hangar' }).waitFor();
     assert.equal(await E(frame, () => JSON.stringify({ d: LTG_ENGINE.game().day, m: LTG_ENGINE.game().money, l: LTG_ENGINE.game().levels })), saved);
     assert.equal(await frame.getByRole('dialog', { name: 'how to play' }).isVisible(), false, 'the how-to is not shown twice');

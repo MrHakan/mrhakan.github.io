@@ -82,13 +82,27 @@ try {
     await waitLive(solo);
 
     await takeMouse(solo);
+    // Measure the accepted cast itself, not ink regenerated while the test draws and waits.
+    await solo.evaluate(() => {
+        const sim = WZ_SIM, original = sim.command;
+        sim.command = function (state, seat, cmd) {
+            const w = state.wiz[seat], before = w?.ink;
+            const result = original.apply(this, arguments);
+            if (result === null && seat === WZ_ENGINE.state().me && cmd.c === 'cast' && cmd.s === 'fireball') {
+                window.fireballInk = { spent: before - w.ink, cost: WZ.byId('fireball').cost };
+                sim.command = original;
+            }
+            return result;
+        };
+    });
     await inkDraw(solo, TRIANGLE);
     const afterDraw = await solo.evaluate(() => {
         const g = WZ_ENGINE.state(), w = g.wiz[g.me];
-        return { chamber: w.chamber && w.chamber.s, ink: w.ink, start: WZ.ARENA.startInk, hint: g.hint && g.hint.text };
+        return { chamber: w.chamber && w.chamber.s, ink: window.fireballInk, hint: g.hint && g.hint.text };
     });
     expect(afterDraw.chamber === 'fireball', 'drawing a triangle loaded a fireball', JSON.stringify(afterDraw));
-    expect(afterDraw.ink < afterDraw.start, 'casting cost ink', 'ink ' + afterDraw.ink);
+    expect(afterDraw.ink?.cost > 0 && Math.abs(afterDraw.ink.spent - afterDraw.ink.cost) < 1e-6,
+        'casting cost ink', JSON.stringify(afterDraw.ink));
     expect(/fireball/.test(afterDraw.hint || ''), 'the game says what it read', afterDraw.hint);
     await solo.mouse.down();
     await solo.waitForTimeout(120);
@@ -894,8 +908,8 @@ try {
         const perrs = [];
         p.on('pageerror', e => perrs.push(e.message));
         await p.goto(BASE, { waitUntil: 'load' });
-        await p.keyboard.press('Enter');
-        await p.waitForTimeout(1800);
+        await p.waitForFunction(() => typeof startMenuAction === 'function');
+        await p.evaluate(() => document.getElementById('boot-screen')?.remove());
 
         const seen = await p.evaluate(() => ({
             coarse: window.TOUCH.coarse(),
@@ -936,23 +950,28 @@ try {
             kb && Math.round(kb.y + kb.height) + ' vs ' + p.viewportSize().height);
 
         const where = () => p.evaluate(() => window.ET_ENGINE.where());
+        const touch = await phone.newCDPSession(p);
+        const sendTouch = (type, touchPoints = []) => touch.send('Input.dispatchTouchEvent', { type, touchPoints });
+        const keyCenter = async () => {
+            const box = await key.boundingBox();
+            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        };
         const from = await where();
-        await p.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2);
-        await p.mouse.down();
-        await p.waitForTimeout(500);
-        await p.mouse.up();
-        await p.waitForTimeout(300);
+        await sendTouch('touchStart', [await keyCenter()]);
+        let moved;
+        try {
+            moved = await p.waitForFunction(y => window.ET_ENGINE.where()?.y > y, from.y, { timeout: 2500 }).then(() => true, () => false);
+        } finally { await sendTouch('touchEnd'); }
         const to = await where();
-        expect(to && to.y > from.y, 'holding a key on the pad walks the diver',
-            JSON.stringify([from && from.y, to && to.y]));
+        expect(moved, 'holding a key on the pad walks the diver', JSON.stringify({ from, to }));
 
-        // a finger that slides off the key must not leave it walking forever
-        await p.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2);
-        await p.mouse.down();
-        await p.waitForTimeout(150);
-        await p.mouse.move(4, 4);
-        await p.mouse.up();
-        await p.waitForTimeout(500);
+        // A finger sliding off the key must still send its release.
+        await sendTouch('touchStart', [await keyCenter()]);
+        try {
+            await p.locator('.tp-key.tp-down.down').waitFor();
+            await sendTouch('touchMove', [{ x: 4, y: 4 }]);
+        } finally { await sendTouch('touchEnd'); }
+        await p.waitForFunction(() => !document.querySelector('.tp-key.tp-down.down') && !window.ET_ENGINE.where()?.walking);
         const restA = await where();
         await p.waitForTimeout(500);
         const restB = await where();
