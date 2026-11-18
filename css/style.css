@@ -1788,6 +1788,9 @@ body.concert-mode { overflow: hidden !important; height: calc(100dvh / var(--z, 
    =================================================================== */
 
 /* ---- start menu flyouts ---- */
+/* Flyouts share the Start menu's stacking context, above app windows. */
+#start-menu { z-index: 8000; }
+
 .start-sub {
     position: relative;
 }

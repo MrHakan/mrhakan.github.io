@@ -196,12 +196,14 @@ try {
     expect(lay.sw <= lay.iw && lay.cl >= 0 && lay.cr <= lay.iw, 'nothing sticks out sideways at 390px', JSON.stringify(lay));
     expect(lay.cw > 300, 'the board uses the width', lay.cw + 'px');
     expect(tapped >= 4, 'rolling and moving by touch works', tapped + ' taps played');
-    const px = await ph.evaluate(() => {
+    // Rules update immediately, but the destination checker is drawn only after its move animation.
+    const painted = await ph.waitForFunction(() => {
         const s = TAVLA_ENGINE.state(), S = TAVLA_ENGINE.sim, cv = document.querySelector('.tv-canvas');
-        const look = (seat, want) => { for (let r = 0; r < 24; r++) if (S.own(s.pos, seat, r)) { const q = TAVLA_ENGINE.xy(r, seat), b = cv.getBoundingClientRect(); const d = cv.getContext('2d').getImageData(Math.round((q.x - b.left) * cv.width / b.width), Math.round((q.y - b.top) * cv.height / b.height), 1, 1).data; return [...d.slice(0, 3)]; } return null; };
-        return { white: look(0), red: look(1) };
-    });
-    expect(px.white && px.white[0] > 190 && px.white[2] > 150 && px.red && px.red[0] > 90 && px.red[1] < 90, 'white and red checkers are painted where the rules put them', JSON.stringify(px));
+        const look = seat => { for (let r = 0; r < 24; r++) if (S.own(s.pos, seat, r)) { const q = TAVLA_ENGINE.xy(r, seat), b = cv.getBoundingClientRect(); const d = cv.getContext('2d').getImageData(Math.round((q.x - b.left) * cv.width / b.width), Math.round((q.y - b.top) * cv.height / b.height), 1, 1).data; return [...d.slice(0, 3)]; } return null; };
+        const white = look(0), red = look(1);
+        return white && white[0] > 190 && white[2] > 150 && red && red[0] > 90 && red[1] < 90;
+    }, null, { timeout: 3000 }).then(() => true, () => false);
+    expect(painted, 'white and red checkers are painted where the rules put them');
     await ph.screenshot({ path: path.join(process.env.TMPDIR || '/tmp', 'tavla-phone.png') });
     await pctx.close();
 
