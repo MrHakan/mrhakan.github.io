@@ -82,33 +82,56 @@ try {
     await waitLive(solo);
 
     await takeMouse(solo);
-    // Measure the accepted cast itself, not ink regenerated while the test draws and waits.
+    // Sample the accepted cast and the projectile spawn before the next simulation tick.
     await solo.evaluate(() => {
-        const sim = WZ_SIM, original = sim.command;
+        const sim = WZ_SIM, original = sim.command, game = WZ_ENGINE.state();
+        window.fireballProbe = { ink: null, shot: null, attempts: [] };
         sim.command = function (state, seat, cmd) {
-            const w = state.wiz[seat], before = w?.ink;
+            if (state !== game.s || seat !== game.me) return original.apply(this, arguments);
+            const w = state.wiz[seat], before = w.ink, id = state.nextId;
+            const loaded = w.chamber?.s;
             const result = original.apply(this, arguments);
-            if (result === null && seat === WZ_ENGINE.state().me && cmd.c === 'cast' && cmd.s === 'fireball') {
-                window.fireballInk = { spent: before - w.ink, cost: WZ.byId('fireball').cost };
-                sim.command = original;
+            const probe = window.fireballProbe;
+            if (result === null && cmd.c === 'cast' && cmd.s === 'fireball') {
+                probe.ink = { spent: before - w.ink, cost: WZ.byId('fireball').cost };
+            }
+            if (cmd.c === 'fire' && loaded === 'fireball') {
+                probe.attempts.push(result);
+                if (result === null) {
+                    probe.shot = state.ents.find(e => e.id >= id && e.s === 'fireball' && e.o === seat)?.id ?? null;
+                    sim.command = original;
+                }
             }
             return result;
         };
+        window.restoreFireballProbe = () => { sim.command = original; };
     });
     await inkDraw(solo, TRIANGLE);
     const afterDraw = await solo.evaluate(() => {
         const g = WZ_ENGINE.state(), w = g.wiz[g.me];
-        return { chamber: w.chamber && w.chamber.s, ink: window.fireballInk, hint: g.hint && g.hint.text };
+        return { chamber: w.chamber && w.chamber.s, ink: window.fireballProbe.ink, hint: g.hint && g.hint.text };
     });
     expect(afterDraw.chamber === 'fireball', 'drawing a triangle loaded a fireball', JSON.stringify(afterDraw));
     expect(afterDraw.ink?.cost > 0 && Math.abs(afterDraw.ink.spent - afterDraw.ink.cost) < 1e-6,
         'casting cost ink', JSON.stringify(afterDraw.ink));
     expect(/fireball/.test(afterDraw.hint || ''), 'the game says what it read', afterDraw.hint);
-    await solo.mouse.down();
-    await solo.waitForTimeout(120);
-    await solo.mouse.up();
-    const fired = await solo.evaluate(() => WZ_ENGINE.state().ents.some(e => e.s === 'fireball'));
-    expect(fired, 'and a click put it in the air');
+    const readyToFire = await solo.waitForFunction(() => {
+        const g = WZ_ENGINE.state(), w = g.wiz[g.me];
+        return !g.stance && !w.stance && !w.dead && WZ_SIM.canAct(w) && w.chamber?.s === 'fireball' && w.fireCd <= 0 && !(g.fireClock > 0);
+    }, null, { timeout: 2500 }).then(() => true, () => false);
+    let fired = false;
+    if (readyToFire) {
+        await solo.mouse.down();
+        try {
+            fired = await solo.waitForFunction(() => window.fireballProbe.shot !== null, null, { timeout: 2500 }).then(() => true, () => false);
+        } finally { await solo.mouse.up(); }
+    }
+    const fireEvidence = await solo.evaluate(() => {
+        window.restoreFireballProbe();
+        const g = WZ_ENGINE.state(), w = g.wiz[g.me];
+        return { ...window.fireballProbe, stance: g.stance, fireCd: w.fireCd, chamber: w.chamber?.s };
+    });
+    expect(fired, 'and a click put it in the air', JSON.stringify({ readyToFire, ...fireEvidence }));
     await solo.screenshot({ path: SHOTS + '/2-duel.png' });
 
     // the machine has to be both dangerous and survivable: a player who
