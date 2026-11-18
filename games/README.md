@@ -1108,3 +1108,31 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## deep drill 98
+
+`deep-drill/` is a single-player dig-for-ore game in the Motherload mould, framed in a
+desktop popup like the other 2000s classics (`startMenuAction('deepdrill')`, `/?app=deepdrill`;
+the page also runs on its own and reads `?seed=`). A pod on a rusty red planet drills left,
+right and down (never up; it flies up on its thruster), hauls ore back to the surface, sells
+it at the ore buyer and spends the cash at the fuel station, the repair bay, the upgrade shop
+(drill bit, hull, engine, fuel tank, radiator, cargo bay, five marks each) and the item shop
+(dynamite, plastic explosive, quantum teleporter, repair kit, reserve fuel; keys 1-5). Fuel
+burns underground and running dry there ends the run; falls, gas pockets, lava and the heat
+below 600 m dent the hull; grey boulders only yield to explosives. Nine ores get rarer and
+richer with depth, with emoji fossils and lost floppies (instant cash) on the side. At 1500 m
+a cavern holds the planet's core: crack its nine shards while it flares to win.
+
+| file | what is in it |
+| --- | --- |
+| `deep-drill-sim.js` | `window.DEEP_DRILL`: the seeded world (mulberry32), ore tables, fixed 60 Hz physics, drilling, hazards, shops, items, saves and the scripted miner `bot()`. No DOM. |
+| `deep-drill.js` | canvas drawing (8x8 tile chunks cached per chunk version, a light mask for the dark), keys, the touch pad, dialogs, autosave, beeps, the `DEEPDRILL_ENGINE` test hook |
+| `index.html` | the page and its Win98 styles; `?embed=1` hides its own title and menu bars |
+
+The run saves to `mrhakan98-deepdrill-save` every time the pod visits a building, so a wreck
+offers "reload last surface save"; a win clears it. Records live in `mrhakan98-deepdrill-best`.
+It pauses on `{type: 'game-pause'}` from the desktop window and on a hidden tab.
+`check-deepdrill.mjs` tests world generation by seed, physics, shops, items, the core and
+saves, and sends forty seeded bots to 300 m and back to sell; `browser-deepdrill.mjs` plays it
+from the start menu with real keys and a phone's touch pad, through a sale, a reload, a win
+and a wreck.
