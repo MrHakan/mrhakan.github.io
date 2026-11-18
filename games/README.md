@@ -1261,3 +1261,48 @@ the swing, apart, and hookable) and 250 seeded bot runs that all end in a valid
 game over. `browser-goldclaw.mjs` opens it from the start menu, wins level 1
 with real key presses, minimises the window to pause it, shops with the mouse,
 uses dynamite, loses a level, reloads to find the record, and plays on a phone.
+## kartz 98
+
+The Turkish card table, for two to four, with bots in the empty seats. One
+standard 52 card deck and three games, picked in the menu or by the lobby's
+`game` option:
+
+- **batak**: four players, thirteen cards each. Bid 5 to 13 tricks or pass,
+  starting left of the dealer; if everybody else passes the dealer has to bid.
+  The highest bidder names trumps and leads. Follow suit and beat the best card
+  of that suit on the table if you can; void, you must trump, and over-trump if
+  you can. Trumps are not led until broken. Bidder made it: + tricks; went down:
+  minus the bid; everybody else + tricks. First to 31 (or 51).
+- **king**: twenty hands, the chooser going round the table. Six penalty
+  contracts, each called twice per table (no tricks -50, no hearts -30, no
+  jacks/kings -60, no queens -100, king of hearts -320, last two -180 a trick)
+  and two trump hands per player (+50 a trick). A penalty hand stops as soon as
+  there is nothing left to lose. The whole game always sums to zero.
+- **pisti**: two players, or four as partners across. Match the top card or
+  throw a jack to take the pile; a lone card taken by its twin is a pisti (10,
+  20 for jacks). Aces and jacks 1, two of clubs 2, ten of diamonds 3, most
+  cards 3. First to 51 (or 151).
+
+| file | what is in it |
+| --- | --- |
+| `kartz-sim.js` | the rules of all three, the bots, a seat's view and the action reader. No page in it, so node runs it |
+| `kartz.js` | the window, the DOM cards, clicks, keys and taps, the bots' pace, the score sheet window, the save, and the wire |
+| `kartz.css` | its styles, loaded with the game |
+
+A match is one JSON object with its seeded rng inside; the only ways to change
+it are `act(st, seat, action)` for the seat to move and `advance(st)` for the
+table (sweep a trick, deal the next hand). Online the host runs it: guests send
+`kartz:act` intents, the host reads and checks them against the rules and sends
+each seat its own `kartz:state` view (other hands are backs, the deck a number,
+pisti's face down cards stay face down). A guest that walks out becomes a bot,
+and the host can deal again at the end.
+
+Keys: left/right and enter choose and play, `s` the score sheet, `p` pause
+(alone only), `h` the rules. A solo table saves as it goes
+(`mrhakan98-kartz-save`) and the menu offers to resume it; the records are in
+`mrhakan98-kartz-stats`, the menu choices in `mrhakan98-kartz-prefs`.
+
+`check-kartz.mjs` holds the rules and runs about a thousand seeded bot tables
+(and the bots against random play); `browser-kartz.mjs` plays each game with
+real clicks and keys, a phone, and two browsers at one table in `local` mode;
+`kartz-preview.mjs` draws `join/kartz/preview.jpg` from the game itself.
