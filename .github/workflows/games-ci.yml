@@ -164,6 +164,28 @@ jobs:
             - name: Check Brawlz 98 rules and bot matches
               run: node .github/scripts/check-rift-rumble.mjs && node .github/scripts/check-rift-animation.mjs
 
+            # the ten 2000s classics: rules, seeded bot games and puzzle solvers
+            - name: Check okey and 101
+              run: node .github/scripts/check-okey.mjs
+            - name: Check batak, king and pisti
+              run: node .github/scripts/check-kartz.mjs
+            - name: Check tavla
+              run: node .github/scripts/check-tavla.mjs
+            - name: Check popz
+              run: node .github/scripts/check-popz.mjs
+            - name: Check lava & tide
+              run: node .github/scripts/check-lavatide.mjs
+            - name: Check gold claw
+              run: node .github/scripts/check-goldclaw.mjs
+            - name: Check pizza shift
+              run: node .github/scripts/check-pizzashift.mjs
+            - name: Check learn to glide
+              run: node .github/scripts/check-learntoglide.mjs
+            - name: Check block roll (every level solved)
+              run: node .github/scripts/check-blockroll.mjs
+            - name: Check deep drill
+              run: node .github/scripts/check-deepdrill.mjs
+
             - name: Check the trophy room and the manifest
               run: node .github/scripts/check-trophies.mjs
 
@@ -402,6 +424,41 @@ jobs:
                   sleep 2
                   kill -0 "$site_pid"
                   SITE_URL=http://localhost:8102 node .github/scripts/browser-giscus.mjs
+
+            # the ten 2000s classics: each test brings its own server and stays offline
+            - name: Open every 2000s classic from the start menu
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-classics.mjs
+            - name: Play popz solo, two on one keyboard and online
+              if: matrix.group == 'arena'
+              run: node .github/scripts/browser-popz.mjs
+            - name: Play okey and 101 against bots and online
+              if: matrix.group == 'arena'
+              run: node .github/scripts/browser-okey.mjs
+            - name: Play tavla against a bot and online
+              if: matrix.group == 'arena'
+              run: node .github/scripts/browser-tavla.mjs
+            - name: Play lava & tide co-op and online
+              if: matrix.group == 'worlds'
+              run: node .github/scripts/browser-lavatide.mjs
+            - name: Fly learn to glide
+              if: matrix.group == 'worlds'
+              run: node .github/scripts/browser-learntoglide.mjs
+            - name: Roll block roll levels
+              if: matrix.group == 'worlds'
+              run: node .github/scripts/browser-blockroll.mjs
+            - name: Play batak, king and pisti against bots and online
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-kartz.mjs
+            - name: Play gold claw
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-goldclaw.mjs
+            - name: Run a pizza shift
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-pizzashift.mjs
+            - name: Dig in deep drill
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-deepdrill.mjs
 
             - name: Keep the screenshots
               if: always()
