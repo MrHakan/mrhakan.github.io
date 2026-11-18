@@ -1108,3 +1108,26 @@ mouse locked, and firing with the right button held;
 online to what happens when the network misbehaves. They all run in CI on
 every push, and the Pages deploy waits for them. `npm run relays` is the one
 that talks to the real relays, so it is not part of that.
+
+## learn to glide 98
+
+`games/learn-to-glide/` is a framed single player game in the spirit of the
+old flash launch games: a penguin slides down a ramp on a cliff, launches and
+glides (lift against drag, a wing that stalls if you pull too hard), burns
+rockets, pops balloons for a kick and gets slowed by soggy clouds. Every
+launch is a day; distance, height, top speed and balloons pay cash for five
+upgrade lines (ramp, sled, glider, rockets, payload). Smash the ice wall
+3200 m out at 50 m/s inside 30 days; fewer days, better medal.
+
+- `learn-to-glide-sim.js` (`LTG_SIM`) is the whole game with no DOM: a fixed
+  60 Hz step, a seeded sky per day, the shop, the season books, a scripted
+  pilot and a planned shopper used by the tests.
+- `learn-to-glide.js` draws on one 800x450 canvas, reads keys (arrows/W/S,
+  space for rockets, enter, p), the pad buttons and the sky itself, and pauses
+  on `{type:'game-pause'}` and hidden tabs. `LTG_ENGINE` is the test hook.
+- saves: `mrhakan98-learntoglide-save` (the season), `-records` (best days,
+  best distance, wins), `-howto` (manual seen).
+- `check-learntoglide.mjs` holds the rules: tiers, saves, determinism, every
+  upgrade flying farther, the wall needing a pilot, and hundreds of seasons.
+  `browser-learntoglide.mjs` plays it from the start menu with real keys,
+  clicks and touches, on a desktop and a 390px phone.

@@ -3,9 +3,123 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#008080">
 <title>learn to glide 98</title>
 <meta name="description" content="Slide down the ramp, glide as far as you can, earn money for the distance and buy a better ramp, glider and rockets.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='27'%3E%F0%9F%90%A7%3C/text%3E%3C/svg%3E">
 <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.dataset.embedded = 'true';</script>
+<style>
+*{box-sizing:border-box}
+html{overflow-x:clip}
+body{margin:0;padding:16px 8px;background:#008080;color:#111;font:13px Tahoma,'MS Sans Serif',Verdana,sans-serif}
+button{font:inherit;color:#111;background:#c0c0c0;border:2px outset #fff;padding:5px 10px;cursor:pointer;touch-action:manipulation;min-height:30px}
+button:active,button.held{border-style:inset}
+button:disabled{color:#7b7b7b;cursor:default;text-shadow:1px 1px 0 #fff}
+button:focus-visible,canvas:focus-visible{outline:2px dotted #000;outline-offset:-4px}
+main{max-width:960px;margin:0 auto;background:#c0c0c0;border:2px outset #eee;box-shadow:5px 6px 0 #004747}
+.titlebar{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 8px;font-weight:bold;display:flex;gap:8px;align-items:center}
+.titlebar h1{font-size:13px;margin:0;flex:1}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid #808080}
+.toolbar .sep{flex:1}
+.meters{display:flex;flex-wrap:wrap;gap:4px}
+.meter{background:#fff;border:2px inset #eee;padding:2px 7px;font:bold 12px 'Courier New',monospace;white-space:nowrap}
+.meter i{font-style:normal;font-weight:normal;color:#555;margin-right:4px}
+.stage{position:relative;margin:6px 8px;border:2px inset #eee;background:#000}
+.stage canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;touch-action:none;user-select:none;-webkit-user-select:none}
+.dlg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;background:#00000055;overflow:auto}
+.dlg[hidden]{display:none}
+.box{background:#c0c0c0;border:2px outset #fff;box-shadow:2px 2px 0 #000;width:min(560px,100%);max-height:100%;overflow:auto}
+.box h2{margin:0;font-size:13px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:3px 6px;position:sticky;top:0}
+.box .in{padding:8px 10px}
+.box p{margin:4px 0 8px;line-height:1.4}
+.row{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:8px}
+.shop{display:grid;gap:4px}
+.item{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:6px;align-items:center;background:#d4d0c8;border:1px solid #808080;padding:4px 6px}
+.item .ico{font-size:20px;text-align:center}
+.item b{display:block}
+.item small{color:#333}
+.pips{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle}
+.pips span{width:8px;height:8px;border:1px solid #333;background:#fff}
+.pips span.on{background:#000080}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:4px;margin:6px 0}
+.facts div{background:#fff;border:2px inset #eee;padding:3px 6px}
+.facts b{font-family:'Courier New',monospace}
+.rec{color:#008000;font-weight:bold}
+.pad{display:flex;gap:6px;padding:0 8px 6px}
+.pad button{flex:1;min-height:44px;font-weight:bold;user-select:none;-webkit-user-select:none;touch-action:none}
+.status{margin:0;padding:4px 8px;border-top:1px solid #fff;box-shadow:inset 0 1px 0 #808080;min-height:24px;font-size:12px}
+kbd{font:11px 'Courier New',monospace;background:#fff;border:1px solid #808080;padding:0 3px}
+ul.how{margin:4px 0 8px;padding-left:18px;line-height:1.45}
+html[data-embedded] body{padding:0;background:#c0c0c0}
+html[data-embedded] .titlebar{display:none}
+html[data-embedded] main{max-width:none;border:0;box-shadow:none}
+@media (max-width:640px){
+ body{padding:0}main{border:0;box-shadow:none}
+ .stage{margin:4px}
+ .stage.has-dlg canvas{display:none}
+ .stage.has-dlg{background:#c0c0c0;border:0}
+ .stage.has-dlg .dlg{position:static;background:none;padding:0}
+ .meter{font-size:11px;padding:1px 4px}
+ .toolbar button{padding:4px 7px}
+}
+</style>
 </head>
-<body><p>learn to glide 98 is still being built.</p></body>
+<body>
+<main>
+<header class="titlebar"><span aria-hidden="true">🐧</span><h1>learn to glide 98</h1><span>GLIDE.EXE</span></header>
+<div class="toolbar">
+  <div class="meters" aria-label="season">
+    <span class="meter"><i>day</i><span id="day">1/30</span></span>
+    <span class="meter"><i>cash</i>$<span id="money">0</span></span>
+    <span class="meter"><i>best</i><span id="best">0 m</span></span>
+  </div>
+  <span class="sep"></span>
+  <button type="button" id="pause" disabled>pause</button>
+  <button type="button" id="help">how to play</button>
+  <button type="button" id="restart">new season</button>
+</div>
+<div class="stage" id="stage">
+  <canvas id="view" width="800" height="450" tabindex="0" role="img" aria-label="the ramp, the sky and the ice wall"></canvas>
+  <div class="dlg" id="dlg-howto" hidden><div class="box" role="dialog" aria-labelledby="howto-t"><h2 id="howto-t">how to play</h2><div class="in">
+    <p>a penguin, a ramp on a cliff, and an ice wall <b>3200 m</b> out on the sea ice. smash it at <b>50 m/s</b> or faster before the season's 30 days run out.</p>
+    <ul class="how">
+      <li>every launch is one day. distance, height, top speed and popped balloons pay cash.</li>
+      <li>spend it in the hangar: ramp, sled, glider, rockets and payload (more cash per metre).</li>
+      <li>in the air: <kbd>↑</kbd>/<kbd>W</kbd> nose up, <kbd>↓</kbd>/<kbd>S</kbd> nose down, hold <kbd>space</kbd> for rockets. on a phone use the buttons under the sky.</li>
+      <li>nose up too far and the wing stalls. a shallow glide goes far; a dive at the end goes fast.</li>
+      <li>balloons give a kick, clouds are soggy and slow you down.</li>
+      <li><kbd>enter</kbd> launches and continues, <kbd>p</kbd> pauses. fewer days = better medal.</li>
+    </ul>
+    <div class="row"><button type="button" id="howto-ok">got it</button></div>
+  </div></div></div>
+  <div class="dlg" id="dlg-shop" hidden><div class="box" role="dialog" aria-labelledby="shop-t"><h2 id="shop-t">hangar</h2><div class="in">
+    <p id="shop-note">cash in, upgrades out.</p>
+    <div class="shop" id="shop"></div>
+    <div class="row"><button type="button" id="launch"><b>launch!</b></button></div>
+  </div></div></div>
+  <div class="dlg" id="dlg-report" hidden><div class="box" role="dialog" aria-labelledby="report-t"><h2 id="report-t">day over</h2><div class="in">
+    <p id="report-line"></p>
+    <div class="facts" id="report-facts"></div>
+    <div class="row"><button type="button" id="to-shop">to the hangar</button></div>
+  </div></div></div>
+  <div class="dlg" id="dlg-end" hidden><div class="box" role="dialog" aria-labelledby="end-t"><h2 id="end-t">season over</h2><div class="in">
+    <p id="end-line"></p>
+    <div class="facts" id="end-facts"></div>
+    <div class="row"><button type="button" id="again">new season</button></div>
+  </div></div></div>
+  <div class="dlg" id="dlg-pause" hidden><div class="box" role="dialog" aria-labelledby="pause-t"><h2 id="pause-t">paused</h2><div class="in">
+    <p>the penguin is holding its breath.</p>
+    <div class="row"><button type="button" id="resume">resume</button></div>
+  </div></div></div>
+</div>
+<div class="pad" aria-label="flight controls">
+  <button type="button" id="pad-up" aria-label="nose up">▲ up</button>
+  <button type="button" id="pad-boost" aria-label="rocket">🔥 rocket</button>
+  <button type="button" id="pad-down" aria-label="nose down">▼ down</button>
+</div>
+<p class="status" id="status" role="status" aria-live="polite">waxing the ramp...</p>
+</main>
+<script src="learn-to-glide-sim.js"></script>
+<script src="learn-to-glide.js"></script>
+</body>
 </html>
