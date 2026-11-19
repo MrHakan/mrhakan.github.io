@@ -1,5 +1,38 @@
 [
   {
+    "name": "🃏 Higher or Lower 98",
+    "type": "game",
+    "date": "2026-11-19",
+    "url": "/games/higher-lower/",
+    "description": "Predict the next card in a fair 52-card deck with streak bonuses, keyboard/touch controls and local high scores.",
+    "icon": "🃏",
+    "tags": [
+      "cards",
+      "prediction",
+      "arcade",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "🌬️ Apparent Wind Desk 98",
+    "type": "app",
+    "date": "2026-11-19",
+    "url": "/apps/apparent-wind-desk/",
+    "description": "Educational true-to-apparent wind vector calculator with relative bow bearing, ship-up SVG and copyable results.",
+    "icon": "🌬️",
+    "tags": [
+      "maritime",
+      "wind",
+      "navigation",
+      "vectors",
+      "calculator",
+      "svg",
+      "offline"
+    ]
+  },
+  {
     "name": "✊ RPS Arena 98",
     "type": "game",
     "date": "2026-11-18",
