@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-19T14:24:47.569Z",
+  "generated_at": "2026-11-20T13:59:17.661Z",
   "user": {
     "login": "MrHakan",
     "avatar_url": "https://avatars.githubusercontent.com/u/15964553?v=4",
@@ -9,6 +9,19 @@
   },
   "repos": [
     {
+      "name": "deadlock-modkit",
+      "html_url": "https://github.com/MrHakan/deadlock-modkit",
+      "description": "In game deadlock counter item overlay for enemy team",
+      "language": "Go",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "pushed_at": "2026-11-20T04:43:38Z",
+      "updated_at": "2026-11-20T00:42:48Z",
+      "has_pages": false,
+      "fork": false,
+      "archived": false
+    },
+    {
       "name": "hermes-hirehands",
       "html_url": "https://github.com/MrHakan/hermes-hirehands",
       "description": "slash command to hire an AI team in Hermes Bot Mode: a lead \"brain\" that only plans, dispatches and lightly audits, plus specialist worker bots with an RPG style hiring board.",
@@ -17,19 +30,6 @@
       "forks_count": 0,
       "pushed_at": "2026-11-19T12:32:18Z",
       "updated_at": "2026-11-19T11:57:17Z",
-      "has_pages": false,
-      "fork": false,
-      "archived": false
-    },
-    {
-      "name": "deadlock-counter-intelligence",
-      "html_url": "https://github.com/MrHakan/deadlock-counter-intelligence",
-      "description": "In game deadlock counter item overlay for enemy team",
-      "language": "Go",
-      "stargazers_count": 0,
-      "forks_count": 0,
-      "pushed_at": "2026-11-19T12:31:18Z",
-      "updated_at": "2026-11-19T10:14:04Z",
       "has_pages": false,
       "fork": false,
       "archived": false
@@ -54,7 +54,7 @@
       "language": "JavaScript",
       "stargazers_count": 2,
       "forks_count": 0,
-      "pushed_at": "2026-11-19T05:49:10Z",
+      "pushed_at": "2026-11-20T05:15:15Z",
       "updated_at": "2026-11-12T14:44:55Z",
       "has_pages": true,
       "fork": false,
