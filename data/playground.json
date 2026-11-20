@@ -1,5 +1,39 @@
 [
   {
+    "name": "🔤 Anagram Sprint 98",
+    "type": "game",
+    "date": "2026-11-20",
+    "url": "/games/anagram-sprint/",
+    "description": "Offline timed word-unscramble game with daily rounds, practice, hints, streaks and local bests.",
+    "icon": "🔤",
+    "tags": [
+      "anagram",
+      "words",
+      "arcade",
+      "daily",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "💧 Dew Point Desk 98",
+    "type": "app",
+    "date": "2026-11-20",
+    "url": "/apps/dew-point-desk/",
+    "description": "Private Magnus dew-point and vapor-pressure calculator with humidity curve, saturation proximity and copyable report.",
+    "icon": "💧",
+    "tags": [
+      "weather",
+      "humidity",
+      "dew-point",
+      "calculator",
+      "svg",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "🃏 Higher or Lower 98",
     "type": "game",
     "date": "2026-11-19",
