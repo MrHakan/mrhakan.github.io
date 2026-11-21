@@ -34,12 +34,22 @@ try {
     ok(box.bottom <= box.bar + 1, 'and stays above the taskbar');
     ok(box.right <= box.width, 'and inside the screen');
     await p.screenshot({ path: process.env.SHOT || path.join(process.env.TMPDIR || '/tmp', 'classics-flyout.png') });
+    // Each game is opened once, on its first use in this page: that is the only
+    // time its loading window exists (a second open finds start* defined and
+    // skips it), so it is the only time the handoff can leave one behind.
+    // A closing window is id-less for its ~110 ms fade, hence a wait, not a count.
     for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill']) {
-        const before = await p.locator('.app-window').count();
+        const live = () => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length;
+        const before = await p.evaluate(live);
         await p.evaluate(k => startMenuAction(k), key);
-        await p.waitForFunction(n => document.querySelectorAll('.app-window').length > n && !document.querySelector('.bj-loading:not(:empty)')?.textContent.includes('...'), before, { timeout: 15000 }).catch(() => {});
-        const title = await p.locator('.app-window').last().locator('.ie-titlebar, .app-titlebar, [class*=title]').first().textContent().catch(() => '');
-        ok((await p.locator('.app-window').count()) > before, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
+        const sawLoading = await p.waitForFunction(() => document.querySelector('.bj-loading'), null, { timeout: 2000 }).then(() => true, () => false);
+        const opened = await p.waitForFunction(n => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length > n, before, { timeout: 15000 }).then(() => true, () => false);
+        const title = await p.locator('.app-window[id]').last().locator('.app-window-title').first().textContent().catch(() => '');
+        ok(opened, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
+        ok(sawLoading, key + ' showed its loading window first (so the handoff was exercised)');
+        const cleared = await p.waitForFunction(() => !document.querySelector('.bj-loading') && !document.querySelector('.app-window:not([id])'), null, { timeout: 2000 }).then(() => true, () => false);
+        const left = await p.evaluate(() => [...document.querySelectorAll('.app-window')].map(w => (w.id || '(no id)') + ':' + (w.querySelector('.bj-loading')?.textContent || '')).join(', '));
+        ok(cleared, key + ' leaves no loading window behind  [' + left + ']');
     }
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
 } finally { await browser.close(); server.close(); }
