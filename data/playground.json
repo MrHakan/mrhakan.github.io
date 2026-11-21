@@ -1,5 +1,38 @@
 [
   {
+    "name": "🪢 Hangman Harbor 98",
+    "type": "game",
+    "date": "2026-11-21",
+    "url": "/games/hangman-harbor/",
+    "description": "Offline maritime word guessing with daily challenge, clue, hints, keyboard/touch play and local wins.",
+    "icon": "🪢",
+    "tags": [
+      "hangman",
+      "words",
+      "maritime",
+      "daily",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "🎨 Resistor Bands Desk 98",
+    "type": "app",
+    "date": "2026-11-21",
+    "url": "/apps/resistor-bands/",
+    "description": "Decode four- and five-band resistor colors with live preview, tolerance limits and copyable results.",
+    "icon": "🎨",
+    "tags": [
+      "electronics",
+      "resistors",
+      "color-code",
+      "calculator",
+      "offline",
+      "education"
+    ]
+  },
+  {
     "name": "🔤 Anagram Sprint 98",
     "type": "game",
     "date": "2026-11-20",
