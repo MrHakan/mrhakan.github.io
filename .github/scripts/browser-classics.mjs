@@ -38,7 +38,7 @@ try {
     // time its loading window exists (a second open finds start* defined and
     // skips it), so it is the only time the handoff can leave one behind.
     // A closing window is id-less for its ~110 ms fade, hence a wait, not a count.
-    for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill']) {
+    for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill', 'battleship']) {
         const live = () => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length;
         const before = await p.evaluate(live);
         // Record the loading window from inside the page: classics.js may still be
