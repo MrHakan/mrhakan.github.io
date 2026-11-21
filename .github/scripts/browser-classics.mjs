@@ -41,11 +41,20 @@ try {
     for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill']) {
         const live = () => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length;
         const before = await p.evaluate(live);
-        await p.evaluate(k => startMenuAction(k), key);
-        const sawLoading = await p.waitForFunction(() => document.querySelector('.bj-loading'), null, { timeout: 2000 }).then(() => true, () => false);
+        // Record the loading window from inside the page: classics.js may still be
+        // loading (first game) or already here (the rest), and a fast local load can
+        // add and remove the placeholder between two polls from out here.
+        await p.evaluate(k => {
+            window.__sawLoading = false;
+            const has = n => n.nodeType === 1 && (n.matches('.bj-loading') || n.querySelector('.bj-loading'));
+            const mo = new MutationObserver(rs => { if (rs.some(r => [...r.addedNodes].some(has))) { window.__sawLoading = true; mo.disconnect(); } });
+            mo.observe(document.body, { childList: true, subtree: true });
+            startMenuAction(k);
+        }, key);
         const opened = await p.waitForFunction(n => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length > n, before, { timeout: 15000 }).then(() => true, () => false);
         const title = await p.locator('.app-window[id]').last().locator('.app-window-title').first().textContent().catch(() => '');
         ok(opened, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
+        const sawLoading = await p.evaluate(() => window.__sawLoading);
         ok(sawLoading, key + ' showed its loading window first (so the handoff was exercised)');
         const cleared = await p.waitForFunction(() => !document.querySelector('.bj-loading') && !document.querySelector('.app-window:not([id])'), null, { timeout: 2000 }).then(() => true, () => false);
         const left = await p.evaluate(() => [...document.querySelectorAll('.app-window')].map(w => (w.id || '(no id)') + ':' + (w.querySelector('.bj-loading')?.textContent || '')).join(', '));
