@@ -1,0 +1,68 @@
+/* battleship 98: the window's styles. They load with the game
+   (battleship.js adds the link), not with the desktop. Grey bevels round
+   two sunken navy seas made of plain buttons. */
+.bs-body { padding: 0 !important; overflow: hidden; background: #c0c0c0; }
+.bs-app { position: relative; display: flex; flex-direction: column; max-height: calc(100vh - 110px); min-height: 380px; font: 12px Tahoma, "MS Sans Serif", sans-serif; color: #000; background: #c0c0c0; outline: none; user-select: none; -webkit-user-select: none; }
+.bs-status { display: flex; align-items: center; gap: 6px; min-height: 22px; padding: 2px 4px; margin: 2px 3px; border: 1px solid; border-color: #808080 #fff #fff #808080; overflow: hidden; }
+.bs-msg { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bs-msg.bs-mine { font-weight: bold; color: #000080; }
+.bs-info { flex: 0 0 auto; color: #404040; white-space: nowrap; }
+.bs-seas { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 6px 3px; overflow: auto; }
+.bs-sea { flex: 0 1 300px; min-width: 0; }
+.bs-sea.bs-dim { opacity: .55; }
+.bs-cap { padding: 1px 4px; margin-bottom: 3px; color: #fff; font-weight: bold; background: #808080; }
+.bs-sea.bs-live .bs-cap { background: linear-gradient(90deg, #000080, #1084d0); }
+.bs-grid { display: grid; grid-template-columns: 16px repeat(10, 1fr); gap: 1px; padding: 2px; background: #c0c0c0; border: 2px solid; border-color: #808080 #fff #fff #808080; }
+.bs-lbl { display: flex; align-items: center; justify-content: center; font-size: 10px; color: #404040; }
+.bs-cell { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; border: 0; background: #1a3f8a; cursor: default; }
+.bs-sea.bs-live .bs-cell:not(:disabled) { cursor: crosshair; }
+.bs-sea[data-side="1"].bs-live .bs-cell:not(:disabled):hover { background: #2f62c8; }
+.bs-cell:disabled { opacity: 1; }
+.bs-cell.bs-water { background: #5b78b0; }
+.bs-cell.bs-ship { background: #9a9a9a; box-shadow: inset 1px 1px #e0e0e0, inset -1px -1px #505050; }
+.bs-cell.bs-ship.bs-left { background: #6a6a6a; }
+.bs-cell.bs-picked { background: #ffffe1; box-shadow: inset 0 0 0 2px #000080; }
+.bs-cell.bs-miss::after { content: ''; position: absolute; inset: 38%; border-radius: 50%; background: #e8eefc; }
+.bs-cell.bs-hit { background: #c01818; }
+.bs-cell.bs-hit::after, .bs-cell.bs-sunk::after { content: '\00d7'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font: bold 14px Tahoma, sans-serif; }
+.bs-cell.bs-sunk { background: #401010; }
+.bs-cell.bs-last { outline: 2px solid #ffcc00; outline-offset: -2px; }
+.bs-cell.bs-cur { outline: 2px dotted #fff; outline-offset: -3px; }
+.bs-tools { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px 3px; min-height: 24px; }
+.bs-btn { font: 12px Tahoma, "MS Sans Serif", sans-serif; color: #000; background: #c0c0c0; min-height: 24px; padding: 2px 8px; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: inset -1px -1px #808080; cursor: pointer; white-space: nowrap; }
+.bs-btn:active:not(:disabled) { border-color: #404040 #fff #fff #404040; box-shadow: inset 1px 1px #808080; }
+.bs-btn:disabled { color: #808080; text-shadow: 1px 1px #fff; cursor: default; }
+.bs-btn:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+.bs-btn.bs-go { font-weight: bold; }
+.bs-spacer { flex: 1 1 auto; }
+
+/* the dialogs over the seas: menu, how to play, the end of a battle */
+.bs-over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 8px; background: rgba(0, 16, 48, .55); z-index: 5; }
+.bs-over[hidden] { display: none; }
+.bs-dlg { width: min(400px, 100%); max-height: 100%; overflow: auto; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: 2px 2px 0 rgba(0, 0, 0, .4); }
+.bs-dlg-bar { padding: 3px 6px; color: #fff; font-weight: bold; background: linear-gradient(90deg, #000080, #1084d0); }
+.bs-dlg-in { padding: 10px; display: grid; gap: 8px; }
+.bs-dlg-in p { margin: 0; line-height: 1.35; }
+.bs-title { font: italic 900 28px "Arial Black", Tahoma, sans-serif; color: #000080; text-shadow: 2px 2px 0 #fff, 3px 3px 0 #808080; }
+.bs-title b { color: #d01818; font-size: 17px; vertical-align: super; }
+.bs-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bs-label { min-width: 50px; }
+.bs-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.bs-seg .bs-btn[aria-pressed="true"] { border-color: #404040 #fff #fff #404040; box-shadow: inset 1px 1px #808080; background: #d8d8d8; font-weight: bold; }
+.bs-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.bs-note, .bs-keys { color: #404040; font-size: 11px; line-height: 1.4; }
+.bs-help { margin: 0; padding-left: 16px; line-height: 1.4; }
+.bs-help li { margin: 2px 0; }
+
+@media (max-width: 600px) {
+    /* a phone shows the sea that matters now: yours while placing, theirs on top in battle */
+    .bs-app { max-height: calc(100dvh - 150px); }
+    .bs-sea { flex-basis: 100%; max-width: 330px; }
+    .bs-app[data-phase="place"] .bs-sea[data-side="1"] { display: none; }
+    .bs-app[data-phase="battle"] .bs-sea[data-side="1"], .bs-app[data-phase="over"] .bs-sea[data-side="1"] { order: -1; }
+    .bs-title { font-size: 24px; }
+    .bs-info { display: none; }
+}
+@media (pointer: coarse) {
+    .bs-btn { min-height: 32px; }
+}
