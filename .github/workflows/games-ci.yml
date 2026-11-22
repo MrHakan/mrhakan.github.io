@@ -432,6 +432,9 @@ jobs:
             - name: Open every 2000s classic from the start menu
               if: matrix.group == 'desktop'
               run: node .github/scripts/browser-classics.mjs
+            - name: Place a fleet and sink the battleship bot
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-battleship.mjs
             - name: Play popz solo, two on one keyboard and online
               if: matrix.group == 'arena'
               run: node .github/scripts/browser-popz.mjs
