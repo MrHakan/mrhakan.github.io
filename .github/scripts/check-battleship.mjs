@@ -11,6 +11,10 @@
 //             with a matching hash, one false answer, an early or mislabelled
 //             sinking and a repeated cell all fail; no reveal is a forfeit
 //   saves     a match through JSON plays on the same
+//   duel      online, one side each: wrong turn, wrong running number, a
+//             repeated or off-sea cell and malformed answers are refused; an
+//             honest duel agrees and verifies, a lying one is void, leaving
+//             before the reveal is a forfeit
 //
 //   node .github/scripts/check-battleship.mjs
 // ===================================================================
@@ -169,6 +173,72 @@ section('saves');
     while (!S.over(a)) { const m = S.botMove(a); S.fire(a, m.x, m.y); }
     while (!S.over(b)) { const m = S.botMove(b); S.fire(b, m.x, m.y); }
     expect(JSON.stringify(a) === JSON.stringify(b), 'a match saved mid-way plays on exactly the same');
+}
+
+section('duel');
+// two sides, each with only its own fleet, talking in messages
+{
+    const fa = S.randomFleet(501), fb = S.randomFleet(502);
+    const A = S.newDuel({ first: true }), B = S.newDuel({ first: false });
+    expect(A.turn === 'me' && B.turn === 'them', 'one side opens, the other waits');
+    expect(S.aimShot(B, 0, 0).error === 'not your turn', 'the waiting side cannot aim');
+    // B's message arriving on A out of turn
+    expect(S.takeShot(A, fa, { n: 0, x: 0, y: 0 }).error === 'a shot out of turn' && A.theirs.length === 0, 'a shot on the shooter\'s own turn is refused');
+    const a1 = S.aimShot(A, 3, 4);
+    expect(a1.msg && a1.msg.n === 0 && A.pending, 'aiming makes the message and waits for the answer', JSON.stringify(a1.msg));
+    expect(S.aimShot(A, 5, 5).error === 'still waiting for an answer', 'no second shot before the answer');
+    expect(S.takeShot(B, fb, { n: 0, x: 10, y: 4 }).error === 'not a cell in the sea', 'a shot off the sea is refused');
+    expect(S.takeShot(B, fb, { n: 0, x: 1.5, y: 4 }).error === 'not a cell in the sea' && S.takeShot(B, fb, null).error, 'and half cells and garbage');
+    expect(S.takeShot(B, fb, { n: 3, x: 3, y: 4 }).error === 'a shot out of sequence', 'a shot with the wrong running number is refused');
+    const r1 = S.takeShot(B, fb, a1.msg);
+    expect(r1.answer && B.turn === 'me' && B.theirs.length === 1, 'the fired-at side answers from its own fleet and gets the turn', JSON.stringify(r1.answer));
+    for (const bad of [{ ...r1.answer, n: 5 }, { ...r1.answer, x: 9 }, { ...r1.answer, result: 'maybe' }, { ...r1.answer, result: 'sunk', len: 7 }, { ...r1.answer, result: 'miss', len: 3 }, 'miss', null]) {
+        expect(S.takeAnswer(A, bad).error && A.pending && A.mine.length === 0, 'a malformed answer is refused: ' + JSON.stringify(bad), S.takeAnswer(A, bad).error);
+    }
+    expect(!S.takeAnswer(A, r1.answer).error && A.turn === 'them' && !A.pending, 'the right answer is taken and the turn passes');
+    expect(S.takeAnswer(A, r1.answer).error === 'an answer nobody asked for', 'the same answer twice is refused');
+    // B fires back; then A tries the same cell again
+    const b1 = S.aimShot(B, 0, 0); S.takeAnswer(B, S.takeShot(A, fa, b1.msg).answer);
+    expect(S.aimShot(A, 3, 4).error === 'already fired there', 'a side cannot aim at a cell it fired at');
+    const replay = S.takeShot(B, fb, { n: 2, x: 3, y: 4 });
+    expect(replay.error === 'a cell already fired at' && B.turn === 'them', 'and a repeated cell sent anyway is refused');
+}
+// a whole duel played out, both sides firing like the hard bot; `lieAt` makes B answer one hit with a miss
+async function duel(lieAt) {
+    const fleets = [S.randomFleet(601), S.randomFleet(602)];
+    const salts = [S.newSalt(), S.newSalt()];
+    const commits = [await S.commitFleet(fleets[0], salts[0]), await S.commitFleet(fleets[1], salts[1])];
+    const D = [S.newDuel({ first: true }), S.newDuel({ first: false })];
+    const rs = [{ rs: 7 }, { rs: 8 }];
+    let lies = 0;
+    const tamper = a => (a.result === 'hit' && lies < 1 && lieAt ? (lies++, { result: 'miss' }) : a);
+    for (let i = 0; i < 300 && !D[0].over; i++) {
+        const me = D[0].turn === 'me' ? 0 : 1, them = 1 - me;
+        const m = S.botMove({ level: 'hard', turn: 0, shots: [D[me].mine, []], rs: rs[me].rs++ });
+        const aim = S.aimShot(D[me], m.x, m.y);
+        const ans = S.takeShot(D[them], fleets[them], aim.msg, them === 1 ? tamper : null);
+        S.takeAnswer(D[me], ans.answer);
+    }
+    const checks = [await S.checkReveal(D[0], commits[1], { ships: fleets[1], salt: salts[1] }), await S.checkReveal(D[1], commits[0], { ships: fleets[0], salt: salts[0] })];
+    return { D, checks, commits, fleets, salts };
+}
+{
+    const h = await duel(false);
+    expect(h.D[0].over && h.D[1].over && (h.D[0].over === 'me') === (h.D[1].over === 'them'), 'an honest duel ends and both sides agree who won', h.D[0].over + ' / ' + h.D[1].over + ' after ' + (h.D[0].mine.length + h.D[0].theirs.length) + ' shots');
+    expect(JSON.stringify(h.D[0].mine) === JSON.stringify(h.D[1].theirs) && JSON.stringify(h.D[0].theirs) === JSON.stringify(h.D[1].mine), 'both sides hold the same shots and answers, mirrored');
+    expect(h.checks[0].ok && h.checks[1].ok, 'each side verifies the other\'s reveal');
+    const o = [S.duelOutcome(h.D[0], { revealed: true, check: h.checks[0] }), S.duelOutcome(h.D[1], { revealed: true, check: h.checks[1] })];
+    expect(o[0].verdict === 'verified' && o[1].verdict === 'verified' && (o[0].winner === 'me') === (o[1].winner === 'them'), 'verified on both ends, one winner', JSON.stringify(o));
+    expect((await S.checkReveal(h.D[0], h.commits[1], { ships: h.fleets[0], salt: h.salts[1] })).ok === false, 'a reveal of another fleet than the committed one is void');
+    expect((await S.checkReveal(h.D[0], h.commits[1], { ships: [null, 3], salt: h.salts[1] })).reason === 'a garbled reveal' && (await S.checkReveal(h.D[0], h.commits[1], 'x')).ok === false, 'a garbled reveal is void, not a crash');
+    const l = await duel(true);
+    expect(!l.checks[0].ok && /answered miss/.test(l.checks[0].reason), 'a hit answered as a miss is caught by the reveal', l.checks[0].reason);
+    expect(l.checks[1].ok, 'while the honest side\'s reveal still verifies');
+    const lo = S.duelOutcome(l.D[0], { revealed: true, check: l.checks[0] });
+    expect(lo.verdict === 'void' && lo.winner === null, 'the honest side calls the match void', JSON.stringify(lo) + ', over ' + l.D[0].over);
+    const mid = S.newDuel({ first: true });
+    expect(JSON.stringify(S.duelOutcome(mid, { left: true })) === '{"verdict":"forfeit","winner":"me"}', 'the other side leaving before its reveal is a forfeit win');
+    expect(S.duelOutcome(h.D[0], { left: true, revealed: true, check: h.checks[0] }).verdict === 'verified', 'leaving after the reveal changes nothing');
 }
 
 console.log('\n' + (checks - failures) + '/' + checks + ' checks passed');

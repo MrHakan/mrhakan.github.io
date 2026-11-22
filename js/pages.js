@@ -237,7 +237,7 @@ const SITE_MAP = [
             ['tankz 98 (tanks in a maze)', 'openTankz()'],
             ['blastz 98 (guns and knockback)', 'openBlastz()'],
             ['harbor master 98 (port traffic)', 'openHarborMaster()'],
-            ['battleship 98 (sink the bot fleet)', 'openBattleship()'],
+            ['battleship 98 (the bot or a friend online)', 'openBattleship()'],
             ['okey 98 (turkish tile rummy)', "openClassic('okey')"],
             ['kartz 98 (batak, king, pisti)', "openClassic('kartz')"],
             ['tavla 98 (backgammon)', "openClassic('tavla')"],

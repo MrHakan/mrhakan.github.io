@@ -154,8 +154,11 @@
         let f = 0;
         while (f < 52 && !cnt[f]) f++;
         if (f === 52) return EMPTY;
-        let key = f + ':' + w;
-        for (let i = f; i < 52; i++) key += cnt[i];
+        // the key: the counts from f on, four to a digit, and the okeys
+        let a = 0, b = 0;
+        for (let i = f; i < 26; i++) a = a * 4 + cnt[i];
+        for (let i = Math.max(f, 26); i < 52; i++) b = b * 4 + cnt[i];
+        const key = a + ':' + b + ':' + w;
         const hit = memo.get(key);
         if (hit) return hit;
         const c = (f / 13) | 0, n = f % 13 + 1;
@@ -447,6 +450,7 @@
                 return discard(m, seat, intOr(a.tile, -1), true);
             case 'meld': return meld(m, seat, a.melds);
             case 'layoff': return layoff(m, seat, intOr(a.tile, -1), intOr(a.meld, -1));
+            case 'swap': return swap(m, seat, intOr(a.tile, -1), intOr(a.meld, -1));
         }
         return fail('that is not a move');
     }
@@ -532,13 +536,50 @@
         if (m.mode !== '101') return fail('nothing to add to in classic');
         if (h.phase !== 'play') return fail('draw a tile first');
         if (!has(mine, id)) return fail("that tile isn't yours");
-        if (h.opened[seat] !== 'melds') return fail(h.opened[seat] ? 'pair openers cannot add to melds' : 'open first: 101 points of melds');
+        // pair openers add to runs and groups too; nobody adds to a pair
+        if (!h.opened[seat]) return fail('open first: 101 points of melds, or five pairs');
         if (mine.length <= 1) return fail('keep one tile to throw');
         if (!layoffFits(h, idx, id)) return fail("it doesn't fit there");
         const t = h.table[idx];
         t.tiles = meldInfo(t.tiles.concat([id]), h.ok).order;
         drop(mine, id);
         return { ok: true, ev: [{ e: 'layoff', s: seat, tile: id, meld: idx }] };
+    }
+
+    // an okey in a meld on the table can be swapped for the tile it stands
+    // for: the real tile goes in, the okey comes back to the rack
+    function swapFits(h, idx, id) {
+        const t = h.table[idx];
+        if (!t || t.kind === 'pair' || faceOf(id, h.ok) < 0) return -1;
+        for (let k = 0; k < t.tiles.length; k++) {
+            const w = t.tiles[k];
+            if (!isWild(w, h.ok)) continue;
+            const next = t.tiles.slice();
+            next[k] = id;
+            if (meldInfo(next, h.ok)) return w;
+        }
+        return -1;
+    }
+    function swapOnTable(h, id) {
+        for (let i = 0; i < h.table.length; i++) if (swapFits(h, i, id) >= 0) return i;
+        return -1;
+    }
+    function swap(m, seat, id, idx) {
+        const h = m.hand, mine = h.hands[seat];
+        if (m.mode !== '101') return fail('nothing to swap in classic');
+        if (h.phase !== 'play') return fail('draw a tile first');
+        if (!has(mine, id)) return fail("that tile isn't yours");
+        if (!h.opened[seat]) return fail('open first: 101 points of melds, or five pairs');
+        const w = swapFits(h, idx, id);
+        if (w < 0) return fail('no okey there stands for that tile');
+        const t = h.table[idx];
+        const next = t.tiles.slice();
+        next[next.indexOf(w)] = id;
+        t.tiles = meldInfo(next, h.ok).order;
+        drop(mine, id);
+        mine.push(w);
+        if (h.took === id) h.took = -1;
+        return { ok: true, ev: [{ e: 'swap', s: seat, tile: id, okey: w, meld: idx }] };
     }
 
     // ---------------------------------------------------------------
@@ -654,8 +695,10 @@
     // 5 and 6, two 9s), plus a lot for an okey it still holds. It takes the
     // discard only when that beats a blind draw by a margin, keeps away from
     // what the next seat has been picking up, and in 101 it opens as soon as
-    // it can, lays off what it can, and never throws a tile that fits the
-    // table. `easy` adds noise and skips the defence; `hard` defends more.
+    // it can, swaps okeys off the table, lays off what it can, goes out when
+    // it can, and never throws a tile that fits the table (botAct101 below).
+    // `easy` adds noise and skips the defence and the look ahead; `hard`
+    // defends more and looks further.
     // ---------------------------------------------------------------
     function nearness(left, ok) {
         const fs = [];
@@ -678,12 +721,6 @@
         const p = pairsOf(ids, ok);
         if (p.pairs >= 5) v = Math.max(v, p.pairs * 19 + (p.pairs >= 6 ? 10 : 0));
         return v;
-    }
-    function eval101(ids, ok, opened, memo) {
-        const b = bestMelds(ids, ok, { memo, points: true });
-        let wildLeft = 0, dead = 0;
-        for (const id of b.left) { if (faceOf(id, ok) < 0) wildLeft++; else dead += handValue(id, ok); }
-        return b.value + nearness(b.left, ok) * 2.2 + wildLeft * 14 - dead * (opened ? 0.8 : 0.15);
     }
 
     // don't hand the next seat the neighbours of what it took from you
@@ -752,68 +789,284 @@
             return { t: 'discard', tile: best === null ? mine[0] : best };
         }
 
-        // ---- 101 ----
+        return botAct101(m, seat, lvl, rnd, noise, memo);
+    }
+
+    // ---- 101 ----
+    //
+    // Everything a bot looks at is its own rack, the table, the discards and
+    // what the others took from them: never another rack, never the pile.
+    //
+    // Before opening it builds towards 101 points (high tiles count, nearly
+    // there melds count by what they would be worth) and opens the moment it
+    // can, with the discard if that is what gets it there. Once open it gets
+    // rid of everything it can each turn (melds from the rack, then tiles
+    // added to the table) and goes out as soon as one tile is left to throw,
+    // throwing the okey last when that also works (it doubles). What it
+    // throws is what it is least likely to use, never the okey, never a tile
+    // that fits the table, and not what the next seat has been collecting.
+    function botAct101(m, seat, lvl, rnd, noise, memo) {
+        const h = m.hand, mine = h.hands[seat], ok = h.ok;
         const opened = h.opened[seat];
+        const took = h.took >= 0 && has(mine, h.took) ? h.took : -1;
+        // five pairs open, but a pairs opener can only pair up or add to the
+        // table, so it rarely goes out: six pairs, or five once the pile is
+        // nearly gone (202 for never opening is worse)
+        const pairsMin = h.pile.length <= 8 ? 5 : 6;
         if (h.phase === 'draw') {
             const st = h.discards[prevSeat(seat)];
             if (st.length && !h.mustDraw) {
                 const d = st[st.length - 1];
-                if (opened === 'melds' && (playableOnTable(h, d) >= 0 || bestMelds(mine.concat([d]), ok, { memo, prefer: d }).melds.some(x => x.includes(d)))) {
-                    if (lvl !== 'easy' || nextRand(rnd) < 0.5) return { t: 'take' };
-                }
-                if (!opened) {
-                    const b = bestMelds(mine.concat([d]), ok, { memo, points: true, prefer: d });
-                    if (b.value >= 101 && b.left.length && b.melds.some(x => x.includes(d))) return { t: 'take' };
-                }
+                const lazy = lvl === 'easy' && nextRand(rnd) < 0.5;
+                // a taken tile does not use up the pile: take whatever goes down this turn
+                if (opened && !lazy && (swapOnTable(h, d) >= 0 || !dumpPlan(mine.concat([d]), ok, h.table, opened, memo, d).left.includes(d))) return { t: 'take' };
+                if (!opened && !lazy && openWith(mine.concat([d]), ok, d, memo, pairsMin)) return { t: 'take' };
             }
             return { t: 'draw' };
         }
-        const took = h.took >= 0 && has(mine, h.took) ? h.took : -1;
         if (!opened) {
-            const b = bestMelds(mine, ok, { memo, points: true, prefer: took });
-            let melds = b.melds;
-            if (melds.length && !b.left.length) {
-                // keep a tile to throw: hold back the cheapest meld
-                let lo = 0;
-                melds.forEach((x, i) => { if (meldInfo(x, ok).value < meldInfo(melds[lo], ok).value) lo = i; });
-                melds = melds.filter((_, i) => i !== lo);
-            }
-            const val = melds.reduce((s, x) => s + meldInfo(x, ok).value, 0);
-            if (val >= 101 && (took < 0 || melds.some(x => x.includes(took)))) return { t: 'meld', melds };
-            const p = pairMelds(mine, ok);
-            const pm = p.left.length ? p.melds : p.melds.slice(0, -1);
-            if (pm.length >= 5 && (took < 0 || pm.some(x => x.includes(took)))) return { t: 'meld', melds: pm };
-            if (took >= 0) return { t: 'return' };
-        } else if (opened === 'melds') {
-            const b = bestMelds(mine, ok, { memo, prefer: took });
-            let melds = b.melds;
-            if (melds.length && !b.left.length) melds = melds.slice(0, -1);
-            if (melds.length) return { t: 'meld', melds };
-            if (mine.length > 1) {
-                const order = took >= 0 ? [took].concat(mine.filter(x => x !== took)) : mine;
-                for (const id of order) { const i = playableOnTable(h, id); if (i >= 0) return { t: 'layoff', tile: id, meld: i }; }
-            }
+            const o = openWith(mine, ok, took, memo, pairsMin);
+            if (o) return { t: 'meld', melds: o };
             if (took >= 0) return { t: 'return' };
         } else {
-            const p = pairMelds(mine, ok);
-            const pm = p.left.length ? p.melds : p.melds.slice(0, -1);
-            if (pm.length) return { t: 'meld', melds: pm };
+            // an okey on the table for a tile in the rack: always worth it
+            for (const id of mine) { const i = swapOnTable(h, id); if (i >= 0) return { t: 'swap', tile: id, meld: i }; }
+            // the tile to throw last, if everything else can go down now
+            let hold = -1;
+            const all = dumpPlan(mine, ok, h.table, opened, memo, took);
+            if (!all.left.length) hold = goOut(mine, ok, h.table, opened, memo, took);
+            const pool = hold >= 0 ? mine.filter(x => x !== hold) : mine;
+            let plan = hold >= 0 ? dumpPlan(pool, ok, h.table, opened, memo, took) : all;
+            // going out this turn: everything goes. Otherwise an okey stays in
+            // the rack when all it does is fill a gap: it fits somewhere any
+            // time, and can turn two stuck tiles into a meld later
+            const finishing = all.left.length <= 1;
+            const wilds = mine.filter(x => faceOf(x, ok) < 0);
+            if (!finishing && hold < 0 && wilds.length && !wilds.includes(took)) {
+                const real = mine.filter(x => faceOf(x, ok) >= 0);
+                const bare = dumpPlan(real, ok, h.table, opened, memo, took);
+                if ((mine.length - all.left.length) - (real.length - bare.left.length) <= wilds.length) plan = bare;
+            }
+            let melds = plan.melds;
+            if (melds.length && melds.reduce((s, x) => s + x.length, 0) >= mine.length) melds = melds.slice(0, -1);
+            if (melds.length) return { t: 'meld', melds };
+            if (mine.length > 1) {
+                const order = took >= 0 ? [took].concat(pool.filter(x => x !== took)) : pool;
+                for (const id of order) {
+                    if (!finishing && faceOf(id, ok) < 0) continue;
+                    const i = playableOnTable(h, id);
+                    if (i >= 0) return { t: 'layoff', tile: id, meld: i };
+                }
+            }
             if (took >= 0) return { t: 'return' };
+            if (hold >= 0 && mine.length === 1) return { t: 'discard', tile: hold };
         }
-        // throw: never the okey, never a tile that fits the table
-        let best = null, bv = -1e9;
+        // throw: never the okey, never a tile that fits the table (the last tile is free)
+        const nx = nextSeat(seat);
+        const un = lvl === 'easy' || opened ? null : unseen(h, seat);
+        const cands = [];
         const done = new Set();
         for (const x of mine) {
             const fx = faceOf(x, ok);
             if (done.has(fx)) continue;
             done.add(fx);
-            let v = eval101(mine.filter(y => y !== x), ok, !!opened, memo) + noise();
-            if (fx < 0) v -= 400;
-            if (mine.length > 1 && playableOnTable(h, x) >= 0) v -= 300;
-            if (lvl !== 'easy') v -= feedPenalty(m, seat, x) * (lvl === 'hard' ? 1.4 : 0.7);
-            if (v > bv) { bv = v; best = x; }
+            let extra = noise();
+            if (mine.length > 1) {
+                if (fx < 0) extra -= 400;
+                if (playableOnTable(h, x) >= 0) extra -= 300;
+            }
+            if (lvl !== 'easy') {
+                extra -= feedPenalty(m, seat, x) * (lvl === 'hard' ? 1.4 : 0.7);
+                // a seat still short of 101 likes high tiles: don't hand them over when it costs little
+                if (!h.opened[nx] && fx >= 0) extra -= (fx % 13 + 1) * (lvl === 'hard' ? 0.25 : 0.12);
+            }
+            const rest = mine.filter(y => y !== x);
+            cands.push({ x, rest, extra, v: extra + (opened ? evalOpen(rest, ok, h.table, opened, memo) : evalClosed(rest, ok, memo)) });
         }
-        return { t: 'discard', tile: best === null ? mine[0] : best };
+        cands.sort((a, b) => b.v - a.v);
+        // short of 101, the few best throws get a look ahead: some futures (the
+        // same ones for every throw) of the draws this seat still has, taken
+        // from the tiles it has not seen - never from the pile's real order.
+        // A throw is worth how often its rack reaches 101, how close it gets,
+        // and how few tiles would be stuck after opening
+        if (!opened && un && cands.length > 1) {
+            const top = cands.slice(0, lvl === 'hard' ? 6 : 4);
+            const draws = Math.max(1, Math.min(5, Math.ceil(h.pile.length / SEATS)));
+            const futures = [];
+            for (let s = 0; s < (lvl === 'hard' ? 20 : 12); s++) {
+                const p = un.ids.slice(), f = [];
+                for (let k = 0; k < draws && p.length; k++) { const j = (nextRand(rnd) * p.length) | 0; f.push(p[j]); p[j] = p[p.length - 1]; p.pop(); }
+                futures.push(f);
+            }
+            for (const c of top) {
+                let sum = 0;
+                for (const f of futures) {
+                    const all = c.rest.concat(f), v = meldPoints(all, ok, memo);
+                    sum += Math.min(v, 101) * 0.5;
+                    if (v >= 101) sum += 100 - (all.length - quickDump(all, ok, memo, un.fit)) * 8;
+                }
+                c.v = c.extra + sum / futures.length;
+            }
+            top.sort((a, b) => b.v - a.v);
+            return { t: 'discard', tile: top[0].x };
+        }
+        return { t: 'discard', tile: cands.length ? cands[0].x : mine[0] };
+    }
+
+    // the table plus whatever is laid this turn: which meld a tile can join
+    function fitsOn(table, ok, id) {
+        for (let i = 0; i < table.length; i++) if (table[i].kind !== 'pair' && meldInfo(table[i].tiles.concat([id]), ok)) return i;
+        return -1;
+    }
+    // what an opened seat can put down from `ids` this turn: melds (or pairs)
+    // from the rack, then tiles added to the table and the new melds, over
+    // and over. `left` is what stays in the rack
+    function dumpPlan(ids, ok, table, kind, memo, prefer) {
+        let melds = [], left = ids.slice();
+        if (kind === 'melds') { const b = bestMelds(ids, ok, { memo, prefer }); melds = b.melds.map(x => meldInfo(x, ok).order); left = b.left.slice(); }
+        else if (kind === 'pairs') { const p = pairMelds(ids, ok); melds = p.melds; left = p.left.slice(); }
+        const tb = table.map(t => ({ kind: t.kind, tiles: t.tiles }));
+        if (kind === 'melds') melds.forEach(x => tb.push({ kind: 'set', tiles: x }));
+        for (let more = true; more && left.length;) {
+            more = false;
+            for (let k = 0; k < left.length; k++) {
+                const i = fitsOn(tb, ok, left[k]);
+                if (i < 0) continue;
+                tb[i] = { kind: tb[i].kind, tiles: tb[i].tiles.concat([left[k]]) };
+                left.splice(k, 1);
+                more = true;
+                break;
+            }
+        }
+        return { melds, left };
+    }
+    // a tile to keep back so that everything else goes down and it is thrown
+    // last; the okey first (finishing on it doubles), then the highest
+    function goOut(ids, ok, table, kind, memo, took) {
+        const order = ids.filter(x => x !== took).sort((a, b) => (faceOf(a, ok) < 0 ? -1 : 0) - (faceOf(b, ok) < 0 ? -1 : 0) || handValue(b, ok) - handValue(a, ok));
+        const done = new Set();
+        for (const x of order) {
+            const f = faceOf(x, ok);
+            if (done.has(f)) continue;
+            done.add(f);
+            if (!dumpPlan(ids.filter(y => y !== x), ok, table, kind, memo, took).left.length) return x;
+        }
+        return -1;
+    }
+    // the opening: 101 points of runs and groups, or five pairs, keeping a
+    // tile to throw (and using `took`, the discard, if there is one)
+    function openWith(ids, ok, took, memo, pairsMin) {
+        const uses = melds => took < 0 || melds.some(x => x.includes(took));
+        // the most tiles down that still make 101, else the most points
+        const most = bestMelds(ids, ok, { memo, prefer: took });
+        if (most.value >= 101 && most.left.length && uses(most.melds)) return most.melds;
+        const b = bestMelds(ids, ok, { memo, points: true, prefer: took });
+        if (b.value >= 101) {
+            if (b.left.length && uses(b.melds)) return b.melds;
+            if (!b.left.length) {
+                // all of it melds: keep back one tile (a 4+ meld can spare an end)
+                const order = ids.filter(x => x !== took).sort((x, y) => handValue(x, ok) - handValue(y, ok));
+                for (const x of order) {
+                    if (faceOf(x, ok) < 0) continue;
+                    const r = bestMelds(ids.filter(y => y !== x), ok, { memo, points: true, prefer: took });
+                    if (r.value >= 101 && uses(r.melds)) return r.melds;
+                }
+                let lo = 0;
+                b.melds.forEach((x, i) => { if (meldInfo(x, ok).value < meldInfo(b.melds[lo], ok).value) lo = i; });
+                const rest = b.melds.filter((_, i) => i !== lo);
+                if (rest.reduce((s, x) => s + meldInfo(x, ok).value, 0) >= 101 && uses(rest)) return rest;
+            }
+        }
+        const p = pairMelds(ids, ok);
+        const pm = p.left.length ? p.melds : p.melds.slice(0, -1);
+        if (pm.length >= pairsMin && uses(pm)) return pm;
+        return null;
+    }
+    // before opening, cheaply (the look ahead in botAct101 refines the best
+    // few): points in melds, what the nearly-there ones would be worth,
+    // okeys, and a road to pairs. Leftovers cost nothing yet (an unopened
+    // rack is 202 whatever is in it)
+    function evalClosed(ids, ok, memo) {
+        const b = bestMelds(ids, ok, { memo, points: true });
+        const fs = [];
+        let wild = 0;
+        for (const id of b.left) { const f = faceOf(id, ok); if (f < 0) wild++; else fs.push(f); }
+        const p = pairsOf(ids, ok);
+        const pairs = p.pairs >= 4 ? (p.pairs - 3) * 30 : 0;
+        let near = 0;
+        for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
+            const a = fs[i], c = fs[j];
+            if (a === c) continue;
+            const ca = (a / 13) | 0, cb = (c / 13) | 0, na = a % 13 + 1, nb = c % 13 + 1;
+            if (ca === cb) {
+                const d = Math.abs(na - nb), lo = Math.min(na, nb);
+                if (d === 1) near += (na + nb + Math.min(13, lo + 2)) * 0.3;
+                else if (d === 2) near += (na + nb + lo + 1) * 0.17;
+            } else if (na === nb) near += na * 3 * 0.3;
+        }
+        return Math.max(b.value + near + wild * 25, pairs);
+    }
+    // after opening: how little is stuck in the rack, and how close the
+    // stuck tiles are to going down (a partner in the rack, a gap of one off
+    // the end of a run on the table). Small tiles are kept over big ones
+    function evalOpen(ids, ok, table, kind, memo) {
+        const plan = dumpPlan(ids, ok, table, kind, memo);
+        let v = -plan.left.length * 12 + nearness(plan.left, ok) * (kind === 'pairs' ? 1 : 2.5);
+        for (const id of plan.left) {
+            const f = faceOf(id, ok);
+            if (f < 0) { v += 20; continue; }
+            v -= handValue(id, ok) * 0.08;
+            const c = (f / 13) | 0, n = f % 13 + 1;
+            for (const t of table) {
+                if (t.kind !== 'run') continue;
+                const r = meldInfo(t.tiles, ok);
+                if (!r || r.color !== c) continue;
+                if (n === r.s - 2 || n === r.e + 2 || (r.e === 12 && n === 1)) v += 3;
+            }
+        }
+        return v;
+    }
+    // the most points a hand can meld (no tiles back, just the number)
+    function meldPoints(ids, ok, memo) {
+        const { cnt, w } = countsOf(ids, ok);
+        let sub = memo.get('p');
+        if (!sub) { sub = new Map(); memo.set('p', sub); }
+        return search(cnt, w, true, sub, '').s;
+    }
+    // how many tiles of a rack go down in an opening turn, quickly: the
+    // melds, plus leftovers whose face fits the table as it is (`fit`, by
+    // face; 52 is the okey)
+    function quickDump(ids, ok, memo, fit) {
+        const { cnt, w } = countsOf(ids, ok);
+        let sub = memo.get('c');
+        if (!sub) { sub = new Map(); memo.set('c', sub); }
+        const r = search(cnt, w, false, sub, '');
+        let down = r.s, wl = w;
+        for (const mm of meldsOf(r)) for (const f of mm) { if (f < 0) wl--; else cnt[f]--; }
+        for (let f = 0; f < 52; f++) if (cnt[f] && fit[f]) down += cnt[f];
+        if (wl > 0 && fit[52]) down += wl;
+        return down;
+    }
+    // the tiles one seat has not seen (not in its rack, not thrown, not on
+    // the table, not the indicator): where the others' racks and the pile
+    // are, as far as that seat can know. And which faces would go on the
+    // table right now
+    function unseen(h, seat) {
+        const seen = new Set([h.ind]);
+        h.hands[seat].forEach(id => seen.add(id));
+        h.discards.forEach(a => a.forEach(id => seen.add(id)));
+        h.table.forEach(t => t.tiles.forEach(id => seen.add(id)));
+        const ids = [];
+        for (let id = 0; id < 106; id++) if (!seen.has(id)) ids.push(id);
+        const fit = new Array(53).fill(false);
+        if (h.table.length) {
+            for (let f = 0; f < 52; f++) {
+                const c = (f / 13) | 0, id = c * 26 + (f % 13);
+                fit[f] = fitsOn(h.table, h.ok, faceOf(id, h.ok) === f ? id : FALSE_JOKERS[0]) >= 0;
+            }
+            fit[52] = fit.some(Boolean);
+        }
+        return { ids, fit };
     }
 
     // a whole hand of bots, for node and the tests
@@ -834,7 +1087,7 @@
         isFalse, colorOf, numOf, okeyOf, isWild, isTwin, faceOf, handValue, tileName,
         meldInfo, bestMelds, pairsOf, pairMelds, finishKind, splitMelds, sortedRack,
         newMatch, startHand, nextHand, apply, view, eventsFor, audit,
-        playableOnTable, layoffFits, botAct, playHand, nextSeat, prevSeat, hash
+        playableOnTable, layoffFits, swapFits, swapOnTable, botAct, playHand, nextSeat, prevSeat, hash
     };
     root.OKEY_SIM = OKEY_SIM;
     if (typeof module === 'object' && module.exports) module.exports = OKEY_SIM;

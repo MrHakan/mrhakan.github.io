@@ -1689,6 +1689,14 @@
                 { key: 'level', label: 'start at', values: [['1', 'level 1'], ['5', 'level 5'], ['10', 'level 10']] }
             ],
             scripts: ['games/popz/popz-sim.js', 'games/popz/popz.js']
+        },
+        {
+            id: 'battleship',
+            name: 'battleship 98',
+            icon: 'explore',
+            min: 2, max: 2,
+            blurb: 'hide five ships, fire one shot a turn, sink theirs first. one on one, and the fleets are checked at the end so nobody can lie',
+            scripts: ['games/battleship/battleship-sim.js', 'games/battleship/battleship.js']
         }
     ];
     NP.games = {};

@@ -368,6 +368,7 @@
         g.recorded = true;
         const st = g.st, won = iWon(st);
         record(s => { s[st.game].played++; if (won) s[st.game].won++; });
+        if (won) { try { if (typeof unlockAchievement === 'function') unlockAchievement('kartz_win'); } catch (e) { } }
         (won ? sfx.win : sfx.lose)();
         if (!g.online) dropKey(SAVE_KEY);
     }

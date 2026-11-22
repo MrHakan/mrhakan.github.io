@@ -127,6 +127,47 @@ expect(newOnes.every(id => ACHIEVEMENTS[id].name === ACHIEVEMENTS[id].name.toLow
     expect(/^\s+trophies: openTrophies,/m.test(table), 'and so is the room itself, which makes it ?app=trophies');
 }
 
+// the 2000s classics: one shelf, each game hands out its own, and the shelf
+// reads what they saved
+{
+    const { T } = room();
+    const classic = ['okey_win', 'okey_101', 'kartz_win', 'tavla', 'tavla_mars', 'popz_10', 'popz_win', 'lavatide_win', 'lavatide_all',
+        'goldclaw_win', 'pizzashift_win', 'learntoglide_win', 'blockroll_10', 'blockroll_win', 'deepdrill_win',
+        'battleship_win', 'battleship_hard', 'battleship_online'];
+    const missing = classic.filter(id => !ACHIEVEMENTS[id]);
+    expect(!missing.length, 'the classics have their achievements', missing.join(', '));
+    const off = classic.filter(id => ACHIEVEMENTS[id] && T.shelfOf(id).id !== 'classics');
+    expect(!off.length, 'all on the classics shelf', off.map(id => id + ' on ' + T.shelfOf(id).id).join(', '));
+    const house = classic.filter(id => ACHIEVEMENTS[id] && (ACHIEVEMENTS[id].name !== ACHIEVEMENTS[id].name.toLowerCase() || ACHIEVEMENTS[id].desc !== ACHIEVEMENTS[id].desc.toLowerCase()));
+    expect(!house.length, 'in the house style, lower case', house.join(', '));
+    const where = {
+        kartz_win: 'games/kartz/kartz.js', popz_10: 'games/popz/popz.js', popz_win: 'games/popz/popz.js',
+        lavatide_win: 'games/lava-tide/lavatide.js', lavatide_all: 'games/lava-tide/lavatide.js', goldclaw_win: 'games/gold-claw/gold-claw.js',
+        pizzashift_win: 'games/pizza-shift/pizza-shift.js', learntoglide_win: 'games/learn-to-glide/learn-to-glide.js',
+        blockroll_10: 'games/block-roll/block-roll.js', blockroll_win: 'games/block-roll/block-roll.js', deepdrill_win: 'games/deep-drill/deep-drill.js'
+    };
+    const silent = Object.entries(where).filter(([id, f]) => !new RegExp("(?:unlockAchievement|achieve)\\('" + id + "'\\)").test(read(f))).map(([id]) => id);
+    expect(!silent.length, 'and each game hands out its own', silent.join(', '));
+    expect(/unlock\('tavla'\)/.test(read('games/tavla/tavla.js')) && /unlock\('tavla_mars'\)/.test(read('games/tavla/tavla.js')), 'tavla\'s own two calls now land on real achievements');
+    const framed = ['gold-claw/gold-claw.js', 'pizza-shift/pizza-shift.js', 'learn-to-glide/learn-to-glide.js', 'block-roll/block-roll.js', 'deep-drill/deep-drill.js'];
+    const noParent = framed.filter(f => !/window\.parent !== window && window\.parent\.unlockAchievement/.test(read('games/' + f)));
+    expect(!noParent.length, 'the framed ones ask the desktop around their frame, and only when there is one', noParent.join(', '));
+
+    const saved = room({
+        'mrhakan98-okey-stats': JSON.stringify({ wins: 3 }),
+        'mrhakan98-kartz-stats': JSON.stringify({ batak: { won: 2 }, pisti: { won: 1 }, king: 'junk' }),
+        'mrhakan98-lavatide-best': JSON.stringify({ 0: { r: 'A' }, 1: { r: 'B' } }),
+        'mrhakan98-goldclaw-best-level': '6',
+        'mrhakan98-learntoglide-records': JSON.stringify({ bestDistance: 812.4 }),
+        'mrhakan98-deepdrill-best': '{not json'
+    });
+    const sh = saved.T.summary().shelves.find(x => x.shelf.id === 'classics');
+    const rec = sh ? Object.fromEntries(sh.records) : {};
+    expect(rec['okey wins'] === 3 && rec['kartz wins'] === 3 && rec['lava & tide levels'] === 2 && rec['gold claw best level'] === 6 && rec['longest glide'] === '812 m',
+        'the classics shelf reads their saves', JSON.stringify(rec));
+    expect(!('cores cracked' in rec) && !('tavla wins' in rec), 'and leaves out what is broken or empty', JSON.stringify(rec));
+}
+
 // ===================================================================
 section('nothing on the disk takes the room down');
 // ===================================================================

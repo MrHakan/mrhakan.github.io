@@ -41,6 +41,7 @@
         return out;
     }
     const unlocked = best => { let n = 0; while (best[n]) n++; return min(S.LEVELS.length - 1, n); };
+    function achieve(id) { try { if (typeof unlockAchievement === 'function') unlockAchievement(id); } catch (e) { } }
     function record(s) {
         const best = loadBest(), r = S.rank(s), t = round(s.endT / S.TICK * 10) / 10, g = S.gemCount(s);
         const old = best[s.lv];
@@ -397,6 +398,8 @@
             const res = record(s);
             g.result = res;
             const lv = s.lv, last = lv >= S.LEVELS.length - 1;
+            achieve('lavatide_win');
+            if (last) achieve('lavatide_all');
             const host = g.mode !== 'online' || g.isHost || g.alone;
             showPanel('won', `<div class="lt-big">level ${lv + 1} done: rank <span class="lt-rank lt-rank-${res.r.toLowerCase()}">${res.r}</span></div>
                 <div class="lt-stats"><span>time</span><b>${res.t.toFixed(1)}s <small>(par ${S.LEVELS[lv].par}s)</small></b><span>gems</span><b>${res.g} of ${s.gems.length}</b>

@@ -360,6 +360,12 @@
             } else if (e.e === 'layoff') {
                 fly(e.tile, mine ? before.get(e.tile) || rackCentre() : badgeRect(e.s), feltCentre(), now);
                 sfx.clack();
+            } else if (e.e === 'swap') {
+                fly(e.tile, mine ? before.get(e.tile) || rackCentre() : badgeRect(e.s), feltCentre(), now);
+                if (mine) { const k = G.rack.indexOf(e.okey); if (k >= 0) fly(e.okey, feltCentre(), slotRect(k), now); }
+                else fly(e.okey, feltCentre(), badgeRect(e.s), now);
+                say((mine ? 'you take' : seatName(e.s) + ' takes') + ' the okey off the table');
+                sfx.clack();
             } else if (e.e === 'show') {
                 say((mine ? 'you show' : seatName(e.s) + ' shows') + " the indicator's twin" + (v.mode === 'classic' ? ': everybody else -1' : ': -101 for them'));
                 sfx.turn();
@@ -399,6 +405,9 @@
         });
         if (r.matchOver) (r.matchWinner === me ? sfx.win : sfx.lose)();
         else if (r.winner === me) sfx.win();
+        if (r.matchOver && r.matchWinner === me) {
+            try { if (typeof unlockAchievement === 'function') unlockAchievement(G.v && G.v.mode === '101' ? 'okey_101' : 'okey_win'); } catch (e) { }
+        }
         if (G.m && r.matchOver && !G.online) removeKey(SAVE_KEY);
         if (G.online && G.isHost && !r.matchOver) G.nextAt = performance.now() + 15000;
     }
@@ -800,7 +809,7 @@
                 if (t.startsWith('slot')) moveTile(d.from, +t.slice(4));
                 else if (t === 'throw') act({ t: 'discard', tile: d.id });
                 else if (t === 'finish') act({ t: 'finish', tile: d.id });
-                else if (t.startsWith('meld')) act({ t: 'layoff', tile: d.id, meld: +t.slice(4) });
+                else if (t.startsWith('meld')) addTo(d.id, +t.slice(4));
             } else if (d.kind === 'pile' || d.kind === 'take') {
                 if (t.startsWith('slot') && G.rack[+t.slice(4)] < 0) G.dropSlot = +t.slice(4);
                 if (t.startsWith('slot') || t === 'rack') act({ t: d.kind === 'pile' ? 'draw' : 'take' });
@@ -811,6 +820,12 @@
         root.addEventListener('keydown', onKey);
         toolsEl.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) tool(b.dataset.act); });
         overEl.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) tool(b.dataset.act, b); });
+    }
+    // a tile onto a meld on the table: swapped for the okey standing in for
+    // it if there is one (the okey comes back to the rack), otherwise added
+    function addTo(id, meld) {
+        const v = G.v;
+        act(S.swapFits({ table: v.table, ok: v.ok }, meld, id) >= 0 ? { t: 'swap', tile: id, meld } : { t: 'layoff', tile: id, meld });
     }
     function dropTarget(x, y, d) {
         const s = slotAt(x, y);
@@ -831,7 +846,7 @@
         } else if (d.kind === 'pile') act({ t: 'draw' });
         else if (d.kind === 'take') act({ t: 'take' });
         else if (d.kind === 'meld') {
-            if (G.sel.size === 1) act({ t: 'layoff', tile: [...G.sel][0], meld: d.meld });
+            if (G.sel.size === 1) addTo([...G.sel][0], d.meld);
             else say('select one tile, then click the meld to add it');
         }
         dirty = true;
@@ -1048,9 +1063,9 @@
                 <li>on your turn <b>draw</b> from the pile or <b>take</b> the tile the player on your left just threw, then <b>throw</b> one tile to the corner on your right.</li>
                 <li><b>runs</b>: one colour in a row, 3 or more (12-13-1 is fine, 13-1-2 is not). <b>groups</b>: one number in 3 or 4 different colours.</li>
                 <li><b>classic</b>: finish when your 14 tiles are all in runs and groups (or seven pairs): drop your 15th tile on the indicator. everybody else loses 2 points, 4 if you finish by throwing the okey or on pairs, 8 for both. holding the indicator's twin on your first turn? <b>show</b> it: the others lose 1. the match ends when somebody hits 0; most points wins.</li>
-                <li><b>101</b>: 21 tiles each. <b>lay down</b> runs and groups worth 101 or more (or five pairs) to open, then add your tiles to any meld on the table. play out every tile to finish. penalties: 202 if you never opened, otherwise what is left in your rack (an okey is 101). throwing the okey or a tile that fits the table costs 101. lowest total after the hands wins.</li>
+                <li><b>101</b>: 21 tiles each. <b>lay down</b> runs and groups worth 101 or more (or five pairs) to open, then add your tiles to any meld on the table. an okey in a meld on the table can be swapped for the real tile it stands for: the okey comes back to you. play out every tile to finish. penalties: 202 if you never opened, otherwise what is left in your rack (an okey is 101). throwing the okey or a tile that fits the table costs 101. lowest total after the hands wins.</li>
             </ul>
-            <p class="ok-keys">mouse/touch: drag tiles around the rack; drag one to your corner to throw it, onto the indicator to finish (classic) or onto a meld to add it (101). click a tile to select it. drag or click the pile to draw.<br>
+            <p class="ok-keys">mouse/touch: drag tiles around the rack; drag one to your corner to throw it, onto the indicator to finish (classic) or onto a meld to add it, or to swap it for the okey there (101). click a tile to select it. drag or click the pile to draw.<br>
             keys: arrows move, shift+arrows carry a tile, space selects, d draw, t take, x/enter throw, f finish, l lay down, b put back, i show twin, s/g sort, p pause, h help.</p>
             <div class="ok-actions"><button class="ok-btn ok-go" data-act="closehelp">got it</button></div>`);
     }

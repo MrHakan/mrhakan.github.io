@@ -207,6 +207,42 @@ section('the trophy room opens from the desktop');
 }
 
 // ===================================================================
+section('a classic in its frame hands its achievement to the desktop');
+// ===================================================================
+{
+    const ctx = await context();
+    const p = await open(ctx);
+    await p.evaluate(() => localStorage.removeItem('achievements'));
+    await p.evaluate(() => startMenuAction('blockroll'));
+    // level 10 solved by the game's own solver, through its own finish line
+    const win = p.locator('.app-window.framed-blockroll-window iframe.framed-game');
+    await win.waitFor({ timeout: 15000 });
+    const game = await (await win.elementHandle()).contentFrame();
+    await game.waitForFunction(() => window.BLOCKROLL_ENGINE && BLOCKROLL_ENGINE.overlay() === 'title', null, { timeout: 15000 });
+    await game.evaluate(() => { BLOCKROLL_ENGINE.load(9); BLOCKROLL_ENGINE.fastForward(BLOCKROLL_ENGINE.solution(9)); });
+    await p.waitForFunction(() => /"blockroll_10"/.test(localStorage.getItem('achievements') || ''), null, { timeout: 5000 }).catch(() => {});
+    const got = await p.evaluate(() => ({ un: JSON.parse(localStorage.getItem('achievements') || '{}'), toast: (document.querySelector('.achv-toast .achv-name') || {}).textContent }));
+    expect(!!got.un.blockroll_10, 'clearing level 10 of block roll in its frame unlocks on the desktop', JSON.stringify(got.un));
+    expect(got.toast === 'rolling', 'and the desktop shows the toast', got.toast);
+    // the same page opened on its own has no desktop around it: no error, nothing unlocked
+    const ctx2 = await context();
+    const alone = await ctx2.newPage();
+    alone.on('pageerror', e => errors.push('block roll alone: ' + e.message));
+    await alone.goto(BASE + '/games/block-roll/', { waitUntil: 'load' });
+    await alone.waitForFunction(() => window.BLOCKROLL_ENGINE, null, { timeout: 15000 });
+    await alone.evaluate(() => { localStorage.removeItem('achievements'); BLOCKROLL_ENGINE.load(9); BLOCKROLL_ENGINE.fastForward(BLOCKROLL_ENGINE.solution(9)); });
+    expect(await alone.evaluate(() => BLOCKROLL_ENGINE.overlay()) === 'win', 'block roll on its own page still finishes the level');
+    expect(!(await alone.evaluate(() => localStorage.getItem('achievements'))), 'and on its own page it unlocks nothing and throws nothing');
+    await ctx2.close();
+    await p.evaluate(() => { if (typeof openTrophies === 'function') openTrophies(); else startMenuAction('trophies'); });
+    await waitRoom(p);
+    const r = await room(p);
+    const shelf = r && r.shelves.find(s => s.id === 'classics');
+    expect(!!shelf && shelf.got.includes('blockroll_10'), 'the trophy room puts it on the classics shelf', JSON.stringify(shelf));
+    await ctx.close();
+}
+
+// ===================================================================
 section('an empty browser, a broken one, and a phone');
 // ===================================================================
 {

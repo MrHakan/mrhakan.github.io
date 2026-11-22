@@ -439,6 +439,8 @@
         say('day ' + (game.day + 1) + ': wheee. ↑/↓ to tilt, space for rockets.');
         loop();
     }
+    // achievements live on the desktop around this frame; alone, there are none
+    function achieve(id) { try { const u = window.parent !== window && window.parent.unlockAchievement; if (typeof u === 'function') u(id); } catch (_) { /* no desktop */ } }
     function finish() {
         if (!run || !run.done || phase !== 'run') return;
         const rep = S.finishRun(game, run);
@@ -446,6 +448,7 @@
         lastReport = rep;
         records.bestDistance = Math.max(records.bestDistance, rep.distance);
         if (game.won) {
+            achieve('learntoglide_win');
             records.wins++; records.seasons++;
             if (!records.bestDays || game.wonDay < records.bestDays) records.bestDays = game.wonDay;
         } else if (game.over) records.seasons++;

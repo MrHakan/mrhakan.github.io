@@ -1149,7 +1149,7 @@ Two rule sets, picked in the menu or the lobby (`mode`):
 | rules | how it goes |
 | --- | --- |
 | classic okey | 14 tiles each, 15 for the dealer. Finish with 14 tiles all in runs and groups, or seven pairs, by dropping the 15th on the indicator. Everybody starts on 10 or 20 points; a finish costs each of the others 2, doubled for throwing the okey to finish and doubled for pairs. Showing the indicator's twin on your first turn costs them 1. The match ends when somebody hits 0; most points wins |
-| okey 101 | 21 tiles each, 22 for the dealer. Open by laying down 101 points of runs and groups (or five pairs), then add your tiles to any meld on the table; finish by playing out every tile. Penalties: 202 for never opening, otherwise what is left in the rack (an okey is 101), doubled for a pairs opener; the finisher gets -101. Finishing on the okey, in one go or on pairs doubles the hand. Throwing the okey or a tile that fits the table costs 101 on the spot; a discard you take has to go on the table that turn, or back. 1, 3 or 5 hands; lowest total wins |
+| okey 101 | 21 tiles each, 22 for the dealer. Open by laying down 101 points of runs and groups (or five pairs), then add your tiles to any run or group on the table (pair openers too), or swap an okey in a meld on the table for the real tile it stands for and take the okey; finish by playing out every tile. Penalties: 202 for never opening, otherwise what is left in the rack (an okey is 101), doubled for a pairs opener; the finisher gets -101. Finishing on the okey, in one go or on pairs doubles the hand. Throwing the okey or a tile that fits the table costs 101 on the spot; a discard you take has to go on the table that turn, or back. 1, 3 or 5 hands; lowest total wins |
 
 | file | what is in it |
 | --- | --- |
@@ -1159,7 +1159,8 @@ Two rule sets, picked in the menu or the lobby (`mode`):
 
 The rack is yours alone: drag tiles anywhere in it (two rows of fifteen, three of ten on a
 phone), or sort by runs or by groups. Drag a tile to your corner to throw it, onto the
-indicator to finish, onto a meld to add it; drag or click the pile to draw. Keys: arrows
+indicator to finish, onto a meld to add it (or to take back the okey it holds, when the tile
+is the one the okey stands for); drag or click the pile to draw. Keys: arrows
 move, shift+arrows carry a tile, space selects, d draw, t take, x/enter throw, f finish,
 l lay down, b put back, i show twin, s/g sort, p pause, h help.
 
@@ -1167,8 +1168,26 @@ The meld search takes the faces in order and tries every meld the first one left
 (groups with the colours after it, runs upwards, okeys in the holes, a 1 after the 13),
 memoised on the counts. The bots score a hand by it, plus a little for tiles nearly in a
 meld and a lot for an okey kept. They take the discard only when it beats a blind draw,
-keep away from what the next seat has been picking up, and in 101 open as soon as they
-can and never throw a tile that fits the table. easy adds noise, hard defends harder.
+keep away from what the next seat has been picking up, and never throw the okey or a tile
+that fits the table while they have anything else.
+
+In 101 a bot opens the moment it can (with the most tiles that still make 101, or with
+the discard when that is what gets it there; pairs only with six, or five once the pile is
+nearly gone, since a pairs opener rarely goes out). Before that it picks its throw by
+looking ahead: a dozen futures of its remaining draws, taken from the tiles it has not
+seen, scored by how often the rack would reach 101 and how few tiles would be stuck after
+opening. After opening it swaps okeys off the table, lays down every meld and adds every
+tile that fits, keeps an okey in the rack unless it makes a meld (it fits somewhere any
+time), takes the discard whenever it goes straight down (a take leaves the pile alone),
+and goes out as soon as one tile is left to throw, the okey last when that also works.
+Nothing it looks at is hidden: shuffle the other racks and the pile and it plays the same
+(check-okey checks that). easy adds noise and skips the defence and the look ahead, hard
+defends harder and looks further.
+
+With 20 tiles in the pile (106, less 85 dealt, less the indicator) every seat draws about
+five times, so plenty of 101 hands still run dry. Four normal bots on seeds 5001-5400:
+59% of hands end with somebody going out (24% before this bot), 17.9 turns a hand, each
+seat opening in about two hands of three. Classic: 97.8% finished, 31.3 turns, as before.
 
 ### online
 
@@ -1187,8 +1206,11 @@ itself fifteen seconds after the last.
 the menu offers to continue after a reload. `mrhakan98-okey-stats` keeps matches, wins,
 hands, hands won and okey and pairs finishes; `mrhakan98-okey-prefs` the menu's choices.
 `check-okey.mjs` holds the rules and runs 120 seeded bot matches with every tile accounted
-for after every move; `browser-okey.mjs` plays it with a real mouse, keys and taps, solo,
-101, on a phone and in two pages over the lobby. `node .github/scripts/okey-preview.mjs`
+for after every move, then 400 seeded four-bot hands of each rule set on worker threads
+(the numbers above; `OKEY_LEVELS=1` adds easy and hard, `OKEY_SEED` moves the seeds);
+`browser-okey.mjs` plays it with a real mouse, keys and taps, solo, 101 (an okey swapped
+off the table, a match against the bots until one goes out), on a phone and in two pages
+over the lobby. `node .github/scripts/okey-preview.mjs`
 makes `join/okey/preview.jpg` again.
 ## tavla 98
 
@@ -1231,6 +1253,52 @@ finishes the match against a bot on its own screen.
 `mrhakan98-tavla-save` keeps a solo match in progress, offered as "continue" in
 the menu. Achievements it calls if the desktop has them: `tavla`, `tavla_mars`.
 `node .github/scripts/tavla-preview.mjs` makes `join/tavla/preview.jpg` again.
+
+## battleship 98
+
+Five ships, 5-4-3-3-2, on a 10x10 sea; ships lie straight and never touch, not
+even at a corner, and a sinking answer says how long the ship was. Turns swap
+after every shot. Solo is you against a bot (easy, normal or hard); online is
+one on one through the desktop lobby, or an invite link (`join/battleship/`).
+
+| file | what is in it |
+| --- | --- |
+| `battleship-sim.js` | the fleet rules, random fleets, answers, the bots, the commit-reveal receipt and the online duel (`newDuel`, `aimShot`, `takeShot`, `takeAnswer`, `checkReveal`, `duelOutcome`). No page in it, so node runs it |
+| `battleship.js` | the window, the two seas as plain buttons, placing, the battle against the bot and the wire |
+| `battleship.css` | its styles. They come with the game, not with the desktop |
+
+### online
+
+Nobody holds the other's fleet, so this one is peer-symmetric rather than host
+authoritative. Each side places its own fleet, keeps it, and sends only a
+SHA-256 commitment of ships + a random salt (`battleship:ready`); the other
+side sees "ready" but nothing else. The lobby's seed picks who opens, then the
+turn swaps every shot. A shot (`battleship:shot`) carries a running number;
+the side fired at answers from its own fleet (`battleship:answer`). Both sides
+run the same pure duel on what they hear and refuse a shot out of turn, out of
+sequence, off the sea or at a cell already fired at, and an answer to another
+shot, an unknown result or a sinking of a ship length that is already gone.
+The host is just the switchboard. At the end both reveal ships + salt
+(`battleship:reveal`), each checks the other's against the commitment and
+every answer it gave, and says what it found (`battleship:verdict`): verified,
+or void when somebody lied (the match then counts for nobody). Leaving before
+the reveal is a forfeit: a hidden fleet can't be handed to a bot, so the one
+who stays wins. `battleship:hi` / `hello` repeat until the other window has
+loaded; `battleship:rematch` starts the next match on both sides.
+
+### saves
+
+`mrhakan98-battleship-prefs` keeps the bot level; `mrhakan98-battleship-stats`
+keeps battles, wins and fewest shots against the bot, and `onlineGames`,
+`onlineWins`, `onlineLosses`; `mrhakan98-battleship-save` keeps a battle
+against the bot in progress (online matches are never saved). Achievements it
+calls if the desktop has them: `battleship_win`, `battleship_hard`, and
+`battleship_online` for an online win both sides verified.
+`check-battleship.mjs` holds the rules, the bots, the receipt and the duel's
+refusals; `browser-battleship.mjs` plays the bot by clicks and two tabs
+through the lobby (an honest match, a liar, a guest walking out).
+`node .github/scripts/battleship-preview.mjs` makes `join/battleship/preview.jpg` again.
+
 ## gold claw 98
 
 `gold-claw/index.html` is a framed single-player game: `games/classics.js`

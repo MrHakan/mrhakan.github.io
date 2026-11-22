@@ -165,6 +165,24 @@
             }
         },
         {
+            id: 'classics', name: '2000s classics', icon: '🀄',
+            has: /^(okey|kartz|tavla|popz|lavatide|goldclaw|pizzashift|learntoglide|blockroll|deepdrill|battleship)(_|$)/,
+            windows: /^(okey|kartz|tavla|popz|lava & tide|gold claw|pizza shift|learn to glide|block roll|deep drill|battleship) 98$/,
+            records() {
+                const o = k => obj(json(k)) || {};
+                const kartz = o('mrhakan98-kartz-stats');
+                const kartzWins = ['batak', 'king', 'pisti'].reduce((n, g) => n + count((obj(kartz[g]) || {}).won), 0);
+                const lava = Object.keys(o('mrhakan98-lavatide-best')).length;
+                const roll = Object.keys(obj(o('mrhakan98-blockroll-save').best) || {}).length;
+                return [['okey wins', count(o('mrhakan98-okey-stats').wins)], ['tavla wins', count(o('mrhakan98-tavla-stats').wins)],
+                    ['kartz wins', kartzWins], ['battleship wins', count(o('mrhakan98-battleship-stats').wins)],
+                    ['popz furthest level', count(o('mrhakan98-popz-best').level)], ['lava & tide levels', lava],
+                    ['gold claw best level', count(parseFloat(raw('mrhakan98-goldclaw-best-level')))],
+                    ['longest glide', count(o('mrhakan98-learntoglide-records').bestDistance) ? count(o('mrhakan98-learntoglide-records').bestDistance) + ' m' : ''],
+                    ['block roll levels', roll], ['cores cracked', count(o('mrhakan98-deepdrill-best').wins)]];
+            }
+        },
+        {
             id: 'arcade', name: 'the arcade', icon: '🕹️',
             has: /^(snake10|pong|minesweeper|solitaire|ttt|rps|hangman|simon|g2048|tetris|breakout|whack)$/,
             windows: /^(snake|pong|minesweeper|solitaire|tic tac toe|rock paper scissors|hangman|simon|2048|tetris|breakout|whack a troll)$/,

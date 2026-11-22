@@ -5,19 +5,28 @@
 //             jokers playing as the okey's face
 //   melds     runs (12-13-1 yes, 13-1-2 no), groups, pairs, okeys in holes
 //   finishing 14 tiles in melds or seven pairs; the classic scoring
-//   101       the 101 opening, five pairs, laying off, the penalties, the
-//             discard you take has to be used (or put back)
+//   101       the 101 opening, five pairs, laying off (pair openers too),
+//             swapping an okey off the table, the penalties, the discard you
+//             take has to be used (or put back)
 //   the seat  what one seat sees: never another's tiles, never a pile draw
 //   the wire  a guest's move is checked like anybody's: out of turn, made
 //             up tiles, garbage
 //   matches   hundreds of seeded bot matches in both rule sets, every tile
 //             accounted for after every move, always ending with a winner;
 //             the same seed is the same match; a saved match plays on the same
+//   101 bots  open when they can, swap okeys, go out when they can, never
+//             peek (shuffle what they cannot see and they play the same), and
+//             400 seeded four-bot hands of each rule set: how many end with
+//             somebody going out rather than the pile running dry
 //
 //   node .github/scripts/check-okey.mjs
+//   OKEY_LEVELS=1 node ...     the 400 hands at easy and hard as well
+//   OKEY_SEED=9000 node ...    another set of seeds for those hands
 // ===================================================================
 import { createRequire } from 'module';
+import os from 'os';
 import path from 'path';
+import { Worker } from 'worker_threads';
 import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
@@ -220,6 +229,36 @@ section('101');
     expect(S.apply(m, 0, { t: 'meld', melds: pairs.slice(0, 4) }).err === 'opening with pairs takes five of them', 'four pairs do not open');
     expect(S.apply(m, 0, { t: 'meld', melds: pairs }).ok && m.hand.opened[0] === 'pairs', 'five pairs do');
     expect(S.apply(m, 0, { t: 'meld', melds: [[T(K, 5), T(R, 8), T(Y, 9)]] }).ok === false, 'a pairs opener lays only pairs');
+    // ...but adds to the runs and groups on the table like anybody who opened
+    toTable(m, [T(R, 5), T(R, 6), T(R, 7)], 2);
+    expect(S.apply(m, 0, { t: 'layoff', tile: T(R, 8), meld: m.hand.table.length - 1 }).ok, 'a pairs opener adds a red 8 to red 5-6-7 on the table');
+    S.audit(m);
+
+    // swapping an okey off the table (the okey is blue 7 here)
+    const OK7 = T(B, 7);
+    const SW = [T(R, 11), T(R, 12), T(R, 13), T(Y, 13), T(B, 13), T(K, 13), T(K, 10), OK7, T(K, 12)];
+    m = rigged('101', SW.concat([T(K, 11), T(K, 9), T(R, 2), T(Y, 5)]));
+    expect(S.apply(m, 0, { t: 'swap', tile: T(K, 11), meld: 0 }).err.startsWith('open first'), 'nobody swaps before opening');
+    expect(S.apply(m, 0, { t: 'meld', melds: [SW.slice(0, 3), SW.slice(3, 6), SW.slice(6, 9)] }).ok, 'black 10-okey-12 helps open (108)');
+    const okMeld = m.hand.table.findIndex(t => t.tiles.includes(OK7));
+    expect(S.apply(m, 0, { t: 'swap', tile: T(K, 9), meld: okMeld }).err === 'no okey there stands for that tile', 'a black 9 does not get the okey out of 10-okey-12');
+    const sw = S.apply(m, 0, { t: 'swap', tile: T(K, 11), meld: okMeld });
+    expect(sw.ok && m.hand.hands[0].includes(OK7) && m.hand.table[okMeld].tiles.includes(T(K, 11)) && !m.hand.table[okMeld].tiles.includes(OK7), 'the black 11 goes in, the okey comes back to the rack', sw.err);
+    expect(S.swapFits(m.hand, okMeld, T(K, 11, 1)) < 0, 'and that meld has no okey left to swap');
+    S.audit(m);
+}
+
+// a meld put on the table from wherever its tiles are (a rack that gives one
+// up gets a pile tile instead, so every tile is still somewhere once)
+function toTable(m, ids, owner) {
+    const h = m.hand;
+    for (const id of ids) {
+        const where = [h.pile].concat(h.hands, h.discards).find(a => a.includes(id));
+        if (h.hands.includes(where)) where[where.indexOf(id)] = h.pile.shift();
+        else where.splice(where.indexOf(id), 1);
+    }
+    h.table.push({ owner, kind: S.meldInfo(ids, h.ok).kind, tiles: S.meldInfo(ids, h.ok).order });
+    S.audit(m);
 }
 
 // ===================================================================
@@ -304,6 +343,146 @@ for (const mode of ['classic', '101']) {
     expect(S.apply(m, 1, { t: 'discard', tile: m.hand.hands[1][0] }).err === 'not your turn', 'a guest out of turn is refused');
     expect(S.apply(m, 0, { t: 'discard', tile: m.hand.hands[1][0] }).err === "that tile isn't yours", "a tile from another rack is refused");
     expect(S.apply(m, 7, { t: 'draw' }).ok === false && S.apply(m, -1, { t: 'draw' }).ok === false, 'a seat that does not exist is refused');
+}
+
+// ===================================================================
+section('101 bots');
+// ===================================================================
+// seat 0's turn played out by the bot, move by move
+function botTurn(m, seat = 0) {
+    const acts = [];
+    while (!m.hand.result && m.hand.turn === seat && acts.length < 60) {
+        const a = S.botAct(m, seat);
+        const r = S.apply(m, seat, a);
+        if (!r.ok) throw new Error('bot move refused: ' + JSON.stringify(a) + ': ' + r.err);
+        acts.push(a.t);
+        S.audit(m);
+    }
+    return acts;
+}
+{
+    const OPEN = [T(R, 11), T(R, 12), T(R, 13), T(Y, 13), T(B, 13), T(K, 13), T(K, 10), T(K, 11), T(K, 12), T(K, 13, 1)];
+    // everything melds but one tile: open, lay it all, throw the last one
+    let m = rigged('101', OPEN.concat([T(Y, 2)]));
+    m.seats[0].bot = true;
+    let acts = botTurn(m);
+    expect(m.hand.result && m.hand.result.winner === 0 && m.hand.result.inOne, 'a bot holding 101 and one stray tile goes out in one go', acts.join(' '));
+    // 22 tiles with 121 points in them: it opens on its first turn
+    m = rigged('101', OPEN.concat([T(R, 2), T(Y, 3), T(Y, 8), T(R, 5), T(B, 1), T(Y, 1), T(R, 9), T(Y, 11), T(K, 2), T(K, 4), T(R, 4), T(Y, 3, 1)]));
+    m.seats[0].bot = true;
+    acts = botTurn(m);
+    expect(m.hand.opened[0] === 'melds' && m.hand.hands[0].length <= 12 && m.hand.pens[0] === 0, 'a bot that can open opens at once, and throws without a penalty', acts.join(' '));
+    // an okey on the table and the tile it stands for in the rack: swapped, then used
+    const SW = [T(R, 11), T(R, 12), T(R, 13), T(Y, 13), T(B, 13), T(K, 13), T(K, 10), T(B, 7), T(K, 12)];
+    m = rigged('101', SW.concat([T(K, 11), T(Y, 5), T(R, 2), T(Y, 9), T(K, 4)]));
+    S.apply(m, 0, { t: 'meld', melds: [SW.slice(0, 3), SW.slice(3, 6), SW.slice(6, 9)] });
+    m.seats[0].bot = true;
+    expect(S.botAct(m, 0).t === 'swap', 'an opened bot holding the black 11 swaps it for the okey in 10-okey-12');
+    acts = botTurn(m);
+    expect(m.hand.pens[0] === 0 && !m.hand.discards[0].includes(T(B, 7)), 'and keeps the okey: never thrown while there is another tile', acts.join(' '));
+    // a bot with one tile that fits and one that does not finishes on the other
+    m = rigged('101', OPEN.concat([T(R, 10), T(Y, 2), T(Y, 5)]));
+    S.apply(m, 0, { t: 'meld', melds: [OPEN.slice(0, 3), OPEN.slice(3, 6), OPEN.slice(6, 10)] });
+    m.seats[0].bot = true;
+    acts = botTurn(m);
+    expect(acts.includes('layoff') && !m.hand.hands[0].includes(T(R, 10)), 'an opened bot adds the red 10 to red 11-12-13', acts.join(' '));
+}
+{
+    // no peeking: shuffle what a seat cannot see (the other racks and the pile,
+    // each keeping its size) and its bot does exactly the same thing
+    let same = 0, n = 0, bad = '';
+    for (let seed = 1; seed <= 24; seed++) {
+        const m = S.newMatch({ mode: '101', seed: 300 + seed, hands: 1, seats: [0, 1, 2, 3].map(() => ({ bot: true })) });
+        const stops = new Set([3, 9, 15, 22, 30].map(k => k + (seed % 4)));
+        for (let k = 0; k < 120 && !m.hand.result; k++) {
+            const s = m.hand.turn;
+            if (stops.has(k)) {
+                const copy = JSON.parse(JSON.stringify(m)), h = copy.hand;
+                const hidden = h.pile.slice();
+                h.hands.forEach((a, i) => { if (i !== s) hidden.push(...a); });
+                const rs = { rs: (seed * 2654435761) >>> 0 };
+                for (let i = hidden.length - 1; i > 0; i--) { rs.rs = S.hash(rs.rs, i); const j = rs.rs % (i + 1); [hidden[i], hidden[j]] = [hidden[j], hidden[i]]; }
+                let at = 0;
+                h.pile = hidden.slice(at, at += h.pile.length);
+                h.hands = h.hands.map((a, i) => (i === s ? a : hidden.slice(at, at += a.length)));
+                S.audit(copy);
+                n++;
+                const a = JSON.stringify(S.botAct(m, s)), b = JSON.stringify(S.botAct(copy, s));
+                if (a === b) same++; else bad = 'seed ' + (300 + seed) + ' move ' + k + ': ' + a + ' vs ' + b;
+            }
+            S.apply(m, s, S.botAct(m, s));
+        }
+    }
+    expect(n >= 60 && same === n, 'bots never look at other racks or the pile: shuffled, they move the same', same + ' of ' + n + (bad ? ', ' + bad : ''));
+}
+
+// ===================================================================
+section('bots: 400 seeded hands of each');
+// ===================================================================
+// Four normal bots, one hand per seed, seeds 5001-5400. Every move is audited,
+// a refused move or a hand over 2000 moves fails. Before the 101 bots learnt
+// to go out these seeds gave: 101 23.8% finished (76.3% ran the pile dry),
+// 20.2 turns a hand, each seat opening in 59-65% of hands; classic 97.8%
+// finished, 31.3 turns.
+//
+// The rates are judged with Wilson's 95% interval, so that a change that
+// moves a few seeds either way doesn't flip the check, while a real drop
+// does: 101 has to keep more hands ending with somebody out than with an
+// empty pile (the interval's low end above 50%); classic must not get worse
+// than before (its low end above 95%). With 20 tiles in the pile (106 - 4 x 21
+// - 1 - the indicator) every seat draws about five times, so a lot of hands
+// still run dry: see games/README.md.
+const BENCH = `
+const { parentPort, workerData } = require('worker_threads');
+const S = require(workerData.sim);
+parentPort.postMessage(workerData.jobs.map(j => {
+    const m = S.newMatch({ mode: j.mode, seed: j.seed, hands: 1, start: 20, seats: [0, 1, 2, 3].map(() => ({ bot: true, level: j.level })) });
+    const h = m.hand;
+    let moves = 0, err = '';
+    try {
+        while (!h.result) {
+            const s = h.turn, a = S.botAct(m, s), r = S.apply(m, s, a);
+            if (!r.ok) throw new Error('refused ' + JSON.stringify(a) + ': ' + r.err);
+            S.audit(m);
+            if (++moves > 2000) throw new Error('stalled');
+        }
+    } catch (e) { err = j.mode + ' seed ' + j.seed + ': ' + e.message; }
+    return { mode: j.mode, level: j.level, err, finished: !!h.result && h.result.winner >= 0, turns: h.turns, opened: h.opened.map(Boolean), pens: h.pens.filter(p => p > 0).length };
+}));`;
+function wilson(k, n) {
+    const z = 1.96, p = k / n, d = 1 + z * z / n;
+    const mid = (p + z * z / (2 * n)) / d, half = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+    return [mid - half, mid + half];
+}
+{
+    const N = 400, SEED0 = +(process.env.OKEY_SEED || 5000);
+    const levels = process.env.OKEY_LEVELS ? ['normal', 'easy', 'hard'] : ['normal'];
+    const jobs = [];
+    for (const level of levels) for (const mode of ['101', 'classic']) for (let i = 1; i <= N; i++) jobs.push({ mode, level, seed: SEED0 + i });
+    const t0 = Date.now();
+    const nWorkers = Math.max(1, Math.min(+process.env.OKEY_THREADS || os.cpus().length - 1, 8));
+    const results = (await Promise.all(Array.from({ length: nWorkers }, (_, w) => new Promise((res, rej) => {
+        const wk = new Worker(BENCH, { eval: true, workerData: { sim: path.join(ROOT, 'games/okey/okey-sim.js'), jobs: jobs.filter((_, k) => k % nWorkers === w) } });
+        wk.on('message', res);
+        wk.on('error', rej);
+    })))).flat();
+    const pc = x => (100 * x).toFixed(1) + '%';
+    console.log('        ' + results.length + ' hands on ' + nWorkers + ' threads in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's');
+    for (const level of levels) for (const mode of ['101', 'classic']) {
+        const rs = results.filter(r => r.mode === mode && r.level === level);
+        const errs = rs.filter(r => r.err);
+        const done = rs.filter(r => !r.err);
+        const fin = done.filter(r => r.finished).length;
+        const [lo, hi] = wilson(fin, done.length);
+        const turns = done.reduce((s, r) => s + r.turns, 0) / done.length;
+        const seats = [0, 1, 2, 3].map(i => pc(done.filter(r => r.opened[i]).length / done.length)).join(' ');
+        const line = level + ' ' + mode + ': ' + pc(fin / done.length) + ' finished (95% ' + pc(lo) + '-' + pc(hi) + '), ' + pc(1 - fin / done.length) + ' ran the pile dry, ' + turns.toFixed(1) + ' turns a hand' + (mode === '101' ? ', seats opened ' + seats : '');
+        if (level !== 'normal') { console.log('        ' + line); continue; }
+        expect(!errs.length && done.length === N, N + ' ' + mode + ' hands of four bots play to the end: no refused move, no stall, every tile accounted for after every move', errs.length ? errs.slice(0, 3).join(' | ') : undefined);
+        expect(done.every(r => !r.pens), 'and no bot ever pays 101 for what it throws');
+        if (mode === '101') expect(lo > 0.5, '101: more hands end with somebody going out than with the pile running dry', line);
+        else expect(lo > 0.95 && turns <= 32, 'classic: as good as before (97.8% finished, 31.3 turns)', line);
+    }
 }
 
 console.log('\n' + (failures ? failures + ' of ' + checks + ' okey checks FAILED' : checks + ' okey checks passed'));

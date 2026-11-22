@@ -32,7 +32,8 @@ const section = n => console.log('\n== ' + n + ' ==');
 
 // gzipped, the way a browser gets them
 const BUDGET = {
-    scripts: 146 * 1024,      // every <script src> on the desktop (+1kb: routes and search rows for ten 2000s classics, whose code loads lazily)
+    scripts: 147 * 1024,      // every <script src> on the desktop (+1kb: routes and search rows for ten 2000s classics, whose code loads lazily;
+                              // +1kb: the classics' eighteen achievements, which unlockAchievement must know at boot, and the games finder's hook)
     styles: 52 * 1024,        // both stylesheets, which block the first paint
     image: 24 * 1024          // any one image the desktop paints at boot
 };

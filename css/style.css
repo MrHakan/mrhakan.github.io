@@ -1847,7 +1847,23 @@ body.concert-mode { overflow: hidden !important; height: calc(100dvh / var(--z, 
     }
     .start-sub:hover>.start-flyout { display: none; }
     .start-sub.open>.start-flyout { display: block; }
+    .gf-search { position: sticky; top: -3px; z-index: 1; }
 }
+
+/* start > games: search, favorites, recent (js/games-finder.js) */
+.gf-search { background: #c0c0c0; padding: 3px 6px; }
+.gf-search input { width: 100%; height: 24px; padding: 0 4px; font-size: 12px; font-family: inherit; background: #fff; color: #000; }
+.gf-label { padding: 3px 10px 1px; font-size: 11px; color: #808080; border-top: 1px solid #808080; box-shadow: inset 0 1px #fff; }
+/* in the right padding, so no name is pushed onto a second line and the rows stay even */
+.start-flyout-columns > .start-item { position: relative; }
+.gf-star { position: absolute; top: 0; right: 0; bottom: 0; width: 12px; display: flex; align-items: center; justify-content: center; color: #808080; font-size: 11px; font-weight: normal; }
+@media (max-width: 767px) {
+    .start-flyout-columns > .start-item { padding-right: 40px; }
+    .gf-star { width: 40px; font-size: 16px; }
+}
+.gf-star[aria-pressed="true"] { color: #000080; }
+.start-item:hover .gf-star { color: #fff; }
+.start-flyout .gf-hide { display: none; }
 
 .app-window.maximized {
     height: calc(100vh / var(--z, 1) - 82px);

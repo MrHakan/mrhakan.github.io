@@ -54,6 +54,8 @@ try {
     await page.locator('.app-window.framed-deepdrill-window iframe.framed-game').waitFor({ timeout: 15000 });
     assert.equal(await page.locator('.app-window.framed-deepdrill-window').count(), 1);
     assert.equal(new URL(page.url()).searchParams.get('app'), 'deepdrill', 'the window has its own desktop route');
+    // the iframe element exists before it has navigated away from about:blank
+    await page.waitForFunction(() => { const f = document.querySelector('.framed-deepdrill-window iframe.framed-game'); try { return !!f && /\/games\/deep-drill\//.test(f.contentWindow.location.href); } catch (e) { return false; } }, null, { timeout: 15000 }).catch(() => {});
     const frame = page.frames().find(f => f.url().includes('/games/deep-drill/'));
     assert.ok(frame && new URL(frame.url()).searchParams.get('embed') === '1', 'the game is framed with ?embed=1');
     await frame.waitForFunction(() => window.DEEPDRILL_ENGINE && DEEPDRILL_ENGINE.phase() === 'title');
