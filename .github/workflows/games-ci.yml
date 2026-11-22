@@ -432,9 +432,13 @@ jobs:
             - name: Open every 2000s classic from the start menu
               if: matrix.group == 'desktop'
               run: node .github/scripts/browser-classics.mjs
-            - name: Place a fleet and sink the battleship bot
+            - name: Sink the battleship bot, then a friend online with both fleets checked
               if: matrix.group == 'desktop'
               run: node .github/scripts/browser-battleship.mjs
+            # worlds is the shortest lane (13.6-14.5 min against 15-16.4 for the others)
+            - name: Find a game in start > games, star it, see it in recent
+              if: matrix.group == 'worlds'
+              run: node .github/scripts/browser-games-finder.mjs
             - name: Play popz solo, two on one keyboard and online
               if: matrix.group == 'arena'
               run: node .github/scripts/browser-popz.mjs
