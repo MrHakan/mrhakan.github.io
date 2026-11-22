@@ -19,6 +19,7 @@
     const COLS = 'abcdefghij';
     const STATS_KEY = 'mrhakan98-battleship-stats';
     const PREFS_KEY = 'mrhakan98-battleship-prefs';
+    const SAVE_KEY = 'mrhakan98-battleship-save';     // the battle in progress, after every shot
 
     const readJson = k => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch (e) { return null; } };
     const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } };
@@ -220,7 +221,7 @@
             <div class="bs-row"><span class="bs-label">bot</span><span class="bs-seg">${seg}</span></div>
             <div class="bs-actions">
                 <button class="bs-btn" data-act="help">how to play</button>
-                <button class="bs-btn bs-go" data-act="place">place your fleet</button>
+                ${savedBattle() ? '<button class="bs-btn" data-act="place">new fleet</button><button class="bs-btn bs-go" data-act="continue">continue battle</button>' : '<button class="bs-btn bs-go" data-act="place">place your fleet</button>'}
             </div>
             <p class="bs-note">${st.games ? `battles ${st.games}, won ${st.wins}${st.best ? ' · fewest shots to win ' + st.best : ''}` : 'no battles yet. the bot is already at sea, bradar'}</p>`);
     }
@@ -246,6 +247,7 @@
         if (won) { st.wins++; if (!st.best || shots < st.best) st.best = shots; }
         writeJson(STATS_KEY, st);
         phase = 'over';
+        save();
         paint();
         (won ? SFX.win : SFX.lose)();
         const acc = Math.round(100 * G.shots[0].filter(s => s.result !== 'miss').length / Math.max(1, shots));
@@ -311,6 +313,26 @@
         closeDialog();
         say('your shot. pick a cell in enemy waters.', true);
         paint();
+        save();
+    }
+    // a closed window or a reload keeps the battle: the match is plain JSON
+    function save() {
+        if (phase === 'battle' && G && !S.over(G)) writeJson(SAVE_KEY, { g: G, last });
+        else { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
+    }
+    function savedBattle() {
+        const sv = readJson(SAVE_KEY);
+        return sv && sv.g && sv.g.fleets && sv.g.shots && sv.g.winner === null && !S.fleetProblem(sv.g.fleets[0]) ? sv : null;
+    }
+    function resume() {
+        const sv = savedBattle();
+        if (!sv) { startPlacing(); return; }
+        G = sv.g; fleet = G.fleets[0]; last = sv.last || [null, null];
+        phase = 'battle'; picked = -1; cur = { x: 4, y: 4 };
+        closeDialog();
+        paint();
+        if (G.turn === 1) { say('back at sea. the bot is aiming...'); botTimer = setTimeout(botTurn, 550 / speed); }
+        else say('back at sea. your shot.', true);
     }
     function describe(r, who) {
         if (r.result === 'miss') return who + ' missed at ' + name(r.x, r.y) + '.';
@@ -326,6 +348,7 @@
         if (S.over(G)) { paint(); showEnd(); return; }
         say(describe(r, 'you') + ' the bot is aiming...');
         paint();
+        save();
         botTimer = setTimeout(botTurn, 550 / speed);
     }
     function botTurn() {
@@ -338,6 +361,7 @@
         if (S.over(G)) { paint(); showEnd(); return; }
         say(describe(r, 'the bot') + ' your shot.', true);
         paint();
+        save();
     }
 
     // ---------------------------------------------------------------
@@ -351,6 +375,7 @@
                 break;
             }
             case 'place': startPlacing(); break;
+            case 'continue': resume(); break;
             case 'random': fleet = S.randomFleet(Math.random); picked = -1; say('a fresh fleet. move ships or start the battle.', true); paint(); break;
             case 'rotate': rotate(); break;
             case 'battle': startBattle(); break;
