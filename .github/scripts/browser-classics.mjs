@@ -45,6 +45,10 @@ try {
         // Record the loading window from inside the page: classics.js may still be
         // loading (first game) or already here (the rest), and a fast local load can
         // add and remove the placeholder between two polls from out here.
+        // the framed five share one loader (games/frame-window.js): only the first
+        // of them waits for it, the rest open straight away with no loading window
+        const START = { okey: 'startOkey', kartz: 'startKartz', tavla: 'startTavla', lavatide: 'startLavaTide', popz: 'startPopz', battleship: 'startBattleship' };
+        const loaded = await p.evaluate(fn => typeof window[fn] === 'function', START[key] || 'startFramedGame');
         await p.evaluate(k => {
             window.__sawLoading = false;
             const has = n => n.nodeType === 1 && (n.matches('.bj-loading') || n.querySelector('.bj-loading'));
@@ -56,7 +60,8 @@ try {
         const title = await p.locator('.app-window[id^="app-win"]').last().locator('.app-window-title').first().textContent().catch(() => '');
         ok(opened, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
         const sawLoading = await p.evaluate(() => window.__sawLoading);
-        ok(sawLoading, key + ' showed its loading window first (so the handoff was exercised)');
+        if (!loaded) ok(sawLoading, key + ' showed its loading window first (so the handoff was exercised)');
+        else ok(!sawLoading, key + ' opened straight away, its loader already here');
         const cleared = await p.waitForFunction(() => !document.querySelector('.bj-loading') && ![...document.querySelectorAll('.app-window')].some(w => !w.id), null, { timeout: 2000 }).then(() => true, () => false);
         const left = await p.evaluate(() => [...document.querySelectorAll('.app-window')].map(w => (w.id || '(no id)') + ':' + (w.querySelector('.bj-loading')?.textContent || '')).join(', '));
         ok(cleared, key + ' leaves no loading window behind  [' + left + ']');
