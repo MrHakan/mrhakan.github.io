@@ -37,9 +37,10 @@ try {
     // Each game is opened once, on its first use in this page: that is the only
     // time its loading window exists (a second open finds start* defined and
     // skips it), so it is the only time the handoff can leave one behind.
-    // A closing window is id-less for its ~110 ms fade, hence a wait, not a count.
+    // A closing window keeps an empty id="" (so :not([id]) never sees it) for its
+    // ~110 ms fade, hence !w.id and a wait, not a count.
     for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill', 'battleship']) {
-        const live = () => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length;
+        const live = () => [...document.querySelectorAll('.app-window')].filter(w => w.id && !w.querySelector('.bj-loading')).length;
         const before = await p.evaluate(live);
         // Record the loading window from inside the page: classics.js may still be
         // loading (first game) or already here (the rest), and a fast local load can
@@ -51,12 +52,12 @@ try {
             mo.observe(document.body, { childList: true, subtree: true });
             startMenuAction(k);
         }, key);
-        const opened = await p.waitForFunction(n => [...document.querySelectorAll('.app-window[id]')].filter(w => !w.querySelector('.bj-loading')).length > n, before, { timeout: 15000 }).then(() => true, () => false);
-        const title = await p.locator('.app-window[id]').last().locator('.app-window-title').first().textContent().catch(() => '');
+        const opened = await p.waitForFunction(n => [...document.querySelectorAll('.app-window')].filter(w => w.id && !w.querySelector('.bj-loading')).length > n, before, { timeout: 15000 }).then(() => true, () => false);
+        const title = await p.locator('.app-window[id^="app-win"]').last().locator('.app-window-title').first().textContent().catch(() => '');
         ok(opened, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
         const sawLoading = await p.evaluate(() => window.__sawLoading);
         ok(sawLoading, key + ' showed its loading window first (so the handoff was exercised)');
-        const cleared = await p.waitForFunction(() => !document.querySelector('.bj-loading') && !document.querySelector('.app-window:not([id])'), null, { timeout: 2000 }).then(() => true, () => false);
+        const cleared = await p.waitForFunction(() => !document.querySelector('.bj-loading') && ![...document.querySelectorAll('.app-window')].some(w => !w.id), null, { timeout: 2000 }).then(() => true, () => false);
         const left = await p.evaluate(() => [...document.querySelectorAll('.app-window')].map(w => (w.id || '(no id)') + ':' + (w.querySelector('.bj-loading')?.textContent || '')).join(', '));
         ok(cleared, key + ' leaves no loading window behind  [' + left + ']');
     }
