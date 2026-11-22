@@ -58,7 +58,13 @@ async function shoot(p) {
 // ---------------- online helpers ----------------
 const O = p => p.evaluate(() => BATTLESHIP_ENGINE.online());
 // spy on achievements: the desktop's list may not know battleship's ids yet
-const spyAchievements = p => p.evaluate(() => { window.__ach = []; const real = window.unlockAchievement; window.unlockAchievement = id => { window.__ach.push(id); if (typeof real === 'function') real(id); }; });
+const spyAchievements = p => p.evaluate(() => {
+    // what this tab writes to its stats, as it writes it
+    window.__stats = []; const set = Storage.prototype.setItem, get = Storage.prototype.getItem; let seen = null;
+    const K = 'mrhakan98-battleship-stats', parse = v => { try { return JSON.parse(v) || {}; } catch (e) { return {}; } };
+    Storage.prototype.getItem = function (k) { const v = get.call(this, k); if (k === K) seen = v; return v; };
+    Storage.prototype.setItem = function (k, v) { if (k === K) window.__stats.push({ before: parse(seen), after: parse(v) }); return set.call(this, k, v); };
+    window.__ach = []; const real = window.unlockAchievement; window.unlockAchievement = id => { window.__ach.push(id); if (typeof real === 'function') real(id); }; });
 async function desktopIn(ctx) {
     const p = await ctx.newPage(); p.errors = []; p.on('pageerror', e => p.errors.push(e.message));
     await p.goto(BASE + '/', { waitUntil: 'load' });
@@ -151,9 +157,12 @@ async function online() {
     const winner = a2.outcome.winner === 'me' ? host : guest, loser = winner === host ? guest : host;
     ok(/victory/.test(await winner.textContent(W + ' .bs-dlg-bar')) && /defeat/.test(await loser.textContent(W + ' .bs-dlg-bar')), 'victory on one, defeat on the other');
     ok((await winner.evaluate(() => window.__ach)).includes('battleship_online') && !(await loser.evaluate(() => window.__ach)).includes('battleship_online'), 'the verified winner gets battleship_online, the loser does not');
-    // both tabs share one localStorage here, so both results land in the same stats
-    const st = await host.evaluate(() => JSON.parse(localStorage.getItem('mrhakan98-battleship-stats')));
-    ok(st && st.onlineGames === 2 && st.onlineWins === 1 && st.onlineLosses === 1 && !st.games, 'online results go to the stats\' online fields, not the bot battles ' + JSON.stringify(st));
+    // Both tabs share one localStorage here, and Chrome syncs it between tabs on its
+    // own schedule, so two writes in the same moment can lose one. A real player has
+    // their own. So read what each tab itself wrote, not the shared result.
+    const wrote = await Promise.all([winner, loser].map(x => x.evaluate(() => (window.__stats || []).slice(-1)[0] || null)));
+    const delta = w => w && JSON.stringify(['onlineGames', 'onlineWins', 'onlineLosses', 'games', 'wins'].map(f => (w.after[f] || 0) - (w.before[f] || 0)));
+    ok(delta(wrote[0]) === '[1,1,0,0,0]' && delta(wrote[1]) === '[1,0,1,0,0]', 'online results go to the stats\' online fields, not the bot battles ' + JSON.stringify(wrote));
     ok(await host.evaluate(() => localStorage.getItem('mrhakan98-battleship-save') === null), 'and nothing is written to the single player save');
     // the loser never hit every cell of the winner's fleet: the rest comes from the reveal
     const lo = loser === host ? a : b;
