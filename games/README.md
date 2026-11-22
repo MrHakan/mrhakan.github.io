@@ -1231,6 +1231,52 @@ finishes the match against a bot on its own screen.
 `mrhakan98-tavla-save` keeps a solo match in progress, offered as "continue" in
 the menu. Achievements it calls if the desktop has them: `tavla`, `tavla_mars`.
 `node .github/scripts/tavla-preview.mjs` makes `join/tavla/preview.jpg` again.
+
+## battleship 98
+
+Five ships, 5-4-3-3-2, on a 10x10 sea; ships lie straight and never touch, not
+even at a corner, and a sinking answer says how long the ship was. Turns swap
+after every shot. Solo is you against a bot (easy, normal or hard); online is
+one on one through the desktop lobby, or an invite link (`join/battleship/`).
+
+| file | what is in it |
+| --- | --- |
+| `battleship-sim.js` | the fleet rules, random fleets, answers, the bots, the commit-reveal receipt and the online duel (`newDuel`, `aimShot`, `takeShot`, `takeAnswer`, `checkReveal`, `duelOutcome`). No page in it, so node runs it |
+| `battleship.js` | the window, the two seas as plain buttons, placing, the battle against the bot and the wire |
+| `battleship.css` | its styles. They come with the game, not with the desktop |
+
+### online
+
+Nobody holds the other's fleet, so this one is peer-symmetric rather than host
+authoritative. Each side places its own fleet, keeps it, and sends only a
+SHA-256 commitment of ships + a random salt (`battleship:ready`); the other
+side sees "ready" but nothing else. The lobby's seed picks who opens, then the
+turn swaps every shot. A shot (`battleship:shot`) carries a running number;
+the side fired at answers from its own fleet (`battleship:answer`). Both sides
+run the same pure duel on what they hear and refuse a shot out of turn, out of
+sequence, off the sea or at a cell already fired at, and an answer to another
+shot, an unknown result or a sinking of a ship length that is already gone.
+The host is just the switchboard. At the end both reveal ships + salt
+(`battleship:reveal`), each checks the other's against the commitment and
+every answer it gave, and says what it found (`battleship:verdict`): verified,
+or void when somebody lied (the match then counts for nobody). Leaving before
+the reveal is a forfeit: a hidden fleet can't be handed to a bot, so the one
+who stays wins. `battleship:hi` / `hello` repeat until the other window has
+loaded; `battleship:rematch` starts the next match on both sides.
+
+### saves
+
+`mrhakan98-battleship-prefs` keeps the bot level; `mrhakan98-battleship-stats`
+keeps battles, wins and fewest shots against the bot, and `onlineGames`,
+`onlineWins`, `onlineLosses`; `mrhakan98-battleship-save` keeps a battle
+against the bot in progress (online matches are never saved). Achievements it
+calls if the desktop has them: `battleship_win`, `battleship_hard`, and
+`battleship_online` for an online win both sides verified.
+`check-battleship.mjs` holds the rules, the bots, the receipt and the duel's
+refusals; `browser-battleship.mjs` plays the bot by clicks and two tabs
+through the lobby (an honest match, a liar, a guest walking out).
+`node .github/scripts/battleship-preview.mjs` makes `join/battleship/preview.jpg` again.
+
 ## gold claw 98
 
 `gold-claw/index.html` is a framed single-player game: `games/classics.js`

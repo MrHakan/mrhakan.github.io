@@ -35,6 +35,12 @@
 .bs-btn:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
 .bs-btn.bs-go { font-weight: bold; }
 .bs-spacer { flex: 1 1 auto; }
+/* online: the other side's state next to the buttons, on a phone too */
+.bs-opp { align-self: center; padding: 0 4px; color: #404040; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bs-opp[data-ready="1"] { color: #006000; font-weight: bold; }
+.bs-opp[data-ready="1"]::before { content: '\2713  '; }
+.bs-online-end[data-verdict="verified"] .bs-verdict { color: #006000; }
+.bs-online-end[data-verdict="void"] .bs-verdict, .bs-online-end[data-verdict="forfeit"] .bs-verdict { color: #a00000; }
 
 /* the dialogs over the seas: menu, how to play, the end of a battle */
 .bs-over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 8px; background: rgba(0, 16, 48, .55); z-index: 5; }
@@ -58,7 +64,7 @@
     /* a phone shows the sea that matters now: yours while placing, theirs on top in battle */
     .bs-app { max-height: calc(100dvh - 150px); }
     .bs-sea { flex-basis: 100%; max-width: 330px; }
-    .bs-app[data-phase="place"] .bs-sea[data-side="1"] { display: none; }
+    .bs-app[data-phase="place"] .bs-sea[data-side="1"], .bs-app[data-phase="ready"] .bs-sea[data-side="1"] { display: none; }
     .bs-app[data-phase="battle"] .bs-sea[data-side="1"], .bs-app[data-phase="over"] .bs-sea[data-side="1"] { order: -1; }
     .bs-title { font-size: 24px; }
     .bs-info { display: none; }

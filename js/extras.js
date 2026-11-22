@@ -455,12 +455,13 @@ function openHarborMaster() {
     }).catch(() => { body.innerHTML = lazyFail('the harbor would not open bradar'); });
 }
 
-// battleship 98: single player against the bot, rules in battleship-sim.js
+// battleship 98: against the bot or one on one; the lobby's loader brings it,
+// so it is registered for online play however it was opened first
 function openBattleship() {
     if (window.startBattleship) { startBattleship(); return; }
     const { body, win } = createAppWindow('battleship 98', { icon: 'explore', width: 320 });
     body.innerHTML = '<div class="bj-loading">launching the fleet...</div>';
-    LAZY.load('games/battleship/battleship-sim.js').then(() => LAZY.load('games/battleship/battleship.js')).then(() => {
+    npLoadScripts().then(() => Netplay.loadGame('battleship')).then(() => {
         replaceLazyWindow(win, () => startBattleship());
     }).catch(() => { body.innerHTML = lazyFail('the fleet would not leave port. try again?'); });
 }
