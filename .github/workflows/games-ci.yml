@@ -185,6 +185,9 @@ jobs:
               run: node .github/scripts/check-blockroll.mjs
             - name: Check deep drill
               run: node .github/scripts/check-deepdrill.mjs
+            # battleship: fleet rules, 10,000 random fleets, bots, the commit-reveal receipt
+            - name: Check battleship
+              run: node .github/scripts/check-battleship.mjs
 
             - name: Check the trophy room and the manifest
               run: node .github/scripts/check-trophies.mjs
@@ -429,6 +432,9 @@ jobs:
             - name: Open every 2000s classic from the start menu
               if: matrix.group == 'desktop'
               run: node .github/scripts/browser-classics.mjs
+            - name: Place a fleet and sink the battleship bot
+              if: matrix.group == 'desktop'
+              run: node .github/scripts/browser-battleship.mjs
             - name: Play popz solo, two on one keyboard and online
               if: matrix.group == 'arena'
               run: node .github/scripts/browser-popz.mjs

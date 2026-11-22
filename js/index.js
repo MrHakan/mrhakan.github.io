@@ -299,6 +299,7 @@ function appActions() {
         waveshaper: openWaveShaper,
         harbormaster: openHarborMaster,
         harbor: openHarborMaster,
+        battleship: openBattleship,
         okey: () => openClassic('okey'),
         kartz: () => openClassic('kartz'),
         tavla: () => openClassic('tavla'),

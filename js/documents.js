@@ -49,6 +49,7 @@
     // summary: one line a person can read, out of whatever is stored.
     // 2000s classics: one row each so a backup carries their saves.
     const CLASSIC_DOCS = [
+        ['battleship', 'battleship 98', '🚢', ['mrhakan98-battleship-stats', 'mrhakan98-battleship-save', 'mrhakan98-battleship-prefs']],
         ['okey', 'okey 98', '🀄', ['mrhakan98-okey-stats', 'mrhakan98-okey-save', 'mrhakan98-okey-prefs']],
         ['kartz', 'kartz 98', '🃏', ['mrhakan98-kartz-stats', 'mrhakan98-kartz-save', 'mrhakan98-kartz-prefs']],
         ['tavla', 'tavla 98', '🎲', ['mrhakan98-tavla-stats', 'mrhakan98-tavla-save', 'mrhakan98-tavla-prefs']],

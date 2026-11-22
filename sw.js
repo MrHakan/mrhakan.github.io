@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v63';
+const CACHE = 'mrhakan98-v64';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -89,6 +89,9 @@ const PRECACHE_LATER = [
     '/games/classics.js',
     '/games/frame-window.js',
     '/games/frame-window.css',
+    '/games/battleship/battleship-sim.js',
+    '/games/battleship/battleship.js',
+    '/games/battleship/battleship.css',
     '/games/okey/okey-sim.js',
     '/games/okey/okey.js',
     '/games/okey/okey.css',

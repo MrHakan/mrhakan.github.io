@@ -34,12 +34,37 @@ try {
     ok(box.bottom <= box.bar + 1, 'and stays above the taskbar');
     ok(box.right <= box.width, 'and inside the screen');
     await p.screenshot({ path: process.env.SHOT || path.join(process.env.TMPDIR || '/tmp', 'classics-flyout.png') });
-    for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill']) {
-        const before = await p.locator('.app-window').count();
-        await p.evaluate(k => startMenuAction(k), key);
-        await p.waitForFunction(n => document.querySelectorAll('.app-window').length > n && !document.querySelector('.bj-loading:not(:empty)')?.textContent.includes('...'), before, { timeout: 15000 }).catch(() => {});
-        const title = await p.locator('.app-window').last().locator('.ie-titlebar, .app-titlebar, [class*=title]').first().textContent().catch(() => '');
-        ok((await p.locator('.app-window').count()) > before, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
+    // Each game is opened once, on its first use in this page: that is the only
+    // time its loading window exists (a second open finds start* defined and
+    // skips it), so it is the only time the handoff can leave one behind.
+    // A closing window keeps an empty id="" (so :not([id]) never sees it) for its
+    // ~110 ms fade, hence !w.id and a wait, not a count.
+    for (const key of ['okey', 'kartz', 'tavla', 'lavatide', 'popz', 'goldclaw', 'pizzashift', 'learntoglide', 'blockroll', 'deepdrill', 'battleship']) {
+        const live = () => [...document.querySelectorAll('.app-window')].filter(w => w.id && !w.querySelector('.bj-loading')).length;
+        const before = await p.evaluate(live);
+        // Record the loading window from inside the page: classics.js may still be
+        // loading (first game) or already here (the rest), and a fast local load can
+        // add and remove the placeholder between two polls from out here.
+        // the framed five share one loader (games/frame-window.js): only the first
+        // of them waits for it, the rest open straight away with no loading window
+        const START = { okey: 'startOkey', kartz: 'startKartz', tavla: 'startTavla', lavatide: 'startLavaTide', popz: 'startPopz', battleship: 'startBattleship' };
+        const loaded = await p.evaluate(fn => typeof window[fn] === 'function', START[key] || 'startFramedGame');
+        await p.evaluate(k => {
+            window.__sawLoading = false;
+            const has = n => n.nodeType === 1 && (n.matches('.bj-loading') || n.querySelector('.bj-loading'));
+            const mo = new MutationObserver(rs => { if (rs.some(r => [...r.addedNodes].some(has))) { window.__sawLoading = true; mo.disconnect(); } });
+            mo.observe(document.body, { childList: true, subtree: true });
+            startMenuAction(k);
+        }, key);
+        const opened = await p.waitForFunction(n => [...document.querySelectorAll('.app-window')].filter(w => w.id && !w.querySelector('.bj-loading')).length > n, before, { timeout: 15000 }).then(() => true, () => false);
+        const title = await p.locator('.app-window[id^="app-win"]').last().locator('.app-window-title').first().textContent().catch(() => '');
+        ok(opened, key + ' opens a desktop popup: ' + title.trim().slice(0, 40));
+        const sawLoading = await p.evaluate(() => window.__sawLoading);
+        if (!loaded) ok(sawLoading, key + ' showed its loading window first (so the handoff was exercised)');
+        else ok(!sawLoading, key + ' opened straight away, its loader already here');
+        const cleared = await p.waitForFunction(() => !document.querySelector('.bj-loading') && ![...document.querySelectorAll('.app-window')].some(w => !w.id), null, { timeout: 2000 }).then(() => true, () => false);
+        const left = await p.evaluate(() => [...document.querySelectorAll('.app-window')].map(w => (w.id || '(no id)') + ':' + (w.querySelector('.bj-loading')?.textContent || '')).join(', '));
+        ok(cleared, key + ' leaves no loading window behind  [' + left + ']');
     }
     ok(!errors.length, 'no page errors ' + errors.join(' | '));
 } finally { await browser.close(); server.close(); }
