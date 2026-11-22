@@ -374,7 +374,7 @@
                 overEl.querySelectorAll('[data-act=level]').forEach(b => b.setAttribute('aria-pressed', String(b === el)));
                 break;
             }
-            case 'place': startPlacing(); break;
+            case 'place': try { localStorage.removeItem(SAVE_KEY); } catch (e) { } startPlacing(); break;     // a new fleet gives up the saved battle
             case 'continue': resume(); break;
             case 'random': fleet = S.randomFleet(Math.random); picked = -1; say('a fresh fleet. move ships or start the battle.', true); paint(); break;
             case 'rotate': rotate(); break;
