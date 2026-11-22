@@ -489,11 +489,14 @@ function act(a, arg) {
     }
 }
 
+// achievements live on the desktop around this frame; alone, there are none
+function achieve(id) { try { const u = window.parent !== window && window.parent.unlockAchievement; if (typeof u === 'function') u(id); } catch (_) { /* no desktop */ } }
 function finish() {
     phase = 'over';
     for (const k in held) held[k] = false;
     const s = state, mins = Math.floor(s.time / 60), secs = Math.floor(s.time % 60);
     if (s.won) {
+        achieve('deepdrill_win');
         best.wins++; best.fastest = best.fastest ? Math.min(best.fastest, Math.round(s.time)) : Math.round(s.time);
         store.del(KEY.save);
     }

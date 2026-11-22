@@ -14,11 +14,14 @@ const KEY = 'mrhakan98-goldclaw-';
 function load(name) { try { const n = Number(localStorage.getItem(KEY + name)); return Number.isSafeInteger(n) && n > 0 ? n : 0; } catch (_) { return 0; } }
 function save(name, n) { try { localStorage.setItem(KEY + name, String(n)); } catch (_) { /* records are optional */ } }
 const best = { level: load('best-level'), money: load('best-money') };
+// achievements live on the desktop around this frame; alone, there are none
+function achieve(id) { try { const u = window.parent !== window && window.parent.unlockAchievement; if (typeof u === 'function') u(id); } catch (_) { /* no desktop */ } }
 function record(s) {
     // a level counts once it is cleared
     const cleared = s.phase === 'over' ? s.level - 1 : s.level;
     let changed = false;
     if (cleared > best.level) { best.level = cleared; save('best-level', cleared); changed = true; }
+    if (cleared >= 5) achieve('goldclaw_win');
     if (s.stats.best > best.money) { best.money = s.stats.best; save('best-money', best.money); changed = true; }
     if (changed) showBest();
     return changed;

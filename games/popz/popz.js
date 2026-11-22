@@ -641,6 +641,7 @@
     // ===============================================================
     // the end of a game
     // ===============================================================
+    function achieve(id) { try { if (typeof unlockAchievement === 'function') unlockAchievement(id); } catch (e) { } }
     function gameOver(g) {
         g.ended = true;
         g.endAt = performance.now() + 1400;
@@ -650,6 +651,7 @@
         const score = g.online ? (g.s.players[g.me] || {}).score || 0 : S.total(g.s);
         g.newBest = score > b.score;
         writeJson(BEST_KEY, { score: max(b.score, score), level: max(b.level, g.s.lv + 1), games: b.games + 1, wins: b.wins + (g.s.ph === 'win' ? 1 : 0) });
+        if (g.s.ph === 'win') achieve('popz_win');
     }
     // the furthest level reached also counts while playing, so a later start unlocks
     function noteLevel(g) {
@@ -657,6 +659,7 @@
         g.noted = g.s.lv;
         const b = loadBest();
         if (g.s.lv + 1 > b.level) writeJson(BEST_KEY, Object.assign(b, { level: g.s.lv + 1 }));
+        if (g.s.lv + 1 >= 10) achieve('popz_10');
     }
 
     // ===============================================================

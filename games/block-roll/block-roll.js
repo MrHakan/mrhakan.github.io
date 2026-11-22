@@ -156,12 +156,16 @@ function finishAnim() {
     } else if (a.kind === 'sink') { complete(); return; }
     if (!anim && queue.length && state.status === 'play') act(queue.shift());
 }
+// achievements live on the desktop around this frame; alone, there are none
+function achieve(id) { try { const u = window.parent !== window && window.parent.unlockAchievement; if (typeof u === 'function') u(id); } catch (_) { /* no desktop */ } }
 function complete() {
     const moves = state.moves, old = save.best[idx];
     if (!old || moves < old) save.best[idx] = moves;
     if (idx + 1 < COUNT) save.unlocked = Math.max(save.unlocked, idx + 1);
     writeSave();
     const stars = starsFor(idx, moves), last = idx === COUNT - 1;
+    if (idx >= 9) achieve('blockroll_10');
+    if (last) achieve('blockroll_win');
     $('w-head').textContent = last ? 'every hole filled.' : moves <= L.par ? 'perfect roll.' : 'in the hole.';
     $('w-stars').textContent = '\u2605'.repeat(stars) + '\u2606'.repeat(3 - stars);
     $('w-stars').setAttribute('aria-label', stars + ' of 3 stars');

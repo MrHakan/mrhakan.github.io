@@ -680,10 +680,13 @@ function startDay() {
     canvas.focus({ preventScroll: true });
     run();
 }
+// achievements live on the desktop around this frame; alone, there are none
+function achieve(id) { try { const u = window.parent !== window && window.parent.unlockAchievement; if (typeof u === 'function') u(id); } catch (_) { /* no desktop */ } }
 function endDay() {
     phase = 'dayend'; stop();
     const res = S.dayResult(ds), wasDay = game.day;
     S.finishDay(game, res); saveGame();
+    if (game.won) achieve('pizzashift_win');
     const stars = '★'.repeat(res.stars) + '☆'.repeat(3 - res.stars);
     const rows = res.results.slice().sort((a, b) => a.id - b.id).map(r => '<tr><td>#' + r.id + ' ' + r.name + (r.vip ? ' ★' : '') + '</td>' +
         (r.walkout ? '<td colspan="4">walked out</td>' : '<td>' + r.parts.topping + '</td><td>' + r.parts.bake + '</td><td>' + r.parts.cut + '</td><td>' + r.parts.wait + '</td>') +
