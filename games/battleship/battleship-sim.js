@@ -281,11 +281,96 @@
     // the end screen: no reveal is a forfeit, a failed check voids the match
     const verdict = (revealed, check) => (!revealed ? 'forfeit' : check && check.ok ? 'verified' : 'void');
 
+    // ---------------------------------------------------------------
+    // online: the duel as one side sees it
+    //
+    // Pure and seat-relative: `mine` is what this side fired (with the
+    // answers it was given), `theirs` what the other side fired at it (with
+    // the answers this side gave: its reveal log). Both sides hold mirror
+    // images, so they agree on the turn, the running shot number `n` and the
+    // end without anyone being the judge. Every function returns
+    // { error } for a message that does not fit and leaves the duel as it was.
+    // ---------------------------------------------------------------
+    const TOTAL = FLEET.reduce((n, l) => n + l, 0);
+    const RESULTS = ['miss', 'hit', 'sunk'];
+    const hitsIn = list => list.filter(s => s.result !== 'miss').length;
+    const seqOf = d => d.mine.length + d.theirs.length;
+    function newDuel(opts) {
+        return { mine: [], theirs: [], turn: opts && opts.first ? 'me' : 'them', pending: null, over: null };
+    }
+    function settle(d) {
+        if (hitsIn(d.mine) === TOTAL) d.over = 'me';
+        else if (hitsIn(d.theirs) === TOTAL) d.over = 'them';
+        // only a liar gets here: every cell fired at and the fleet still afloat
+        else if (d.mine.length >= SIZE * SIZE || d.theirs.length >= SIZE * SIZE) d.over = 'stuck';
+    }
+    const cellOk = m => !!m && typeof m === 'object' && inSea(m.x, m.y);
+    // this side wants to fire at (x, y): the message to send, or why not
+    function aimShot(d, x, y) {
+        if (d.over) return { error: 'the battle is over' };
+        if (d.turn !== 'me') return { error: 'not your turn' };
+        if (d.pending) return { error: 'still waiting for an answer' };
+        if (!inSea(x, y)) return { error: 'not a cell in the sea' };
+        if (shotAt(d.mine, x, y)) return { error: 'already fired there' };
+        d.pending = { n: seqOf(d), x, y };
+        return { msg: Object.assign({}, d.pending) };
+    }
+    // the other side fired: answer it from this side's own fleet. `tamper`
+    // (tests only) may change the answer; the log keeps what was said.
+    function takeShot(d, ships, m, tamper) {
+        if (d.over) return { error: 'the battle is over' };
+        if (d.turn !== 'them' || d.pending) return { error: 'a shot out of turn' };
+        if (!cellOk(m)) return { error: 'not a cell in the sea' };
+        if (m.n !== seqOf(d)) return { error: 'a shot out of sequence' };
+        if (shotAt(d.theirs, m.x, m.y)) return { error: 'a cell already fired at' };
+        let a = answer(ships, hitSet(d.theirs), m.x, m.y);
+        if (tamper) a = tamper(a, m) || a;
+        const said = { x: m.x, y: m.y, result: a.result };
+        if (a.result === 'sunk') said.len = a.len;
+        d.theirs.push(said);
+        d.turn = 'me';
+        settle(d);
+        return { answer: Object.assign({ n: m.n }, said) };
+    }
+    // the answer to this side's pending shot: the right shot, a known result,
+    // a sinking that names a ship still afloat by what this side knows
+    function takeAnswer(d, m) {
+        const p = d.pending;
+        if (!p) return { error: 'an answer nobody asked for' };
+        if (!m || typeof m !== 'object' || m.n !== p.n || m.x !== p.x || m.y !== p.y) return { error: 'an answer to another shot' };
+        if (RESULTS.indexOf(m.result) < 0) return { error: 'an answer that is not miss, hit or sunk' };
+        if (m.result === 'sunk' ? knowledge(d.mine).left.indexOf(m.len) < 0 : m.len !== undefined && m.len !== null) return { error: 'a sinking that does not fit the fleet' };
+        const got = { x: p.x, y: p.y, result: m.result };
+        if (m.result === 'sunk') got.len = m.len;
+        d.mine.push(got);
+        d.pending = null;
+        d.turn = 'them';
+        settle(d);
+        return { answer: got };
+    }
+    // the other side's reveal checked against its commitment and every answer it gave
+    async function checkReveal(d, commitment, r) {
+        if (!r || typeof r !== 'object' || !Array.isArray(r.ships) || typeof r.salt !== 'string') return { ok: false, reason: 'a garbled reveal' };
+        if (!r.ships.every(s => s && typeof s === 'object')) return { ok: false, reason: 'a garbled reveal' };
+        try { return await verifyReveal({ ships: r.ships, salt: r.salt, commitment, log: d.mine }); } catch (e) { return { ok: false, reason: 'a garbled reveal' }; }
+    }
+    // the end, from this side: who won and on what grounds. `left` is the other
+    // side leaving; without a reveal that is a forfeit and this side wins.
+    function duelOutcome(d, o) {
+        o = o || {};
+        const revealed = !!o.revealed;
+        const v = o.left && !revealed ? 'forfeit' : verdict(revealed, o.check);
+        if (v === 'forfeit') return { verdict: v, winner: 'me' };
+        if (v === 'void' || !d.over || d.over === 'stuck') return { verdict: v, winner: null };
+        return { verdict: v, winner: d.over };
+    }
+
     const BATTLESHIP_SIM = {
         SIZE, FLEET, LEVELS, MAX_TRIES,
         makeRng, cellsOf, fleetProblem, validFleet, placeFleet, randomFleet, answer,
         newGame, fire, botMove, over, knowledge,
-        encodeFleet, newSalt, commitFleet, verifyReveal, verdict
+        encodeFleet, newSalt, commitFleet, verifyReveal, verdict,
+        newDuel, aimShot, takeShot, takeAnswer, checkReveal, duelOutcome
     };
     root.BATTLESHIP_SIM = BATTLESHIP_SIM;
     if (typeof module === 'object' && module.exports) module.exports = BATTLESHIP_SIM;
