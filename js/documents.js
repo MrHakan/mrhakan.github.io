@@ -288,6 +288,19 @@
         },
         ...CLASSIC_DOCS,
         {
+            id: 'gamesfinder',
+            name: 'games menu',
+            icon: '⭐',
+            keys: ['mrhakan98-games-favs', 'mrhakan98-games-recent'],
+            summary() {
+                const f = json('mrhakan98-games-favs'), r = json('mrhakan98-games-recent');
+                const bits = [];
+                if (Array.isArray(f) && f.length) bits.push(plural(f.length, 'favorite'));
+                if (Array.isArray(r) && r.length) bits.push(plural(r.length, 'recent game'));
+                return bits.length ? { line: bits.join(' · '), when: '' } : null;
+            }
+        },
+        {
             id: 'achievements',
             name: 'trophy room',
             icon: '🏆',

@@ -7,7 +7,7 @@
  * train, on a plane, or on a dial-up connection that dropped mid-download.
  */
 
-const CACHE = 'mrhakan98-v64';
+const CACHE = 'mrhakan98-v65';
 
 // what it takes to boot the desktop with the cable out. The install waits for these.
 const PRECACHE = [
@@ -20,6 +20,7 @@ const PRECACHE = [
     '/js/index.js',
     '/js/music-stage.js',
     '/js/music-scenes.js',
+    '/js/games-finder.js',
     '/js/guestbook.js',
     '/js/touch.js',
     '/js/fx.js',
