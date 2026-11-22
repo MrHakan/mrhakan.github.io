@@ -377,8 +377,10 @@ function startMenuAction(action) {
 // start menu flyouts: hover on desktop, tap on touch
 // long flyouts spill into columns, down to the taskbar
 function fitFlyoutColumns(sub) {
-    const fly = sub.querySelector('.start-flyout-columns'), item = fly && fly.querySelector('.start-item');
+    const fly = sub.querySelector('.start-flyout-columns'), item = fly && fly.querySelector('.start-item:not(.gf-hide)');
     if (!item) return;
+    // search, favorites and recent (js/games-finder.js) come the first time it opens
+    LAZY.load('js/games-finder.js').catch(() => { });
     const room = (document.getElementById('taskbar')?.getBoundingClientRect().top ?? innerHeight) - sub.getBoundingClientRect().top - 12;
     fly.style.setProperty('--flyout-rows', Math.max(6, Math.floor(room / (item.getBoundingClientRect().height || 28))));
 }

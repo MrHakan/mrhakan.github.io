@@ -105,6 +105,7 @@ const WEB = (function () {
         opts = opts || {};
         const c = resolve(slug);
         if (!c) return false;
+        played(c);
         pending = c;
         if (opts.push !== false) push(c, opts.replace);
         try {
@@ -113,6 +114,16 @@ const WEB = (function () {
         } catch (e) { pending = null; return false; }
         pending = null;
         return true;
+    }
+
+    // start > games lists the last five games opened, however they were opened
+    // (js/games-finder.js draws it). A game is whatever that flyout holds.
+    function played(c) {
+        if (!document.querySelector(`.start-flyout-columns [onclick="startMenuAction('${c}')"]`)) return;
+        const k = 'mrhakan98-games-recent';
+        let r = [];
+        try { r = JSON.parse(localStorage.getItem(k)).filter(x => x !== c); } catch (e) { }
+        try { localStorage.setItem(k, JSON.stringify([c].concat(r).slice(0, 5))); } catch (e) { }
     }
 
     // A lazy app replaces its loading window after open() has returned.
@@ -608,7 +619,7 @@ const WEB = (function () {
             const orig = window[name];
             window[name] = function () {
                 const had = pending;
-                if (!had) pending = slug;
+                if (!had) { pending = slug; played(slug); }
                 try { return orig.apply(this, arguments); }
                 finally { if (!had) pending = null; }
             };
