@@ -1,5 +1,39 @@
 [
   {
+    "name": "🛰️ Orbit Lock 98",
+    "type": "game",
+    "date": "2026-11-22",
+    "url": "/games/orbit-lock/",
+    "description": "One-button orbital timing arcade with precision scoring, ten increasingly tricky rounds, keyboard/touch controls and local bests.",
+    "icon": "🛰️",
+    "tags": [
+      "arcade",
+      "timing",
+      "reflex",
+      "one-button",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "📡 Transfer Time Desk 98",
+    "type": "app",
+    "date": "2026-11-22",
+    "url": "/apps/transfer-time-desk/",
+    "description": "Private file transfer time estimator with decimal/binary size units, network speeds, overhead and scenario comparisons.",
+    "icon": "📡",
+    "tags": [
+      "network",
+      "download",
+      "file-size",
+      "bandwidth",
+      "calculator",
+      "offline",
+      "privacy"
+    ]
+  },
+  {
     "name": "🪢 Hangman Harbor 98",
     "type": "game",
     "date": "2026-11-21",
