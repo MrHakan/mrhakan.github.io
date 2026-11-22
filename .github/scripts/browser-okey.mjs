@@ -8,6 +8,10 @@
 //            a whole match against the bots with the clock turned up
 //   101      tiles clicked into a selection and laid down to open, one
 //            dragged onto a meld on the table, then thrown
+//   101 to a finish   an okey swapped off the table by dragging the tile it
+//            stands for onto its meld; then a seeded 101 match against
+//            normal bots, my turns by keys and clicks, until a bot goes out
+//            (the clock turned up, nothing else helped)
 //   phone    390x844: nothing sticks out sideways, a tap selects, a tap throws
 //   online   two pages over the lobby's same-browser transport: host and
 //            join with the code, moves from both sides, both screens agree,
@@ -184,6 +188,7 @@ try {
         expect(back.handNo === saved.handNo && back.seats.map(s => s.score).join() === saved.seats.map(s => s.score).join() && back.hand.length >= 14, 'and the match comes back where it was', back.handNo + ' / ' + back.seats.map(s => s.score).join());
 
         // a whole match with the clock turned up (my seat on autopilot)
+        await E(p, () => { window.__ach = []; window.unlockAchievement = id => window.__ach.push(id); });
         await E(p, () => { OKEY_ENGINE.startLocal({ seed: 4242, mode: 'classic', start: 4, level: 'hard' }); OKEY_ENGINE.match().seats[0].bot = true; OKEY_ENGINE.speed(40); });
         let over = false;
         for (let i = 0; i < 200 && !over; i++) {
@@ -194,6 +199,8 @@ try {
         v = await view(p);
         expect(over && v.over && v.seats.some(s => s.score <= 0), 'a whole match to the end: "match over" with a new match button', v.seats.map(s => s.score).join());
         expect(await E(p, () => { const s = JSON.parse(localStorage.getItem('mrhakan98-okey-stats')); return s && s.hands >= 3 && s.handWins >= 1; }), 'and the stats are kept under mrhakan98-okey-stats');
+        const ach = await E(p, () => window.__ach.slice());
+        expect((v.winner === 0) === ach.includes('okey_win') && !ach.includes('okey_101'), 'okey_win is asked for when my seat wins the classic match, and only then', 'winner ' + v.winner + ', ' + JSON.stringify(ach));
         await ctx.close();
     }
 
@@ -228,6 +235,87 @@ try {
         await p.waitForSelector('.ok-over [data-act=again]', { timeout: 30000 });
         v = await view(p);
         expect(v.over && v.result && v.result.deltas.length === 4, 'the one hand match plays to its table', v.result && v.result.scores.join());
+        await ctx.close();
+    }
+
+    // ===================================================================
+    section('101 against the bots, to a finish');
+    // ===================================================================
+    {
+        const ctx = await context();
+        const p = await desk(ctx);
+        await openOkey(p);
+        // achievements asked for, kept here instead of shown
+        await E(p, () => { window.__ach = []; window.unlockAchievement = id => window.__ach.push(id); });
+        await p.click('.ok-over [data-act=opt][data-k=mode][data-v=\"101\"]');
+        await p.click('.ok-over [data-act=deal]');
+        await p.waitForFunction(() => OKEY_ENGINE.view() && document.querySelector('.ok-over').hidden);
+        // swapping the okey off the table: open with black 10-okey-12, then
+        // drag the black 11 onto it and the okey comes back to the rack
+        const SW = [T(R, 11), T(R, 12), T(R, 13), T(Y, 13), T(B, 13), T(K, 13), T(K, 10), T(K, 12)];
+        const swSeed = await E(p, tiles => {
+            for (let seed = 1; seed < 500; seed++) {
+                const m = OKEY_SIM.newMatch({ mode: '101', seed, dealer: 0 }), ok = m.hand.ok;
+                const okey = ok.c * 26 + ok.n - 1;
+                if (!tiles.concat([3 * 26 + 10, 1, 26 + 4, 26 + 8]).some(t => t === m.hand.ind || OKEY_SIM.isWild(t, ok) || t === okey) && m.hand.ind !== okey) return seed;
+            }
+            return 1;
+        }, SW);
+        const okeyId = await E(p, ([seed, tiles]) => {
+            OKEY_ENGINE.startLocal({ seed, dealer: 0, mode: '101', hands: 1 });
+            const ok = OKEY_ENGINE.view().ok, okey = ok.c * 26 + ok.n - 1;
+            OKEY_ENGINE.rig(0, tiles.concat([okey, 3 * 26 + 10, 1, 26 + 4, 26 + 8]));
+            OKEY_ENGINE.speed(4);
+            return okey;
+        }, [swSeed, SW]);
+        for (const id of SW.concat([okeyId])) await p.mouse.click(...Object.values(await E(p, id => OKEY_ENGINE.slot(OKEY_ENGINE.slotOf(id)), id)));
+        await p.click('.ok-tools [data-act=lay]');
+        await p.waitForFunction(() => OKEY_ENGINE.view().table.length === 3);
+        await p.waitForTimeout(400);
+        const okMeld = await E(p, id => OKEY_ENGINE.view().table.findIndex(t => t.tiles.includes(id)), okeyId);
+        await drag(p, await E(p, id => OKEY_ENGINE.slot(OKEY_ENGINE.slotOf(id)), T(K, 11)), await E(p, i => OKEY_ENGINE.meld(i), okMeld));
+        await p.waitForFunction(id => OKEY_ENGINE.view().hand.includes(id), okeyId, { timeout: 5000 }).catch(() => { });
+        let v = await view(p);
+        expect(okMeld >= 0 && v.hand.includes(okeyId) && v.table[okMeld].tiles.includes(T(K, 11)), 'the black 11 dragged onto black 10-okey-12 takes the okey back to my rack', JSON.stringify(v.table[okMeld]));
+        // a fixed seed, my seat first: the bots are deterministic, so is this
+        await E(p, () => { OKEY_ENGINE.startLocal({ seed: 4101, dealer: 0, mode: '101', hands: 5, level: 'normal' }); OKEY_ENGINE.speed(30); });
+        let mine = 0, hands = 0, finished = null;
+        v = await view(p);
+        for (let i = 0; i < 400 && !finished; i++) {
+            await p.waitForFunction(() => { const v = OKEY_ENGINE.view(); return v.result || (v.turn === 0 && !OKEY_ENGINE.state().flyers.length); }, null, { timeout: 20000 });
+            v = await view(p);
+            if (v.result) {
+                hands++;
+                if (v.result.winner >= 0) { finished = v.result; break; }
+                if (v.over) break;
+                await p.waitForSelector('.ok-over [data-act=next]', { timeout: 10000 });
+                await p.click('.ok-over [data-act=next]');
+                await p.waitForFunction(h => OKEY_ENGINE.view().handNo === h && !OKEY_ENGINE.view().result, v.handNo + 1);
+                continue;
+            }
+            await p.locator('.ok-app').focus();
+            if (v.phase === 'draw') {
+                await p.keyboard.press('d');
+                await p.waitForFunction(() => OKEY_ENGINE.view().phase === 'play' || OKEY_ENGINE.view().result);
+                continue;
+            }
+            // a tile that neither is the okey nor fits the table: clicked, then x
+            const before = v.discardCounts[0];
+            const slot = await E(p, () => { const v = OKEY_ENGINE.view(), r = OKEY_ENGINE.rack(); const k = r.findIndex(x => x >= 0 && !OKEY_SIM.isWild(x, v.ok) && OKEY_SIM.playableOnTable({ table: v.table, ok: v.ok }, x) < 0); return k >= 0 ? k : r.findIndex(x => x >= 0); });
+            await p.mouse.click(...Object.values(await E(p, i => OKEY_ENGINE.slot(i), slot)));
+            await p.keyboard.press('x');
+            await p.waitForFunction(b => { const v = OKEY_ENGINE.view(); return v.discardCounts[0] > b || v.result || v.turn !== 0; }, before);
+            mine++;
+        }
+        v = await view(p);
+        expect(mine >= 4, 'my turns played with d, a click and x', mine + ' throws over ' + hands + ' hands');
+        expect(finished && finished.winner > 0 && v.table.some(t => t.owner === finished.winner), 'a hand ends with a bot going out: opened, laid down, and no tiles left', finished ? v.seats[finished.winner].name + ' finished hand ' + (v.handNo + 1) + ', ' + finished.deltas.join(' / ') : 'no finish in ' + hands + ' hands');
+        expect(finished && v.reveal && v.reveal[finished.winner].length === 0 && finished.deltas[finished.winner] < 0, 'the finisher holds nothing and scores minus');
+        await p.waitForSelector('.ok-dlg .ok-table', { timeout: 8000 });
+        expect(/finishes/.test(await p.textContent('.ok-dlg')), 'and the dialog says who finished');
+        await p.screenshot({ path: path.join(SHOTS, 'okey-101-finish.png') });
+        const ach = await E(p, () => window.__ach.slice());
+        expect(!ach.includes('okey_win') && (v.over && v.winner === 0) === ach.includes('okey_101'), 'okey_101 is asked for only if I win the 101 match', JSON.stringify(ach));
         await ctx.close();
     }
 
