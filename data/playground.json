@@ -1,5 +1,39 @@
 [
   {
+    "name": "🔷 Shape Trio 98",
+    "type": "game",
+    "date": "2026-11-23",
+    "url": "/games/shape-trio/",
+    "description": "Find valid three-card trios across count, shape, color and fill in a keyboard-accessible offline logic puzzle.",
+    "icon": "🔷",
+    "tags": [
+      "logic",
+      "pattern-recognition",
+      "cards",
+      "puzzle",
+      "keyboard",
+      "touch",
+      "offline"
+    ]
+  },
+  {
+    "name": "⚓ Draft & Trim Desk 98",
+    "type": "app",
+    "date": "2026-11-23",
+    "url": "/apps/draft-trim-desk/",
+    "description": "Educational forward/aft draft and trim calculator with linear station interpolation, vessel profile and copyable report.",
+    "icon": "⚓",
+    "tags": [
+      "maritime",
+      "draft",
+      "trim",
+      "ship-stability",
+      "calculator",
+      "svg",
+      "offline"
+    ]
+  },
+  {
     "name": "🛰️ Orbit Lock 98",
     "type": "game",
     "date": "2026-11-22",
