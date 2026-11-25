@@ -1,5 +1,37 @@
 [
     {
+        "name": "🔠 SOS Grid 98",
+        "type": "game",
+        "date": "2026-11-25",
+        "url": "/games/sos-grid/",
+        "description": "Build SOS lines on a six-by-six board in a local two-player strategy game with bonus turns and undo.",
+        "icon": "🔠",
+        "tags": [
+            "strategy",
+            "letters",
+            "board-game",
+            "two-player",
+            "keyboard",
+            "offline"
+        ]
+    },
+    {
+        "name": "🎞️ Subtitle Shift 98",
+        "type": "app",
+        "date": "2026-11-25",
+        "url": "/apps/subtitle-shift/",
+        "description": "Shift SRT subtitle timings forward or backward, preview the result and export a corrected file locally.",
+        "icon": "🎞️",
+        "tags": [
+            "subtitles",
+            "srt",
+            "video",
+            "editing",
+            "privacy",
+            "offline"
+        ]
+    },
+    {
         "name": "🎲 Shut the Box 98",
         "type": "game",
         "date": "2026-11-25",
