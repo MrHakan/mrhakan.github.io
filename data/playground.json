@@ -1,4 +1,36 @@
 [
+    {
+        "name": "🎲 Shut the Box 98",
+        "type": "game",
+        "date": "2026-11-25",
+        "url": "/games/shut-the-box/",
+        "description": "Close numbered tiles to match two dice, with legal-move hints, round scoring and local bests.",
+        "icon": "🎲",
+        "tags": [
+            "dice",
+            "strategy",
+            "numbers",
+            "board-game",
+            "keyboard",
+            "offline"
+        ]
+    },
+    {
+        "name": "🎬 Timecode Desk 98",
+        "type": "app",
+        "date": "2026-11-25",
+        "url": "/apps/timecode-desk/",
+        "description": "Calculate frame-accurate clip duration, convert timecode to frames and copy editing notes at integer frame rates.",
+        "icon": "🎬",
+        "tags": [
+            "video",
+            "editing",
+            "timecode",
+            "frames",
+            "calculator",
+            "offline"
+        ]
+    },
   {
     "name": "🔷 Shape Trio 98",
     "type": "game",
