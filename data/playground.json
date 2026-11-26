@@ -1,5 +1,37 @@
 [
     {
+        "name": "🔺 Triangle Trap 98",
+        "type": "game",
+        "date": "2026-11-26",
+        "url": "/games/triangle-trap/",
+        "description": "Play the classic Sim graph game against a local opponent or computer; avoid completing a triangle of your own color.",
+        "icon": "🔺",
+        "tags": [
+            "strategy",
+            "graph",
+            "sim",
+            "two-player",
+            "keyboard",
+            "offline"
+        ]
+    },
+    {
+        "name": "📐 Polygon Desk 98",
+        "type": "app",
+        "date": "2026-11-26",
+        "url": "/apps/polygon-desk/",
+        "description": "Enter planar coordinates to visualize a simple polygon and calculate its area, perimeter and winding direction.",
+        "icon": "📐",
+        "tags": [
+            "geometry",
+            "coordinates",
+            "area",
+            "svg",
+            "calculator",
+            "offline"
+        ]
+    },
+    {
         "name": "🔠 SOS Grid 98",
         "type": "game",
         "date": "2026-11-25",
