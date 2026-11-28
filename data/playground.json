@@ -1,5 +1,36 @@
 [
     {
+        "name": "🐇 Hare & Hounds 98",
+        "type": "game",
+        "date": "2026-11-28",
+        "url": "/games/hare-hounds/",
+        "description": "Local two-player chase on an eleven-point graph with directional hound moves, legal-move highlights and undo.",
+        "icon": "🐇",
+        "tags": [
+            "strategy",
+            "board-game",
+            "two-player",
+            "keyboard",
+            "offline"
+        ]
+    },
+    {
+        "name": "🎵 Pitch Desk 98",
+        "type": "app",
+        "date": "2026-11-28",
+        "url": "/apps/pitch-desk/",
+        "description": "Convert MIDI notes and measured frequencies using adjustable A4 tuning, cents deviation and interval comparisons.",
+        "icon": "🎵",
+        "tags": [
+            "music",
+            "pitch",
+            "midi",
+            "frequency",
+            "calculator",
+            "offline"
+        ]
+    },
+    {
         "name": "🔺 Triangle Trap 98",
         "type": "game",
         "date": "2026-11-26",
